@@ -9,6 +9,42 @@ plugins {
     alias(libs.plugins.ktlint) apply false
 }
 
+val hygieneFiles =
+    fileTree(rootDir) {
+        include(
+            "**/*.bat",
+            "**/*.gradle",
+            "**/*.json",
+            "**/*.kt",
+            "**/*.kts",
+            "**/*.md",
+            "**/*.properties",
+            "**/*.ps1",
+            "**/*.toml",
+            "**/*.txt",
+            "**/*.xml",
+            "**/*.yaml",
+            "**/*.yml",
+            ".editorconfig",
+            ".gitignore",
+            "gradlew"
+        )
+        exclude(
+            ".git/**",
+            ".gradle/**",
+            ".idea/**",
+            ".kotlin/**",
+            "**/build/**"
+        )
+    }
+
+tasks.register<StaticHygieneTask>("staticHygiene") {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = "Checks repository text files for encoding and whitespace damage."
+    textFiles.from(hygieneFiles)
+    repositoryDirectory.set(layout.projectDirectory)
+}
+
 tasks.register("detekt") {
     group = LifecycleBasePlugin.VERIFICATION_GROUP
     description = "Runs detekt for every source module."
@@ -22,5 +58,5 @@ tasks.register("ktlintCheck") {
 }
 
 tasks.named("check") {
-    dependsOn(":app:check", ":spl-client:check", "detekt", "ktlintCheck")
+    dependsOn(":app:check", ":spl-client:check", "detekt", "ktlintCheck", "staticHygiene")
 }

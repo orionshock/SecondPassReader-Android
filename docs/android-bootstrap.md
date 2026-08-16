@@ -44,6 +44,10 @@ From the repository root:
 
 Android Lint treats warnings as errors. Detekt uses defaults plus one narrow allowance for PascalCase `@Composable` functions. Ktlint owns formatting and has the equivalent Compose naming exception in `.editorconfig`; detekt formatting rules are not enabled.
 
+`staticHygiene` performs non-mutating UTF-8, mojibake-marker, trailing-whitespace, and `git diff --check` validation. The source Python fixer was not retained because its punctuation normalization could alter valid text. The web-only decorative HTML-entity check was not applicable to this client.
+
+The application icon reuses the Second Pass web favicon unchanged inside an Android adaptive-icon wrapper. Android's resource grammar requires that wrapper in a `v26` directory, so the otherwise obsolete version-qualifier lint rule is ignored only for that directory.
+
 ## Deliberately deferred
 
 - SPL HTTP/API implementation, pairing, and authentication

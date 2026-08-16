@@ -4,7 +4,7 @@
         <item name="android:windowActionModeOverlay">true</item>
         <item name="android:windowBackground">#0D0F12</item>
         <item name="android:windowSplashScreenBackground">#0D0F12</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
         <item name="android:navigationBarColor">#0D0F12</item>
         <item name="android:statusBarColor">#0D0F12</item>
         <item name="android:windowLightNavigationBar">false</item>
