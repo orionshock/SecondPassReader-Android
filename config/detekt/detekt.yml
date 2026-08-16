@@ -1,0 +1,5 @@
+naming:
+  FunctionNaming:
+    ignoreAnnotated:
+      - Composable
+
