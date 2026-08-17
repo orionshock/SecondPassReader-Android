@@ -26,6 +26,8 @@ The Home presentation is cover-led: Reading History is a horizontal session rail
 
 Public cover references are passed unchanged to Coil `3.5.0`. Coil's singleton loader owns ordinary memory and disk caches and its OkHttp network component fetches public absolute HTTP(S) references without SPL authorization headers. Missing, loading, and failed images stay presentation concerns and use the semantic Library icon as fallback; `:spl-client` remains unaware of image loading and caching.
 
+Room `3.0.1` now provides a bounded Home resilience projection. It stores account-scoped, query-specific Reading History and shelf-preview snapshots, including successful empty results and server order. This is storage foundation only: Home does not consume it yet, and the tables are not a passive local replica or shared catalog model. Atomic replacement keeps recent variants and the shelf projection independent. Coil continues to own cover bytes; Room stores only validated public references. Future true offline Library support should center on explicitly downloaded immutable books, not incidental browsing snapshots.
+
 Home search emits a `LibrarySearch` intent. The shell converts it to a `LibrarySearchRoute` that retains the query while Library remains a placeholder; Home does not call the Library API. The useful linked server, account, group, and client-session diagnostics now belong to Settings.
 
 Library, Shelves, and Sessions still prove top-level routing only. Reader-mode navigation, deep links, nested feature graphs, logout, and destination-specific ViewModel scoping remain deferred.
