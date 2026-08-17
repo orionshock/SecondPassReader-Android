@@ -29,7 +29,7 @@ server entry -> verified server -> client naming -> pairing request
 
 The fixed client type is `second-pass-android-client`. The default client name uses a cleaned Android model name, contains no device identifier, and remains editable.
 
-`ConnectionCoordinator` owns the polling job. It waits the server-provided interval before each request, runs one loop, stops on cancellation or terminal status, and is cancelled when pairing is abandoned or its ViewModel is cleared. Recomposition does not start work.
+`ConnectionCoordinator` owns the polling job. It waits at least the server-provided interval, runs one loop, and retries unreachable or throttled checks with backoff capped at 60 seconds or the server minimum, whichever is higher. A successful check resets the interval; returning the app to the foreground replaces the existing loop rather than duplicating it. Polling stops on cancellation, a terminal status, an invalid protocol response, pairing abandonment, or ViewModel clearance. Recomposition does not start work.
 
 ## Exactly-once consumption
 

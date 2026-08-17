@@ -208,18 +208,14 @@ class ConnectionCoordinator(
                             )
                         return
                     }
-                    mutableState.value =
-                        ConnectionUiState.WaitingForApproval(
+                    nextDelaySeconds =
+                        reportRecoverablePollingFailure(
                             server,
                             clientName,
                             request,
-                            "${ConnectionErrorPresenter.message(failure)} Retrying automatically."
+                            failure,
+                            nextDelaySeconds
                         )
-                    nextDelaySeconds =
-                        (nextDelaySeconds * RETRY_BACKOFF_MULTIPLIER)
-                            .coerceAtMost(
-                                maxOf(request.intervalSeconds, MAX_POLL_RETRY_SECONDS)
-                            )
                     continue
                 }
             nextDelaySeconds = request.intervalSeconds
@@ -254,6 +250,24 @@ class ConnectionCoordinator(
                 }
             }
         }
+    }
+
+    private fun reportRecoverablePollingFailure(
+        server: com.secondpasslibrary.client.DiscoveredServer,
+        clientName: String,
+        request: PairingRequest,
+        failure: SplClientException,
+        currentDelaySeconds: Long
+    ): Long {
+        mutableState.value =
+            ConnectionUiState.WaitingForApproval(
+                server,
+                clientName,
+                request,
+                "${ConnectionErrorPresenter.message(failure)} Retrying automatically."
+            )
+        return (currentDelaySeconds * RETRY_BACKOFF_MULTIPLIER)
+            .coerceAtMost(maxOf(request.intervalSeconds, MAX_POLL_RETRY_SECONDS))
     }
 
     private suspend fun completePairing(
