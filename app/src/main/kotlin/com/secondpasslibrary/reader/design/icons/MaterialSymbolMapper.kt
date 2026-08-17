@@ -149,6 +149,8 @@ internal object MaterialSymbolMapper {
         AppIcon.SortUnspecified -> symbol("unfold_more", R.drawable.ic_symbol_unfold_more)
 
         AppIcon.Import -> symbol("upload_file", R.drawable.ic_symbol_upload_file)
+
+        AppIcon.Offline -> symbol("cloud_off", R.drawable.ic_symbol_cloud_off)
     }
 
     private fun symbol(token: String, @DrawableRes resource: Int) = MaterialSymbol(token, resource)

@@ -28,6 +28,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.secondpasslibrary.reader.app.shell.AuthenticatedAppShell
@@ -43,6 +45,9 @@ fun SecondPassApp(
     connectionViewModel: ConnectionViewModel = viewModel()
 ) {
     val state by connectionViewModel.state.collectAsStateWithLifecycle()
+    LifecycleEventEffect(Lifecycle.Event.ON_START) {
+        connectionViewModel.pairingForegrounded()
+    }
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
@@ -80,7 +85,7 @@ private fun ConnectionContent(state: ConnectionUiState, viewModel: ConnectionVie
             BusyContent("Starting secure linking with ${state.server.name}")
 
         is ConnectionUiState.WaitingForApproval ->
-            WaitingContent(state, viewModel::resumePolling, viewModel::abandonPairing)
+            WaitingContent(state, viewModel::abandonPairing)
 
         is ConnectionUiState.CompletingPairing ->
             BusyContent("Securing the approved credential from ${state.serverName}")
@@ -90,7 +95,12 @@ private fun ConnectionContent(state: ConnectionUiState, viewModel: ConnectionVie
         is ConnectionUiState.RestoreProblem,
         is ConnectionUiState.LocalStorageProblem -> RecoveryContent(state, viewModel)
 
-        is ConnectionUiState.Linked -> AuthenticatedAppShell(state.profile, state.context)
+        is ConnectionUiState.Linked ->
+            AuthenticatedAppShell(
+                state.profile,
+                state.context,
+                viewModel.onAuthenticatedRequestRejected
+            )
 
         is ConnectionUiState.TerminalPairingProblem ->
             ProblemContent(
@@ -228,11 +238,7 @@ private fun ServerConfirmedContent(
 }
 
 @Composable
-private fun WaitingContent(
-    state: ConnectionUiState.WaitingForApproval,
-    onResume: () -> Unit,
-    onCancel: () -> Unit
-) {
+private fun WaitingContent(state: ConnectionUiState.WaitingForApproval, onCancel: () -> Unit) {
     val uriHandler = LocalUriHandler.current
     SectionTitle(
         "Approve this device",
@@ -254,9 +260,6 @@ private fun WaitingContent(
         Button(onClick = {
             uriHandler.openUri(state.request.authorizeUrl)
         }) { Text("Open approval page") }
-        if (state.statusText.startsWith("Polling paused")) {
-            OutlinedButton(onClick = onResume) { Text("Resume polling") }
-        }
         OutlinedButton(onClick = onCancel) { Text("Cancel") }
     }
 }

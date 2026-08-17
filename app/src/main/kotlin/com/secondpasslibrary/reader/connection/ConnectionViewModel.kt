@@ -27,6 +27,7 @@ constructor(
         )
 
     val state = coordinator.state
+    val onAuthenticatedRequestRejected: () -> Unit = coordinator::authenticatedRequestRejected
 
     init {
         coordinator.restore()
@@ -40,7 +41,7 @@ constructor(
 
     fun beginPairing() = coordinator.beginPairing()
 
-    fun resumePolling() = coordinator.resumePolling()
+    fun pairingForegrounded() = coordinator.pairingForegrounded()
 
     fun abandonPairing() = coordinator.abandonPairing()
 

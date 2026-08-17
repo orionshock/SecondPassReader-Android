@@ -2,7 +2,6 @@ package com.secondpasslibrary.reader.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -10,13 +9,16 @@ import javax.inject.Inject
 @HiltViewModel
 class HomeViewModel
 @Inject
-constructor(clientProvider: AuthenticatedClientProvider) : ViewModel() {
-    private val controller = HomeController(clientProvider, viewModelScope)
+internal constructor(repository: HomeProjectionRepository) :
+    ViewModel() {
+    private val controller = HomeController(repository, viewModelScope)
 
-    val state = controller.state
+    internal val state = controller.state
     val navigation = controller.navigation
+    internal val connectionEvents = controller.connectionEvents
 
-    fun initialize(profile: ConnectionProfile) = controller.initialize(profile)
+    fun initialize(profile: ConnectionProfile, profileId: String) =
+        controller.initialize(profile, profileId)
 
     fun setShowClosedSessions(showClosed: Boolean) = controller.setShowClosedSessions(showClosed)
 

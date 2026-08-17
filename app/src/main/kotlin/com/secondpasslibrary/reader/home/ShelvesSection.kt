@@ -30,7 +30,7 @@ import com.secondpasslibrary.reader.design.icons.AppIcon
 
 @Composable
 internal fun ShelvesSection(
-    state: HomeSectionState<ShelfSummary>,
+    state: HomeProjectionState<ShelfSummary>,
     onRetry: () -> Unit,
     onOpenShelves: () -> Unit,
     modifier: Modifier = Modifier
@@ -44,11 +44,23 @@ internal fun ShelvesSection(
             Text("Shelves", style = MaterialTheme.typography.titleLarge)
             TextButton(onClick = onOpenShelves) { Text("Open shelves") }
         }
-        when (state) {
-            HomeSectionState.Loading -> HomeSectionLoading("shelves")
-            HomeSectionState.Empty -> HomeSectionEmpty(AppIcon.Shelf, "No shelves to show yet.")
-            is HomeSectionState.Error -> HomeSectionError(state.message, onRetry)
-            is HomeSectionState.Loaded -> ShelfGrid(state.items.map(HomePresenter::shelf))
+        val content = state.content
+        if (content == null) {
+            when (val refresh = state.refresh) {
+                is HomeProjectionRefresh.Failed ->
+                    HomeSectionError(HomeErrorPresenter.message(refresh.reason), onRetry)
+
+                HomeProjectionRefresh.Current,
+                HomeProjectionRefresh.Idle,
+                HomeProjectionRefresh.Refreshing -> HomeSectionLoading("shelves")
+            }
+            return@Column
+        }
+        HomeSectionRefreshFeedback(state.refresh, onRetry)
+        if (content.items.isEmpty()) {
+            HomeSectionEmpty(AppIcon.Shelf, "No shelves to show yet.")
+        } else {
+            ShelfGrid(content.items.map(HomePresenter::shelf))
         }
     }
 }

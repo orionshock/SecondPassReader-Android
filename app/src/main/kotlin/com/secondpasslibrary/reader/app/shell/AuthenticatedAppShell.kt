@@ -38,6 +38,7 @@ import kotlinx.coroutines.launch
 internal fun AuthenticatedAppShell(
     profile: ConnectionProfile,
     context: AuthenticatedContext,
+    onAuthenticationRejected: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val backStack = rememberNavBackStack(AppDestination.Home)
@@ -76,7 +77,7 @@ internal fun AuthenticatedAppShell(
                 entryProvider =
                     entryProvider {
                         entry(key = AppDestination.Home) {
-                            AuthenticatedHome(profile, navigator::handleHomeNavigation)
+                            HomeDestination(profile, context, navigator, onAuthenticationRejected)
                         }
                         entry(key = AppDestination.Library) {
                             DestinationPlaceholder(AppDestination.Library)
@@ -97,6 +98,21 @@ internal fun AuthenticatedAppShell(
             )
         }
     }
+}
+
+@Composable
+private fun HomeDestination(
+    profile: ConnectionProfile,
+    context: AuthenticatedContext,
+    navigator: AppNavigator,
+    onAuthenticationRejected: () -> Unit
+) {
+    AuthenticatedHome(
+        profile = profile,
+        profileId = context.currentUser.profileId,
+        onNavigation = navigator::handleHomeNavigation,
+        onAuthenticationRejected = onAuthenticationRejected
+    )
 }
 
 private fun AppNavigator.handleHomeNavigation(intent: HomeNavigationIntent) {

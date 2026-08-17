@@ -36,16 +36,26 @@ import kotlinx.coroutines.flow.collectLatest
 @Composable
 fun AuthenticatedHome(
     profile: ConnectionProfile,
+    profileId: String,
     onNavigation: (HomeNavigationIntent) -> Unit,
+    onAuthenticationRejected: () -> Unit,
     viewModel: HomeViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val currentOnNavigation by rememberUpdatedState(onNavigation)
-    LaunchedEffect(profile.apiBaseUrl, profile.clientSessionId) {
-        viewModel.initialize(profile)
+    val currentOnAuthenticationRejected by rememberUpdatedState(onAuthenticationRejected)
+    LaunchedEffect(profile.apiBaseUrl, profile.clientSessionId, profileId) {
+        viewModel.initialize(profile, profileId)
     }
     LaunchedEffect(viewModel) {
         viewModel.navigation.collectLatest { currentOnNavigation(it) }
+    }
+    LaunchedEffect(viewModel) {
+        viewModel.connectionEvents.collectLatest { event ->
+            when (event) {
+                HomeConnectionEvent.AuthenticationRejected -> currentOnAuthenticationRejected()
+            }
+        }
     }
     HomeContent(
         state = state,

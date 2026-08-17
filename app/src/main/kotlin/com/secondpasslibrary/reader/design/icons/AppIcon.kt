@@ -71,5 +71,6 @@ enum class AppIcon {
     CompleteImportReview,
     UndoImportReview,
     SortUnspecified,
-    Import
+    Import,
+    Offline
 }

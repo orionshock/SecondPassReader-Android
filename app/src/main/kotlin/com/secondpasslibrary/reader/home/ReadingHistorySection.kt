@@ -35,7 +35,7 @@ private const val COVER_SCRIM_START = 0.3f
 
 @Composable
 internal fun ReadingHistorySection(
-    state: HomeSectionState<RecentReadingItem>,
+    state: HomeProjectionState<RecentReadingItem>,
     showClosed: Boolean,
     onShowClosedChanged: (Boolean) -> Unit,
     onRetry: () -> Unit,
@@ -45,35 +45,47 @@ internal fun ReadingHistorySection(
         if (showClosed) "No reading sessions yet." else "No active reading sessions yet."
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         ReadingHistoryHeader(showClosed, onShowClosedChanged, onViewAll)
-        when (state) {
-            HomeSectionState.Loading ->
-                Box(Modifier.padding(horizontal = 24.dp)) { HomeSectionLoading("reading history") }
-
-            HomeSectionState.Empty ->
-                Box(Modifier.padding(horizontal = 24.dp)) {
-                    HomeSectionEmpty(
-                        AppIcon.Series,
-                        emptyMessage
-                    )
-                }
-
-            is HomeSectionState.Error ->
-                Box(Modifier.padding(horizontal = 24.dp)) {
-                    HomeSectionError(state.message, onRetry)
-                }
-
-            is HomeSectionState.Loaded ->
-                LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                        horizontal = 24.dp
-                    ),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(state.items, key = { it.sessionId }) { item ->
-                        ReadingHistoryCard(HomePresenter.readingHistory(item))
+        val content = state.content
+        if (content == null) {
+            when (val refresh = state.refresh) {
+                is HomeProjectionRefresh.Failed ->
+                    Box(Modifier.padding(horizontal = 24.dp)) {
+                        HomeSectionError(HomeErrorPresenter.message(refresh.reason), onRetry)
                     }
+
+                HomeProjectionRefresh.Current,
+                HomeProjectionRefresh.Idle,
+                HomeProjectionRefresh.Refreshing ->
+                    Box(Modifier.padding(horizontal = 24.dp)) {
+                        HomeSectionLoading("reading history")
+                    }
+            }
+            return@Column
+        }
+        HomeSectionRefreshFeedback(
+            state.refresh,
+            onRetry,
+            Modifier.padding(horizontal = 24.dp)
+        )
+        if (content.items.isEmpty()) {
+            Box(Modifier.padding(horizontal = 24.dp)) {
+                HomeSectionEmpty(
+                    AppIcon.Series,
+                    emptyMessage
+                )
+            }
+        } else {
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    horizontal = 24.dp
+                ),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(content.items, key = { it.sessionId }) { item ->
+                    ReadingHistoryCard(HomePresenter.readingHistory(item))
                 }
+            }
         }
     }
 }

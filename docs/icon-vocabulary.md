@@ -71,6 +71,7 @@ Feature and shell code use `AppIcon` semantic keys and `AppIconGraphic`; raw Mat
 | `UndoImportReview` | `undo` | Undo import-review completion | Cross-project reference only |
 | `SortUnspecified` | `unfold_more` | Sortable column not currently sorted | Sort controls |
 | `Import` | `upload_file` | Book or marginalia import | Future only when Android scope requires it |
+| `Offline` | `cloud_off` | Section refresh is unreachable while cached content remains usable | Home cached-data status |
 | — | `warning_amber` | Test-fixture warning | Not a production semantic key or bundled asset |
 
 ## Required distinctions and aliases

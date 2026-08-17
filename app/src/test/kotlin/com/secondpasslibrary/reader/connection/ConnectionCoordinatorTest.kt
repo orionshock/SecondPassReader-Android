@@ -67,6 +67,79 @@ class ConnectionCoordinatorTest {
     }
 
     @Test
+    fun `transient polling failure retries automatically with bounded backoff`() = runTest {
+        val client =
+            FakeClient(
+                pollStatuses = ArrayDeque(listOf(PairingStatus.APPROVED)),
+                pollFailures = ArrayDeque(listOf(SplClientException.ServerUnreachable()))
+            )
+        val coordinator =
+            coordinator(client, FakeProfileStore(), FakeCredentialStore(), timedDelay = true)
+
+        startPairing(coordinator)
+        runCurrent()
+        advanceTimeBy(3_000)
+        runCurrent()
+
+        val retrying = coordinator.state.value as ConnectionUiState.WaitingForApproval
+        assertTrue(retrying.statusText.contains("Retrying automatically"))
+        assertEquals(1, client.pollCalls)
+
+        advanceTimeBy(5_999)
+        runCurrent()
+        assertEquals(1, client.pollCalls)
+        advanceTimeBy(1)
+        advanceUntilIdle()
+
+        assertEquals(2, client.pollCalls)
+        assertTrue(coordinator.state.value is ConnectionUiState.Linked)
+    }
+
+    @Test
+    fun `foregrounding pairing restarts one polling loop at the server interval`() = runTest {
+        val client =
+            FakeClient(
+                pollStatuses = ArrayDeque(listOf(PairingStatus.PENDING, PairingStatus.APPROVED))
+            )
+        val coordinator =
+            coordinator(client, FakeProfileStore(), FakeCredentialStore(), timedDelay = true)
+
+        startPairing(coordinator)
+        runCurrent()
+        advanceTimeBy(1_000)
+        coordinator.pairingForegrounded()
+        runCurrent()
+        advanceTimeBy(2_999)
+        runCurrent()
+        assertEquals(0, client.pollCalls)
+
+        advanceTimeBy(1)
+        runCurrent()
+        assertEquals(1, client.pollCalls)
+        advanceTimeBy(3_000)
+        advanceUntilIdle()
+
+        assertEquals(2, client.pollCalls)
+        assertTrue(coordinator.state.value is ConnectionUiState.Linked)
+    }
+
+    @Test
+    fun `invalid polling response remains terminal`() = runTest {
+        val client =
+            FakeClient(
+                pollFailures =
+                    ArrayDeque(listOf(SplClientException.ProtocolInvalid("pairing status")))
+            )
+        val coordinator = coordinator(client, FakeProfileStore(), FakeCredentialStore())
+
+        startPairing(coordinator)
+        advanceUntilIdle()
+
+        assertEquals(1, client.pollCalls)
+        assertTrue(coordinator.state.value is ConnectionUiState.TerminalPairingProblem)
+    }
+
+    @Test
     fun `profile failure after consumption retries without consuming again`() = runTest {
         val client = FakeClient(pollStatuses = ArrayDeque(listOf(PairingStatus.APPROVED)))
         val profileStore = FakeProfileStore().apply { failWrites = true }
@@ -131,6 +204,26 @@ class ConnectionCoordinatorTest {
     }
 
     @Test
+    fun `linked request rejection returns to connection policy without clearing credential`() =
+        runTest {
+            val profileStore = FakeProfileStore().apply { stored = profile() }
+            val credentialStore = FakeCredentialStore().apply {
+                stored = StoredCredential(BearerCredential.restore("spl_secret"), null)
+            }
+            val coordinator = coordinator(FakeClient(), profileStore, credentialStore)
+            coordinator.restore()
+            advanceUntilIdle()
+            assertTrue(coordinator.state.value is ConnectionUiState.Linked)
+
+            coordinator.authenticatedRequestRejected()
+
+            val problem = coordinator.state.value as ConnectionUiState.StoredCredentialProblem
+            assertFalse(problem.retryable)
+            assertFalse(profileStore.cleared)
+            assertFalse(credentialStore.cleared)
+        }
+
+    @Test
     fun `ambiguous consume failure is never retried automatically`() = runTest {
         val client =
             FakeClient(
@@ -172,6 +265,7 @@ class ConnectionCoordinatorTest {
     private class FakeClient(
         private val events: MutableList<String> = mutableListOf(),
         private val pollStatuses: ArrayDeque<PairingStatus> = ArrayDeque(),
+        private val pollFailures: ArrayDeque<SplClientException> = ArrayDeque(),
         private val authFailure: Exception? = null,
         private val consumeFailure: Exception? = null
     ) : SecondPassClient {
@@ -188,6 +282,7 @@ class ConnectionCoordinatorTest {
 
         override suspend fun checkPairing(request: PairingRequest): PairingStatus {
             pollCalls += 1
+            pollFailures.removeFirstOrNull()?.let { throw it }
             return pollStatuses.removeFirstOrNull() ?: PairingStatus.PENDING
         }
 

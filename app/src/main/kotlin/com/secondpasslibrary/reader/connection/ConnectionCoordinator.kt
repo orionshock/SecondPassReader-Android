@@ -121,7 +121,7 @@ class ConnectionCoordinator(
         }
     }
 
-    fun resumePolling() {
+    fun pairingForegrounded() {
         val waiting = mutableState.value as? ConnectionUiState.WaitingForApproval ?: return
         replaceOperation { poll(waiting.server, waiting.clientName, waiting.request) }
     }
@@ -192,25 +192,41 @@ class ConnectionCoordinator(
         request: PairingRequest
     ) {
         mutableState.value = ConnectionUiState.WaitingForApproval(server, clientName, request)
+        var nextDelaySeconds = request.intervalSeconds
         while (currentCoroutineContext().isActive) {
-            pollDelay.wait(request.intervalSeconds)
+            pollDelay.wait(nextDelaySeconds)
             val status =
                 try {
                     client.checkPairing(request)
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (failure: SplClientException) {
+                    if (!failure.isRecoverablePollingFailure()) {
+                        mutableState.value =
+                            ConnectionUiState.TerminalPairingProblem(
+                                ConnectionErrorPresenter.message(failure)
+                            )
+                        return
+                    }
                     mutableState.value =
                         ConnectionUiState.WaitingForApproval(
                             server,
                             clientName,
                             request,
-                            "Polling paused: ${ConnectionErrorPresenter.message(failure)}"
+                            "${ConnectionErrorPresenter.message(failure)} Retrying automatically."
                         )
-                    return
+                    nextDelaySeconds =
+                        (nextDelaySeconds * RETRY_BACKOFF_MULTIPLIER)
+                            .coerceAtMost(
+                                maxOf(request.intervalSeconds, MAX_POLL_RETRY_SECONDS)
+                            )
+                    continue
                 }
+            nextDelaySeconds = request.intervalSeconds
             when (status) {
-                PairingStatus.PENDING -> Unit
+                PairingStatus.PENDING ->
+                    mutableState.value =
+                        ConnectionUiState.WaitingForApproval(server, clientName, request)
 
                 PairingStatus.APPROVED -> {
                     completePairing(server, request)
@@ -363,5 +379,21 @@ class ConnectionCoordinator(
 
     private companion object {
         const val MAX_CLIENT_NAME_LENGTH = 200
+        const val RETRY_BACKOFF_MULTIPLIER = 2
+        const val MAX_POLL_RETRY_SECONDS = 60L
+    }
+
+    fun authenticatedRequestRejected() {
+        val linked = mutableState.value as? ConnectionUiState.Linked ?: return
+        operation?.cancel()
+        mutableState.value =
+            ConnectionUiState.StoredCredentialProblem(
+                profile = linked.profile,
+                message = "The server rejected this device's stored credential.",
+                retryable = false
+            )
     }
 }
+
+private fun SplClientException.isRecoverablePollingFailure(): Boolean =
+    this is SplClientException.ServerUnreachable || this is SplClientException.PairingThrottled

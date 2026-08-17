@@ -1,21 +1,16 @@
 package com.secondpasslibrary.reader.home
 
-import com.secondpasslibrary.client.SplClientException
-
 internal object HomeErrorPresenter {
-    fun message(failure: Throwable): String = when (failure) {
-        is SplClientException.AuthenticationRejected ->
+    fun message(failure: HomeProjectionFailure): String = when (failure) {
+        HomeProjectionFailure.AuthenticationRejected ->
             "The stored credential was rejected. Reconnect this device from Settings."
 
-        is SplClientException.ServerUnreachable ->
+        HomeProjectionFailure.Unreachable ->
             "The library could not be reached."
 
-        is SplClientException.AuthenticatedRequestFailed ->
-            "The library rejected this request."
-
-        is SplClientException.ProtocolInvalid ->
+        HomeProjectionFailure.ProtocolInvalid ->
             "The library returned data this client could not understand."
 
-        else -> "This section could not be loaded."
+        HomeProjectionFailure.Other -> "This section could not be loaded."
     }
 }

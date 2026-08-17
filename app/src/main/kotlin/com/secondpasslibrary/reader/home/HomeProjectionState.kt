@@ -7,7 +7,12 @@ internal data class HomeProjectionContent<T>(val items: List<T>, val fetchedAt: 
 internal data class HomeProjectionState<T>(
     val content: HomeProjectionContent<T>?,
     val refresh: HomeProjectionRefresh
-)
+) {
+    companion object {
+        fun <T> loading(): HomeProjectionState<T> =
+            HomeProjectionState(content = null, refresh = HomeProjectionRefresh.Refreshing)
+    }
+}
 
 internal sealed interface HomeProjectionRefresh {
     data object Idle : HomeProjectionRefresh

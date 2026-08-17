@@ -23,6 +23,7 @@ class MaterialSymbolMapperTest {
             MaterialSymbolMapper.resolve(AppIcon.Library).token,
             MaterialSymbolMapper.resolve(AppIcon.Book).token
         )
+        assertEquals("cloud_off", MaterialSymbolMapper.resolve(AppIcon.Offline).token)
     }
 
     @Test
