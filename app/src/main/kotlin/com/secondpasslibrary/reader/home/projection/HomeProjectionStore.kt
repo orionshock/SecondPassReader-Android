@@ -6,6 +6,8 @@ import java.security.MessageDigest
 import java.time.Instant
 import java.util.Locale
 
+private const val HOME_RECENT_READING_LIMIT = 10
+
 @JvmInline
 internal value class HomeAccountScopeKey private constructor(val value: String) {
     companion object {
@@ -23,13 +25,27 @@ internal value class HomeAccountScopeKey private constructor(val value: String) 
     }
 }
 
-internal enum class HomeRecentReadingVariant(val storageKey: String, val includeClosed: Boolean) {
-    ActiveOnly("limit=10;includeClosed=false", false),
-    IncludingClosed("limit=10;includeClosed=true", true)
+internal enum class HomeRecentReadingVariant(
+    val storageKey: String,
+    val limit: Int,
+    val includeClosed: Boolean
+) {
+    ActiveOnly("limit=10;includeClosed=false", HOME_RECENT_READING_LIMIT, false),
+    IncludingClosed("limit=10;includeClosed=true", HOME_RECENT_READING_LIMIT, true)
 }
 
-internal enum class HomeShelfVariant(val storageKey: String) {
-    FirstPageWithPreviews("page=1;pageSize=6;ordering=server;previewLimit=3")
+internal enum class HomeShelfVariant(
+    val storageKey: String,
+    val page: Int,
+    val pageSize: Int,
+    val previewLimit: Int
+) {
+    FirstPageWithPreviews(
+        storageKey = "page=1;pageSize=6;ordering=server;previewLimit=3",
+        page = 1,
+        pageSize = 6,
+        previewLimit = 3
+    )
 }
 
 internal data class HomeProjectionSnapshot<T>(val items: List<T>, val fetchedAt: Instant)
