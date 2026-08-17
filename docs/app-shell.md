@@ -11,15 +11,19 @@ SecondPassApp
                 TopAppBar
                 ModalNavigationDrawer
                 NavDisplay
-                  Home      -> authenticated status content
+                  Home      -> independently loaded recent/shelf state
                   Library   -> intentional placeholder
                   Shelves   -> intentional placeholder
                   Sessions  -> intentional placeholder
-                  Settings  -> intentional placeholder
+                  Settings  -> connection/account diagnostics
 ```
 
 The modal drawer stays hidden until the app-bar menu button or edge gesture opens it. `NavDisplay` receives the full content area, without a tablet-only width cap or a separate compact-window navigation model. Destination content owns its own scrolling and future adaptive layout.
 
-Home is now the permanent owner of the useful linked server, account, and device status. The other roots prove routing and ownership only; they must be replaced by real feature surfaces when those responsibilities exist. Reader-mode navigation, deep links, nested feature graphs, logout, and destination-specific ViewModel scoping remain deferred.
+Home owns independent recent-reading and shelf-preview state through `HomeController`, with one loading/error/empty/loaded state and retry path per section. It resolves a credential-bound SDK client through the connection boundary, requests 10 active recent sessions and the first six shelves with three previews, and never exposes the bearer credential. Changing the closed-session toggle reloads only recent reading; server order and the `active`/`closed` vocabulary remain unchanged.
+
+Home search emits a `LibrarySearch` intent. The shell converts it to a `LibrarySearchRoute` that retains the query while Library remains a placeholder; Home does not call the Library API. The useful linked server, account, group, and client-session diagnostics now belong to Settings.
+
+Library, Shelves, and Sessions still prove top-level routing only. Reader-mode navigation, deep links, nested feature graphs, logout, and destination-specific ViewModel scoping remain deferred.
 
 All feature-facing icons use the semantic layer documented in [Icon vocabulary](icon-vocabulary.md).

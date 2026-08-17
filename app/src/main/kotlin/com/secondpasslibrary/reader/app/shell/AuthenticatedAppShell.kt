@@ -29,6 +29,8 @@ import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 import com.secondpasslibrary.reader.home.AuthenticatedHome
+import com.secondpasslibrary.reader.home.HomeNavigationIntent
+import com.secondpasslibrary.reader.settings.LinkedSettings
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -40,7 +42,7 @@ internal fun AuthenticatedAppShell(
 ) {
     val backStack = rememberNavBackStack(AppDestination.Home)
     val navigator = remember(backStack) { AppNavigator(backStack) }
-    val currentDestination = backStack.lastOrNull() as? AppDestination ?: AppDestination.Home
+    val currentDestination = backStack.lastOrNull()?.topLevelDestination() ?: AppDestination.Home
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
 
@@ -74,9 +76,12 @@ internal fun AuthenticatedAppShell(
                 entryProvider =
                     entryProvider {
                         entry(key = AppDestination.Home) {
-                            AuthenticatedHome(profile, context)
+                            AuthenticatedHome(profile, navigator::handleHomeNavigation)
                         }
                         entry(key = AppDestination.Library) {
+                            DestinationPlaceholder(AppDestination.Library)
+                        }
+                        entry<LibrarySearchRoute> {
                             DestinationPlaceholder(AppDestination.Library)
                         }
                         entry(key = AppDestination.Shelves) {
@@ -86,11 +91,17 @@ internal fun AuthenticatedAppShell(
                             DestinationPlaceholder(AppDestination.Sessions)
                         }
                         entry(key = AppDestination.Settings) {
-                            DestinationPlaceholder(AppDestination.Settings)
+                            LinkedSettings(profile, context)
                         }
                     }
             )
         }
+    }
+}
+
+private fun AppNavigator.handleHomeNavigation(intent: HomeNavigationIntent) {
+    when (intent) {
+        is HomeNavigationIntent.LibrarySearch -> openLibrarySearch(intent.query)
     }
 }
 

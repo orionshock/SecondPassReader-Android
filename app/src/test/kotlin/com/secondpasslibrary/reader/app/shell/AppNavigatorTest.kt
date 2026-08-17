@@ -25,4 +25,15 @@ class AppNavigatorTest {
 
         assertEquals(listOf(AppDestination.Home), backStack)
     }
+
+    @Test
+    fun `Home search carries its query into a Library route`() {
+        val backStack = mutableListOf<NavKey>(AppDestination.Home)
+        val navigator = AppNavigator(backStack)
+
+        navigator.openLibrarySearch("ursula le guin")
+
+        assertEquals(listOf(LibrarySearchRoute("ursula le guin")), backStack)
+        assertEquals(AppDestination.Library, backStack.single().topLevelDestination())
+    }
 }

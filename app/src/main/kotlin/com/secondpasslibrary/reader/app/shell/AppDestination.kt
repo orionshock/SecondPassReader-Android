@@ -12,3 +12,12 @@ enum class AppDestination(val label: String, val icon: AppIcon) : NavKey {
     Sessions("Sessions", AppIcon.Sessions),
     Settings("Settings", AppIcon.Settings)
 }
+
+@Serializable
+data class LibrarySearchRoute(val query: String) : NavKey
+
+internal fun NavKey.topLevelDestination(): AppDestination = when (this) {
+    is LibrarySearchRoute -> AppDestination.Library
+    is AppDestination -> this
+    else -> AppDestination.Home
+}

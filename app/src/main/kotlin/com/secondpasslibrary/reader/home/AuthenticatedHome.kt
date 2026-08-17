@@ -2,97 +2,126 @@ package com.secondpasslibrary.reader.home
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.secondpasslibrary.client.AuthenticatedContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.design.components.InformationCard
-import com.secondpasslibrary.reader.design.components.InformationDetail
-import com.secondpasslibrary.reader.design.icons.AppIcon
+import kotlinx.coroutines.flow.collectLatest
 
 @Composable
-fun AuthenticatedHome(profile: ConnectionProfile, context: AuthenticatedContext) {
+fun AuthenticatedHome(
+    profile: ConnectionProfile,
+    onNavigation: (HomeNavigationIntent) -> Unit,
+    viewModel: HomeViewModel = viewModel()
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val currentOnNavigation by rememberUpdatedState(onNavigation)
+    LaunchedEffect(profile.apiBaseUrl, profile.clientSessionId) {
+        viewModel.initialize(profile)
+    }
+    LaunchedEffect(viewModel) {
+        viewModel.navigation.collectLatest { currentOnNavigation(it) }
+    }
+    HomeContent(
+        state = state,
+        onShowClosedChanged = viewModel::setShowClosedSessions,
+        onRetryRecentReading = viewModel::retryRecentReading,
+        onRetryShelves = viewModel::retryShelves,
+        onSearch = viewModel::searchLibrary
+    )
+}
+
+@Composable
+private fun HomeContent(
+    state: HomeUiState,
+    onShowClosedChanged: (Boolean) -> Unit,
+    onRetryRecentReading: () -> Unit,
+    onRetryShelves: () -> Unit,
+    onSearch: (String) -> Unit
+) {
+    var searchQuery by rememberSaveable { mutableStateOf("") }
     Column(
         modifier =
             Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        Text(
-            "Second Pass Reader",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.SemiBold
-        )
-        Text(
-            "Authenticated library context is verified.",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodyLarge
-        )
-        context.serverInfo.bannerMessage.takeIf(String::isNotBlank)?.let { banner ->
-            InformationCard("Server banner") { Text(banner) }
+        Text("Second Pass Reader", style = MaterialTheme.typography.headlineMedium)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.weight(1f),
+                label = { Text("Search library") },
+                singleLine = true
+            )
+            Button(onClick = { onSearch(searchQuery) }) { Text("Search") }
         }
-        LibraryStatus(profile, context)
-        AccountStatus(context)
-        DeviceStatus(profile)
+        HomeSectionStatus(
+            title = "Recent reading",
+            state = state.recentReading,
+            onRetry = onRetryRecentReading,
+            controls = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = state.showClosedSessions,
+                        onCheckedChange = onShowClosedChanged
+                    )
+                    Text("Show closed sessions")
+                }
+            }
+        )
+        HomeSectionStatus("Shelves", state.shelves, onRetryShelves)
     }
 }
 
 @Composable
-private fun LibraryStatus(profile: ConnectionProfile, context: AuthenticatedContext) {
-    InformationCard("Connected library", icon = AppIcon.ConnectedLibrary) {
-        InformationDetail("Name", context.serverInfo.name.ifBlank { profile.serverName })
-        InformationDetail("Description", context.serverInfo.description.ifBlank { "—" })
-        InformationDetail(
-            "Version",
-            listOf(context.serverInfo.version, context.serverInfo.releaseDate)
-                .filter(String::isNotBlank)
-                .joinToString(" · ")
-                .ifBlank { "—" }
-        )
-        InformationDetail("Server", profile.serverBaseUrl)
-        InformationDetail("Public group", context.serverInfo.publicGroup?.name ?: "—")
-        InformationDetail(
-            "Advanced groups",
-            if (context.serverInfo.advancedLibraryGroupsEnabled) "Enabled" else "Disabled"
-        )
-    }
-}
+private fun HomeSectionStatus(
+    title: String,
+    state: HomeSectionState<*>,
+    onRetry: () -> Unit,
+    controls: @Composable () -> Unit = {}
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(title, style = MaterialTheme.typography.titleLarge)
+        controls()
+        when (state) {
+            HomeSectionState.Loading -> Text("Loading...")
 
-@Composable
-private fun AccountStatus(context: AuthenticatedContext) {
-    InformationCard("Signed in", icon = AppIcon.Profile) {
-        InformationDetail("Name", context.currentUser.displayName)
-        InformationDetail("Username", context.currentUser.username)
-        InformationDetail("Email", context.currentUser.email.ifBlank { "—" })
-        InformationDetail("Profile ID", context.currentUser.profileId.ifBlank { "—" })
-        InformationDetail("Role", context.currentUser.role.ifBlank { "—" })
-        context.currentUser.isOwner?.let { InformationDetail("Owner", if (it) "Yes" else "No") }
-        InformationDetail(
-            "Groups",
-            context.currentUser.groups
-                .joinToString { group ->
-                    group.name + if (group.isCurator == true) " (curator)" else ""
-                }.ifBlank { "—" }
-        )
-    }
-}
+            HomeSectionState.Empty -> Text("Nothing to show yet.")
 
-@Composable
-private fun DeviceStatus(profile: ConnectionProfile) {
-    InformationCard("This device", icon = AppIcon.Success) {
-        InformationDetail("Client name", profile.clientName)
-        InformationDetail("Client type", profile.clientType)
-        InformationDetail("Session ID", profile.clientSessionId)
-        InformationDetail("Connection status", "Verified")
+            is HomeSectionState.Loaded -> Text("${state.items.size} items loaded.")
+
+            is HomeSectionState.Error -> {
+                Text(state.message, color = MaterialTheme.colorScheme.error)
+                Button(onClick = onRetry) { Text("Retry") }
+            }
+        }
     }
 }

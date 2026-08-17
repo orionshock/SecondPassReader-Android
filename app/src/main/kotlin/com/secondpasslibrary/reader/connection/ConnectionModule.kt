@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.connection
 
+import com.secondpasslibrary.client.AuthenticatedSecondPassClientFactory
 import com.secondpasslibrary.client.KtorSecondPassClient
 import com.secondpasslibrary.client.SecondPassClient
 import com.secondpasslibrary.reader.connection.storage.DataStoreConnectionProfileStore
@@ -25,6 +26,12 @@ abstract class ConnectionStorageModule {
     abstract fun bindBearerCredentialStore(
         store: KeystoreBearerCredentialStore
     ): BearerCredentialStore
+
+    @Binds
+    @Singleton
+    abstract fun bindAuthenticatedClientProvider(
+        provider: StoredAuthenticatedClientProvider
+    ): AuthenticatedClientProvider
 }
 
 @Module
@@ -32,5 +39,13 @@ abstract class ConnectionStorageModule {
 object SplClientModule {
     @Provides
     @Singleton
-    fun provideSecondPassClient(): SecondPassClient = KtorSecondPassClient()
+    fun provideKtorSecondPassClient(): KtorSecondPassClient = KtorSecondPassClient()
+
+    @Provides
+    fun provideSecondPassClient(client: KtorSecondPassClient): SecondPassClient = client
+
+    @Provides
+    fun provideAuthenticatedClientFactory(
+        client: KtorSecondPassClient
+    ): AuthenticatedSecondPassClientFactory = client
 }

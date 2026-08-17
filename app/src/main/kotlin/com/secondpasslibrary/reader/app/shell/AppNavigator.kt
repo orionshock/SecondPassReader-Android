@@ -9,6 +9,11 @@ internal class AppNavigator(private val backStack: MutableList<NavKey>) {
         backStack.add(destination)
     }
 
+    fun openLibrarySearch(query: String) {
+        backStack.clear()
+        backStack.add(LibrarySearchRoute(query))
+    }
+
     fun goBack() {
         if (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
     }
