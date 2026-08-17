@@ -18,15 +18,18 @@ The repository doctrine remains in `AGENTS.md`. This document records the concre
 - AGP 9 built-in Kotlin for `:app`; Compose compiler plugin `2.4.10` matches Kotlin.
 - Compose BOM `2026.08.00`, Activity Compose `1.13.0`, Lifecycle `2.11.0`, Core KTX `1.19.0`.
 - Hilt `2.60.1` with KSP `2.3.10`; coroutines `1.11.0`.
+- AndroidX Navigation 3 `1.1.6` owns Compose-first authenticated routing.
 - detekt `2.0.0-alpha.6`, ktlint Gradle plugin `14.2.0`, and ktlint `1.8.0`.
 
 Gradle runs on Android Studio's JBR 25.0.2. Gradle 9.7 supports that runtime; project bytecode targets Java 17. A separate JDK 17 installation is not required.
 
 ## Current application baseline
 
-The launcher starts a small Compose shell with a dark semantic Material 3 theme. `SecondPassApplication` establishes Hilt, `MainActivity` remains the Android host, and `SecondPassApp` owns the root composition. Constructor-injected `ApplicationFoundationMetadata` supplies a small startup snapshot containing the public `:spl-client` identity, proving dependency injection and module linkage without inventing product APIs.
+The launcher starts a dark semantic Material 3 composition. `SecondPassApplication` establishes Hilt, `MainActivity` remains the Android host, and `SecondPassApp` switches between connection states and the permanent authenticated shell.
 
 The initial scaffold identity has been replaced by the first real vertical slice. `:spl-client` now exposes SPL discovery, pairing, one-time credential consumption, and authenticated context capabilities; `:app` owns their Android lifecycle, secure persistence, and native connection UI. See [SPL connection architecture](connection-architecture.md).
+
+Authenticated users enter the tablet-first top-app-bar/drawer shell described in [Authenticated application shell](app-shell.md). Project-owned semantic icons and bundled Material Symbols are documented in [Icon vocabulary](icon-vocabulary.md).
 
 ## Verification
 
@@ -54,6 +57,6 @@ The application icon reuses the Second Pass web favicon unchanged inside an Andr
 - EPUB renderer selection and reading implementation
 - caching, persistence, and offline behavior
 - additional Gradle modules
-- navigation and complete feature/package topology
+- nested feature navigation and complete feature/package topology
 - final application versioning, release signing, and distribution policy
 - complete design system and light theme

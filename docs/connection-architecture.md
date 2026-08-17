@@ -55,13 +55,13 @@ On startup, matching profile and credential state is verified through `/accounts
 
 The SDK models sparse current-user fields and preserves absence for optional true-only flags. `reading_client_base_url` remains nullable. Successful token consumption alone never establishes linked state; both authenticated context requests must succeed.
 
-The linked screen is intentionally a development status surface showing verified library, account, group, and client-session context. It is not the future product Home screen.
+The authenticated Home surface retains useful verified library, account, group, and client-session context inside the permanent application shell. It does not imply that future product Home capabilities have been implemented.
 
 ## Logout and deferred work
 
 Remote session listing/revocation is not implemented because the audited summary does not define their response bodies and the reference SDK does not yet expose them. The UI therefore does not claim to log out. Error recovery offers an explicitly local “Forget locally” action where appropriate; it does not pretend to revoke the server session.
 
-Also deferred: mDNS discovery, known-server presets, library data, caching/offline behavior, Room, navigation, and all reader features.
+Also deferred: mDNS discovery, known-server presets, library data, caching/offline behavior, Room, nested feature navigation, and all reader features.
 
 ## Reference SDK differences
 

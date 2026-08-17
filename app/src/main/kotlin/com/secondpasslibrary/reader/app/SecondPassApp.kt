@@ -30,8 +30,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.secondpasslibrary.reader.app.shell.AuthenticatedAppShell
 import com.secondpasslibrary.reader.connection.ConnectionUiState
 import com.secondpasslibrary.reader.connection.ConnectionViewModel
+import com.secondpasslibrary.reader.connection.ServerIdentityCard
+import com.secondpasslibrary.reader.design.components.InformationCard
+import com.secondpasslibrary.reader.design.components.InformationDetail
 
 @Composable
 fun SecondPassApp(
@@ -44,8 +48,12 @@ fun SecondPassApp(
         color = MaterialTheme.colorScheme.background,
         contentColor = MaterialTheme.colorScheme.onBackground
     ) {
-        AppFrame {
+        if (state is ConnectionUiState.Linked) {
             ConnectionContent(state, connectionViewModel)
+        } else {
+            AppFrame {
+                ConnectionContent(state, connectionViewModel)
+            }
         }
     }
 }
@@ -82,7 +90,7 @@ private fun ConnectionContent(state: ConnectionUiState, viewModel: ConnectionVie
         is ConnectionUiState.RestoreProblem,
         is ConnectionUiState.LocalStorageProblem -> RecoveryContent(state, viewModel)
 
-        is ConnectionUiState.Linked -> LinkedContent(state.profile, state.context)
+        is ConnectionUiState.Linked -> AuthenticatedAppShell(state.profile, state.context)
 
         is ConnectionUiState.TerminalPairingProblem ->
             ProblemContent(
@@ -230,7 +238,7 @@ private fun WaitingContent(
         "Approve this device",
         "Use the code below in ${state.server.name}. The code remains usable without opening the browser."
     )
-    DetailCard("Approval code") {
+    InformationCard("Approval code") {
         SelectionContainer {
             Text(
                 state.request.code,
@@ -239,8 +247,8 @@ private fun WaitingContent(
                 fontFamily = FontFamily.Monospace
             )
         }
-        Detail("Status", state.statusText)
-        Detail("Expires", state.request.expiresAt)
+        InformationDetail("Status", state.statusText)
+        InformationDetail("Expires", state.request.expiresAt)
     }
     ActionRow {
         Button(onClick = {
