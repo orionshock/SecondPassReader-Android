@@ -1,11 +1,9 @@
 package com.secondpasslibrary.client
 
 object SplClient {
-    val identity =
-        ClientIdentity(
-            name = "Second Pass Library Client",
-            version = "0.1.0-dev"
-        )
+    const val ANDROID_CLIENT_TYPE = "second-pass-android-client"
+
+    val identity = ClientIdentity(name = "Second Pass Library Client", version = "0.2.0-dev")
 }
 
 data class ClientIdentity(val name: String, val version: String) {

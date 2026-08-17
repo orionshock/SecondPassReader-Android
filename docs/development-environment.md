@@ -1,5 +1,7 @@
 # Development environment
 
+The stable non-production server account used for manual end-to-end verification is documented in [development-test-server.md](development-test-server.md). It is test data, not application configuration.
+
 Verified on Windows 10 Pro x64 on 2026-08-16. The project uses `minSdk 31`, `compileSdk 37`, and `targetSdk 37`; see [Android bootstrap](android-bootstrap.md) for rationale and build versions.
 
 ## Installed toolchain

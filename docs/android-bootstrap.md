@@ -26,7 +26,7 @@ Gradle runs on Android Studio's JBR 25.0.2. Gradle 9.7 supports that runtime; pr
 
 The launcher starts a small Compose shell with a dark semantic Material 3 theme. `SecondPassApplication` establishes Hilt, `MainActivity` remains the Android host, and `SecondPassApp` owns the root composition. Constructor-injected `ApplicationFoundationMetadata` supplies a small startup snapshot containing the public `:spl-client` identity, proving dependency injection and module linkage without inventing product APIs.
 
-The SDK module currently exposes only a validated identity value and development version witness. It contains no server contract or fake endpoint.
+The initial scaffold identity has been replaced by the first real vertical slice. `:spl-client` now exposes SPL discovery, pairing, one-time credential consumption, and authenticated context capabilities; `:app` owns their Android lifecycle, secure persistence, and native connection UI. See [SPL connection architecture](connection-architecture.md).
 
 ## Verification
 
