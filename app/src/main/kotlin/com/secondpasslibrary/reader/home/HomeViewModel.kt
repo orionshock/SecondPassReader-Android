@@ -25,4 +25,8 @@ constructor(clientProvider: AuthenticatedClientProvider) : ViewModel() {
     fun retryShelves() = controller.retryShelves()
 
     fun searchLibrary(query: String) = controller.searchLibrary(query)
+
+    fun viewAllSessions() = controller.viewAllSessions()
+
+    fun openShelves() = controller.openShelves()
 }

@@ -11,7 +11,7 @@ SecondPassApp
                 TopAppBar
                 ModalNavigationDrawer
                 NavDisplay
-                  Home      -> independently loaded recent/shelf state
+                  Home      -> library search, reading history, shelf previews
                   Library   -> intentional placeholder
                   Shelves   -> intentional placeholder
                   Sessions  -> intentional placeholder
@@ -21,6 +21,10 @@ SecondPassApp
 The modal drawer stays hidden until the app-bar menu button or edge gesture opens it. `NavDisplay` receives the full content area, without a tablet-only width cap or a separate compact-window navigation model. Destination content owns its own scrolling and future adaptive layout.
 
 Home owns independent recent-reading and shelf-preview state through `HomeController`, with one loading/error/empty/loaded state and retry path per section. It resolves a credential-bound SDK client through the connection boundary, requests 10 active recent sessions and the first six shelves with three previews, and never exposes the bearer credential. Changing the closed-session toggle reloads only recent reading; server order and the `active`/`closed` vocabulary remain unchanged.
+
+The Home presentation is cover-led: Reading History is a horizontal session rail and Shelves is a width-adaptive preview grid. Small Home-owned presentation models format status, ownership, and counts without changing SDK data or ordering. Search remains a routing intent into Library; View all and Open shelves route to their established top-level destinations.
+
+Public cover references are passed unchanged to Coil `3.5.0`. Coil's singleton loader owns ordinary memory and disk caches and its OkHttp network component fetches public absolute HTTP(S) references without SPL authorization headers. Missing, loading, and failed images stay presentation concerns and use the semantic Library icon as fallback; `:spl-client` remains unaware of image loading and caching.
 
 Home search emits a `LibrarySearch` intent. The shell converts it to a `LibrarySearchRoute` that retains the query while Library remains a placeholder; Home does not call the Library API. The useful linked server, account, group, and client-session diagnostics now belong to Settings.
 

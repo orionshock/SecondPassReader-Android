@@ -21,4 +21,8 @@ sealed interface HomeSectionState<out T> {
 
 sealed interface HomeNavigationIntent {
     data class LibrarySearch(val query: String) : HomeNavigationIntent
+
+    data object ViewAllSessions : HomeNavigationIntent
+
+    data object OpenShelves : HomeNavigationIntent
 }

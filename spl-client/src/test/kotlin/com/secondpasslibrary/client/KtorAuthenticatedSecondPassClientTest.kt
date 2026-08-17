@@ -45,7 +45,7 @@ class KtorAuthenticatedSecondPassClientTest {
                         },
                         {
                             "id": "session-active",
-                            "name": "Second from server",
+                            "name": "",
                             "status": "active",
                             "last_activity_at": "2026-08-15T12:00:00Z",
                             "book": {
@@ -66,6 +66,7 @@ class KtorAuthenticatedSecondPassClientTest {
         assertEquals(listOf("session-closed", "session-active"), result.map { it.sessionId })
         assertEquals(ReadingSessionStatus.CLOSED, result[0].status)
         assertEquals(ReadingSessionStatus.ACTIVE, result[1].status)
+        assertEquals("", result[1].sessionName)
         assertEquals("Chapter 2", result[0].progress?.locationLabel)
         assertNull(result[1].progress)
         assertEquals(

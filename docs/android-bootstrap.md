@@ -19,6 +19,7 @@ The repository doctrine remains in `AGENTS.md`. This document records the concre
 - Compose BOM `2026.08.00`, Activity Compose `1.13.0`, Lifecycle `2.11.0`, Core KTX `1.19.0`.
 - Hilt `2.60.1` with KSP `2.3.10`; coroutines `1.11.0`.
 - AndroidX Navigation 3 `1.1.6` owns Compose-first authenticated routing.
+- Coil `3.5.0` owns Compose cover loading plus normal memory/disk caching for public cover URLs.
 - detekt `2.0.0-alpha.6`, ktlint Gradle plugin `14.2.0`, and ktlint `1.8.0`.
 
 Gradle runs on Android Studio's JBR 25.0.2. Gradle 9.7 supports that runtime; project bytecode targets Java 17. A separate JDK 17 installation is not required.

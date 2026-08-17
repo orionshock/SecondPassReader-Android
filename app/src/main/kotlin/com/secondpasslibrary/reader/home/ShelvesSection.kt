@@ -1,0 +1,148 @@
+package com.secondpasslibrary.reader.home
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
+import com.secondpasslibrary.client.ShelfSummary
+import com.secondpasslibrary.reader.design.icons.AppIcon
+
+@Composable
+internal fun ShelvesSection(
+    state: HomeSectionState<ShelfSummary>,
+    onRetry: () -> Unit,
+    onOpenShelves: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Shelves", style = MaterialTheme.typography.titleLarge)
+            TextButton(onClick = onOpenShelves) { Text("Open shelves") }
+        }
+        when (state) {
+            HomeSectionState.Loading -> HomeSectionLoading("shelves")
+            HomeSectionState.Empty -> HomeSectionEmpty(AppIcon.Shelf, "No shelves to show yet.")
+            is HomeSectionState.Error -> HomeSectionError(state.message, onRetry)
+            is HomeSectionState.Loaded -> ShelfGrid(state.items.map(HomePresenter::shelf))
+        }
+    }
+}
+
+@Composable
+private fun ShelfGrid(shelves: List<ShelfCardModel>) {
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val columns = when {
+            maxWidth >= 1_000.dp -> 3
+            maxWidth >= 620.dp -> 2
+            else -> 1
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            shelves.chunked(columns).forEach { rowShelves ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    rowShelves.forEach { shelf -> ShelfCard(shelf, Modifier.weight(1f)) }
+                    repeat(columns - rowShelves.size) { Spacer(Modifier.weight(1f)) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ShelfCard(model: ShelfCardModel, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.height(154.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = MaterialTheme.shapes.medium,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                Text(
+                    model.name,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    model.ownerLabel,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Text(
+                    model.itemCountLabel,
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
+            ShelfPreviewStack(model)
+        }
+    }
+}
+
+@Composable
+private fun ShelfPreviewStack(model: ShelfCardModel) {
+    val previews = model.previewBooks.orEmpty().take(3)
+    Box(
+        modifier = Modifier.width(140.dp).height(124.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        if (previews.isEmpty()) {
+            HomeBookCover(
+                BookCoverPresentation.Missing,
+                model.name,
+                Modifier.align(Alignment.CenterEnd).size(width = 76.dp, height = 114.dp)
+            )
+        } else {
+            previews.forEachIndexed { index, book ->
+                HomeBookCover(
+                    cover = book.cover,
+                    title = book.title,
+                    modifier =
+                        Modifier
+                            .offset(x = (index * 30).dp)
+                            .size(width = 76.dp, height = 114.dp)
+                            .clip(MaterialTheme.shapes.small)
+                            .zIndex(index.toFloat())
+                )
+            }
+        }
+    }
+}

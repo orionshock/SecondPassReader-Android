@@ -102,6 +102,8 @@ internal fun AuthenticatedAppShell(
 private fun AppNavigator.handleHomeNavigation(intent: HomeNavigationIntent) {
     when (intent) {
         is HomeNavigationIntent.LibrarySearch -> openLibrarySearch(intent.query)
+        HomeNavigationIntent.OpenShelves -> select(AppDestination.Shelves)
+        HomeNavigationIntent.ViewAllSessions -> select(AppDestination.Sessions)
     }
 }
 

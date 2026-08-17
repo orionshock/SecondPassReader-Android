@@ -9,6 +9,8 @@ private val SecondPassDarkColors =
     darkColorScheme(
         primary = Color(0xFF7CA8E8),
         onPrimary = Color(0xFF071A31),
+        tertiary = Color(0xFF5FBE7B),
+        onTertiary = Color(0xFF051F0D),
         background = Color(0xFF0D0F12),
         onBackground = Color(0xFFF0F2F5),
         surface = Color(0xFF0D0F12),

@@ -18,7 +18,7 @@ internal fun RecentReadingResponseWire.toModel(): List<RecentReadingItem> =
 
 private fun RecentReadingItemWire.toModel(): RecentReadingItem = RecentReadingItem(
     sessionId = id.required(RECENT_READING_CONTEXT),
-    sessionName = name.required(RECENT_READING_CONTEXT),
+    sessionName = name ?: invalidProtocol(RECENT_READING_CONTEXT),
     status =
         when (status) {
             "active" -> ReadingSessionStatus.ACTIVE

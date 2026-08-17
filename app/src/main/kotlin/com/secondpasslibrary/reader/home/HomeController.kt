@@ -70,6 +70,14 @@ class HomeController(
         navigationChannel.trySend(HomeNavigationIntent.LibrarySearch(query))
     }
 
+    fun viewAllSessions() {
+        navigationChannel.trySend(HomeNavigationIntent.ViewAllSessions)
+    }
+
+    fun openShelves() {
+        navigationChannel.trySend(HomeNavigationIntent.OpenShelves)
+    }
+
     private fun loadRecentReading() {
         val activeClient = client ?: return
         recentReadingLoad?.cancel()
