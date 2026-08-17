@@ -30,7 +30,8 @@ import kotlinx.serialization.json.Json
 
 @OptIn(ExperimentalSerializationApi::class)
 class KtorSecondPassClient internal constructor(private val httpClient: HttpClient) :
-    SecondPassClient {
+    SecondPassClient,
+    AuthenticatedSecondPassClientFactory {
     constructor() : this(defaultHttpClient())
 
     private val json =
@@ -146,6 +147,12 @@ class KtorSecondPassClient internal constructor(private val httpClient: HttpClie
             async { authenticatedGet<ServerInfoWire>(validatedApiBase, "server/info/", credential) }
         AuthenticatedContext(user.await().toModel(), server.await().toModel())
     }
+
+    override fun authenticated(
+        apiBaseUrl: String,
+        credential: BearerCredential
+    ): AuthenticatedSecondPassClient =
+        KtorAuthenticatedSecondPassClient(httpClient, apiBaseUrl, credential)
 
     private suspend inline fun <reified T> authenticatedGet(
         apiBaseUrl: String,

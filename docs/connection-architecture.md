@@ -57,6 +57,14 @@ The SDK models sparse current-user fields and preserves absence for optional tru
 
 The authenticated Home surface retains useful verified library, account, group, and client-session context inside the permanent application shell. It does not imply that future product Home capabilities have been implemented.
 
+## Authenticated read surface
+
+`KtorSecondPassClient` can create a credential-bound `AuthenticatedSecondPassClient`. The scope retains the validated API base and opaque bearer credential so feature callers do not repeatedly handle either value. It currently exposes only recent reading and paginated shelf summaries with optional preview books; it is not a screen-specific Home aggregate.
+
+Recent-reading results preserve server order. Session status remains `active` or `closed`, and progress retains its CFI plus the server's opaque location label without deriving percentages. Shelf list inputs use a closed ordering vocabulary and can request a bounded number of preview books. Omitted `preview_books` remains distinguishable from a returned empty list, and missing item counts are rejected as invalid protocol rather than coerced to zero.
+
+`PublicBookCoverReference` wraps a server-provided absolute HTTP(S) URL. Covers are public assets, require no bearer credential, may use an external host, and are limited by contract to JPEG, PNG, or WebP. The SDK neither reconstructs cover paths nor fetches image bytes; a future image-loading layer may consume the public reference directly.
+
 ## Logout and deferred work
 
 Remote session listing/revocation is not implemented because the audited summary does not define their response bodies and the reference SDK does not yet expose them. The UI therefore does not claim to log out. Error recovery offers an explicitly local “Forget locally” action where appropriate; it does not pretend to revoke the server session.
@@ -73,6 +81,7 @@ The web SDK was used as behavioral evidence, not copied. Notable deliberate diff
 - Android exposes a specific ambiguous-consumption error and durable handoff state; browser storage behavior is not reused.
 - The copied reference advertises a distinct `/consume/` template, while the audited current server returns the same `/poll/` URL for poll and consume. Android trusts each concrete `poll_url` and `consume_url` from pairing creation, so neither assumption leaks into route construction.
 - The reference has no client-session listing/revocation surface, so Android did not invent one without audited wire shapes.
+- The reference shelf list exposes `include_preview_books` but not `preview_limit`. The current server contract supplies `preview_limit`; Android sends both parameters when a preview limit is requested.
 
 ## Verification
 
