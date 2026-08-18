@@ -5,6 +5,7 @@ import com.secondpasslibrary.client.RecentReadingOptions
 import com.secondpasslibrary.client.ShelfListOptions
 import com.secondpasslibrary.client.ShelfSummary
 import com.secondpasslibrary.client.SplClientException
+import com.secondpasslibrary.client.toSummary
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.home.projection.HomeAccountScopeKey
@@ -76,13 +77,13 @@ internal class HomeProjectionRepository internal constructor(
         val refresh = refreshOnce(ProjectionRequestKey.shelves(account.scopeKey, variant)) {
             val client = clientProvider.forProfile(account.profile)
             val items =
-                client.listShelves(
+                client.shelves.list(
                     ShelfListOptions(
                         page = variant.page,
                         pageSize = variant.pageSize,
                         previewLimit = variant.previewLimit
                     )
-                ).shelves
+                ).shelves.map { it.toSummary() }
             store.replaceShelves(account.scopeKey, variant, items, clock.instant())
         }
         val content =

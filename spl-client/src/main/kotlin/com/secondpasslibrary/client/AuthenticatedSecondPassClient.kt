@@ -2,10 +2,25 @@ package com.secondpasslibrary.client
 
 interface AuthenticatedSecondPassClient {
     val library: AuthenticatedLibraryClient
+    val shelves: AuthenticatedShelvesClient
 
     suspend fun recentReading(options: RecentReadingOptions): List<RecentReadingItem>
+}
 
-    suspend fun listShelves(options: ShelfListOptions = ShelfListOptions()): ShelfPage
+interface AuthenticatedShelvesClient {
+    suspend fun list(options: ShelfListOptions = ShelfListOptions()): ShelfPage
+
+    suspend fun get(shelfId: String, options: ShelfDetailOptions = ShelfDetailOptions()): Shelf
+
+    suspend fun listItems(
+        shelfId: String,
+        options: ShelfItemListOptions = ShelfItemListOptions()
+    ): ShelfItemPage
+
+    suspend fun listEditorItems(
+        shelfId: String,
+        options: ShelfEditorListOptions = ShelfEditorListOptions()
+    ): ShelfEditorPage
 }
 
 interface AuthenticatedLibraryClient {

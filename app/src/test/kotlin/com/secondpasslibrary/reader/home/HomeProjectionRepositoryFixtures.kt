@@ -1,14 +1,22 @@
 package com.secondpasslibrary.reader.home
 
 import com.secondpasslibrary.client.AuthenticatedSecondPassClient
+import com.secondpasslibrary.client.AuthenticatedShelvesClient
 import com.secondpasslibrary.client.ReadingSessionStatus
 import com.secondpasslibrary.client.RecentReadingBook
 import com.secondpasslibrary.client.RecentReadingItem
 import com.secondpasslibrary.client.RecentReadingOptions
+import com.secondpasslibrary.client.Shelf
+import com.secondpasslibrary.client.ShelfDetailOptions
+import com.secondpasslibrary.client.ShelfEditorListOptions
+import com.secondpasslibrary.client.ShelfEditorPage
+import com.secondpasslibrary.client.ShelfItemListOptions
+import com.secondpasslibrary.client.ShelfItemPage
 import com.secondpasslibrary.client.ShelfListOptions
 import com.secondpasslibrary.client.ShelfOwner
 import com.secondpasslibrary.client.ShelfPage
 import com.secondpasslibrary.client.ShelfSummary
+import com.secondpasslibrary.client.ShelfVisibility
 import com.secondpasslibrary.reader.FakeAuthenticatedLibraryClient
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
@@ -81,6 +89,26 @@ internal class FakeHomeProjectionStore : HomeProjectionStore {
 
 internal class FakeHomeAuthenticatedClient : AuthenticatedSecondPassClient {
     override val library = FakeAuthenticatedLibraryClient()
+    override val shelves = object : AuthenticatedShelvesClient {
+        override suspend fun list(options: ShelfListOptions): ShelfPage {
+            shelfRequests += options
+            val items = shelfCall(options).map(ShelfSummary::toFixtureShelf)
+            return ShelfPage(items.size, false, false, items, options.page, options.pageSize)
+        }
+
+        override suspend fun get(shelfId: String, options: ShelfDetailOptions): Shelf =
+            unsupported()
+
+        override suspend fun listItems(
+            shelfId: String,
+            options: ShelfItemListOptions
+        ): ShelfItemPage = unsupported()
+
+        override suspend fun listEditorItems(
+            shelfId: String,
+            options: ShelfEditorListOptions
+        ): ShelfEditorPage = unsupported()
+    }
 
     val recentRequests = mutableListOf<RecentReadingOptions>()
     val shelfRequests = mutableListOf<ShelfListOptions>()
@@ -90,12 +118,6 @@ internal class FakeHomeAuthenticatedClient : AuthenticatedSecondPassClient {
     override suspend fun recentReading(options: RecentReadingOptions): List<RecentReadingItem> {
         recentRequests += options
         return recentCall(options)
-    }
-
-    override suspend fun listShelves(options: ShelfListOptions): ShelfPage {
-        shelfRequests += options
-        val items = shelfCall(options)
-        return ShelfPage(items.size, false, false, items)
     }
 }
 
@@ -142,12 +164,29 @@ internal fun shelfItem(id: String) = ShelfSummary(
     id = id,
     name = id,
     description = null,
-    owner = ShelfOwner.User("profile-1", "reader", null, null),
-    visibility = "private",
+    owner = ShelfOwner.User("profile-1", "reader"),
+    visibility = ShelfVisibility.PRIVATE,
     itemCount = 1,
     canEdit = true,
     previewBooks = null
 )
+
+private fun ShelfSummary.toFixtureShelf() = Shelf(
+    id = id,
+    name = name,
+    description = description,
+    owner = owner,
+    visibility = visibility,
+    itemCount = itemCount,
+    canEdit = canEdit,
+    createdBy = null,
+    createdAt = "2026-08-01T00:00:00Z",
+    updatedAt = "2026-08-02T00:00:00Z",
+    matchedItemId = null,
+    previewBooks = previewBooks
+)
+
+private fun unsupported(): Nothing = error("Shelf operation is outside this Home fixture.")
 
 internal val OLD_FETCHED_AT: Instant = Instant.parse("2026-08-16T10:00:00Z")
 internal val NEW_FETCHED_AT: Instant = Instant.parse("2026-08-16T16:00:00Z")

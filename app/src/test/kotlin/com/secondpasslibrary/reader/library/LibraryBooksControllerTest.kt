@@ -15,8 +15,6 @@ import com.secondpasslibrary.client.LibrarySearchOrdering
 import com.secondpasslibrary.client.PublicationDatePrecision
 import com.secondpasslibrary.client.RecentReadingItem
 import com.secondpasslibrary.client.RecentReadingOptions
-import com.secondpasslibrary.client.ShelfListOptions
-import com.secondpasslibrary.client.ShelfPage
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.FakeAuthenticatedLibraryClient
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
@@ -534,6 +532,7 @@ class LibraryBooksControllerTest {
         AuthenticatedLibraryBooksClient,
         AuthenticatedLibraryGroupsClient {
         override val library = FakeAuthenticatedLibraryClient(books = this, groups = this)
+        override val shelves = com.secondpasslibrary.reader.FakeAuthenticatedShelvesClient
 
         val bookRequests = mutableListOf<BookListOptions>()
         val searchRequests = mutableListOf<LibrarySearchOptions>()
@@ -592,9 +591,6 @@ class LibraryBooksControllerTest {
 
         override suspend fun recentReading(options: RecentReadingOptions): List<RecentReadingItem> =
             error("Recent reading is outside this Library fixture.")
-
-        override suspend fun listShelves(options: ShelfListOptions): ShelfPage =
-            error("Shelves are outside this Library fixture.")
     }
 
     private companion object {

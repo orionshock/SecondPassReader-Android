@@ -6,6 +6,7 @@ import com.secondpasslibrary.client.RecentReadingBook
 import com.secondpasslibrary.client.RecentReadingItem
 import com.secondpasslibrary.client.ShelfOwner
 import com.secondpasslibrary.client.ShelfSummary
+import com.secondpasslibrary.client.ShelfVisibility
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -33,17 +34,17 @@ class HomePresenterTest {
 
     @Test
     fun `shelf presentation derives owner and visible item count`() {
-        val shelf = shelf(ShelfOwner.User("p1", "reader", "Ada", "Lovelace"), 3)
+        val shelf = shelf(ShelfOwner.User("p1", "reader"), 3)
 
         val model = HomePresenter.shelf(shelf)
 
-        assertEquals("Ada Lovelace", model.ownerLabel)
+        assertEquals("reader", model.ownerLabel)
         assertEquals("3 books", model.itemCountLabel)
     }
 
     @Test
     fun `shelf presentation handles anonymous and singular ownership labels`() {
-        val shelf = shelf(ShelfOwner.User("p1", null, null, null), 1)
+        val shelf = shelf(ShelfOwner.User("p1", null), 1)
 
         val model = HomePresenter.shelf(shelf)
 
@@ -74,7 +75,7 @@ class HomePresenterTest {
         name = "Favorites",
         description = null,
         owner = owner,
-        visibility = "private",
+        visibility = ShelfVisibility.PRIVATE,
         itemCount = count,
         canEdit = true,
         previewBooks = null

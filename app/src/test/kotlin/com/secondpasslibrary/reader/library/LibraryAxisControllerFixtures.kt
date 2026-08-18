@@ -24,8 +24,6 @@ import com.secondpasslibrary.client.PublicationDatePrecision
 import com.secondpasslibrary.client.RecentReadingItem
 import com.secondpasslibrary.client.RecentReadingOptions
 import com.secondpasslibrary.client.SeriesListOptions
-import com.secondpasslibrary.client.ShelfListOptions
-import com.secondpasslibrary.client.ShelfPage
 import com.secondpasslibrary.reader.FakeAuthenticatedLibraryClient
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
@@ -45,6 +43,7 @@ internal class FakeLibraryAxisClient :
             groups = this,
             tags = this
         )
+    override val shelves = com.secondpasslibrary.reader.FakeAuthenticatedShelvesClient
 
     val bookRequests = mutableListOf<BookListOptions>()
     val groupBookRequests = mutableListOf<Pair<String, BookListOptions>>()
@@ -178,9 +177,6 @@ internal class FakeLibraryAxisClient :
 
     override suspend fun recentReading(options: RecentReadingOptions): List<RecentReadingItem> =
         error("Recent reading is outside this Library fixture.")
-
-    override suspend fun listShelves(options: ShelfListOptions): ShelfPage =
-        error("Shelves are outside this Library fixture.")
 }
 
 internal class FakeLibraryAxisClientProvider(private val client: AuthenticatedSecondPassClient) :

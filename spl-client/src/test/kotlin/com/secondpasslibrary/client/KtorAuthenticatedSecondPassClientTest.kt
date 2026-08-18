@@ -98,7 +98,7 @@ class KtorAuthenticatedSecondPassClientTest {
         }
 
         val page =
-            client.listShelves(
+            client.shelves.list(
                 ShelfListOptions(
                     page = 2,
                     pageSize = 6,
@@ -135,7 +135,7 @@ class KtorAuthenticatedSecondPassClientTest {
         }
 
         ShelfOrdering.entries.forEach { ordering ->
-            client.listShelves(ShelfListOptions(ordering = ordering))
+            client.shelves.list(ShelfListOptions(ordering = ordering))
         }
 
         assertEquals(listOf("name", "-name", "item_count", "-item_count"), values)
@@ -160,7 +160,7 @@ class KtorAuthenticatedSecondPassClientTest {
         }
 
         assertThrows(SplClientException.ProtocolInvalid::class.java) {
-            runBlocking { client.listShelves() }
+            runBlocking { client.shelves.list() }
         }
     }
 
@@ -205,6 +205,8 @@ class KtorAuthenticatedSecondPassClientTest {
                             "username": "reader"
                         },
                         "visibility": "private",
+                        "created_at": "2026-08-01T00:00:00Z",
+                        "updated_at": "2026-08-02T00:00:00Z",
                         "item_count": 4,
                         "can_edit": true
                     },
@@ -219,6 +221,8 @@ class KtorAuthenticatedSecondPassClientTest {
                             "is_public_group": false
                         },
                         "visibility": "listed",
+                        "created_at": "2026-08-01T00:00:00Z",
+                        "updated_at": "2026-08-02T00:00:00Z",
                         "item_count": 1,
                         "can_edit": false,
                         "preview_books": [

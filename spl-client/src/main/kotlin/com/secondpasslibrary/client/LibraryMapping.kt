@@ -48,7 +48,7 @@ private fun LibraryGroupWire.toModel() = LibraryGroupSummary(
     isPublicGroup = isPublicGroup ?: invalidProtocol(GROUP_CONTEXT)
 )
 
-private fun CompactBookWire.toModel(): CompactBook = CompactBook(
+internal fun CompactBookWire.toModel(): CompactBook = CompactBook(
     id = id.required(COMPACT_BOOK_CONTEXT),
     title = title.required(COMPACT_BOOK_CONTEXT),
     sortTitle = sortTitle.required(COMPACT_BOOK_CONTEXT),

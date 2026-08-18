@@ -8,6 +8,7 @@ import com.secondpasslibrary.client.RecentReadingItem
 import com.secondpasslibrary.client.ShelfOwner
 import com.secondpasslibrary.client.ShelfPreviewBook
 import com.secondpasslibrary.client.ShelfSummary
+import com.secondpasslibrary.client.ShelfVisibility
 
 internal fun RecentReadingItem.toEntity(
     account: HomeAccountScopeKey,
@@ -73,7 +74,7 @@ internal fun ShelfSummary.toEntity(
         ownerLastName = ownerFields.lastName,
         ownerIsPublicGroup = ownerFields.isPublicGroup,
         ownerOtherType = ownerFields.otherType,
-        visibility = visibility,
+        visibility = visibility.storageValue,
         itemCount = itemCount,
         canEdit = canEdit,
         previewBooksPresent = previewBooks != null
@@ -100,7 +101,7 @@ internal fun HomeShelfEntity.toModel(previews: List<HomeShelfPreviewBookEntity>)
     name = name,
     description = description,
     owner = toShelfOwner(),
-    visibility = visibility,
+    visibility = visibility.toShelfVisibility(),
     itemCount = itemCount,
     canEdit = canEdit,
     previewBooks =
@@ -141,9 +142,7 @@ private fun ShelfOwner.toEntityFields(): OwnerEntityFields = when (this) {
         OwnerEntityFields(
             kind = "user",
             id = profileId,
-            username = username,
-            firstName = firstName,
-            lastName = lastName
+            username = username
         )
 
     is ShelfOwner.Group ->
@@ -153,27 +152,33 @@ private fun ShelfOwner.toEntityFields(): OwnerEntityFields = when (this) {
             name = name,
             isPublicGroup = isPublicGroup
         )
-
-    is ShelfOwner.Other -> OwnerEntityFields(kind = "other", otherType = type)
 }
 
 private fun HomeShelfEntity.toShelfOwner(): ShelfOwner = when (ownerKind) {
     "user" ->
         ShelfOwner.User(
             profileId = requireNotNull(ownerId),
-            username = ownerUsername,
-            firstName = ownerFirstName,
-            lastName = ownerLastName
+            username = ownerUsername
         )
 
     "group" ->
         ShelfOwner.Group(
             id = requireNotNull(ownerId),
             name = requireNotNull(ownerName),
-            isPublicGroup = ownerIsPublicGroup
+            isPublicGroup = requireNotNull(ownerIsPublicGroup)
         )
 
-    "other" -> ShelfOwner.Other(requireNotNull(ownerOtherType))
-
     else -> error("Invalid cached shelf-owner kind.")
+}
+
+private val ShelfVisibility.storageValue: String
+    get() = when (this) {
+        ShelfVisibility.PRIVATE -> "private"
+        ShelfVisibility.LISTED -> "listed"
+    }
+
+private fun String.toShelfVisibility(): ShelfVisibility = when (this) {
+    "private" -> ShelfVisibility.PRIVATE
+    "listed" -> ShelfVisibility.LISTED
+    else -> error("Invalid cached shelf visibility.")
 }

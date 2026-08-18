@@ -76,15 +76,7 @@ internal object HomePresenter {
     private val ShelfOwner.displayName: String
         get() = when (this) {
             is ShelfOwner.Group -> name
-
-            is ShelfOwner.Other -> type.ifBlank { "Shelf owner" }
-
-            is ShelfOwner.User ->
-                listOfNotNull(firstName?.trim(), lastName?.trim())
-                    .filter(String::isNotEmpty)
-                    .joinToString(" ")
-                    .ifEmpty { username?.trim().orEmpty() }
-                    .ifEmpty { "Personal shelf" }
+            is ShelfOwner.User -> username?.trim().orEmpty().ifEmpty { "Personal shelf" }
         }
 
     private val Int.bookCountLabel: String

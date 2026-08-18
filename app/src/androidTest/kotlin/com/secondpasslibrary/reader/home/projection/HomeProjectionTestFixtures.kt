@@ -8,6 +8,7 @@ import com.secondpasslibrary.client.RecentReadingItem
 import com.secondpasslibrary.client.ShelfOwner
 import com.secondpasslibrary.client.ShelfPreviewBook
 import com.secondpasslibrary.client.ShelfSummary
+import com.secondpasslibrary.client.ShelfVisibility
 
 internal fun recentItem(
     id: String,
@@ -37,8 +38,8 @@ internal fun shelf(id: String, count: Int, previews: List<ShelfPreviewBook>? = e
         id = id,
         name = "Shelf $id",
         description = "Description $id",
-        owner = ShelfOwner.User("profile-1", "reader", "Ada", "Reader"),
-        visibility = "private",
+        owner = ShelfOwner.User("profile-1", "reader"),
+        visibility = ShelfVisibility.PRIVATE,
         itemCount = count,
         canEdit = true,
         previewBooks = previews
