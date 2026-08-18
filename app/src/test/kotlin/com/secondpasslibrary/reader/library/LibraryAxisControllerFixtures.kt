@@ -1,16 +1,21 @@
 package com.secondpasslibrary.reader.library
 
 import com.secondpasslibrary.client.AuthenticatedLibraryAuthorsClient
+import com.secondpasslibrary.client.AuthenticatedLibraryBooksClient
 import com.secondpasslibrary.client.AuthenticatedLibraryGroupsClient
 import com.secondpasslibrary.client.AuthenticatedLibrarySeriesClient
 import com.secondpasslibrary.client.AuthenticatedSecondPassClient
 import com.secondpasslibrary.client.AuthorListOptions
+import com.secondpasslibrary.client.BookListOptions
+import com.secondpasslibrary.client.CompactBook
+import com.secondpasslibrary.client.GroupBookListOptions
 import com.secondpasslibrary.client.LibraryAuthor
 import com.secondpasslibrary.client.LibraryEntityDetailOptions
 import com.secondpasslibrary.client.LibraryGroupListOptions
 import com.secondpasslibrary.client.LibraryGroupSummary
 import com.secondpasslibrary.client.LibraryPage
 import com.secondpasslibrary.client.LibrarySeries
+import com.secondpasslibrary.client.PublicationDatePrecision
 import com.secondpasslibrary.client.RecentReadingItem
 import com.secondpasslibrary.client.RecentReadingOptions
 import com.secondpasslibrary.client.SeriesListOptions
@@ -22,11 +27,15 @@ import com.secondpasslibrary.reader.connection.ConnectionProfile
 
 internal class FakeLibraryAxisClient :
     AuthenticatedSecondPassClient,
+    AuthenticatedLibraryBooksClient,
     AuthenticatedLibraryAuthorsClient,
     AuthenticatedLibrarySeriesClient,
     AuthenticatedLibraryGroupsClient {
     override val library =
-        FakeAuthenticatedLibraryClient(authors = this, series = this, groups = this)
+        FakeAuthenticatedLibraryClient(books = this, authors = this, series = this, groups = this)
+
+    val bookRequests = mutableListOf<BookListOptions>()
+    val groupBookRequests = mutableListOf<Pair<String, GroupBookListOptions>>()
 
     val authorRequests = mutableListOf<AuthorListOptions>()
     val groupAuthorRequests = mutableListOf<Pair<String, AuthorListOptions>>()
@@ -50,6 +59,28 @@ internal class FakeLibraryAxisClient :
     var seriesDetail: suspend (String) -> LibrarySeries = { series(it) }
     var groups: suspend (LibraryGroupListOptions) -> LibraryPage<LibraryGroupSummary> = {
         axisPage(it.page, emptyList())
+    }
+    var bookList: suspend (BookListOptions) -> LibraryPage<CompactBook> = {
+        axisPage(it.page, emptyList())
+    }
+    var groupBookList: suspend (String, GroupBookListOptions) -> LibraryPage<CompactBook> =
+        { _, options -> axisPage(options.page, emptyList()) }
+
+    override suspend fun listBooks(options: BookListOptions): LibraryPage<CompactBook> {
+        bookRequests += options
+        return bookList(options)
+    }
+
+    override suspend fun searchLibrary(
+        options: com.secondpasslibrary.client.LibrarySearchOptions
+    ): LibraryPage<CompactBook> = axisPage(options.page, emptyList())
+
+    override suspend fun listGroupBooks(
+        groupId: String,
+        options: GroupBookListOptions
+    ): LibraryPage<CompactBook> {
+        groupBookRequests += groupId to options
+        return groupBookList(groupId, options)
     }
 
     override suspend fun listAuthors(options: AuthorListOptions): LibraryPage<LibraryAuthor> {
@@ -116,6 +147,24 @@ internal class FakeLibraryAxisClientProvider(private val client: AuthenticatedSe
 internal fun author(id: String) = LibraryAuthor(id, id, id, "Biography $id", 3, emptyList())
 
 internal fun series(id: String) = LibrarySeries(id, id, id, "Summary $id", 4, emptyList())
+
+internal fun axisBook(id: String) = CompactBook(
+    id = id,
+    title = id,
+    sortTitle = id,
+    subtitle = "",
+    authors = emptyList(),
+    series = null,
+    catalogTags = emptyList(),
+    language = null,
+    publisher = null,
+    publishedYear = null,
+    publishedMonth = null,
+    publishedDay = null,
+    publicationDatePrecision = PublicationDatePrecision.UNSPECIFIED,
+    cover = null,
+    fileFormat = "epub"
+)
 
 internal fun <T> axisPage(
     page: Int,

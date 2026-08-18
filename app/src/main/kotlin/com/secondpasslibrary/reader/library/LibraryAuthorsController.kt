@@ -62,6 +62,8 @@ internal class LibraryAuthorsController(
 
     fun retryDetail() = delegate.retryDetail()
 
+    fun clearSelection() = delegate.clearSelection()
+
     fun close() = delegate.close()
 }
 

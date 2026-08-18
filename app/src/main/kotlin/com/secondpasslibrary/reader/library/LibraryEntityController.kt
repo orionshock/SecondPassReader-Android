@@ -134,6 +134,12 @@ internal class LibraryEntityController<T, O>(
         if (selected.failure != null) select(selected.id)
     }
 
+    fun clearSelection() {
+        detailJob?.cancel()
+        detailGeneration += 1
+        mutableState.value = mutableState.value.copy(selected = null)
+    }
+
     fun close() {
         loadJob?.cancel()
         detailJob?.cancel()

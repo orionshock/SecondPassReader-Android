@@ -81,23 +81,33 @@ private fun PreviewCoverStack(previews: LibraryPreviewBooksPresentation) {
 }
 
 @Composable
-internal fun SelectedEntityHeader(detail: LibrarySelectedEntityPresentation, onRetry: () -> Unit) {
-    OutlinedCard(Modifier.fillMaxWidth()) {
-        when (detail) {
-            is LibrarySelectedEntityPresentation.Loading ->
-                Row(
-                    Modifier.fillMaxWidth().padding(18.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
-                    Text("Loading details...")
-                }
+internal fun SelectedEntityHeader(
+    detail: LibrarySelectedEntityPresentation,
+    onRetry: () -> Unit,
+    returnLabel: String? = null,
+    onReturn: (() -> Unit)? = null
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (returnLabel != null && onReturn != null) {
+            TextButton(onClick = onReturn) { Text(returnLabel) }
+        }
+        OutlinedCard(Modifier.fillMaxWidth()) {
+            when (detail) {
+                is LibrarySelectedEntityPresentation.Loading ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(18.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                        Text("Loading details...")
+                    }
 
-            is LibrarySelectedEntityPresentation.Failure ->
-                EntityDetailFailure(detail.failure, onRetry)
+                is LibrarySelectedEntityPresentation.Failure ->
+                    EntityDetailFailure(detail.failure, onRetry)
 
-            is LibrarySelectedEntityPresentation.Content -> SelectedEntityContent(detail)
+                is LibrarySelectedEntityPresentation.Content -> SelectedEntityContent(detail)
+            }
         }
     }
 }
@@ -138,11 +148,6 @@ private fun SelectedEntityContent(detail: LibrarySelectedEntityPresentation.Cont
                 }
             }
         }
-        Text(
-            "Filtered books will appear here in the next Library slice.",
-            color = MaterialTheme.colorScheme.primary,
-            style = MaterialTheme.typography.labelMedium
-        )
     }
 }
 

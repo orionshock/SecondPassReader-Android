@@ -48,7 +48,7 @@ internal fun LibraryControls(
     var query by rememberSaveable(state.axis, committedQuery) { mutableStateOf(committedQuery) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Header(state)
-        SearchRow(state.axis, state.books.mode, query, { query = it }) { onSearch(query) }
+        SearchRow(state, query, { query = it }) { onSearch(query) }
         LibrarySelectorRow(
             state,
             onScopeSelected,
@@ -83,7 +83,7 @@ private fun Header(state: LibraryState) {
         }
         state.resultCount()?.let { count ->
             Text(
-                "$count ${state.axis.countLabel(count)}",
+                "$count ${state.countLabel(count)}",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelMedium
             )
@@ -93,8 +93,7 @@ private fun Header(state: LibraryState) {
 
 @Composable
 private fun SearchRow(
-    axis: LibraryAxis,
-    booksMode: LibraryBooksMode,
+    state: LibraryState,
     query: String,
     onQueryChanged: (String) -> Unit,
     onSearch: () -> Unit
@@ -113,7 +112,7 @@ private fun SearchRow(
             value = query,
             onValueChange = onQueryChanged,
             modifier = Modifier.weight(1f),
-            placeholder = { Text(axis.searchPlaceholder(booksMode)) },
+            placeholder = { Text(state.searchPlaceholder()) },
             leadingIcon = { AppIconGraphic(AppIcon.Search, null) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -141,16 +140,16 @@ private fun OrderingMenu(
             AppIconGraphic(AppIcon.Expand, null)
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            when (state.axis) {
-                LibraryAxis.BOOKS ->
-                    libraryOrderingOptions(state.books.mode).forEach { option ->
+            when {
+                state.resultKind == LibraryResultKind.BOOKS ->
+                    libraryOrderingOptions(state.books.mode, state.books.filter).forEach { option ->
                         OrderingItem(option.label, option.ordering == state.books.ordering) {
                             onBookSelected(option.ordering)
                             expanded = false
                         }
                     }
 
-                LibraryAxis.AUTHORS ->
+                state.axis == LibraryAxis.AUTHORS ->
                     authorOrderingOptions().forEach { option ->
                         OrderingItem(option.label, option.ordering == state.authors.ordering) {
                             onAuthorSelected(option.ordering)
@@ -158,7 +157,7 @@ private fun OrderingMenu(
                         }
                     }
 
-                LibraryAxis.SERIES ->
+                else ->
                     seriesOrderingOptions().forEach { option ->
                         OrderingItem(option.label, option.ordering == state.series.ordering) {
                             onSeriesSelected(option.ordering)
@@ -198,39 +197,43 @@ private fun LayoutChoices(selected: LibraryBooksLayout, onSelected: (LibraryBook
 internal val LibraryAxis.label: String
     get() = name.lowercase().replaceFirstChar(Char::uppercase)
 
-internal fun LibraryState.committedQuery(): String = when (axis) {
-    LibraryAxis.BOOKS -> books.committedQuery
-    LibraryAxis.AUTHORS -> authors.committedQuery
-    LibraryAxis.SERIES -> series.committedQuery
+internal fun LibraryState.committedQuery(): String = when {
+    resultKind == LibraryResultKind.BOOKS -> books.committedQuery
+    axis == LibraryAxis.AUTHORS -> authors.committedQuery
+    else -> series.committedQuery
 }
 
-internal fun LibraryState.resultCount(): Int? = when (axis) {
-    LibraryAxis.BOOKS -> books.totalCount.takeIf { books.currentPage > 0 }
-    LibraryAxis.AUTHORS -> authors.totalCount.takeIf { authors.currentPage > 0 }
-    LibraryAxis.SERIES -> series.totalCount.takeIf { series.currentPage > 0 }
+internal fun LibraryState.resultCount(): Int? = when {
+    resultKind == LibraryResultKind.BOOKS -> books.totalCount.takeIf { books.currentPage > 0 }
+    axis == LibraryAxis.AUTHORS -> authors.totalCount.takeIf { authors.currentPage > 0 }
+    else -> series.totalCount.takeIf { series.currentPage > 0 }
 }
 
-internal fun LibraryState.orderingLabel(): String = when (axis) {
-    LibraryAxis.BOOKS -> books.ordering.label()
-    LibraryAxis.AUTHORS -> authors.ordering.libraryLabel()
-    LibraryAxis.SERIES -> series.ordering.libraryLabel()
+internal fun LibraryState.orderingLabel(): String = when {
+    resultKind == LibraryResultKind.BOOKS -> books.ordering.label()
+    axis == LibraryAxis.AUTHORS -> authors.ordering.libraryLabel()
+    else -> series.ordering.libraryLabel()
 }
 
-private fun LibraryAxis.countLabel(count: Int) = when (this) {
-    LibraryAxis.BOOKS -> if (count == 1) "book" else "books"
-    LibraryAxis.AUTHORS -> if (count == 1) "author" else "authors"
-    LibraryAxis.SERIES -> "series"
+private fun LibraryState.countLabel(count: Int) = when {
+    resultKind == LibraryResultKind.BOOKS -> if (count == 1) "book" else "books"
+    axis == LibraryAxis.AUTHORS -> if (count == 1) "author" else "authors"
+    else -> "series"
 }
 
-private fun LibraryAxis.searchPlaceholder(booksMode: LibraryBooksMode) = when (this) {
-    LibraryAxis.BOOKS ->
-        if (booksMode == LibraryBooksMode.BROAD_SEARCH) {
+private fun LibraryState.searchPlaceholder() = when {
+    books.filter is LibraryBooksFilter.Author -> "Search books by this author"
+
+    books.filter is LibraryBooksFilter.Series -> "Search books in this series"
+
+    axis == LibraryAxis.BOOKS ->
+        if (books.mode == LibraryBooksMode.BROAD_SEARCH) {
             "Title, author, series, publisher, or tag"
         } else {
             "Search book titles"
         }
 
-    LibraryAxis.AUTHORS -> "Search authors"
+    axis == LibraryAxis.AUTHORS -> "Search authors"
 
-    LibraryAxis.SERIES -> "Search series"
+    else -> "Search series"
 }

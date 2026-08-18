@@ -39,6 +39,8 @@ internal class KtorLibraryBooksClient(
         require(groupId.isNotBlank()) { "Library group ID must not be blank." }
         val parameters = buildList {
             options.q?.let { add("q" to it) }
+            options.authorId?.let { add("author" to it) }
+            options.seriesId?.let { add("series" to it) }
             options.ordering?.let { add("ordering" to it.queryValue) }
             add("page" to options.page.toString())
             add("page_size" to options.pageSize.toString())

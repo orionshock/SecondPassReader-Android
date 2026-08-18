@@ -61,6 +61,8 @@ constructor(
 
     fun selectSeries(seriesId: String) = controller.selectSeries(seriesId)
 
+    fun clearSelectedEntity() = controller.clearSelectedEntity()
+
     fun retryAuthorDetail() = controller.authors.retryDetail()
 
     fun retrySeriesDetail() = controller.series.retryDetail()

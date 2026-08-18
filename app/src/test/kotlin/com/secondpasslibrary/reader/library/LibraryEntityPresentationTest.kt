@@ -1,6 +1,7 @@
 package com.secondpasslibrary.reader.library
 
 import com.secondpasslibrary.client.AuthorOrdering
+import com.secondpasslibrary.client.BookOrdering
 import com.secondpasslibrary.client.LibraryAuthor
 import com.secondpasslibrary.client.LibraryPreviewBook
 import com.secondpasslibrary.client.LibrarySeries
@@ -78,6 +79,7 @@ class LibraryEntityPresentationTest {
         val state =
             LibraryState(
                 axis = LibraryAxis.AUTHORS,
+                resultKind = LibraryResultKind.AUTHOR_INDEX,
                 authors =
                     LibraryEntityState(
                         committedQuery = "le guin",
@@ -97,6 +99,28 @@ class LibraryEntityPresentationTest {
         assertTrue(LibraryResultKind.BOOKS.supportsBookLayout)
         assertEquals(false, LibraryResultKind.AUTHOR_INDEX.supportsBookLayout)
         assertEquals(false, LibraryResultKind.SERIES_INDEX.supportsBookLayout)
+    }
+
+    @Test
+    fun `filtered Books expose context-appropriate ordering choices`() {
+        assertEquals(
+            BookOrdering.TITLE,
+            (
+                libraryOrderingOptions(
+                    LibraryBooksMode.BROWSE,
+                    LibraryBooksFilter.Author("author")
+                ).first().ordering as LibraryBooksOrdering.Browse
+                ).value
+        )
+        assertEquals(
+            BookOrdering.SERIES_INDEX,
+            (
+                libraryOrderingOptions(
+                    LibraryBooksMode.BROWSE,
+                    LibraryBooksFilter.Series("series")
+                ).first().ordering as LibraryBooksOrdering.Browse
+                ).value
+        )
     }
 
     @Test

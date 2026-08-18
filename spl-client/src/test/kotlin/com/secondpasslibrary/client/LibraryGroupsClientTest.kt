@@ -51,6 +51,8 @@ class LibraryGroupsClientTest {
             "group/one",
             GroupBookListOptions(
                 q = "author or title",
+                authorId = "author-id",
+                seriesId = "series-id",
                 ordering = BookOrdering.AUTHOR_DESCENDING,
                 page = 3,
                 pageSize = 50
@@ -59,6 +61,8 @@ class LibraryGroupsClientTest {
 
         assertEquals("/api/v1/library/groups/group%2Fone/books/", request?.url?.encodedPath)
         assertEquals("author or title", request?.url?.parameters?.get("q"))
+        assertEquals("author-id", request?.url?.parameters?.get("author"))
+        assertEquals("series-id", request?.url?.parameters?.get("series"))
         assertEquals("-author", request?.url?.parameters?.get("ordering"))
         assertEquals("Bearer spl_secret", request?.headers?.get(HttpHeaders.Authorization))
     }
@@ -73,6 +77,12 @@ class LibraryGroupsClientTest {
         }
         assertThrows(IllegalArgumentException::class.java) {
             LibraryGroupListOptions(pageSize = 201)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            GroupBookListOptions(authorId = " ")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            GroupBookListOptions(seriesId = " ")
         }
         val malformed = authenticatedClient {
             jsonResponse("""{"count":1,"results":[{"id":"group","name":"Group"}]}""")

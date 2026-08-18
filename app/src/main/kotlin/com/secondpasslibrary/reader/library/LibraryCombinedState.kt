@@ -1,0 +1,60 @@
+package com.secondpasslibrary.reader.library
+
+import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
+import kotlinx.coroutines.flow.FlowCollector
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+
+internal val LibraryChromeState.isSelectedEntityBooks: Boolean
+    get() = resultKind == LibraryResultKind.BOOKS && axis != LibraryAxis.BOOKS
+
+internal data class LibraryChromeState(
+    val axis: LibraryAxis = LibraryAxis.BOOKS,
+    val resultKind: LibraryResultKind = LibraryResultKind.BOOKS,
+    val scope: LibraryScope = LibraryScope.AllLibrary,
+    val advancedGroupsEnabled: Boolean = false,
+    val groupSelector: LibraryGroupSelectorState = LibraryGroupSelectorState()
+) {
+    fun toState(
+        books: LibraryBooksState,
+        authors: LibraryAuthorsState,
+        series: LibrarySeriesState
+    ) = LibraryState(
+        axis,
+        resultKind,
+        scope,
+        advancedGroupsEnabled,
+        groupSelector,
+        books,
+        authors,
+        series
+    )
+}
+
+internal val LibraryAxis.indexResultKind: LibraryResultKind
+    get() = when (this) {
+        LibraryAxis.BOOKS -> LibraryResultKind.BOOKS
+        LibraryAxis.AUTHORS -> LibraryResultKind.AUTHOR_INDEX
+        LibraryAxis.SERIES -> LibraryResultKind.SERIES_INDEX
+    }
+
+@OptIn(ExperimentalForInheritanceCoroutinesApi::class)
+internal class LibraryStateFlow(
+    private val chrome: StateFlow<LibraryChromeState>,
+    private val books: StateFlow<LibraryBooksState>,
+    private val authors: StateFlow<LibraryAuthorsState>,
+    private val series: StateFlow<LibrarySeriesState>
+) : StateFlow<LibraryState> {
+    override val value: LibraryState
+        get() = chrome.value.toState(books.value, authors.value, series.value)
+
+    override val replayCache: List<LibraryState>
+        get() = listOf(value)
+
+    override suspend fun collect(collector: FlowCollector<LibraryState>): Nothing {
+        combine(chrome, books, authors, series) { parent, booksState, authorsState, seriesState ->
+            parent.toState(booksState, authorsState, seriesState)
+        }.collect(collector)
+        error("Library state sources completed unexpectedly.")
+    }
+}

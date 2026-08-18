@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
+@Suppress("TooManyFunctions") // Parent facade exposes bounded cross-axis coordination intents.
 internal class LibraryController(
     private val clientProvider: AuthenticatedClientProvider,
     displayPreferenceStore: LibraryDisplayPreferenceStore,
@@ -90,12 +91,16 @@ internal class LibraryController(
     }
 
     fun selectScope(selected: LibraryScope) {
-        val current = chrome.value
+        var current = chrome.value
         if (selected == current.scope) return
         if (selected is LibraryScope.Group &&
             current.groupSelector.groups.none { it.id == selected.id }
         ) {
             return
+        }
+        if (current.isSelectedEntityBooks) {
+            clearSelectedEntity()
+            current = chrome.value
         }
         chrome.value = current.copy(scope = selected)
         if (current.axis == LibraryAxis.BOOKS) books.selectScope(selected)
@@ -104,41 +109,59 @@ internal class LibraryController(
     }
 
     fun selectAxis(selected: LibraryAxis) {
-        val current = chrome.value
+        var current = chrome.value
         if (selected == current.axis) return
+        if (current.isSelectedEntityBooks) {
+            clearSelectedEntity()
+            current = chrome.value
+        }
         chrome.value = current.copy(axis = selected, resultKind = selected.indexResultKind)
         when (selected) {
-            LibraryAxis.BOOKS -> books.selectScope(current.scope)
+            LibraryAxis.BOOKS -> {
+                books.clearEntityFilter()
+                books.selectScope(current.scope)
+            }
+
             LibraryAxis.AUTHORS -> authors.activate()
+
             LibraryAxis.SERIES -> series.activate()
         }
     }
 
     fun commitSearch(query: String) {
+        if (chrome.value.resultKind == LibraryResultKind.BOOKS) {
+            when (books.state.value.mode) {
+                LibraryBooksMode.BROWSE -> books.commitBrowseQuery(query)
+                LibraryBooksMode.BROAD_SEARCH -> books.commitBroadSearch(query)
+            }
+            return
+        }
         when (chrome.value.axis) {
-            LibraryAxis.BOOKS ->
-                when (books.state.value.mode) {
-                    LibraryBooksMode.BROWSE -> books.commitBrowseQuery(query)
-                    LibraryBooksMode.BROAD_SEARCH -> books.commitBroadSearch(query)
-                }
-
+            LibraryAxis.BOOKS -> error("Books axis must render Books results.")
             LibraryAxis.AUTHORS -> authors.commitSearch(query)
-
             LibraryAxis.SERIES -> series.commitSearch(query)
         }
     }
 
     fun loadNextPage() {
+        if (chrome.value.resultKind == LibraryResultKind.BOOKS) {
+            books.loadNextPage()
+            return
+        }
         when (chrome.value.axis) {
-            LibraryAxis.BOOKS -> books.loadNextPage()
+            LibraryAxis.BOOKS -> error("Books axis must render Books results.")
             LibraryAxis.AUTHORS -> authors.loadNextPage()
             LibraryAxis.SERIES -> series.loadNextPage()
         }
     }
 
     fun retry() {
+        if (chrome.value.resultKind == LibraryResultKind.BOOKS) {
+            books.retry()
+            return
+        }
         when (chrome.value.axis) {
-            LibraryAxis.BOOKS -> books.retry()
+            LibraryAxis.BOOKS -> error("Books axis must render Books results.")
             LibraryAxis.AUTHORS -> authors.retry()
             LibraryAxis.SERIES -> series.retry()
         }
@@ -149,6 +172,8 @@ internal class LibraryController(
             selectAxis(LibraryAxis.AUTHORS)
         }
         authors.selectAuthor(authorId)
+        books.showAuthorBooks(authorId, chrome.value.scope)
+        chrome.value = chrome.value.copy(resultKind = LibraryResultKind.BOOKS)
     }
 
     fun selectSeries(seriesId: String) {
@@ -156,6 +181,18 @@ internal class LibraryController(
             selectAxis(LibraryAxis.SERIES)
         }
         series.selectSeries(seriesId)
+        books.showSeriesBooks(seriesId, chrome.value.scope)
+        chrome.value = chrome.value.copy(resultKind = LibraryResultKind.BOOKS)
+    }
+
+    fun clearSelectedEntity() {
+        when (chrome.value.axis) {
+            LibraryAxis.AUTHORS -> authors.clearSelection()
+            LibraryAxis.SERIES -> series.clearSelection()
+            LibraryAxis.BOOKS -> Unit
+        }
+        books.clearEntityFilter()
+        chrome.value = chrome.value.copy(resultKind = chrome.value.axis.indexResultKind)
     }
 
     fun retryGroups() = loadGroups()
@@ -216,59 +253,6 @@ internal class LibraryController(
                 }
             )
         }
-    }
-}
-
-private data class LibraryChromeState(
-    val axis: LibraryAxis = LibraryAxis.BOOKS,
-    val resultKind: LibraryResultKind = LibraryResultKind.BOOKS,
-    val scope: LibraryScope = LibraryScope.AllLibrary,
-    val advancedGroupsEnabled: Boolean = false,
-    val groupSelector: LibraryGroupSelectorState = LibraryGroupSelectorState()
-) {
-    fun toState(
-        books: LibraryBooksState,
-        authors: LibraryAuthorsState,
-        series: LibrarySeriesState
-    ) = LibraryState(
-        axis,
-        resultKind,
-        scope,
-        advancedGroupsEnabled,
-        groupSelector,
-        books,
-        authors,
-        series
-    )
-}
-
-private val LibraryAxis.indexResultKind: LibraryResultKind
-    get() =
-        when (this) {
-            LibraryAxis.BOOKS -> LibraryResultKind.BOOKS
-            LibraryAxis.AUTHORS -> LibraryResultKind.AUTHOR_INDEX
-            LibraryAxis.SERIES -> LibraryResultKind.SERIES_INDEX
-        }
-
-@OptIn(ExperimentalForInheritanceCoroutinesApi::class)
-private class LibraryStateFlow(
-    private val chrome: StateFlow<LibraryChromeState>,
-    private val books: StateFlow<LibraryBooksState>,
-    private val authors: StateFlow<LibraryAuthorsState>,
-    private val series: StateFlow<LibrarySeriesState>
-) : StateFlow<LibraryState> {
-    override val value: LibraryState
-        get() = chrome.value.toState(books.value, authors.value, series.value)
-
-    override val replayCache: List<LibraryState>
-        get() = listOf(value)
-
-    override suspend fun collect(collector: FlowCollector<LibraryState>): Nothing {
-        combine(chrome, books, authors, series) { parent, booksState, authorsState, seriesState ->
-            parent.toState(booksState, authorsState, seriesState)
-        }
-            .collect(collector)
-        error("Library state sources completed unexpectedly.")
     }
 }
 

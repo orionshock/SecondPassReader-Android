@@ -28,6 +28,7 @@ internal fun LibraryScreen(viewModel: LibraryViewModel) {
         onRetry = viewModel::retry,
         onAuthorSelected = viewModel::selectAuthor,
         onSeriesSelected = viewModel::selectSeries,
+        onClearSelectedEntity = viewModel::clearSelectedEntity,
         onRetryAuthorDetail = viewModel::retryAuthorDetail,
         onRetrySeriesDetail = viewModel::retrySeriesDetail
     )
@@ -48,6 +49,7 @@ private fun LibraryContent(
     onRetry: () -> Unit,
     onAuthorSelected: (String) -> Unit,
     onSeriesSelected: (String) -> Unit,
+    onClearSelectedEntity: () -> Unit,
     onRetryAuthorDetail: () -> Unit,
     onRetrySeriesDetail: () -> Unit
 ) {
@@ -65,11 +67,19 @@ private fun LibraryContent(
             Modifier.padding(top = 14.dp, bottom = 12.dp)
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        when (state.axis) {
-            LibraryAxis.BOOKS ->
-                LibraryBooksResults(state.books, onLoadNextPage, onRetry, Modifier.weight(1f))
+        when {
+            state.resultKind == LibraryResultKind.BOOKS ->
+                FilterableBooksResults(
+                    state,
+                    onLoadNextPage,
+                    onRetry,
+                    onRetryAuthorDetail,
+                    onRetrySeriesDetail,
+                    onClearSelectedEntity,
+                    Modifier.weight(1f)
+                )
 
-            LibraryAxis.AUTHORS ->
+            state.axis == LibraryAxis.AUTHORS ->
                 LibraryAuthorsResults(
                     state.authors,
                     onAuthorSelected,
@@ -79,7 +89,7 @@ private fun LibraryContent(
                     Modifier.weight(1f)
                 )
 
-            LibraryAxis.SERIES ->
+            else ->
                 LibrarySeriesResults(
                     state.series,
                     onSeriesSelected,
@@ -89,6 +99,44 @@ private fun LibraryContent(
                     Modifier.weight(1f)
                 )
         }
+    }
+}
+
+@Composable
+private fun FilterableBooksResults(
+    state: LibraryState,
+    onLoadNextPage: () -> Unit,
+    onRetry: () -> Unit,
+    onRetryAuthorDetail: () -> Unit,
+    onRetrySeriesDetail: () -> Unit,
+    onClearSelectedEntity: () -> Unit,
+    modifier: Modifier
+) {
+    Column(modifier) {
+        when (state.axis) {
+            LibraryAxis.BOOKS -> Unit
+
+            LibraryAxis.AUTHORS ->
+                state.authors.selected?.let { selected ->
+                    SelectedEntityHeader(
+                        selected.toAuthorDetailPresentation(),
+                        onRetryAuthorDetail,
+                        "Back to authors",
+                        onClearSelectedEntity
+                    )
+                }
+
+            LibraryAxis.SERIES ->
+                state.series.selected?.let { selected ->
+                    SelectedEntityHeader(
+                        selected.toSeriesDetailPresentation(),
+                        onRetrySeriesDetail,
+                        "Back to series",
+                        onClearSelectedEntity
+                    )
+                }
+        }
+        LibraryBooksResults(state.books, onLoadNextPage, onRetry, Modifier.weight(1f))
     }
 }
 

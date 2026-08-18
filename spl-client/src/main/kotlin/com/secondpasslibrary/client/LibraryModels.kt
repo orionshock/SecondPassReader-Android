@@ -40,12 +40,16 @@ data class LibraryGroupListOptions(
 
 data class GroupBookListOptions(
     val q: String? = null,
+    val authorId: String? = null,
+    val seriesId: String? = null,
     val ordering: BookOrdering? = null,
     val page: Int = DEFAULT_LIBRARY_PAGE,
     val pageSize: Int = DEFAULT_LIBRARY_PAGE_SIZE
 ) {
     init {
         validateLibraryPage(page, pageSize)
+        require(authorId == null || authorId.isNotBlank()) { "Author ID must not be blank." }
+        require(seriesId == null || seriesId.isNotBlank()) { "Series ID must not be blank." }
     }
 }
 

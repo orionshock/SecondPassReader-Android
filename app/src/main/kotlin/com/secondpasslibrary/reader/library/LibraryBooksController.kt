@@ -1,12 +1,8 @@
 package com.secondpasslibrary.reader.library
 
-import com.secondpasslibrary.client.AuthenticatedLibraryBooksClient
-import com.secondpasslibrary.client.BookListOptions
 import com.secondpasslibrary.client.BookOrdering
 import com.secondpasslibrary.client.CompactBook
-import com.secondpasslibrary.client.GroupBookListOptions
 import com.secondpasslibrary.client.LibraryPage
-import com.secondpasslibrary.client.LibrarySearchOptions
 import com.secondpasslibrary.client.LibrarySearchOrdering
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
@@ -38,6 +34,7 @@ internal class LibraryBooksController(
     private var requestGeneration = 0L
     private var loadJob: Job? = null
     private var preferenceJob: Job? = null
+    private var unfilteredState: LibraryBooksState? = null
 
     fun initialize(
         profile: ConnectionProfile,
@@ -51,8 +48,28 @@ internal class LibraryBooksController(
         entryIdentity = identity
         this.profile = profile
         selectedScope = scope
+        unfilteredState = null
         loadDisplayPreference()
-        resetAndLoad(mode, query, defaultOrdering(mode))
+        resetAndLoad(mode, query, defaultOrdering(mode), filter = null)
+    }
+
+    fun showAuthorBooks(authorId: String, scope: LibraryScope) {
+        showFilteredBooks(LibraryBooksFilter.Author(authorId), scope, BookOrdering.TITLE)
+    }
+
+    fun showSeriesBooks(seriesId: String, scope: LibraryScope) {
+        showFilteredBooks(LibraryBooksFilter.Series(seriesId), scope, BookOrdering.SERIES_INDEX)
+    }
+
+    fun clearEntityFilter() {
+        if (mutableState.value.filter == null) return
+        loadJob?.cancel()
+        requestGeneration += 1
+        val currentLayout = mutableState.value.layout
+        mutableState.value =
+            unfilteredState?.copy(layout = currentLayout)
+                ?: LibraryBooksState(layout = currentLayout)
+        unfilteredState = null
     }
 
     fun selectScope(scope: LibraryScope) {
@@ -156,13 +173,15 @@ internal class LibraryBooksController(
 
     private fun resetCurrentAndLoad() {
         val current = mutableState.value
-        resetAndLoad(current.mode, current.committedQuery, current.ordering)
+        resetAndLoad(current.mode, current.committedQuery, current.ordering, current.filter)
     }
 
     private fun resetAndLoad(
         mode: LibraryBooksMode,
         query: String,
-        ordering: LibraryBooksOrdering
+        ordering: LibraryBooksOrdering,
+        filter: LibraryBooksFilter? = mutableState.value.filter,
+        retainContent: Boolean = true
     ) {
         if (profile == null) return
         val current = mutableState.value
@@ -171,15 +190,38 @@ internal class LibraryBooksController(
         mutableState.value =
             LibraryBooksState(
                 mode = mode,
+                filter = filter,
                 committedQuery = query,
                 ordering = ordering,
                 pageSize = current.pageSize,
                 layout = current.layout,
-                books = current.books,
-                totalCount = current.totalCount,
+                books = current.books.takeIf { retainContent }.orEmpty(),
+                totalCount = current.totalCount.takeIf { retainContent } ?: 0,
                 initialLoading = true
             )
         launchPage(1, LibraryBooksLoadPhase.INITIAL, requestGeneration)
+    }
+
+    private fun showFilteredBooks(
+        filter: LibraryBooksFilter,
+        scope: LibraryScope,
+        ordering: BookOrdering
+    ) {
+        val filterId = when (filter) {
+            is LibraryBooksFilter.Author -> filter.id
+            is LibraryBooksFilter.Series -> filter.id
+        }
+        require(filterId.isNotBlank()) { "Library Books filter ID must not be blank." }
+        if (mutableState.value.filter == null) unfilteredState = mutableState.value
+        selectedScope = scope
+        entryIdentity = null
+        resetAndLoad(
+            LibraryBooksMode.BROWSE,
+            query = "",
+            ordering = LibraryBooksOrdering.Browse(ordering),
+            filter = filter,
+            retainContent = false
+        )
     }
 
     private fun launchPage(
@@ -256,78 +298,4 @@ internal class LibraryBooksController(
         LibraryBooksMode.BROAD_SEARCH ->
             LibraryBooksOrdering.BroadSearch(LibrarySearchOrdering.TITLE)
     }
-}
-
-private data class LibraryBooksRequest(
-    val mode: LibraryBooksMode,
-    val query: String,
-    val ordering: LibraryBooksOrdering,
-    val scope: LibraryScope,
-    val page: Int,
-    val pageSize: Int
-) {
-    suspend fun load(client: AuthenticatedLibraryBooksClient): LibraryPage<CompactBook> =
-        when (val selectedScope = scope) {
-            is LibraryScope.Group ->
-                client.listGroupBooks(
-                    selectedScope.id,
-                    GroupBookListOptions(
-                        q = query.takeIf(String::isNotBlank),
-                        ordering = ordering.toBookOrdering(),
-                        page = page,
-                        pageSize = pageSize
-                    )
-                )
-
-            LibraryScope.AllLibrary -> loadAllLibrary(client)
-        }
-
-    private suspend fun loadAllLibrary(
-        client: AuthenticatedLibraryBooksClient
-    ): LibraryPage<CompactBook> = when (mode) {
-        LibraryBooksMode.BROWSE ->
-            client.listBooks(
-                BookListOptions(
-                    q = query.takeIf(String::isNotBlank),
-                    ordering = (ordering as LibraryBooksOrdering.Browse).value,
-                    page = page,
-                    pageSize = pageSize
-                )
-            )
-
-        LibraryBooksMode.BROAD_SEARCH ->
-            client.searchLibrary(
-                LibrarySearchOptions(
-                    q = query,
-                    ordering = (ordering as LibraryBooksOrdering.BroadSearch).value,
-                    page = page,
-                    pageSize = pageSize
-                )
-            )
-    }
-
-    companion object {
-        fun from(state: LibraryBooksState, scope: LibraryScope, page: Int) = LibraryBooksRequest(
-            state.mode,
-            state.committedQuery,
-            state.ordering,
-            scope,
-            page,
-            state.pageSize
-        )
-    }
-}
-
-private fun LibraryBooksOrdering.toBookOrdering(): BookOrdering = when (this) {
-    is LibraryBooksOrdering.Browse -> value
-
-    is LibraryBooksOrdering.BroadSearch ->
-        when (value) {
-            LibrarySearchOrdering.TITLE -> BookOrdering.TITLE
-            LibrarySearchOrdering.TITLE_DESCENDING -> BookOrdering.TITLE_DESCENDING
-            LibrarySearchOrdering.AUTHOR -> BookOrdering.AUTHOR
-            LibrarySearchOrdering.AUTHOR_DESCENDING -> BookOrdering.AUTHOR_DESCENDING
-            LibrarySearchOrdering.SERIES -> BookOrdering.SERIES
-            LibrarySearchOrdering.SERIES_DESCENDING -> BookOrdering.SERIES_DESCENDING
-        }
 }
