@@ -9,6 +9,11 @@ internal enum class LibraryBooksMode {
     BROAD_SEARCH
 }
 
+internal enum class LibraryBooksLayout {
+    LIST,
+    GRID
+}
+
 internal sealed interface LibraryBooksOrdering {
     data class Browse(val value: BookOrdering) : LibraryBooksOrdering
 
@@ -20,9 +25,10 @@ internal data class LibraryBooksState(
     val committedQuery: String = "",
     val ordering: LibraryBooksOrdering = LibraryBooksOrdering.Browse(BookOrdering.TITLE),
     val pageSize: Int = DEFAULT_LIBRARY_PAGE_SIZE,
+    val layout: LibraryBooksLayout = LibraryBooksLayout.GRID,
     val books: List<CompactBook> = emptyList(),
     val totalCount: Int = 0,
-    val initialLoading: Boolean = false,
+    val initialLoading: Boolean = true,
     val nextPageLoading: Boolean = false,
     val refreshing: Boolean = false,
     val error: LibraryBooksLoadError? = null,

@@ -1,0 +1,94 @@
+package com.secondpasslibrary.reader.library
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+
+@Composable
+internal fun NextPageFooter(state: LibraryBooksState, onRetry: () -> Unit) {
+    Box(
+        modifier = Modifier.fillMaxWidth().height(64.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        when {
+            state.nextPageLoading -> CircularProgressIndicator(
+                Modifier.size(24.dp),
+                strokeWidth = 2.dp
+            )
+
+            state.error?.phase == LibraryBooksLoadPhase.NEXT_PAGE ->
+                OutlinedButton(onClick = onRetry) { Text("Could not load more - Retry") }
+        }
+    }
+}
+
+@Composable
+internal fun ReplacementFeedback(state: LibraryBooksState, onRetry: () -> Unit) {
+    when {
+        state.initialLoading || state.refreshing -> LinearProgressIndicator(Modifier.fillMaxWidth())
+
+        state.error?.phase != null && state.error.phase != LibraryBooksLoadPhase.NEXT_PAGE ->
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    state.error.failure.message(),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.labelMedium
+                )
+                OutlinedButton(onClick = onRetry) { Text("Retry") }
+            }
+    }
+}
+
+@Composable
+internal fun LoadingLibrary(modifier: Modifier) {
+    Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator()
+    }
+}
+
+@Composable
+internal fun EmptyLibrary(modifier: Modifier) {
+    Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text("No books found.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+internal fun LibraryFailure(error: LibraryBooksLoadError, onRetry: () -> Unit, modifier: Modifier) {
+    Column(
+        modifier = modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(error.failure.message(), color = MaterialTheme.colorScheme.error)
+        OutlinedButton(onClick = onRetry, modifier = Modifier.padding(top = 10.dp)) {
+            Text("Retry")
+        }
+    }
+}
+
+private fun LibraryBooksFailure.message(): String = when (this) {
+    LibraryBooksFailure.UNREACHABLE -> "Library is currently unreachable."
+    LibraryBooksFailure.AUTHENTICATION_REJECTED -> "Library authentication was rejected."
+    LibraryBooksFailure.PROTOCOL_INVALID -> "The library returned an invalid response."
+    LibraryBooksFailure.OTHER -> "Books could not be loaded."
+}

@@ -23,6 +23,7 @@ import kotlinx.coroutines.launch
 @Suppress("TooManyFunctions") // Public methods are the controller's bounded Library intents.
 internal class LibraryBooksController(
     private val clientProvider: AuthenticatedClientProvider,
+    private val displayPreferenceStore: LibraryDisplayPreferenceStore,
     private val scope: CoroutineScope
 ) {
     private val mutableState = MutableStateFlow(LibraryBooksState())
@@ -35,6 +36,7 @@ internal class LibraryBooksController(
     private var entryIdentity: String? = null
     private var requestGeneration = 0L
     private var loadJob: Job? = null
+    private var preferenceJob: Job? = null
 
     fun initializeBrowse(profile: ConnectionProfile) {
         initialize(profile, "browse", LibraryBooksMode.BROWSE, "")
@@ -92,6 +94,13 @@ internal class LibraryBooksController(
         launchPage(current.currentPage + 1, LibraryBooksLoadPhase.NEXT_PAGE)
     }
 
+    fun setLayout(layout: LibraryBooksLayout) {
+        if (mutableState.value.layout == layout) return
+        mutableState.value = mutableState.value.copy(layout = layout)
+        preferenceJob?.cancel()
+        preferenceJob = scope.launch { runCatching { displayPreferenceStore.write(layout) } }
+    }
+
     fun refresh() {
         if (profile == null || loadJob?.isActive == true) return
         requestGeneration += 1
@@ -116,6 +125,7 @@ internal class LibraryBooksController(
 
     fun close() {
         loadJob?.cancel()
+        preferenceJob?.cancel()
     }
 
     private fun initialize(
@@ -128,6 +138,7 @@ internal class LibraryBooksController(
         if (identity == entryIdentity) return
         this.profile = profile
         entryIdentity = identity
+        loadDisplayPreference()
         val ordering =
             when (mode) {
                 LibraryBooksMode.BROWSE -> LibraryBooksOrdering.Browse(BookOrdering.TITLE)
@@ -136,6 +147,16 @@ internal class LibraryBooksController(
                     LibraryBooksOrdering.BroadSearch(LibrarySearchOrdering.TITLE)
             }
         resetAndLoad(mode, query, ordering)
+    }
+
+    private fun loadDisplayPreference() {
+        preferenceJob?.cancel()
+        preferenceJob = scope.launch {
+            val layout = runCatching {
+                displayPreferenceStore.read()
+            }.getOrDefault(LibraryBooksLayout.GRID)
+            mutableState.value = mutableState.value.copy(layout = layout)
+        }
     }
 
     private fun resetCurrentAndLoad() {
@@ -149,6 +170,7 @@ internal class LibraryBooksController(
         ordering: LibraryBooksOrdering
     ) {
         if (profile == null) return
+        val current = mutableState.value
         loadJob?.cancel()
         requestGeneration += 1
         mutableState.value =
@@ -156,6 +178,10 @@ internal class LibraryBooksController(
                 mode = mode,
                 committedQuery = query,
                 ordering = ordering,
+                pageSize = current.pageSize,
+                layout = current.layout,
+                books = current.books,
+                totalCount = current.totalCount,
                 initialLoading = true
             )
         launchPage(1, LibraryBooksLoadPhase.INITIAL, requestGeneration)

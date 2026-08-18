@@ -13,9 +13,11 @@ import javax.inject.Inject
 internal class LibraryBooksViewModel
 @Inject
 constructor(
-    clientProvider: AuthenticatedClientProvider
+    clientProvider: AuthenticatedClientProvider,
+    displayPreferenceStore: LibraryDisplayPreferenceStore
 ) : ViewModel() {
-    private val controller = LibraryBooksController(clientProvider, viewModelScope)
+    private val controller =
+        LibraryBooksController(clientProvider, displayPreferenceStore, viewModelScope)
 
     val state = controller.state
     val connectionEvents = controller.connectionEvents
@@ -25,9 +27,12 @@ constructor(
     fun initializeBroadSearch(profile: ConnectionProfile, query: String) =
         controller.initializeBroadSearch(profile, query)
 
-    fun commitBrowseQuery(query: String) = controller.commitBrowseQuery(query)
-
-    fun commitBroadSearch(query: String) = controller.commitBroadSearch(query)
+    fun commitSearch(query: String) {
+        when (state.value.mode) {
+            LibraryBooksMode.BROWSE -> controller.commitBrowseQuery(query)
+            LibraryBooksMode.BROAD_SEARCH -> controller.commitBroadSearch(query)
+        }
+    }
 
     fun changeBrowseOrdering(ordering: BookOrdering) = controller.changeBrowseOrdering(ordering)
 
@@ -35,6 +40,8 @@ constructor(
         controller.changeBroadSearchOrdering(ordering)
 
     fun loadNextPage() = controller.loadNextPage()
+
+    fun setLayout(layout: LibraryBooksLayout) = controller.setLayout(layout)
 
     fun refresh() = controller.refresh()
 

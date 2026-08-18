@@ -12,7 +12,7 @@ SecondPassApp
                 ModalNavigationDrawer
                 NavDisplay
                   Home      -> library search, reading history, shelf previews
-                  Library   -> transient Books paging state + placeholder presentation
+                  Library   -> Books browse and broad-search presentation
                   Shelves   -> intentional placeholder
                   Sessions  -> intentional placeholder
                   Settings  -> connection/account diagnostics
@@ -34,6 +34,8 @@ Home search emits a `LibrarySearch` intent. The shell converts it to a typed `Li
 
 `LibraryBooksController` owns transient online Books browsing state. It translates the server's page-number contract into append-style results with an explicit page size of 50, prevents duplicate next-page requests, and discards responses made stale by mode, query, or ordering changes. Initial loads, refreshes, and next-page failures remain distinct; next-page and refresh failures retain accumulated results. The controller resolves the authenticated SDK client through the connection boundary and routes explicit authentication rejection back to connection ownership. Library pages are deliberately not stored in Room: this is browsing state, not an offline catalog projection. Its ViewModel preserves accumulated state for as long as the current navigation owner retains it.
 
-Library presentation remains an intentional placeholder while its Books state/paging owner is established. Shelves and Sessions still prove top-level routing only. Book detail, final Library list/grid presentation and preference, reader-mode navigation, deep links, nested feature graphs, and logout remain deferred.
+Library presents that state as a permanent Books surface with explicit-commit search, mode-specific typed sorting, compact list and adaptive cover-grid layouts, and scroll-proximity paging. Replacement loads retain the previously rendered books under restrained progress instead of flashing an empty surface. Coil loads public covers without credentials and the semantic Library icon owns missing-cover presentation. A dedicated DataStore preference owns only the device-local List/Grid choice; it does not alter requests or persist catalog pages. Saveable list/grid state retains each layout's scroll position while its navigation owner remains available.
+
+Shelves and Sessions still prove top-level routing only. Authors, Series, Groups, Catalog Tags, Book Detail, reader-mode navigation, deep links, nested feature graphs, and logout remain deferred.
 
 All feature-facing icons use the semantic layer documented in [Icon vocabulary](icon-vocabulary.md).

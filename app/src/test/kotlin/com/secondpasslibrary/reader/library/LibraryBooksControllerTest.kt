@@ -275,6 +275,8 @@ class LibraryBooksControllerTest {
         advanceUntilIdle()
 
         controller.commitBrowseQuery("dune")
+        assertEquals(listOf("browse"), controller.state.value.books.map { it.id })
+        assertTrue(controller.state.value.initialLoading)
         advanceUntilIdle()
 
         assertEquals(LibraryBooksMode.BROWSE, controller.state.value.mode)
@@ -329,8 +331,42 @@ class LibraryBooksControllerTest {
         )
     }
 
+    @Test
+    fun `display preference loads and changes independently of server query state`() = runTest {
+        val preference = FakeDisplayPreferenceStore(LibraryBooksLayout.LIST)
+        val controller =
+            LibraryBooksController(
+                FakeClientProvider(FakeLibraryClient()),
+                preference,
+                this
+            )
+
+        controller.initializeBrowse(profile())
+        advanceUntilIdle()
+        assertEquals(LibraryBooksLayout.LIST, controller.state.value.layout)
+
+        controller.setLayout(LibraryBooksLayout.GRID)
+        advanceUntilIdle()
+        assertEquals(LibraryBooksLayout.GRID, controller.state.value.layout)
+        assertEquals(LibraryBooksLayout.GRID, preference.layout)
+        assertEquals(BookOrdering.TITLE, preferenceUnrelatedOrdering(controller))
+    }
+
     private fun TestScope.controller(client: FakeLibraryClient) =
-        LibraryBooksController(FakeClientProvider(client), this)
+        LibraryBooksController(FakeClientProvider(client), FakeDisplayPreferenceStore(), this)
+
+    private fun preferenceUnrelatedOrdering(controller: LibraryBooksController) =
+        (controller.state.value.ordering as LibraryBooksOrdering.Browse).value
+
+    private class FakeDisplayPreferenceStore(
+        var layout: LibraryBooksLayout = LibraryBooksLayout.GRID
+    ) : LibraryDisplayPreferenceStore {
+        override suspend fun read() = layout
+
+        override suspend fun write(layout: LibraryBooksLayout) {
+            this.layout = layout
+        }
+    }
 
     private class FakeClientProvider(private val client: AuthenticatedSecondPassClient) :
         AuthenticatedClientProvider {

@@ -10,8 +10,7 @@ internal fun LibraryBooksStateHost(
     profile: ConnectionProfile,
     entry: LibraryBooksEntry,
     onAuthenticationRejected: () -> Unit,
-    viewModel: LibraryBooksViewModel = viewModel(),
-    content: @Composable () -> Unit
+    viewModel: LibraryBooksViewModel = viewModel()
 ) {
     LaunchedEffect(profile.apiBaseUrl, profile.clientSessionId, entry) {
         when (entry) {
@@ -28,5 +27,5 @@ internal fun LibraryBooksStateHost(
             }
         }
     }
-    content()
+    LibraryBooksScreen(viewModel)
 }

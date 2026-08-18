@@ -130,9 +130,7 @@ private fun LibraryDestination(
     entry: LibraryBooksEntry,
     onAuthenticationRejected: () -> Unit
 ) {
-    LibraryBooksStateHost(profile, entry, onAuthenticationRejected) {
-        DestinationPlaceholder(AppDestination.Library)
-    }
+    LibraryBooksStateHost(profile, entry, onAuthenticationRejected)
 }
 
 @Composable
