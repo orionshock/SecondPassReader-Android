@@ -63,6 +63,17 @@ Book selection enters a full-screen Library-owned detail child while leaving the
 
 The Books, Authors, and Series axes are explicit parent state and all three have concrete state owners and rendered results surfaces. Selected Author/Series contexts reuse the Books child for filtered results.
 
-Shelves and Sessions still prove top-level routing only. Reader-mode navigation, deep links, nested feature graphs, and logout remain deferred.
+Shelves now has app-owned parent/child state beneath its still-placeholder destination:
+
+```text
+ShelvesController
+  |- PersonalShelvesController
+  |- SharedShelvesController
+  `- ShelfDetailController
+```
+
+The parent owns Personal/Shared/Detail navigation and restores the originating collection after detail. Personal and Shared independently own page-50 append state, typed ordering, retries, and three-cover preview requests. Shelf Detail independently owns Shelf metadata and normal visible-item paging, so either request may fail without destroying the other; item positions remain server values and are never normalized. The editor projection and mutations are deliberately dormant until an edit workflow owns them. This transient state is not stored in the Home Room projection.
+
+The Shelves and Sessions screens still render placeholders; Shelves rendering is the next adoption step. Reader-mode navigation, deep links, nested feature graphs, and logout remain deferred.
 
 All feature-facing icons use the semantic layer documented in [Icon vocabulary](icon-vocabulary.md).
