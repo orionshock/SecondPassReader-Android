@@ -10,6 +10,15 @@ interface AuthenticatedSecondPassClient {
     suspend fun searchLibrary(
         options: LibrarySearchOptions = LibrarySearchOptions()
     ): LibraryPage<CompactBook>
+
+    suspend fun listLibraryGroups(
+        options: LibraryGroupListOptions = LibraryGroupListOptions()
+    ): LibraryPage<LibraryGroupSummary>
+
+    suspend fun listGroupBooks(
+        groupId: String,
+        options: GroupBookListOptions = GroupBookListOptions()
+    ): LibraryPage<CompactBook>
 }
 
 interface AuthenticatedSecondPassClientFactory {

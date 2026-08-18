@@ -4,6 +4,9 @@ import com.secondpasslibrary.client.AuthenticatedSecondPassClient
 import com.secondpasslibrary.client.BookListOptions
 import com.secondpasslibrary.client.BookOrdering
 import com.secondpasslibrary.client.CompactBook
+import com.secondpasslibrary.client.GroupBookListOptions
+import com.secondpasslibrary.client.LibraryGroupListOptions
+import com.secondpasslibrary.client.LibraryGroupSummary
 import com.secondpasslibrary.client.LibraryPage
 import com.secondpasslibrary.client.LibrarySearchOptions
 import com.secondpasslibrary.client.LibrarySearchOrdering
@@ -352,6 +355,132 @@ class LibraryBooksControllerTest {
         assertEquals(BookOrdering.TITLE, preferenceUnrelatedOrdering(controller))
     }
 
+    @Test
+    fun `scope capability is hidden when disabled and defaults to All Library when enabled`() =
+        runTest {
+            val disabledClient = FakeLibraryClient()
+            val disabled = controller(disabledClient)
+            disabled.initializeBrowse(profile(), advancedGroupsEnabled = false)
+            advanceUntilIdle()
+            assertFalse(disabled.state.value.advancedGroupsEnabled)
+            assertTrue(disabledClient.groupRequests.isEmpty())
+
+            val enabledClient = FakeLibraryClient().apply {
+                groupCall = { options ->
+                    if (options.page == 1) {
+                        groupPage(1, listOf(group("public", true)), hasNext = true)
+                    } else {
+                        groupPage(2, listOf(group("private", false)))
+                    }
+                }
+            }
+            val enabled = controller(enabledClient)
+            enabled.initializeBrowse(profile(), advancedGroupsEnabled = true)
+            advanceUntilIdle()
+
+            assertTrue(enabled.state.value.advancedGroupsEnabled)
+            assertEquals(LibraryScope.AllLibrary, enabled.state.value.scope)
+            assertEquals(
+                listOf("public", "private"),
+                enabled.state.value.groupSelector.groups.map {
+                    it.id
+                }
+            )
+            assertEquals(listOf(1, 2), enabledClient.groupRequests.map { it.page })
+        }
+
+    @Test
+    fun `group scope resets paging and uses group Books capability`() = runTest {
+        val client = FakeLibraryClient().apply {
+            groupCall = { groupPage(1, listOf(group("group-1", false))) }
+            groupBookCall = { _, options -> page(options.page, listOf("group-book"), 1) }
+        }
+        val controller = controller(client)
+        controller.initializeBrowse(profile(), advancedGroupsEnabled = true)
+        advanceUntilIdle()
+        controller.commitBrowseQuery("broad metadata")
+        advanceUntilIdle()
+
+        controller.selectScope(LibraryScope.Group("group-1"))
+        advanceUntilIdle()
+
+        assertEquals(LibraryScope.Group("group-1"), controller.state.value.scope)
+        assertEquals(LibraryAxis.BOOKS, controller.state.value.axis)
+        assertEquals(1, controller.state.value.currentPage)
+        assertEquals(listOf("group-book"), controller.state.value.books.map { it.id })
+        val request = client.groupBookRequests.single()
+        assertEquals("group-1", request.first)
+        assertEquals("broad metadata", request.second.q)
+    }
+
+    @Test
+    fun `All Library broad search remains distinct after leaving group scope`() = runTest {
+        val client = FakeLibraryClient().apply {
+            groupCall = { groupPage(1, listOf(group("group-1", false))) }
+        }
+        val controller = controller(client)
+        controller.initializeBroadSearch(profile(), "dune", advancedGroupsEnabled = true)
+        advanceUntilIdle()
+        controller.selectScope(LibraryScope.Group("group-1"))
+        advanceUntilIdle()
+        controller.selectScope(LibraryScope.AllLibrary)
+        advanceUntilIdle()
+
+        assertEquals(LibraryBooksMode.BROAD_SEARCH, controller.state.value.mode)
+        assertEquals("dune", controller.state.value.committedQuery)
+        assertEquals(2, client.searchRequests.size)
+        assertEquals(1, client.groupBookRequests.size)
+    }
+
+    @Test
+    fun `Home broad-search route preserves selected group scope`() = runTest {
+        val client = FakeLibraryClient().apply {
+            groupCall = { groupPage(1, listOf(group("group-1", false))) }
+        }
+        val controller = controller(client)
+        controller.initializeBrowse(profile(), advancedGroupsEnabled = true)
+        advanceUntilIdle()
+        controller.selectScope(LibraryScope.Group("group-1"))
+        advanceUntilIdle()
+        client.groupBookRequests.clear()
+
+        controller.initializeBroadSearch(profile(), "dune", advancedGroupsEnabled = true)
+        advanceUntilIdle()
+
+        assertEquals(LibraryScope.Group("group-1"), controller.state.value.scope)
+        assertEquals(LibraryAxis.BOOKS, controller.state.value.axis)
+        assertEquals("dune", client.groupBookRequests.single().second.q)
+        assertEquals(1, client.groupRequests.size)
+    }
+
+    @Test
+    fun `Authors and Series selection preserves scope without fake data loads`() = runTest {
+        val client = FakeLibraryClient().apply {
+            groupCall = {
+                groupPage(
+                    1,
+                    listOf(group("group-1", false), group("group-2", false))
+                )
+            }
+        }
+        val controller = controller(client)
+        controller.initializeBrowse(profile(), advancedGroupsEnabled = true)
+        advanceUntilIdle()
+        val bookCalls = client.bookRequests.size
+
+        controller.selectAxis(LibraryAxis.AUTHORS)
+        controller.selectScope(LibraryScope.Group("group-1"))
+        controller.selectAxis(LibraryAxis.SERIES)
+        controller.selectScope(LibraryScope.Group("group-2"))
+        advanceUntilIdle()
+
+        assertEquals(LibraryAxis.SERIES, controller.state.value.axis)
+        assertEquals(LibraryScope.Group("group-2"), controller.state.value.scope)
+        assertEquals(bookCalls, client.bookRequests.size)
+        assertTrue(client.groupBookRequests.isEmpty())
+        assertEquals(0, controller.state.value.currentPage)
+    }
+
     private fun TestScope.controller(client: FakeLibraryClient) =
         LibraryBooksController(FakeClientProvider(client), FakeDisplayPreferenceStore(), this)
 
@@ -376,12 +505,21 @@ class LibraryBooksControllerTest {
     private class FakeLibraryClient : AuthenticatedSecondPassClient {
         val bookRequests = mutableListOf<BookListOptions>()
         val searchRequests = mutableListOf<LibrarySearchOptions>()
+        val groupRequests = mutableListOf<LibraryGroupListOptions>()
+        val groupBookRequests = mutableListOf<Pair<String, GroupBookListOptions>>()
         var listCall: suspend (BookListOptions) -> LibraryPage<CompactBook> = {
             page(it.page, emptyList(), 0)
         }
         var searchCall: suspend (LibrarySearchOptions) -> LibraryPage<CompactBook> = {
             page(it.page, emptyList(), 0)
         }
+        var groupCall: suspend (LibraryGroupListOptions) -> LibraryPage<LibraryGroupSummary> = {
+            LibraryPage(0, emptyList(), false, false, it.page, it.pageSize)
+        }
+        var groupBookCall:
+            suspend (String, GroupBookListOptions) -> LibraryPage<CompactBook> = { _, options ->
+                page(options.page, emptyList(), 0)
+            }
 
         override suspend fun listBooks(options: BookListOptions): LibraryPage<CompactBook> {
             bookRequests += options
@@ -395,6 +533,21 @@ class LibraryBooksControllerTest {
             return searchCall(options)
         }
 
+        override suspend fun listLibraryGroups(
+            options: LibraryGroupListOptions
+        ): LibraryPage<LibraryGroupSummary> {
+            groupRequests += options
+            return groupCall(options)
+        }
+
+        override suspend fun listGroupBooks(
+            groupId: String,
+            options: GroupBookListOptions
+        ): LibraryPage<CompactBook> {
+            groupBookRequests += groupId to options
+            return groupBookCall(groupId, options)
+        }
+
         override suspend fun recentReading(options: RecentReadingOptions): List<RecentReadingItem> =
             error("Recent reading is outside this Library fixture.")
 
@@ -403,6 +556,18 @@ class LibraryBooksControllerTest {
     }
 
     private companion object {
+        fun group(id: String, public: Boolean) = LibraryGroupSummary(id, id, public)
+
+        fun groupPage(number: Int, groups: List<LibraryGroupSummary>, hasNext: Boolean = false) =
+            LibraryPage(
+                totalCount = groups.size,
+                results = groups,
+                hasNext = hasNext,
+                hasPrevious = number > 1,
+                page = number,
+                pageSize = 200
+            )
+
         fun page(number: Int, ids: List<String>, total: Int, hasNext: Boolean = false) =
             LibraryPage(
                 totalCount = total,

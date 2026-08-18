@@ -9,15 +9,17 @@ import com.secondpasslibrary.reader.connection.ConnectionProfile
 internal fun LibraryBooksStateHost(
     profile: ConnectionProfile,
     entry: LibraryBooksEntry,
+    advancedGroupsEnabled: Boolean,
     onAuthenticationRejected: () -> Unit,
     viewModel: LibraryBooksViewModel = viewModel()
 ) {
-    LaunchedEffect(profile.apiBaseUrl, profile.clientSessionId, entry) {
+    LaunchedEffect(profile.apiBaseUrl, profile.clientSessionId, entry, advancedGroupsEnabled) {
         when (entry) {
-            LibraryBooksEntry.Browse -> viewModel.initializeBrowse(profile)
+            LibraryBooksEntry.Browse ->
+                viewModel.initializeBrowse(profile, advancedGroupsEnabled)
 
             is LibraryBooksEntry.BroadSearch ->
-                viewModel.initializeBroadSearch(profile, entry.query)
+                viewModel.initializeBroadSearch(profile, entry.query, advancedGroupsEnabled)
         }
     }
     LaunchedEffect(viewModel, onAuthenticationRejected) {

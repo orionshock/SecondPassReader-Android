@@ -19,6 +19,9 @@ internal fun LibraryBooksScreen(viewModel: LibraryBooksViewModel) {
         onSearch = viewModel::commitSearch,
         onOrderingSelected = { ordering -> viewModel.selectOrdering(ordering) },
         onLayoutSelected = viewModel::setLayout,
+        onScopeSelected = viewModel::selectScope,
+        onAxisSelected = viewModel::selectAxis,
+        onRetryGroups = viewModel::retryGroups,
         onLoadNextPage = viewModel::loadNextPage,
         onRetry = viewModel::retry
     )
@@ -30,6 +33,9 @@ private fun LibraryBooksContent(
     onSearch: (String) -> Unit,
     onOrderingSelected: (LibraryBooksOrdering) -> Unit,
     onLayoutSelected: (LibraryBooksLayout) -> Unit,
+    onScopeSelected: (LibraryScope) -> Unit,
+    onAxisSelected: (LibraryAxis) -> Unit,
+    onRetryGroups: () -> Unit,
     onLoadNextPage: () -> Unit,
     onRetry: () -> Unit
 ) {
@@ -39,10 +45,30 @@ private fun LibraryBooksContent(
             onSearch,
             onOrderingSelected,
             onLayoutSelected,
+            onScopeSelected,
+            onAxisSelected,
+            onRetryGroups,
             Modifier.padding(top = 14.dp, bottom = 12.dp)
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        LibraryBooksResults(state, onLoadNextPage, onRetry, Modifier.weight(1f))
+        if (state.axis == LibraryAxis.BOOKS) {
+            LibraryBooksResults(state, onLoadNextPage, onRetry, Modifier.weight(1f))
+        } else {
+            LibraryAxisPlaceholder(state.axis, Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun LibraryAxisPlaceholder(axis: LibraryAxis, modifier: Modifier) {
+    androidx.compose.foundation.layout.Box(
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = androidx.compose.ui.Alignment.Center
+    ) {
+        androidx.compose.material3.Text(
+            "${if (axis == LibraryAxis.AUTHORS) "Authors" else "Series"} browsing is coming next.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

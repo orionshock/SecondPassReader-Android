@@ -1,10 +1,12 @@
 package com.secondpasslibrary.client
 
 import com.secondpasslibrary.client.internal.CompactBookPageWire
+import com.secondpasslibrary.client.internal.LibraryGroupPageWire
 import com.secondpasslibrary.client.internal.RecentReadingResponseWire
 import com.secondpasslibrary.client.internal.ShelfPageWire
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.http.encodeURLPathPart
 import java.io.IOException
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerializationException
@@ -73,6 +75,40 @@ internal class KtorAuthenticatedSecondPassClient(
             add("page_size" to options.pageSize.toString())
         }
         val response = requests.get("library/search", parameters)
+        return decode<CompactBookPageWire>(response.body(), "book page")
+            .toModel(options.page, options.pageSize)
+    }
+
+    override suspend fun listLibraryGroups(
+        options: LibraryGroupListOptions
+    ): LibraryPage<LibraryGroupSummary> {
+        val parameters =
+            listOf(
+                "ordering" to options.ordering.queryValue,
+                "page" to options.page.toString(),
+                "page_size" to options.pageSize.toString()
+            )
+        val response = requests.get("library/groups/", parameters)
+        return decode<LibraryGroupPageWire>(response.body(), "library group page")
+            .toModel(options.page, options.pageSize)
+    }
+
+    override suspend fun listGroupBooks(
+        groupId: String,
+        options: GroupBookListOptions
+    ): LibraryPage<CompactBook> {
+        require(groupId.isNotBlank()) { "Library group ID must not be blank." }
+        val parameters = buildList {
+            options.q?.let { add("q" to it) }
+            options.ordering?.let { add("ordering" to it.queryValue) }
+            add("page" to options.page.toString())
+            add("page_size" to options.pageSize.toString())
+        }
+        val response =
+            requests.get(
+                "library/groups/${groupId.encodeURLPathPart()}/books/",
+                parameters
+            )
         return decode<CompactBookPageWire>(response.body(), "book page")
             .toModel(options.page, options.pageSize)
     }

@@ -36,6 +36,9 @@ internal fun LibraryBooksControls(
     onSearch: (String) -> Unit,
     onOrderingSelected: (LibraryBooksOrdering) -> Unit,
     onLayoutSelected: (LibraryBooksLayout) -> Unit,
+    onScopeSelected: (LibraryScope) -> Unit,
+    onAxisSelected: (LibraryAxis) -> Unit,
+    onRetryGroups: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var query by rememberSaveable(state.mode, state.committedQuery) {
@@ -46,7 +49,7 @@ internal fun LibraryBooksControls(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Books", style = MaterialTheme.typography.titleLarge)
+            Text(state.axis.label, style = MaterialTheme.typography.titleLarge)
             Text(
                 if (state.mode ==
                     LibraryBooksMode.BROAD_SEARCH
@@ -58,7 +61,7 @@ internal fun LibraryBooksControls(
                 color = MaterialTheme.colorScheme.primary,
                 style = MaterialTheme.typography.labelMedium
             )
-            if (state.currentPage > 0) {
+            if (state.axis == LibraryAxis.BOOKS && state.currentPage > 0) {
                 Text(
                     "${state.totalCount} ${if (state.totalCount == 1) "book" else "books"}",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -66,25 +69,20 @@ internal fun LibraryBooksControls(
                 )
             }
         }
-        SearchRow(state.mode, query, { query = it }) { onSearch(query) }
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
-            val compact = maxWidth < 560.dp
-            if (compact) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OrderingMenu(state, onOrderingSelected)
-                    LayoutChoices(state.layout, onLayoutSelected)
-                }
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OrderingMenu(state, onOrderingSelected)
-                    LayoutChoices(state.layout, onLayoutSelected)
-                }
-            }
-        }
+        SearchRow(
+            state.mode,
+            query,
+            state.axis == LibraryAxis.BOOKS,
+            { query = it }
+        ) { onSearch(query) }
+        LibrarySelectorRow(
+            state,
+            onScopeSelected,
+            onAxisSelected,
+            onRetryGroups,
+            { OrderingMenu(state, onOrderingSelected) },
+            { LayoutChoices(state.layout, onLayoutSelected) }
+        )
     }
 }
 
@@ -92,6 +90,7 @@ internal fun LibraryBooksControls(
 private fun SearchRow(
     mode: LibraryBooksMode,
     query: String,
+    enabled: Boolean,
     onQueryChanged: (String) -> Unit,
     onSearch: () -> Unit
 ) {
@@ -108,6 +107,7 @@ private fun SearchRow(
         OutlinedTextField(
             value = query,
             onValueChange = onQueryChanged,
+            enabled = enabled,
             modifier = Modifier.weight(1f),
             placeholder = {
                 Text(
@@ -123,12 +123,19 @@ private fun SearchRow(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { submit() })
         )
-        Button(onClick = submit) {
+        Button(onClick = submit, enabled = enabled) {
             AppIconGraphic(AppIcon.Search, null)
             Text("Search", Modifier.padding(start = 6.dp))
         }
     }
 }
+
+private val LibraryAxis.label: String
+    get() = when (this) {
+        LibraryAxis.BOOKS -> "Books"
+        LibraryAxis.AUTHORS -> "Authors"
+        LibraryAxis.SERIES -> "Series"
+    }
 
 @Composable
 private fun OrderingMenu(

@@ -12,6 +12,21 @@ internal data class CompactBookPageWire(
 )
 
 @Serializable
+internal data class LibraryGroupPageWire(
+    val count: Int? = null,
+    val next: String? = null,
+    val previous: String? = null,
+    val results: List<LibraryGroupWire>? = null
+)
+
+@Serializable
+internal data class LibraryGroupWire(
+    val id: String? = null,
+    val name: String? = null,
+    @SerialName("is_public_group") val isPublicGroup: Boolean? = null
+)
+
+@Serializable
 internal data class CompactBookWire(
     val id: String? = null,
     val title: String? = null,

@@ -3,6 +3,9 @@ package com.secondpasslibrary.reader.home
 import com.secondpasslibrary.client.AuthenticatedSecondPassClient
 import com.secondpasslibrary.client.BookListOptions
 import com.secondpasslibrary.client.CompactBook
+import com.secondpasslibrary.client.GroupBookListOptions
+import com.secondpasslibrary.client.LibraryGroupListOptions
+import com.secondpasslibrary.client.LibraryGroupSummary
 import com.secondpasslibrary.client.LibraryPage
 import com.secondpasslibrary.client.LibrarySearchOptions
 import com.secondpasslibrary.client.ReadingSessionStatus
@@ -104,6 +107,16 @@ internal class FakeHomeAuthenticatedClient : AuthenticatedSecondPassClient {
 
     override suspend fun searchLibrary(options: LibrarySearchOptions): LibraryPage<CompactBook> =
         error("Library search is outside this Home projection fixture.")
+
+    override suspend fun listLibraryGroups(
+        options: LibraryGroupListOptions
+    ): LibraryPage<LibraryGroupSummary> =
+        error("Library groups are outside this Home projection fixture.")
+
+    override suspend fun listGroupBooks(
+        groupId: String,
+        options: GroupBookListOptions
+    ): LibraryPage<CompactBook> = error("Group books are outside this Home projection fixture.")
 }
 
 internal fun homeRepository(

@@ -104,12 +104,18 @@ private fun AuthenticatedDestinations(
                     HomeDestination(profile, context, navigator, onAuthenticationRejected)
                 }
                 entry(key = AppDestination.Library) {
-                    LibraryDestination(profile, LibraryBooksEntry.Browse, onAuthenticationRejected)
+                    LibraryDestination(
+                        profile,
+                        LibraryBooksEntry.Browse,
+                        context.serverInfo.advancedLibraryGroupsEnabled,
+                        onAuthenticationRejected
+                    )
                 }
                 entry<LibrarySearchRoute> { route ->
                     LibraryDestination(
                         profile,
                         LibraryBooksEntry.BroadSearch(route.query),
+                        context.serverInfo.advancedLibraryGroupsEnabled,
                         onAuthenticationRejected
                     )
                 }
@@ -128,9 +134,10 @@ private fun AuthenticatedDestinations(
 private fun LibraryDestination(
     profile: ConnectionProfile,
     entry: LibraryBooksEntry,
+    advancedGroupsEnabled: Boolean,
     onAuthenticationRejected: () -> Unit
 ) {
-    LibraryBooksStateHost(profile, entry, onAuthenticationRejected)
+    LibraryBooksStateHost(profile, entry, advancedGroupsEnabled, onAuthenticationRejected)
 }
 
 @Composable

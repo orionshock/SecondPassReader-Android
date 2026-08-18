@@ -10,6 +10,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
 @HiltViewModel
+@Suppress("TooManyFunctions") // Typed UI intents remain on the feature ViewModel facade.
 internal class LibraryBooksViewModel
 @Inject
 constructor(
@@ -22,10 +23,14 @@ constructor(
     val state = controller.state
     val connectionEvents = controller.connectionEvents
 
-    fun initializeBrowse(profile: ConnectionProfile) = controller.initializeBrowse(profile)
+    fun initializeBrowse(profile: ConnectionProfile, advancedGroupsEnabled: Boolean) =
+        controller.initializeBrowse(profile, advancedGroupsEnabled)
 
-    fun initializeBroadSearch(profile: ConnectionProfile, query: String) =
-        controller.initializeBroadSearch(profile, query)
+    fun initializeBroadSearch(
+        profile: ConnectionProfile,
+        query: String,
+        advancedGroupsEnabled: Boolean
+    ) = controller.initializeBroadSearch(profile, query, advancedGroupsEnabled)
 
     fun commitSearch(query: String) {
         when (state.value.mode) {
@@ -42,6 +47,12 @@ constructor(
     fun loadNextPage() = controller.loadNextPage()
 
     fun setLayout(layout: LibraryBooksLayout) = controller.setLayout(layout)
+
+    fun selectScope(scope: LibraryScope) = controller.selectScope(scope)
+
+    fun selectAxis(axis: LibraryAxis) = controller.selectAxis(axis)
+
+    fun retryGroups() = controller.retryGroups()
 
     fun refresh() = controller.refresh()
 

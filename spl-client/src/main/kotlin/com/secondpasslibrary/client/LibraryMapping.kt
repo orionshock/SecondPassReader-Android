@@ -5,9 +5,13 @@ import com.secondpasslibrary.client.internal.BookSeriesWire
 import com.secondpasslibrary.client.internal.CatalogTagWire
 import com.secondpasslibrary.client.internal.CompactBookPageWire
 import com.secondpasslibrary.client.internal.CompactBookWire
+import com.secondpasslibrary.client.internal.LibraryGroupPageWire
+import com.secondpasslibrary.client.internal.LibraryGroupWire
 
 private const val COMPACT_BOOK_CONTEXT = "compact book"
 private const val BOOK_PAGE_CONTEXT = "book page"
+private const val GROUP_CONTEXT = "library group"
+private const val GROUP_PAGE_CONTEXT = "library group page"
 
 internal fun CompactBookPageWire.toModel(page: Int, pageSize: Int): LibraryPage<CompactBook> {
     val totalCount = count ?: invalidProtocol(BOOK_PAGE_CONTEXT)
@@ -21,6 +25,28 @@ internal fun CompactBookPageWire.toModel(page: Int, pageSize: Int): LibraryPage<
         pageSize = pageSize
     )
 }
+
+internal fun LibraryGroupPageWire.toModel(
+    page: Int,
+    pageSize: Int
+): LibraryPage<LibraryGroupSummary> {
+    val totalCount = count ?: invalidProtocol(GROUP_PAGE_CONTEXT)
+    if (totalCount < 0) invalidProtocol(GROUP_PAGE_CONTEXT)
+    return LibraryPage(
+        totalCount = totalCount,
+        results = results?.map(LibraryGroupWire::toModel) ?: invalidProtocol(GROUP_PAGE_CONTEXT),
+        hasNext = next != null,
+        hasPrevious = previous != null,
+        page = page,
+        pageSize = pageSize
+    )
+}
+
+private fun LibraryGroupWire.toModel() = LibraryGroupSummary(
+    id = id.required(GROUP_CONTEXT),
+    name = name.required(GROUP_CONTEXT),
+    isPublicGroup = isPublicGroup ?: invalidProtocol(GROUP_CONTEXT)
+)
 
 private fun CompactBookWire.toModel(): CompactBook = CompactBook(
     id = id.required(COMPACT_BOOK_CONTEXT),

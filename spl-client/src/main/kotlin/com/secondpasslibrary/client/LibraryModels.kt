@@ -28,6 +28,27 @@ data class LibrarySearchOptions(
     }
 }
 
+data class LibraryGroupListOptions(
+    val ordering: LibraryGroupOrdering = LibraryGroupOrdering.NAME,
+    val page: Int = DEFAULT_LIBRARY_PAGE,
+    val pageSize: Int = DEFAULT_LIBRARY_PAGE_SIZE
+) {
+    init {
+        validateLibraryPage(page, pageSize)
+    }
+}
+
+data class GroupBookListOptions(
+    val q: String? = null,
+    val ordering: BookOrdering? = null,
+    val page: Int = DEFAULT_LIBRARY_PAGE,
+    val pageSize: Int = DEFAULT_LIBRARY_PAGE_SIZE
+) {
+    init {
+        validateLibraryPage(page, pageSize)
+    }
+}
+
 enum class BookOrdering(internal val queryValue: String) {
     TITLE("title"),
     TITLE_DESCENDING("-title"),
@@ -49,6 +70,13 @@ enum class LibrarySearchOrdering(internal val queryValue: String) {
     SERIES("series"),
     SERIES_DESCENDING("-series")
 }
+
+enum class LibraryGroupOrdering(internal val queryValue: String) {
+    NAME("name"),
+    NAME_DESCENDING("-name")
+}
+
+data class LibraryGroupSummary(val id: String, val name: String, val isPublicGroup: Boolean)
 
 data class LibraryPage<T>(
     val totalCount: Int,

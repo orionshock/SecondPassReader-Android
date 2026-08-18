@@ -4,6 +4,9 @@ import com.secondpasslibrary.client.AuthenticatedSecondPassClient
 import com.secondpasslibrary.client.BookListOptions
 import com.secondpasslibrary.client.BookOrdering
 import com.secondpasslibrary.client.CompactBook
+import com.secondpasslibrary.client.GroupBookListOptions
+import com.secondpasslibrary.client.LibraryGroupListOptions
+import com.secondpasslibrary.client.LibraryGroupOrdering
 import com.secondpasslibrary.client.LibraryPage
 import com.secondpasslibrary.client.LibrarySearchOptions
 import com.secondpasslibrary.client.LibrarySearchOrdering
@@ -34,16 +37,28 @@ internal class LibraryBooksController(
 
     private var profile: ConnectionProfile? = null
     private var entryIdentity: String? = null
+    private var connectionIdentity: String? = null
     private var requestGeneration = 0L
     private var loadJob: Job? = null
     private var preferenceJob: Job? = null
+    private var groupsJob: Job? = null
 
-    fun initializeBrowse(profile: ConnectionProfile) {
-        initialize(profile, "browse", LibraryBooksMode.BROWSE, "")
+    fun initializeBrowse(profile: ConnectionProfile, advancedGroupsEnabled: Boolean = false) {
+        initialize(profile, "browse", LibraryBooksMode.BROWSE, "", advancedGroupsEnabled)
     }
 
-    fun initializeBroadSearch(profile: ConnectionProfile, query: String) {
-        initialize(profile, "broad\u0000$query", LibraryBooksMode.BROAD_SEARCH, query)
+    fun initializeBroadSearch(
+        profile: ConnectionProfile,
+        query: String,
+        advancedGroupsEnabled: Boolean = false
+    ) {
+        initialize(
+            profile,
+            "broad\u0000$query",
+            LibraryBooksMode.BROAD_SEARCH,
+            query,
+            advancedGroupsEnabled
+        )
     }
 
     fun commitBrowseQuery(query: String) {
@@ -101,6 +116,31 @@ internal class LibraryBooksController(
         preferenceJob = scope.launch { runCatching { displayPreferenceStore.write(layout) } }
     }
 
+    fun selectScope(scope: LibraryScope) {
+        val current = mutableState.value
+        if (current.scope == scope) return
+        if (scope is LibraryScope.Group &&
+            current.groupSelector.groups.none { it.id == scope.id }
+        ) {
+            return
+        }
+        mutableState.value = current.copy(scope = scope)
+        if (current.axis == LibraryAxis.BOOKS) {
+            resetCurrentAndLoad()
+        } else {
+            clearPagingForDeferredAxis()
+        }
+    }
+
+    fun selectAxis(axis: LibraryAxis) {
+        val current = mutableState.value
+        if (current.axis == axis) return
+        mutableState.value = current.copy(axis = axis)
+        if (axis == LibraryAxis.BOOKS && current.currentPage == 0) resetCurrentAndLoad()
+    }
+
+    fun retryGroups() = loadGroups()
+
     fun refresh() {
         if (profile == null || loadJob?.isActive == true) return
         requestGeneration += 1
@@ -126,27 +166,105 @@ internal class LibraryBooksController(
     fun close() {
         loadJob?.cancel()
         preferenceJob?.cancel()
+        groupsJob?.cancel()
     }
 
     private fun initialize(
         profile: ConnectionProfile,
         entry: String,
         mode: LibraryBooksMode,
-        query: String
+        query: String,
+        advancedGroupsEnabled: Boolean
     ) {
-        val identity = "${profile.apiBaseUrl}\u0000${profile.clientSessionId}\u0000$entry"
+        val connection =
+            "${profile.apiBaseUrl}\u0000${profile.clientSessionId}\u0000$advancedGroupsEnabled"
+        val identity = "$connection\u0000$entry"
         if (identity == entryIdentity) return
+        val previous = mutableState.value
+        val sameConnection = connection == connectionIdentity
         this.profile = profile
+        connectionIdentity = connection
         entryIdentity = identity
+        mutableState.value =
+            LibraryBooksState(
+                mode = mode,
+                committedQuery = query,
+                ordering = defaultOrdering(mode),
+                layout = previous.layout,
+                scope =
+                    if (sameConnection && advancedGroupsEnabled) {
+                        previous.scope
+                    } else {
+                        LibraryScope.AllLibrary
+                    },
+                advancedGroupsEnabled = advancedGroupsEnabled,
+                groupSelector =
+                    if (sameConnection && advancedGroupsEnabled) {
+                        previous.groupSelector
+                    } else {
+                        LibraryGroupSelectorState(loading = advancedGroupsEnabled)
+                    }
+            )
         loadDisplayPreference()
-        val ordering =
-            when (mode) {
-                LibraryBooksMode.BROWSE -> LibraryBooksOrdering.Browse(BookOrdering.TITLE)
+        resetAndLoad(mode, query, defaultOrdering(mode))
+        if (advancedGroupsEnabled && !mutableState.value.groupSelector.loaded) loadGroups()
+    }
 
-                LibraryBooksMode.BROAD_SEARCH ->
-                    LibraryBooksOrdering.BroadSearch(LibrarySearchOrdering.TITLE)
+    private fun defaultOrdering(mode: LibraryBooksMode): LibraryBooksOrdering = when (mode) {
+        LibraryBooksMode.BROWSE -> LibraryBooksOrdering.Browse(BookOrdering.TITLE)
+
+        LibraryBooksMode.BROAD_SEARCH ->
+            LibraryBooksOrdering.BroadSearch(LibrarySearchOrdering.TITLE)
+    }
+
+    private fun loadGroups() {
+        val activeProfile = profile ?: return
+        if (!mutableState.value.advancedGroupsEnabled || groupsJob?.isActive == true) return
+        mutableState.value =
+            mutableState.value.copy(
+                groupSelector = mutableState.value.groupSelector.copy(
+                    loading = true,
+                    failure = null
+                )
+            )
+        groupsJob = scope.launch {
+            val result = runCatching {
+                val client = clientProvider.forProfile(activeProfile)
+                buildList {
+                    var pageNumber = 1
+                    do {
+                        val page =
+                            client.listLibraryGroups(
+                                LibraryGroupListOptions(
+                                    ordering = LibraryGroupOrdering.NAME,
+                                    page = pageNumber,
+                                    pageSize = MAX_GROUP_SELECTOR_PAGE_SIZE
+                                )
+                            )
+                        addAll(page.results)
+                        pageNumber += 1
+                    } while (page.hasNext)
+                }
             }
-        resetAndLoad(mode, query, ordering)
+            (result.exceptionOrNull() as? CancellationException)?.let { throw it }
+            result.fold(
+                onSuccess = { groups ->
+                    mutableState.value =
+                        mutableState.value.copy(
+                            groupSelector =
+                                LibraryGroupSelectorState(loaded = true, groups = groups)
+                        )
+                },
+                onFailure = { failure ->
+                    val classified = failure.toLibraryBooksFailure()
+                    mutableState.value =
+                        mutableState.value.copy(
+                            groupSelector = LibraryGroupSelectorState(failure = classified)
+                        )
+                    reportAuthenticationRejection(classified)
+                }
+            )
+        }
     }
 
     private fun loadDisplayPreference() {
@@ -180,11 +298,31 @@ internal class LibraryBooksController(
                 ordering = ordering,
                 pageSize = current.pageSize,
                 layout = current.layout,
+                axis = current.axis,
+                scope = current.scope,
+                advancedGroupsEnabled = current.advancedGroupsEnabled,
+                groupSelector = current.groupSelector,
                 books = current.books,
                 totalCount = current.totalCount,
                 initialLoading = true
             )
         launchPage(1, LibraryBooksLoadPhase.INITIAL, requestGeneration)
+    }
+
+    private fun clearPagingForDeferredAxis() {
+        loadJob?.cancel()
+        requestGeneration += 1
+        mutableState.value =
+            mutableState.value.copy(
+                books = emptyList(),
+                totalCount = 0,
+                initialLoading = false,
+                nextPageLoading = false,
+                refreshing = false,
+                error = null,
+                hasNext = false,
+                currentPage = 0
+            )
     }
 
     private fun launchPage(
@@ -249,7 +387,11 @@ internal class LibraryBooksController(
                 refreshing = false,
                 error = LibraryBooksLoadError(classified, phase)
             )
-        if (classified == LibraryBooksFailure.AUTHENTICATION_REJECTED) {
+        reportAuthenticationRejection(classified)
+    }
+
+    private fun reportAuthenticationRejection(failure: LibraryBooksFailure) {
+        if (failure == LibraryBooksFailure.AUTHENTICATION_REJECTED) {
             connectionEventChannel.trySend(LibraryBooksConnectionEvent.AuthenticationRejected)
         }
     }
@@ -259,42 +401,77 @@ private data class LibraryBooksRequest(
     val mode: LibraryBooksMode,
     val query: String,
     val ordering: LibraryBooksOrdering,
+    val scope: LibraryScope,
     val page: Int,
     val pageSize: Int
 ) {
     suspend fun load(client: AuthenticatedSecondPassClient): LibraryPage<CompactBook> =
-        when (mode) {
-            LibraryBooksMode.BROWSE ->
-                client.listBooks(
-                    BookListOptions(
+        when (val selectedScope = scope) {
+            is LibraryScope.Group ->
+                client.listGroupBooks(
+                    selectedScope.id,
+                    GroupBookListOptions(
                         q = query.takeIf(String::isNotBlank),
-                        ordering = (ordering as LibraryBooksOrdering.Browse).value,
+                        ordering = ordering.toBookOrdering(),
                         page = page,
                         pageSize = pageSize
                     )
                 )
 
-            LibraryBooksMode.BROAD_SEARCH ->
-                client.searchLibrary(
-                    LibrarySearchOptions(
-                        q = query,
-                        ordering = (ordering as LibraryBooksOrdering.BroadSearch).value,
-                        page = page,
-                        pageSize = pageSize
-                    )
-                )
+            LibraryScope.AllLibrary -> loadAllLibrary(client)
         }
+
+    private suspend fun loadAllLibrary(
+        client: AuthenticatedSecondPassClient
+    ): LibraryPage<CompactBook> = when (mode) {
+        LibraryBooksMode.BROWSE ->
+            client.listBooks(
+                BookListOptions(
+                    q = query.takeIf(String::isNotBlank),
+                    ordering = (ordering as LibraryBooksOrdering.Browse).value,
+                    page = page,
+                    pageSize = pageSize
+                )
+            )
+
+        LibraryBooksMode.BROAD_SEARCH ->
+            client.searchLibrary(
+                LibrarySearchOptions(
+                    q = query,
+                    ordering = (ordering as LibraryBooksOrdering.BroadSearch).value,
+                    page = page,
+                    pageSize = pageSize
+                )
+            )
+    }
 
     companion object {
         fun from(state: LibraryBooksState, page: Int) = LibraryBooksRequest(
             state.mode,
             state.committedQuery,
             state.ordering,
+            state.scope,
             page,
             state.pageSize
         )
     }
 }
+
+private fun LibraryBooksOrdering.toBookOrdering(): BookOrdering = when (this) {
+    is LibraryBooksOrdering.Browse -> value
+
+    is LibraryBooksOrdering.BroadSearch ->
+        when (value) {
+            LibrarySearchOrdering.TITLE -> BookOrdering.TITLE
+            LibrarySearchOrdering.TITLE_DESCENDING -> BookOrdering.TITLE_DESCENDING
+            LibrarySearchOrdering.AUTHOR -> BookOrdering.AUTHOR
+            LibrarySearchOrdering.AUTHOR_DESCENDING -> BookOrdering.AUTHOR_DESCENDING
+            LibrarySearchOrdering.SERIES -> BookOrdering.SERIES
+            LibrarySearchOrdering.SERIES_DESCENDING -> BookOrdering.SERIES_DESCENDING
+        }
+}
+
+private const val MAX_GROUP_SELECTOR_PAGE_SIZE = 200
 
 private fun Throwable.toLibraryBooksFailure(): LibraryBooksFailure = when (this) {
     is SplClientException.ServerUnreachable -> LibraryBooksFailure.UNREACHABLE
