@@ -5,5 +5,58 @@
       "path": "."
     }
   ],
-  "settings": {}
+  "settings": {
+    "LineCount.showStatusBarItem": true,
+    "LineCount.includes": [
+      "app/src/main/**/*.kt",
+      "app/src/main/**/*.java",
+      "app/src/main/**/*.xml",
+      "spl-client/src/main/**/*.kt",
+      "spl-client/src/main/**/*.java",
+      "spl-client/src/main/**/*.xml"
+    ],
+    "LineCount.excludes": [
+      "**/.git/**",
+      "**/.gradle/**",
+      "**/.kotlin/**",
+      "**/.idea/**",
+      "**/.vscode/**",
+      "**/build/**",
+      "**/captures/**",
+      "**/out/**",
+      "**/.linecount/**"
+    ],
+    "LineCount.comment": [
+      {
+        "ext": ["kt", "kts", "java"],
+        "separator": {
+          "linecomment": "//",
+          "linetol": false,
+          "blockstart": "/*",
+          "blockend": "*/",
+          "blocktol": false,
+          "string": {
+            "doublequotes": true,
+            "singlequotes": true
+          }
+        }
+      },
+      {
+        "ext": ["xml"],
+        "separator": {
+          "blockstart": "<!--",
+          "blockend": "-->"
+        }
+      }
+    ],
+    "LineCount.output": {
+      "txt": true,
+      "json": false,
+      "csv": false,
+      "md": false,
+      "outdir": ".linecount"
+    },
+    "LineCount.sort": "filename",
+    "LineCount.order": "asc"
+  }
 }

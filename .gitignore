@@ -1,5 +1,6 @@
 .gradle/
 .kotlin/
+.linecount/
 **/build/
 local.properties
 .idea/
@@ -12,4 +13,3 @@ captures/
 *.hprof
 Thumbs.db
 .DS_Store
-

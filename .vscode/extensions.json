@@ -2,6 +2,7 @@
   "recommendations": [
     "JetBrains.kotlin-server",
     "vscjava.vscode-gradle",
-    "openai.chatgpt"
+    "openai.chatgpt",
+    "yycalm.linecount"
   ]
 }
