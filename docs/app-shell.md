@@ -12,7 +12,7 @@ SecondPassApp
                 ModalNavigationDrawer
                 NavDisplay
                   Home      -> library search, reading history, shelf previews
-                  Library   -> intentional placeholder
+                  Library   -> transient Books paging state + placeholder presentation
                   Shelves   -> intentional placeholder
                   Sessions  -> intentional placeholder
                   Settings  -> connection/account diagnostics
@@ -30,8 +30,10 @@ Room `3.0.1` now provides a bounded Home resilience projection. It stores accoun
 
 `HomeProjectionRepository` owns Home's local/remote arbitration boundary: `HomeController -> HomeProjectionRepository -> Room + authenticated :spl-client`. Home publishes last-known-good Room content before refreshing from the canonical server, replaces only the successfully refreshed account/query projection, and represents content independently from refresh state. Cached cards remain visible under restrained refresh progress, offline, or retry feedback. Reading History variants and Shelves refresh independently. Authentication rejection returns through the shell to connection policy without letting Home clear credentials. The repository exists for this bounded arbitration; it is not a general offline catalog mirror.
 
-Home search emits a `LibrarySearch` intent. The shell converts it to a `LibrarySearchRoute` that retains the query while Library remains a placeholder; Home does not call the Library API. The useful linked server, account, group, and client-session diagnostics now belong to Settings.
+Home search emits a `LibrarySearch` intent. The shell converts it to a typed `LibrarySearchRoute`; Library initializes explicit broad-search state from that committed query and calls the distinct SDK broad-search capability. Normal Library entry initializes Books-browse state instead. Home does not call either Library API.
 
-Library, Shelves, and Sessions still prove top-level routing only. Reader-mode navigation, deep links, nested feature graphs, logout, and destination-specific ViewModel scoping remain deferred.
+`LibraryBooksController` owns transient online Books browsing state. It translates the server's page-number contract into append-style results with an explicit page size of 50, prevents duplicate next-page requests, and discards responses made stale by mode, query, or ordering changes. Initial loads, refreshes, and next-page failures remain distinct; next-page and refresh failures retain accumulated results. The controller resolves the authenticated SDK client through the connection boundary and routes explicit authentication rejection back to connection ownership. Library pages are deliberately not stored in Room: this is browsing state, not an offline catalog projection. Its ViewModel preserves accumulated state for as long as the current navigation owner retains it.
+
+Library presentation remains an intentional placeholder while its Books state/paging owner is established. Shelves and Sessions still prove top-level routing only. Book detail, final Library list/grid presentation and preference, reader-mode navigation, deep links, nested feature graphs, and logout remain deferred.
 
 All feature-facing icons use the semantic layer documented in [Icon vocabulary](icon-vocabulary.md).

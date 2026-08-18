@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
@@ -30,6 +31,8 @@ import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 import com.secondpasslibrary.reader.home.AuthenticatedHome
 import com.secondpasslibrary.reader.home.HomeNavigationIntent
+import com.secondpasslibrary.reader.library.LibraryBooksEntry
+import com.secondpasslibrary.reader.library.LibraryBooksStateHost
 import com.secondpasslibrary.reader.settings.LinkedSettings
 import kotlinx.coroutines.launch
 
@@ -70,33 +73,65 @@ internal fun AuthenticatedAppShell(
                 }
             }
         ) { contentPadding ->
-            NavDisplay(
-                backStack = backStack,
-                modifier = Modifier.fillMaxSize().padding(contentPadding),
-                onBack = navigator::goBack,
-                entryProvider =
-                    entryProvider {
-                        entry(key = AppDestination.Home) {
-                            HomeDestination(profile, context, navigator, onAuthenticationRejected)
-                        }
-                        entry(key = AppDestination.Library) {
-                            DestinationPlaceholder(AppDestination.Library)
-                        }
-                        entry<LibrarySearchRoute> {
-                            DestinationPlaceholder(AppDestination.Library)
-                        }
-                        entry(key = AppDestination.Shelves) {
-                            DestinationPlaceholder(AppDestination.Shelves)
-                        }
-                        entry(key = AppDestination.Sessions) {
-                            DestinationPlaceholder(AppDestination.Sessions)
-                        }
-                        entry(key = AppDestination.Settings) {
-                            LinkedSettings(profile, context)
-                        }
-                    }
+            AuthenticatedDestinations(
+                profile,
+                context,
+                backStack,
+                navigator,
+                onAuthenticationRejected,
+                Modifier.fillMaxSize().padding(contentPadding)
             )
         }
+    }
+}
+
+@Composable
+private fun AuthenticatedDestinations(
+    profile: ConnectionProfile,
+    context: AuthenticatedContext,
+    backStack: MutableList<NavKey>,
+    navigator: AppNavigator,
+    onAuthenticationRejected: () -> Unit,
+    modifier: Modifier
+) {
+    NavDisplay(
+        backStack = backStack,
+        modifier = modifier,
+        onBack = navigator::goBack,
+        entryProvider =
+            entryProvider {
+                entry(key = AppDestination.Home) {
+                    HomeDestination(profile, context, navigator, onAuthenticationRejected)
+                }
+                entry(key = AppDestination.Library) {
+                    LibraryDestination(profile, LibraryBooksEntry.Browse, onAuthenticationRejected)
+                }
+                entry<LibrarySearchRoute> { route ->
+                    LibraryDestination(
+                        profile,
+                        LibraryBooksEntry.BroadSearch(route.query),
+                        onAuthenticationRejected
+                    )
+                }
+                entry(key = AppDestination.Shelves) {
+                    DestinationPlaceholder(AppDestination.Shelves)
+                }
+                entry(key = AppDestination.Sessions) {
+                    DestinationPlaceholder(AppDestination.Sessions)
+                }
+                entry(key = AppDestination.Settings) { LinkedSettings(profile, context) }
+            }
+    )
+}
+
+@Composable
+private fun LibraryDestination(
+    profile: ConnectionProfile,
+    entry: LibraryBooksEntry,
+    onAuthenticationRejected: () -> Unit
+) {
+    LibraryBooksStateHost(profile, entry, onAuthenticationRejected) {
+        DestinationPlaceholder(AppDestination.Library)
     }
 }
 
