@@ -41,4 +41,28 @@ sealed class SplClientException(message: String, cause: Throwable? = null) :
 
     class AuthenticatedRequestFailed(cause: Throwable? = null) :
         SplClientException("Authenticated server context could not be loaded.", cause)
+
+    class ShelfMutationRejected(
+        val reason: ShelfMutationRejection,
+        val fields: Set<ShelfMutationField> = emptySet()
+    ) : SplClientException("The shelf mutation was rejected.")
+}
+
+enum class ShelfMutationRejection {
+    DUPLICATE_BOOK,
+    INVALID_MOVE,
+    DIRECT_POSITION_UNAVAILABLE,
+    VALIDATION,
+    NOT_AUTHORIZED,
+    RESOURCE_NOT_FOUND
+}
+
+enum class ShelfMutationField {
+    NAME,
+    DESCRIPTION,
+    VISIBILITY,
+    BOOK,
+    POSITION,
+    MOVE,
+    GENERAL
 }

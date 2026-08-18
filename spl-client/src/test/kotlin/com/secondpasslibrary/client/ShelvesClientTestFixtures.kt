@@ -21,6 +21,13 @@ internal const val SHELF_DETAIL =
         "matched_item_id":"item-7"
     }"""
 
+internal val SHELF_ITEM =
+    """{
+        "id":"item-1","shelf":"shelf-1","book":$COMPACT_BOOK,"position":2,
+        "added_by":{"profile_id":"profile-2","username":"adder"},
+        "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-02T00:00:00Z"
+    }"""
+
 internal const val SHELF_PAGE =
     """{
         "count":3,"next":"https://library.example/api/v1/shelves/?page=4","previous":null,

@@ -21,6 +21,20 @@ interface AuthenticatedShelvesClient {
         shelfId: String,
         options: ShelfEditorListOptions = ShelfEditorListOptions()
     ): ShelfEditorPage
+
+    suspend fun create(input: CreatePersonalShelfInput): Shelf
+
+    suspend fun update(shelfId: String, input: UpdatePersonalShelfInput): Shelf
+
+    suspend fun delete(shelfId: String)
+
+    suspend fun addItem(shelfId: String, input: AddShelfItemInput): ShelfItem
+
+    suspend fun moveItem(shelfId: String, itemId: String, direction: ShelfItemMove): ShelfItem
+
+    suspend fun setItemPosition(shelfId: String, itemId: String, position: Int): ShelfItem
+
+    suspend fun removeItem(shelfId: String, itemId: String)
 }
 
 interface AuthenticatedLibraryClient {

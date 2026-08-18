@@ -72,7 +72,8 @@ AuthenticatedSecondPassClient.library
 AuthenticatedSecondPassClient.shelves
   |- list and detail
   |- normal visible-item pages
-  `- personal-shelf editor pages with unavailable-item placeholders
+  |- personal-shelf editor pages with unavailable-item placeholders
+  `- owned-personal Shelf and item mutations
 ```
 
 Pagination, compact/preview Books, cover references, scope, and shared Library value types remain Library-level artifacts. Catalog Tags expose Reader-safe identity, slug, and scoped book counts; endpoint topology remains private to the SDK.
@@ -80,6 +81,8 @@ Pagination, compact/preview Books, cover references, scope, and shared Library v
 Recent-reading results preserve server order. Session status remains `active` or `closed`, and progress retains its CFI plus the server's opaque location label without deriving percentages. Shelf reads preserve discriminated user/group ownership, private/listed visibility, item identity separately from Book identity, non-contiguous stored positions, matched Book items, and omitted versus empty previews. Normal item pages expose only visible Compact Books; the editor projection represents unavailable retained items without inventing Book metadata.
 
 The Android SDK aims to expose each SPL subsystem's complete Reader-bearer capability even when the first-party Android UI adopts that capability incrementally. UI sequencing does not define or restrict the publishable SDK boundary.
+
+Shelves now cover the complete current Reader-bearer boundary. Mutations are limited by the server to the caller's owned personal Shelves; Group and shared Shelves remain bearer-read-only. Create/add/delete operations have no client-generated idempotency key. Relative item movement is distinct from direct zero-based positioning because retained unavailable items can make direct positioning unavailable. Structured mutation failures identify fields and bounded rejection reasons without exposing server prose.
 
 Library reads resolve an explicit SDK-owned scope (`Global` or `Group`) before applying shared axis semantics. Books browsing remains distinct from broad Library search: scoped browse `q` is title-only, while scoped broad search uses the wider metadata surface. Both return compact Books through an SDK-owned page model without exposing endpoint topology or raw next/previous URLs. Ordering is typed, page size is bounded to 1-200, and `SeriesIndex` retains the exact two-decimal wire representation.
 

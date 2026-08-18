@@ -12,6 +12,8 @@ internal class KtorShelvesClient(
     private val requests: AuthenticatedRequestExecutor,
     private val json: Json
 ) : AuthenticatedShelvesClient {
+    private val mutations = KtorShelfMutationClient(requests, json)
+
     override suspend fun list(options: ShelfListOptions): ShelfPage {
         val parameters = buildList {
             add("scope" to options.scope.queryValue)
@@ -59,8 +61,40 @@ internal class KtorShelvesClient(
             .toModel(options.page, options.pageSize)
     }
 
-    private fun shelfPath(shelfId: String): String {
-        require(shelfId.isNotBlank()) { "Shelf ID must not be blank." }
-        return "shelves/${shelfId.encodeURLPathPart()}/"
-    }
+    override suspend fun create(input: CreatePersonalShelfInput): Shelf = mutations.create(input)
+
+    override suspend fun update(shelfId: String, input: UpdatePersonalShelfInput): Shelf =
+        mutations.update(shelfId, input)
+
+    override suspend fun delete(shelfId: String) = mutations.delete(shelfId)
+
+    override suspend fun addItem(shelfId: String, input: AddShelfItemInput): ShelfItem =
+        mutations.addItem(shelfId, input)
+
+    override suspend fun moveItem(
+        shelfId: String,
+        itemId: String,
+        direction: ShelfItemMove
+    ): ShelfItem = mutations.moveItem(shelfId, itemId, direction)
+
+    override suspend fun setItemPosition(
+        shelfId: String,
+        itemId: String,
+        position: Int
+    ): ShelfItem = mutations.setItemPosition(shelfId, itemId, position)
+
+    override suspend fun removeItem(shelfId: String, itemId: String) =
+        mutations.removeItem(shelfId, itemId)
+}
+
+internal fun shelfPath(shelfId: String): String {
+    require(shelfId.isNotBlank()) { "Shelf ID must not be blank." }
+    return "shelves/${shelfId.encodeURLPathPart()}/"
+}
+
+internal fun shelfItemsPath(shelfId: String): String = "${shelfPath(shelfId)}items/"
+
+internal fun shelfItemPath(shelfId: String, itemId: String): String {
+    require(itemId.isNotBlank()) { "Shelf item ID must not be blank." }
+    return "${shelfItemsPath(shelfId)}${itemId.encodeURLPathPart()}/"
 }

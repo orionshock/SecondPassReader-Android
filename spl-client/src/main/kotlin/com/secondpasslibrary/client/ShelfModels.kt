@@ -44,6 +44,41 @@ data class ShelfEditorListOptions(
     }
 }
 
+data class CreatePersonalShelfInput(
+    val name: String,
+    val description: String = "",
+    val visibility: ShelfVisibility = ShelfVisibility.PRIVATE
+) {
+    init {
+        validateShelfName(name)
+    }
+}
+
+data class UpdatePersonalShelfInput(
+    val name: String? = null,
+    val description: String? = null,
+    val visibility: ShelfVisibility? = null
+) {
+    init {
+        name?.let(::validateShelfName)
+        require(name != null || description != null || visibility != null) {
+            "Shelf update must contain at least one field."
+        }
+    }
+}
+
+data class AddShelfItemInput(val bookId: String, val position: Int? = null) {
+    init {
+        require(bookId.isNotBlank()) { "Shelf item Book ID must not be blank." }
+        require(position == null || position >= 0) { "Shelf item position must not be negative." }
+    }
+}
+
+enum class ShelfItemMove(internal val queryValue: String) {
+    UP("up"),
+    DOWN("down")
+}
+
 enum class ShelfScope(internal val queryValue: String) {
     ALL("all"),
     PERSONAL("personal"),
@@ -187,6 +222,7 @@ private const val DEFAULT_SHELF_PAGE = 1
 private const val DEFAULT_SHELF_PAGE_SIZE = 20
 private const val MAX_SHELF_PAGE_SIZE = 200
 private const val MAX_SHELF_PREVIEW_LIMIT = 24
+private const val MAX_SHELF_NAME_LENGTH = 255
 
 private fun validateShelfPage(page: Int, pageSize: Int) {
     require(page > 0) { "Shelf page must be positive." }
@@ -198,5 +234,13 @@ private fun validateShelfPage(page: Int, pageSize: Int) {
 private fun validateShelfPreviewLimit(previewLimit: Int) {
     require(previewLimit in 0..MAX_SHELF_PREVIEW_LIMIT) {
         "Shelf preview limit must be between 0 and $MAX_SHELF_PREVIEW_LIMIT."
+    }
+}
+
+private fun validateShelfName(name: String) {
+    val normalized = name.trim()
+    require(normalized.isNotEmpty()) { "Shelf name must not be blank." }
+    require(normalized.length <= MAX_SHELF_NAME_LENGTH) {
+        "Shelf name must not exceed $MAX_SHELF_NAME_LENGTH characters."
     }
 }

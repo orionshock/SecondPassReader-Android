@@ -1,7 +1,9 @@
 package com.secondpasslibrary.reader.home
 
+import com.secondpasslibrary.client.AddShelfItemInput
 import com.secondpasslibrary.client.AuthenticatedSecondPassClient
 import com.secondpasslibrary.client.AuthenticatedShelvesClient
+import com.secondpasslibrary.client.CreatePersonalShelfInput
 import com.secondpasslibrary.client.ReadingSessionStatus
 import com.secondpasslibrary.client.RecentReadingBook
 import com.secondpasslibrary.client.RecentReadingItem
@@ -10,13 +12,16 @@ import com.secondpasslibrary.client.Shelf
 import com.secondpasslibrary.client.ShelfDetailOptions
 import com.secondpasslibrary.client.ShelfEditorListOptions
 import com.secondpasslibrary.client.ShelfEditorPage
+import com.secondpasslibrary.client.ShelfItem
 import com.secondpasslibrary.client.ShelfItemListOptions
+import com.secondpasslibrary.client.ShelfItemMove
 import com.secondpasslibrary.client.ShelfItemPage
 import com.secondpasslibrary.client.ShelfListOptions
 import com.secondpasslibrary.client.ShelfOwner
 import com.secondpasslibrary.client.ShelfPage
 import com.secondpasslibrary.client.ShelfSummary
 import com.secondpasslibrary.client.ShelfVisibility
+import com.secondpasslibrary.client.UpdatePersonalShelfInput
 import com.secondpasslibrary.reader.FakeAuthenticatedLibraryClient
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
@@ -108,6 +113,30 @@ internal class FakeHomeAuthenticatedClient : AuthenticatedSecondPassClient {
             shelfId: String,
             options: ShelfEditorListOptions
         ): ShelfEditorPage = unsupported()
+
+        override suspend fun create(input: CreatePersonalShelfInput): Shelf = unsupported()
+
+        override suspend fun update(shelfId: String, input: UpdatePersonalShelfInput): Shelf =
+            unsupported()
+
+        override suspend fun delete(shelfId: String): Unit = unsupported()
+
+        override suspend fun addItem(shelfId: String, input: AddShelfItemInput): ShelfItem =
+            unsupported()
+
+        override suspend fun moveItem(
+            shelfId: String,
+            itemId: String,
+            direction: ShelfItemMove
+        ): ShelfItem = unsupported()
+
+        override suspend fun setItemPosition(
+            shelfId: String,
+            itemId: String,
+            position: Int
+        ): ShelfItem = unsupported()
+
+        override suspend fun removeItem(shelfId: String, itemId: String): Unit = unsupported()
     }
 
     val recentRequests = mutableListOf<RecentReadingOptions>()

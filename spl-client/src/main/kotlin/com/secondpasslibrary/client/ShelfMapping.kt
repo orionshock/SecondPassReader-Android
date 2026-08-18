@@ -64,7 +64,7 @@ private fun ShelfPreviewBookWire.toModel(): ShelfPreviewBook = ShelfPreviewBook(
     cover = coverUrl?.let(PublicBookCoverReference::fromServer)
 )
 
-private fun ShelfItemWire.toItemModel(): ShelfItem = ShelfItem(
+internal fun ShelfItemWire.toItemModel(): ShelfItem = ShelfItem(
     id = id.required(SHELF_ITEM_CONTEXT),
     shelfId = shelf.required(SHELF_ITEM_CONTEXT),
     book = book?.toModel() ?: invalidProtocol(SHELF_ITEM_CONTEXT),

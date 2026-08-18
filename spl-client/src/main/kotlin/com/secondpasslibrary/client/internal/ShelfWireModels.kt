@@ -77,3 +77,27 @@ internal data class ShelfEditorPageWire(
     @SerialName("unavailable_item_count") val unavailableItemCount: Int? = null,
     val results: List<ShelfItemWire>? = null
 )
+
+@Serializable
+internal data class CreateShelfWire(
+    val name: String,
+    val description: String,
+    val visibility: String,
+    @SerialName("owner_type") val ownerType: String
+)
+
+@Serializable
+internal data class UpdateShelfWire(
+    val name: String? = null,
+    val description: String? = null,
+    val visibility: String? = null
+)
+
+@Serializable
+internal data class AddShelfItemWire(val book: String, val position: Int? = null)
+
+@Serializable
+internal data class MoveShelfItemWire(val move: String)
+
+@Serializable
+internal data class PositionShelfItemWire(val position: Int)
