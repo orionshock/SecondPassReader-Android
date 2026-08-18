@@ -57,8 +57,10 @@ Library scope is capability-gated exclusively by authenticated server info. When
 
 The parent also loads the complete scoped Catalog Tag vocabulary as a bounded, non-persistent filter dataset. A selected tag composes with the current axis query and selected Author/Series Books context without changing search semantics. Tag-list failure leaves current results usable; tag changes reset child paging, and scope changes clear selection before loading the new vocabulary.
 
+Library chrome exposes that shared filter through a compact semantic Tag control. It opens a modal sheet anchored to the right on tablets, avoiding competition with the shell's left navigation drawer. The sheet renders All tags plus the current scope's name-ordered vocabulary and visible book counts, including independent loading, empty, and retry states. Index results remain visible behind tag-vocabulary failures; no tag rail or tag search is currently present.
+
 The Books, Authors, and Series axes are explicit parent state and all three have concrete state owners and rendered results surfaces. Selected Author/Series contexts reuse the Books child for filtered results.
 
-Shelves and Sessions still prove top-level routing only. Catalog Tag filter UI, Book Detail, reader-mode navigation, deep links, nested feature graphs, and logout remain deferred.
+Shelves and Sessions still prove top-level routing only. Book Detail, reader-mode navigation, deep links, nested feature graphs, and logout remain deferred.
 
 All feature-facing icons use the semantic layer documented in [Icon vocabulary](icon-vocabulary.md).

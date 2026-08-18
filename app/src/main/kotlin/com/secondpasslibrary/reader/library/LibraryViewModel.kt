@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.secondpasslibrary.client.AuthorOrdering
 import com.secondpasslibrary.client.BookOrdering
+import com.secondpasslibrary.client.LibraryCatalogTag
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.LibrarySearchOrdering
 import com.secondpasslibrary.client.SeriesOrdering
@@ -53,6 +54,10 @@ constructor(
     fun selectAxis(axis: LibraryAxis) = controller.selectAxis(axis)
 
     fun retryGroups() = controller.retryGroups()
+
+    fun selectTag(tag: LibraryCatalogTag?) = controller.selectTag(tag)
+
+    fun retryTags() = controller.retryTags()
 
     fun refresh() = controller.books.refresh()
 

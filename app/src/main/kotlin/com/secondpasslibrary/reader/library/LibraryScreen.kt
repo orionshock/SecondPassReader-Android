@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.secondpasslibrary.client.LibraryCatalogTag
 import com.secondpasslibrary.client.LibraryScope
 
 @Composable
@@ -25,6 +26,8 @@ internal fun LibraryScreen(viewModel: LibraryViewModel) {
         onScopeSelected = viewModel::selectScope,
         onAxisSelected = viewModel::selectAxis,
         onRetryGroups = viewModel::retryGroups,
+        onTagSelected = viewModel::selectTag,
+        onRetryTags = viewModel::retryTags,
         onLoadNextPage = viewModel::loadNextPage,
         onRetry = viewModel::retry,
         onAuthorSelected = viewModel::selectAuthor,
@@ -46,6 +49,8 @@ private fun LibraryContent(
     onScopeSelected: (LibraryScope) -> Unit,
     onAxisSelected: (LibraryAxis) -> Unit,
     onRetryGroups: () -> Unit,
+    onTagSelected: (LibraryCatalogTag?) -> Unit,
+    onRetryTags: () -> Unit,
     onLoadNextPage: () -> Unit,
     onRetry: () -> Unit,
     onAuthorSelected: (String) -> Unit,
@@ -65,6 +70,8 @@ private fun LibraryContent(
             onScopeSelected,
             onAxisSelected,
             onRetryGroups,
+            onTagSelected,
+            onRetryTags,
             Modifier.padding(top = 14.dp, bottom = 12.dp)
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

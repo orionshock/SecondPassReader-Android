@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.client.AuthorOrdering
+import com.secondpasslibrary.client.LibraryCatalogTag
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.SeriesOrdering
 import com.secondpasslibrary.reader.design.icons.AppIcon
@@ -43,10 +44,13 @@ internal fun LibraryControls(
     onScopeSelected: (LibraryScope) -> Unit,
     onAxisSelected: (LibraryAxis) -> Unit,
     onRetryGroups: () -> Unit,
+    onTagSelected: (LibraryCatalogTag?) -> Unit,
+    onRetryTags: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val committedQuery = state.committedQuery()
     var query by rememberSaveable(state.axis, committedQuery) { mutableStateOf(committedQuery) }
+    var tagSheetOpen by rememberSaveable { mutableStateOf(false) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Header(state)
         SearchRow(state, query, { query = it }) { onSearch(query) }
@@ -55,6 +59,7 @@ internal fun LibraryControls(
             onScopeSelected,
             onAxisSelected,
             onRetryGroups,
+            tagControl = { LibraryTagFilterButton(state.selectedTag) { tagSheetOpen = true } },
             {
                 OrderingMenu(
                     state,
@@ -64,6 +69,17 @@ internal fun LibraryControls(
                 )
             },
             { LayoutChoices(state.books.layout, onLayoutSelected) }
+        )
+    }
+    if (tagSheetOpen) {
+        CatalogTagFilterSheet(
+            state = state,
+            onDismiss = { tagSheetOpen = false },
+            onTagSelected = { tag ->
+                onTagSelected(tag)
+                tagSheetOpen = false
+            },
+            onRetry = onRetryTags
         )
     }
 }

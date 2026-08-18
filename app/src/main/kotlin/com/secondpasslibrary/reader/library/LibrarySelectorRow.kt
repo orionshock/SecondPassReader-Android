@@ -36,6 +36,7 @@ internal fun LibrarySelectorRow(
     onScopeSelected: (LibraryScope) -> Unit,
     onAxisSelected: (LibraryAxis) -> Unit,
     onRetryGroups: () -> Unit,
+    tagControl: @Composable () -> Unit,
     orderingControl: @Composable () -> Unit,
     layoutControl: @Composable () -> Unit
 ) {
@@ -57,6 +58,7 @@ internal fun LibrarySelectorRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                tagControl()
                 orderingControl()
                 if (state.resultKind.supportsBookLayout) {
                     layoutControl()
