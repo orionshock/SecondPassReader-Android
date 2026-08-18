@@ -1,10 +1,12 @@
 package com.secondpasslibrary.client
 
-interface AuthenticatedSecondPassClient {
+interface AuthenticatedSecondPassClient : AuthenticatedLibraryClient {
     suspend fun recentReading(options: RecentReadingOptions): List<RecentReadingItem>
 
     suspend fun listShelves(options: ShelfListOptions = ShelfListOptions()): ShelfPage
+}
 
+interface AuthenticatedLibraryClient {
     suspend fun listBooks(options: BookListOptions = BookListOptions()): LibraryPage<CompactBook>
 
     suspend fun searchLibrary(
@@ -19,6 +21,34 @@ interface AuthenticatedSecondPassClient {
         groupId: String,
         options: GroupBookListOptions = GroupBookListOptions()
     ): LibraryPage<CompactBook>
+
+    suspend fun listAuthors(
+        options: AuthorListOptions = AuthorListOptions()
+    ): LibraryPage<LibraryAuthor>
+
+    suspend fun getAuthor(
+        authorId: String,
+        options: LibraryEntityDetailOptions = LibraryEntityDetailOptions()
+    ): LibraryAuthor
+
+    suspend fun listGroupAuthors(
+        groupId: String,
+        options: AuthorListOptions = AuthorListOptions()
+    ): LibraryPage<LibraryAuthor>
+
+    suspend fun listSeries(
+        options: SeriesListOptions = SeriesListOptions()
+    ): LibraryPage<LibrarySeries>
+
+    suspend fun getSeries(
+        seriesId: String,
+        options: LibraryEntityDetailOptions = LibraryEntityDetailOptions()
+    ): LibrarySeries
+
+    suspend fun listGroupSeries(
+        groupId: String,
+        options: SeriesListOptions = SeriesListOptions()
+    ): LibraryPage<LibrarySeries>
 }
 
 interface AuthenticatedSecondPassClientFactory {

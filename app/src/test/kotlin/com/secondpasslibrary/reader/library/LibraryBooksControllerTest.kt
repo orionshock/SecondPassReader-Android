@@ -1,18 +1,23 @@
 package com.secondpasslibrary.reader.library
 
 import com.secondpasslibrary.client.AuthenticatedSecondPassClient
+import com.secondpasslibrary.client.AuthorListOptions
 import com.secondpasslibrary.client.BookListOptions
 import com.secondpasslibrary.client.BookOrdering
 import com.secondpasslibrary.client.CompactBook
 import com.secondpasslibrary.client.GroupBookListOptions
+import com.secondpasslibrary.client.LibraryAuthor
+import com.secondpasslibrary.client.LibraryEntityDetailOptions
 import com.secondpasslibrary.client.LibraryGroupListOptions
 import com.secondpasslibrary.client.LibraryGroupSummary
 import com.secondpasslibrary.client.LibraryPage
 import com.secondpasslibrary.client.LibrarySearchOptions
 import com.secondpasslibrary.client.LibrarySearchOrdering
+import com.secondpasslibrary.client.LibrarySeries
 import com.secondpasslibrary.client.PublicationDatePrecision
 import com.secondpasslibrary.client.RecentReadingItem
 import com.secondpasslibrary.client.RecentReadingOptions
+import com.secondpasslibrary.client.SeriesListOptions
 import com.secondpasslibrary.client.ShelfListOptions
 import com.secondpasslibrary.client.ShelfPage
 import com.secondpasslibrary.client.SplClientException
@@ -553,6 +558,32 @@ class LibraryBooksControllerTest {
 
         override suspend fun listShelves(options: ShelfListOptions): ShelfPage =
             error("Shelves are outside this Library fixture.")
+
+        override suspend fun listAuthors(options: AuthorListOptions): LibraryPage<LibraryAuthor> =
+            error("Authors are outside this Library fixture.")
+
+        override suspend fun getAuthor(
+            authorId: String,
+            options: LibraryEntityDetailOptions
+        ): LibraryAuthor = error("Authors are outside this Library fixture.")
+
+        override suspend fun listGroupAuthors(
+            groupId: String,
+            options: AuthorListOptions
+        ): LibraryPage<LibraryAuthor> = error("Authors are outside this Library fixture.")
+
+        override suspend fun listSeries(options: SeriesListOptions): LibraryPage<LibrarySeries> =
+            error("Series are outside this Library fixture.")
+
+        override suspend fun getSeries(
+            seriesId: String,
+            options: LibraryEntityDetailOptions
+        ): LibrarySeries = error("Series are outside this Library fixture.")
+
+        override suspend fun listGroupSeries(
+            groupId: String,
+            options: SeriesListOptions
+        ): LibraryPage<LibrarySeries> = error("Series are outside this Library fixture.")
     }
 
     private companion object {

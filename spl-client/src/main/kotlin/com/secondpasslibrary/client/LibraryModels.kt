@@ -49,6 +49,38 @@ data class GroupBookListOptions(
     }
 }
 
+data class AuthorListOptions(
+    val q: String? = null,
+    val ordering: AuthorOrdering = AuthorOrdering.NAME,
+    val page: Int = DEFAULT_LIBRARY_PAGE,
+    val pageSize: Int = DEFAULT_LIBRARY_PAGE_SIZE,
+    val previewLimit: Int = 0
+) {
+    init {
+        validateLibraryPage(page, pageSize)
+        validatePreviewLimit(previewLimit)
+    }
+}
+
+data class SeriesListOptions(
+    val q: String? = null,
+    val ordering: SeriesOrdering = SeriesOrdering.NAME,
+    val page: Int = DEFAULT_LIBRARY_PAGE,
+    val pageSize: Int = DEFAULT_LIBRARY_PAGE_SIZE,
+    val previewLimit: Int = 0
+) {
+    init {
+        validateLibraryPage(page, pageSize)
+        validatePreviewLimit(previewLimit)
+    }
+}
+
+data class LibraryEntityDetailOptions(val previewLimit: Int = 0) {
+    init {
+        validatePreviewLimit(previewLimit)
+    }
+}
+
 enum class BookOrdering(internal val queryValue: String) {
     TITLE("title"),
     TITLE_DESCENDING("-title"),
@@ -76,7 +108,45 @@ enum class LibraryGroupOrdering(internal val queryValue: String) {
     NAME_DESCENDING("-name")
 }
 
+enum class AuthorOrdering(internal val queryValue: String) {
+    NAME("name"),
+    NAME_DESCENDING("-name"),
+    BOOK_COUNT("book_count"),
+    BOOK_COUNT_DESCENDING("-book_count")
+}
+
+enum class SeriesOrdering(internal val queryValue: String) {
+    NAME("name"),
+    NAME_DESCENDING("-name"),
+    BOOK_COUNT("book_count"),
+    BOOK_COUNT_DESCENDING("-book_count")
+}
+
 data class LibraryGroupSummary(val id: String, val name: String, val isPublicGroup: Boolean)
+
+data class LibraryPreviewBook(
+    val id: String,
+    val title: String,
+    val cover: PublicBookCoverReference?
+)
+
+data class LibraryAuthor(
+    val id: String,
+    val name: String,
+    val sortName: String,
+    val biography: String,
+    val bookCount: Int,
+    val previewBooks: List<LibraryPreviewBook>?
+)
+
+data class LibrarySeries(
+    val id: String,
+    val name: String,
+    val sortName: String,
+    val summary: String,
+    val bookCount: Int,
+    val previewBooks: List<LibraryPreviewBook>?
+)
 
 data class LibraryPage<T>(
     val totalCount: Int,
@@ -141,11 +211,18 @@ enum class PublicationDatePrecision {
 internal const val DEFAULT_LIBRARY_PAGE = 1
 internal const val DEFAULT_LIBRARY_PAGE_SIZE = 20
 private const val MAX_LIBRARY_PAGE_SIZE = 200
+private const val MAX_LIBRARY_PREVIEW_LIMIT = 24
 private val SERIES_INDEX_PATTERN = Regex("^-?\\d+\\.\\d{2}$")
 
 private fun validateLibraryPage(page: Int, pageSize: Int) {
     require(page > 0) { "Library page must be positive." }
     require(pageSize in 1..MAX_LIBRARY_PAGE_SIZE) {
         "Library page size must be between 1 and $MAX_LIBRARY_PAGE_SIZE."
+    }
+}
+
+private fun validatePreviewLimit(previewLimit: Int) {
+    require(previewLimit in 0..MAX_LIBRARY_PREVIEW_LIMIT) {
+        "Library preview limit must be between 0 and $MAX_LIBRARY_PREVIEW_LIMIT."
     }
 }

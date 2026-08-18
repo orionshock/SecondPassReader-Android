@@ -65,6 +65,8 @@ Recent-reading results preserve server order. Session status remains `active` or
 
 Books browsing and broad Library search are separate SDK operations because their server-side query semantics differ. Both return compact Books through an SDK-owned page model without exposing raw next/previous URLs. Ordering is typed, page size is bounded to the server's 1-200 contract, author/tag/series ordering is preserved, and `SeriesIndex` retains the exact two-decimal wire representation rather than converting it to a floating-point number.
 
+Reader-safe Authors and Series use separate typed list/detail operations, including explicit group-scoped list operations, while reusing the Library page envelope and public cover reference. Preview limits are bounded to 0-24; a positive limit enables the server preview contract, while zero omits it. Omitted preview books remain distinct from a returned empty preview list.
+
 `PublicBookCoverReference` wraps a server-provided absolute HTTP(S) URL. Covers are public assets, require no bearer credential, may use an external host, and are limited by contract to JPEG, PNG, or WebP. The SDK neither reconstructs cover paths nor fetches image bytes; a future image-loading layer may consume the public reference directly.
 
 ## Logout and deferred work

@@ -27,6 +27,49 @@ internal data class LibraryGroupWire(
 )
 
 @Serializable
+internal data class LibraryAuthorPageWire(
+    val count: Int? = null,
+    val next: String? = null,
+    val previous: String? = null,
+    val results: List<LibraryAuthorWire>? = null
+)
+
+@Serializable
+internal data class LibrarySeriesPageWire(
+    val count: Int? = null,
+    val next: String? = null,
+    val previous: String? = null,
+    val results: List<LibrarySeriesWire>? = null
+)
+
+@Serializable
+internal data class LibraryAuthorWire(
+    val id: String? = null,
+    val name: String? = null,
+    @SerialName("sort_name") val sortName: String? = null,
+    val biography: String? = null,
+    @SerialName("book_count") val bookCount: Int? = null,
+    @SerialName("preview_books") val previewBooks: List<LibraryPreviewBookWire>? = null
+)
+
+@Serializable
+internal data class LibrarySeriesWire(
+    val id: String? = null,
+    val name: String? = null,
+    @SerialName("sort_name") val sortName: String? = null,
+    val summary: String? = null,
+    @SerialName("book_count") val bookCount: Int? = null,
+    @SerialName("preview_books") val previewBooks: List<LibraryPreviewBookWire>? = null
+)
+
+@Serializable
+internal data class LibraryPreviewBookWire(
+    val id: String? = null,
+    val title: String? = null,
+    @SerialName("cover_url") val coverUrl: String? = null
+)
+
+@Serializable
 internal data class CompactBookWire(
     val id: String? = null,
     val title: String? = null,
