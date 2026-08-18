@@ -10,6 +10,15 @@ internal enum class LibraryAxis {
     SERIES
 }
 
+internal enum class LibraryResultKind {
+    BOOKS,
+    AUTHOR_INDEX,
+    SERIES_INDEX;
+
+    val supportsBookLayout: Boolean
+        get() = this == BOOKS
+}
+
 internal sealed interface LibraryScope {
     data object AllLibrary : LibraryScope
 
@@ -25,6 +34,7 @@ internal data class LibraryGroupSelectorState(
 
 internal data class LibraryState(
     val axis: LibraryAxis = LibraryAxis.BOOKS,
+    val resultKind: LibraryResultKind = LibraryResultKind.BOOKS,
     val scope: LibraryScope = LibraryScope.AllLibrary,
     val advancedGroupsEnabled: Boolean = false,
     val groupSelector: LibraryGroupSelectorState = LibraryGroupSelectorState(),

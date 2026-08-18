@@ -17,13 +17,19 @@ internal fun LibraryScreen(viewModel: LibraryViewModel) {
     LibraryContent(
         state = state,
         onSearch = viewModel::commitSearch,
-        onOrderingSelected = { ordering -> viewModel.selectOrdering(ordering) },
+        onBookOrderingSelected = { ordering -> viewModel.selectOrdering(ordering) },
+        onAuthorOrderingSelected = viewModel::changeAuthorOrdering,
+        onSeriesOrderingSelected = viewModel::changeSeriesOrdering,
         onLayoutSelected = viewModel::setLayout,
         onScopeSelected = viewModel::selectScope,
         onAxisSelected = viewModel::selectAxis,
         onRetryGroups = viewModel::retryGroups,
         onLoadNextPage = viewModel::loadNextPage,
-        onRetry = viewModel::retry
+        onRetry = viewModel::retry,
+        onAuthorSelected = viewModel::selectAuthor,
+        onSeriesSelected = viewModel::selectSeries,
+        onRetryAuthorDetail = viewModel::retryAuthorDetail,
+        onRetrySeriesDetail = viewModel::retrySeriesDetail
     )
 }
 
@@ -31,19 +37,27 @@ internal fun LibraryScreen(viewModel: LibraryViewModel) {
 private fun LibraryContent(
     state: LibraryState,
     onSearch: (String) -> Unit,
-    onOrderingSelected: (LibraryBooksOrdering) -> Unit,
+    onBookOrderingSelected: (LibraryBooksOrdering) -> Unit,
+    onAuthorOrderingSelected: (com.secondpasslibrary.client.AuthorOrdering) -> Unit,
+    onSeriesOrderingSelected: (com.secondpasslibrary.client.SeriesOrdering) -> Unit,
     onLayoutSelected: (LibraryBooksLayout) -> Unit,
     onScopeSelected: (LibraryScope) -> Unit,
     onAxisSelected: (LibraryAxis) -> Unit,
     onRetryGroups: () -> Unit,
     onLoadNextPage: () -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onAuthorSelected: (String) -> Unit,
+    onSeriesSelected: (String) -> Unit,
+    onRetryAuthorDetail: () -> Unit,
+    onRetrySeriesDetail: () -> Unit
 ) {
     Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
-        LibraryBooksControls(
+        LibraryControls(
             state,
             onSearch,
-            onOrderingSelected,
+            onBookOrderingSelected,
+            onAuthorOrderingSelected,
+            onSeriesOrderingSelected,
             onLayoutSelected,
             onScopeSelected,
             onAxisSelected,
@@ -51,24 +65,30 @@ private fun LibraryContent(
             Modifier.padding(top = 14.dp, bottom = 12.dp)
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        if (state.axis == LibraryAxis.BOOKS) {
-            LibraryBooksResults(state.books, onLoadNextPage, onRetry, Modifier.weight(1f))
-        } else {
-            LibraryAxisPlaceholder(state.axis, Modifier.weight(1f))
-        }
-    }
-}
+        when (state.axis) {
+            LibraryAxis.BOOKS ->
+                LibraryBooksResults(state.books, onLoadNextPage, onRetry, Modifier.weight(1f))
 
-@Composable
-private fun LibraryAxisPlaceholder(axis: LibraryAxis, modifier: Modifier) {
-    androidx.compose.foundation.layout.Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = androidx.compose.ui.Alignment.Center
-    ) {
-        androidx.compose.material3.Text(
-            "${if (axis == LibraryAxis.AUTHORS) "Authors" else "Series"} browsing is coming next.",
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+            LibraryAxis.AUTHORS ->
+                LibraryAuthorsResults(
+                    state.authors,
+                    onAuthorSelected,
+                    onLoadNextPage,
+                    onRetry,
+                    onRetryAuthorDetail,
+                    Modifier.weight(1f)
+                )
+
+            LibraryAxis.SERIES ->
+                LibrarySeriesResults(
+                    state.series,
+                    onSeriesSelected,
+                    onLoadNextPage,
+                    onRetry,
+                    onRetrySeriesDetail,
+                    Modifier.weight(1f)
+                )
+        }
     }
 }
 

@@ -106,7 +106,7 @@ internal class LibraryController(
     fun selectAxis(selected: LibraryAxis) {
         val current = chrome.value
         if (selected == current.axis) return
-        chrome.value = current.copy(axis = selected)
+        chrome.value = current.copy(axis = selected, resultKind = selected.indexResultKind)
         when (selected) {
             LibraryAxis.BOOKS -> books.selectScope(current.scope)
             LibraryAxis.AUTHORS -> authors.activate()
@@ -221,6 +221,7 @@ internal class LibraryController(
 
 private data class LibraryChromeState(
     val axis: LibraryAxis = LibraryAxis.BOOKS,
+    val resultKind: LibraryResultKind = LibraryResultKind.BOOKS,
     val scope: LibraryScope = LibraryScope.AllLibrary,
     val advancedGroupsEnabled: Boolean = false,
     val groupSelector: LibraryGroupSelectorState = LibraryGroupSelectorState()
@@ -229,8 +230,25 @@ private data class LibraryChromeState(
         books: LibraryBooksState,
         authors: LibraryAuthorsState,
         series: LibrarySeriesState
-    ) = LibraryState(axis, scope, advancedGroupsEnabled, groupSelector, books, authors, series)
+    ) = LibraryState(
+        axis,
+        resultKind,
+        scope,
+        advancedGroupsEnabled,
+        groupSelector,
+        books,
+        authors,
+        series
+    )
 }
+
+private val LibraryAxis.indexResultKind: LibraryResultKind
+    get() =
+        when (this) {
+            LibraryAxis.BOOKS -> LibraryResultKind.BOOKS
+            LibraryAxis.AUTHORS -> LibraryResultKind.AUTHOR_INDEX
+            LibraryAxis.SERIES -> LibraryResultKind.SERIES_INDEX
+        }
 
 @OptIn(ExperimentalForInheritanceCoroutinesApi::class)
 private class LibraryStateFlow(

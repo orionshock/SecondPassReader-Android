@@ -52,12 +52,12 @@ internal fun LibrarySelectorRow(
             }
         }
         val secondary = @Composable {
-            if (state.axis == LibraryAxis.BOOKS) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    orderingControl()
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                orderingControl()
+                if (state.resultKind.supportsBookLayout) {
                     layoutControl()
                 }
             }
