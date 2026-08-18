@@ -3,6 +3,7 @@ package com.secondpasslibrary.reader.library
 import com.secondpasslibrary.client.BookOrdering
 import com.secondpasslibrary.client.CompactBook
 import com.secondpasslibrary.client.LibraryPage
+import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.LibrarySearchOrdering
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
@@ -29,7 +30,7 @@ internal class LibraryBooksController(
     val connectionEvents = connectionEventChannel.receiveAsFlow()
 
     private var profile: ConnectionProfile? = null
-    private var selectedScope: LibraryScope = LibraryScope.AllLibrary
+    private var selectedScope: LibraryScope = LibraryScope.Global
     private var entryIdentity: String? = null
     private var requestGeneration = 0L
     private var loadJob: Job? = null

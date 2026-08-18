@@ -9,7 +9,10 @@ internal class KtorLibraryBooksClient(
     private val requests: AuthenticatedRequestExecutor,
     private val json: Json
 ) : AuthenticatedLibraryBooksClient {
-    override suspend fun listBooks(options: BookListOptions): LibraryPage<CompactBook> {
+    override suspend fun list(
+        scope: LibraryScope,
+        options: BookListOptions
+    ): LibraryPage<CompactBook> {
         val parameters = buildList {
             options.q?.let { add("q" to it) }
             options.authorId?.let { add("author" to it) }
@@ -19,38 +22,20 @@ internal class KtorLibraryBooksClient(
             add("page" to options.page.toString())
             add("page_size" to options.pageSize.toString())
         }
-        return getPage("library/books/", parameters, options.page, options.pageSize)
+        return getPage(scope.path("books/"), parameters, options.page, options.pageSize)
     }
 
-    override suspend fun searchLibrary(options: LibrarySearchOptions): LibraryPage<CompactBook> {
+    override suspend fun search(
+        scope: LibraryScope,
+        options: LibrarySearchOptions
+    ): LibraryPage<CompactBook> {
         val parameters = buildList {
             add("q" to options.q)
             options.ordering?.let { add("ordering" to it.queryValue) }
             add("page" to options.page.toString())
             add("page_size" to options.pageSize.toString())
         }
-        return getPage("library/search", parameters, options.page, options.pageSize)
-    }
-
-    override suspend fun listGroupBooks(
-        groupId: String,
-        options: GroupBookListOptions
-    ): LibraryPage<CompactBook> {
-        require(groupId.isNotBlank()) { "Library group ID must not be blank." }
-        val parameters = buildList {
-            options.q?.let { add("q" to it) }
-            options.authorId?.let { add("author" to it) }
-            options.seriesId?.let { add("series" to it) }
-            options.ordering?.let { add("ordering" to it.queryValue) }
-            add("page" to options.page.toString())
-            add("page_size" to options.pageSize.toString())
-        }
-        return getPage(
-            "library/groups/${groupId.encodeURLPathPart()}/books/",
-            parameters,
-            options.page,
-            options.pageSize
-        )
+        return getPage(scope.path("search"), parameters, options.page, options.pageSize)
     }
 
     private suspend fun getPage(
@@ -63,4 +48,9 @@ internal class KtorLibraryBooksClient(
         return json.decodeLibrary<CompactBookPageWire>(response.body(), "book page")
             .toModel(page, pageSize)
     }
+}
+
+internal fun LibraryScope.path(tail: String): String = when (this) {
+    LibraryScope.Global -> "library/$tail"
+    is LibraryScope.Group -> "library/groups/${id.encodeURLPathPart()}/$tail"
 }

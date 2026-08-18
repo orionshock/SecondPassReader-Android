@@ -16,20 +16,20 @@ interface AuthenticatedLibraryClient {
 }
 
 interface AuthenticatedLibraryBooksClient {
-    suspend fun listBooks(options: BookListOptions = BookListOptions()): LibraryPage<CompactBook>
-
-    suspend fun searchLibrary(
-        options: LibrarySearchOptions = LibrarySearchOptions()
+    suspend fun list(
+        scope: LibraryScope = LibraryScope.Global,
+        options: BookListOptions = BookListOptions()
     ): LibraryPage<CompactBook>
 
-    suspend fun listGroupBooks(
-        groupId: String,
-        options: GroupBookListOptions = GroupBookListOptions()
+    suspend fun search(
+        scope: LibraryScope = LibraryScope.Global,
+        options: LibrarySearchOptions = LibrarySearchOptions()
     ): LibraryPage<CompactBook>
 }
 
 interface AuthenticatedLibraryAuthorsClient {
-    suspend fun listAuthors(
+    suspend fun list(
+        scope: LibraryScope = LibraryScope.Global,
         options: AuthorListOptions = AuthorListOptions()
     ): LibraryPage<LibraryAuthor>
 
@@ -37,15 +37,11 @@ interface AuthenticatedLibraryAuthorsClient {
         authorId: String,
         options: LibraryEntityDetailOptions = LibraryEntityDetailOptions()
     ): LibraryAuthor
-
-    suspend fun listGroupAuthors(
-        groupId: String,
-        options: AuthorListOptions = AuthorListOptions()
-    ): LibraryPage<LibraryAuthor>
 }
 
 interface AuthenticatedLibrarySeriesClient {
-    suspend fun listSeries(
+    suspend fun list(
+        scope: LibraryScope = LibraryScope.Global,
         options: SeriesListOptions = SeriesListOptions()
     ): LibraryPage<LibrarySeries>
 
@@ -53,11 +49,6 @@ interface AuthenticatedLibrarySeriesClient {
         seriesId: String,
         options: LibraryEntityDetailOptions = LibraryEntityDetailOptions()
     ): LibrarySeries
-
-    suspend fun listGroupSeries(
-        groupId: String,
-        options: SeriesListOptions = SeriesListOptions()
-    ): LibraryPage<LibrarySeries>
 }
 
 interface AuthenticatedLibraryGroupsClient {

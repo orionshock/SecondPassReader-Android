@@ -1,6 +1,7 @@
 package com.secondpasslibrary.reader.library
 
 import com.secondpasslibrary.client.LibraryEntityDetailOptions
+import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.LibrarySeries
 import com.secondpasslibrary.client.SeriesListOptions
 import com.secondpasslibrary.client.SeriesOrdering
@@ -26,12 +27,7 @@ internal class LibrarySeriesController(
                         pageSize = request.pageSize,
                         previewLimit = LIBRARY_AXIS_PREVIEW_LIMIT
                     )
-                when (val selectedScope = request.scope) {
-                    LibraryScope.AllLibrary -> client.library.series.listSeries(options)
-
-                    is LibraryScope.Group ->
-                        client.library.series.listGroupSeries(selectedScope.id, options)
-                }
+                client.library.series.list(request.scope, options)
             },
             detailLoader = { client, id ->
                 client.library.series.getSeries(

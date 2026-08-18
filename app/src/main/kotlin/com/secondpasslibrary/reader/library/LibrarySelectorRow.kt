@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.client.LibraryGroupSummary
+import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 
@@ -105,10 +106,10 @@ private fun LibraryScopeMenu(
             ScopeMenuItem(
                 "All Library",
                 AppIcon.LibraryScope,
-                state.scope == LibraryScope.AllLibrary
+                state.scope == LibraryScope.Global
             ) {
                 expanded = false
-                onScopeSelected(LibraryScope.AllLibrary)
+                onScopeSelected(LibraryScope.Global)
             }
             state.groupSelector.groups.forEach { group ->
                 ScopeMenuItem(

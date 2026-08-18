@@ -1,6 +1,7 @@
 package com.secondpasslibrary.reader.library
 
 import com.secondpasslibrary.client.AuthorOrdering
+import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.SplClientException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -24,7 +25,7 @@ class LibraryAuthorsControllerTest {
         }
         val controller = controller(client)
 
-        controller.prepare(libraryProfile(), LibraryScope.AllLibrary)
+        controller.prepare(libraryProfile(), LibraryScope.Global)
         controller.activate()
         advanceUntilIdle()
 
@@ -39,7 +40,7 @@ class LibraryAuthorsControllerTest {
     fun `committed search and ordering reset to page one`() = runTest {
         val client = FakeLibraryAxisClient()
         val controller = controller(client)
-        controller.prepare(libraryProfile(), LibraryScope.AllLibrary)
+        controller.prepare(libraryProfile(), LibraryScope.Global)
         controller.activate()
         advanceUntilIdle()
 
@@ -68,7 +69,7 @@ class LibraryAuthorsControllerTest {
             }
         }
         val controller = controller(client)
-        controller.prepare(libraryProfile(), LibraryScope.AllLibrary)
+        controller.prepare(libraryProfile(), LibraryScope.Global)
         controller.activate()
         advanceUntilIdle()
 
@@ -100,7 +101,7 @@ class LibraryAuthorsControllerTest {
             }
         }
         val controller = controller(client)
-        controller.prepare(libraryProfile(), LibraryScope.AllLibrary)
+        controller.prepare(libraryProfile(), LibraryScope.Global)
         controller.activate()
         advanceUntilIdle()
 
@@ -120,7 +121,7 @@ class LibraryAuthorsControllerTest {
             groupAuthorList = { _, options -> axisPage(options.page, listOf(author("group"))) }
         }
         val controller = controller(client)
-        controller.prepare(libraryProfile(), LibraryScope.AllLibrary)
+        controller.prepare(libraryProfile(), LibraryScope.Global)
         controller.activate()
         advanceUntilIdle()
         controller.selectAuthor("old")
@@ -138,7 +139,7 @@ class LibraryAuthorsControllerTest {
     fun `selected Author detail and explicit detail failure are retained in state`() = runTest {
         val client = FakeLibraryAxisClient()
         val controller = controller(client)
-        controller.prepare(libraryProfile(), LibraryScope.AllLibrary)
+        controller.prepare(libraryProfile(), LibraryScope.Global)
         controller.selectAuthor("good")
         advanceUntilIdle()
 
@@ -173,7 +174,7 @@ class LibraryAuthorsControllerTest {
             }
         }
         val controller = controller(client)
-        controller.prepare(libraryProfile(), LibraryScope.AllLibrary)
+        controller.prepare(libraryProfile(), LibraryScope.Global)
         controller.activate()
         advanceUntilIdle()
         controller.loadNextPage()

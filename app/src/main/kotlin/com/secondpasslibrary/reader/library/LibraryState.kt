@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.library
 
 import com.secondpasslibrary.client.AuthorOrdering
 import com.secondpasslibrary.client.LibraryGroupSummary
+import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.SeriesOrdering
 
 internal enum class LibraryAxis {
@@ -19,12 +20,6 @@ internal enum class LibraryResultKind {
         get() = this == BOOKS
 }
 
-internal sealed interface LibraryScope {
-    data object AllLibrary : LibraryScope
-
-    data class Group(val id: String) : LibraryScope
-}
-
 internal data class LibraryGroupSelectorState(
     val loading: Boolean = false,
     val loaded: Boolean = false,
@@ -35,7 +30,7 @@ internal data class LibraryGroupSelectorState(
 internal data class LibraryState(
     val axis: LibraryAxis = LibraryAxis.BOOKS,
     val resultKind: LibraryResultKind = LibraryResultKind.BOOKS,
-    val scope: LibraryScope = LibraryScope.AllLibrary,
+    val scope: LibraryScope = LibraryScope.Global,
     val advancedGroupsEnabled: Boolean = false,
     val groupSelector: LibraryGroupSelectorState = LibraryGroupSelectorState(),
     val books: LibraryBooksState = LibraryBooksState(),

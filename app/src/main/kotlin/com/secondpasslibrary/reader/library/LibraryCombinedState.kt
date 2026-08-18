@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.library
 
+import com.secondpasslibrary.client.LibraryScope
 import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.StateFlow
@@ -11,7 +12,7 @@ internal val LibraryChromeState.isSelectedEntityBooks: Boolean
 internal data class LibraryChromeState(
     val axis: LibraryAxis = LibraryAxis.BOOKS,
     val resultKind: LibraryResultKind = LibraryResultKind.BOOKS,
-    val scope: LibraryScope = LibraryScope.AllLibrary,
+    val scope: LibraryScope = LibraryScope.Global,
     val advancedGroupsEnabled: Boolean = false,
     val groupSelector: LibraryGroupSelectorState = LibraryGroupSelectorState()
 ) {

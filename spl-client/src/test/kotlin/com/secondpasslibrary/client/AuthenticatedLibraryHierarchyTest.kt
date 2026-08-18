@@ -18,6 +18,29 @@ class AuthenticatedLibraryHierarchyTest {
         assertTrue(
             libraryMethods.containsAll(setOf("getBooks", "getAuthors", "getSeries", "getGroups"))
         )
+        assertTrue(
+            AuthenticatedLibraryBooksClient::class.java.methods.map { it.name }.toSet()
+                .containsAll(setOf("list", "search"))
+        )
+        assertFalse(
+            AuthenticatedLibraryBooksClient::class.java.methods.any {
+                it.name in setOf("listBooks", "searchLibrary", "listGroupBooks")
+            }
+        )
+        assertAxisHasOnlyScopedList(
+            AuthenticatedLibraryAuthorsClient::class.java,
+            "listGroupAuthors"
+        )
+        assertAxisHasOnlyScopedList(
+            AuthenticatedLibrarySeriesClient::class.java,
+            "listGroupSeries"
+        )
+    }
+
+    private fun assertAxisHasOnlyScopedList(axis: Class<*>, removedGroupMethod: String) {
+        val methods = axis.methods.map { it.name }
+        assertTrue("Scoped list capability is missing", "list" in methods)
+        assertFalse("Divergent group method remains", removedGroupMethod in methods)
     }
 }
 

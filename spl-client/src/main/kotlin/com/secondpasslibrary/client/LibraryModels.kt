@@ -1,5 +1,15 @@
 package com.secondpasslibrary.client
 
+sealed interface LibraryScope {
+    data object Global : LibraryScope
+
+    data class Group(val id: String) : LibraryScope {
+        init {
+            require(id.isNotBlank()) { "Library group ID must not be blank." }
+        }
+    }
+}
+
 data class BookListOptions(
     val q: String? = null,
     val authorId: String? = null,
@@ -35,21 +45,6 @@ data class LibraryGroupListOptions(
 ) {
     init {
         validateLibraryPage(page, pageSize)
-    }
-}
-
-data class GroupBookListOptions(
-    val q: String? = null,
-    val authorId: String? = null,
-    val seriesId: String? = null,
-    val ordering: BookOrdering? = null,
-    val page: Int = DEFAULT_LIBRARY_PAGE,
-    val pageSize: Int = DEFAULT_LIBRARY_PAGE_SIZE
-) {
-    init {
-        validateLibraryPage(page, pageSize)
-        require(authorId == null || authorId.isNotBlank()) { "Author ID must not be blank." }
-        require(seriesId == null || seriesId.isNotBlank()) { "Series ID must not be blank." }
     }
 }
 

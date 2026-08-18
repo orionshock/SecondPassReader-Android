@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.library
 
 import com.secondpasslibrary.client.AuthenticatedSecondPassClient
 import com.secondpasslibrary.client.LibraryPage
+import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import kotlinx.coroutines.CancellationException
@@ -33,7 +34,7 @@ internal class LibraryEntityController<T, O>(
     val connectionEvents = connectionEventChannel.receiveAsFlow()
 
     private var profile: ConnectionProfile? = null
-    private var selectedScope: LibraryScope = LibraryScope.AllLibrary
+    private var selectedScope: LibraryScope = LibraryScope.Global
     private var connectionIdentity: String? = null
     private var generation = 0L
     private var detailGeneration = 0L

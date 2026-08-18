@@ -23,8 +23,8 @@ class LibraryAxesClientTest {
         val page = authenticatedClient {
             request = it
             jsonResponse(AUTHOR_PAGE)
-        }.library.authors.listAuthors(
-            AuthorListOptions(
+        }.library.authors.list(
+            options = AuthorListOptions(
                 q = "Le Guin / science fiction",
                 ordering = AuthorOrdering.BOOK_COUNT_DESCENDING,
                 page = 2,
@@ -61,7 +61,7 @@ class LibraryAxesClientTest {
         val page = authenticatedClient {
             request = it
             jsonResponse(SERIES_PAGE)
-        }.library.series.listSeries(SeriesListOptions(q = "cycle", previewLimit = 3))
+        }.library.series.list(options = SeriesListOptions(q = "cycle", previewLimit = 3))
 
         assertEquals("/api/v1/library/series/", request?.url?.encodedPath)
         assertEquals("name", request?.url?.parameters?.get("ordering"))
@@ -114,9 +114,12 @@ class LibraryAxesClientTest {
             }
         }
 
-        client.library.authors.listGroupAuthors("group/one", AuthorListOptions(q = "author"))
-        client.library.series.listGroupSeries(
-            "group/one",
+        client.library.authors.list(
+            LibraryScope.Group("group/one"),
+            AuthorListOptions(q = "author")
+        )
+        client.library.series.list(
+            LibraryScope.Group("group/one"),
             SeriesListOptions(ordering = SeriesOrdering.NAME_DESCENDING)
         )
 
@@ -159,13 +162,13 @@ class LibraryAxesClientTest {
         assertThrows(SplClientException.ProtocolInvalid::class.java) {
             runBlocking {
                 authenticatedClient { jsonResponse(malformedPayloads[0]) }
-                    .library.authors.listAuthors()
+                    .library.authors.list()
             }
         }
         assertThrows(SplClientException.ProtocolInvalid::class.java) {
             runBlocking {
                 authenticatedClient { jsonResponse(malformedPayloads[1]) }
-                    .library.series.listSeries()
+                    .library.series.list()
             }
         }
         assertThrows(SplClientException.ProtocolInvalid::class.java) {

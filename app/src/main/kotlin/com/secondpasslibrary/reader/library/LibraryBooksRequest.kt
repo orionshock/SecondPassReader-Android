@@ -2,12 +2,10 @@ package com.secondpasslibrary.reader.library
 
 import com.secondpasslibrary.client.AuthenticatedLibraryBooksClient
 import com.secondpasslibrary.client.BookListOptions
-import com.secondpasslibrary.client.BookOrdering
 import com.secondpasslibrary.client.CompactBook
-import com.secondpasslibrary.client.GroupBookListOptions
 import com.secondpasslibrary.client.LibraryPage
+import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.LibrarySearchOptions
-import com.secondpasslibrary.client.LibrarySearchOrdering
 
 internal data class LibraryBooksRequest(
     val mode: LibraryBooksMode,
@@ -19,48 +17,31 @@ internal data class LibraryBooksRequest(
     val pageSize: Int
 ) {
     suspend fun load(client: AuthenticatedLibraryBooksClient): LibraryPage<CompactBook> =
-        when (val selectedScope = scope) {
-            is LibraryScope.Group ->
-                client.listGroupBooks(
-                    selectedScope.id,
-                    GroupBookListOptions(
+        when (mode) {
+            LibraryBooksMode.BROWSE ->
+                client.list(
+                    scope,
+                    BookListOptions(
                         q = query.takeIf(String::isNotBlank),
                         authorId = (filter as? LibraryBooksFilter.Author)?.id,
                         seriesId = (filter as? LibraryBooksFilter.Series)?.id,
-                        ordering = ordering.toBookOrdering(),
+                        ordering = (ordering as LibraryBooksOrdering.Browse).value,
                         page = page,
                         pageSize = pageSize
                     )
                 )
 
-            LibraryScope.AllLibrary -> loadAllLibrary(client)
+            LibraryBooksMode.BROAD_SEARCH ->
+                client.search(
+                    scope,
+                    LibrarySearchOptions(
+                        q = query,
+                        ordering = (ordering as LibraryBooksOrdering.BroadSearch).value,
+                        page = page,
+                        pageSize = pageSize
+                    )
+                )
         }
-
-    private suspend fun loadAllLibrary(
-        client: AuthenticatedLibraryBooksClient
-    ): LibraryPage<CompactBook> = when (mode) {
-        LibraryBooksMode.BROWSE ->
-            client.listBooks(
-                BookListOptions(
-                    q = query.takeIf(String::isNotBlank),
-                    authorId = (filter as? LibraryBooksFilter.Author)?.id,
-                    seriesId = (filter as? LibraryBooksFilter.Series)?.id,
-                    ordering = (ordering as LibraryBooksOrdering.Browse).value,
-                    page = page,
-                    pageSize = pageSize
-                )
-            )
-
-        LibraryBooksMode.BROAD_SEARCH ->
-            client.searchLibrary(
-                LibrarySearchOptions(
-                    q = query,
-                    ordering = (ordering as LibraryBooksOrdering.BroadSearch).value,
-                    page = page,
-                    pageSize = pageSize
-                )
-            )
-    }
 
     companion object {
         fun from(state: LibraryBooksState, scope: LibraryScope, page: Int) = LibraryBooksRequest(
@@ -73,18 +54,4 @@ internal data class LibraryBooksRequest(
             state.pageSize
         )
     }
-}
-
-private fun LibraryBooksOrdering.toBookOrdering(): BookOrdering = when (this) {
-    is LibraryBooksOrdering.Browse -> value
-
-    is LibraryBooksOrdering.BroadSearch ->
-        when (value) {
-            LibrarySearchOrdering.TITLE -> BookOrdering.TITLE
-            LibrarySearchOrdering.TITLE_DESCENDING -> BookOrdering.TITLE_DESCENDING
-            LibrarySearchOrdering.AUTHOR -> BookOrdering.AUTHOR
-            LibrarySearchOrdering.AUTHOR_DESCENDING -> BookOrdering.AUTHOR_DESCENDING
-            LibrarySearchOrdering.SERIES -> BookOrdering.SERIES
-            LibrarySearchOrdering.SERIES_DESCENDING -> BookOrdering.SERIES_DESCENDING
-        }
 }

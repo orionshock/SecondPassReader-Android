@@ -10,8 +10,10 @@ internal class KtorLibrarySeriesClient(
     private val requests: AuthenticatedRequestExecutor,
     private val json: Json
 ) : AuthenticatedLibrarySeriesClient {
-    override suspend fun listSeries(options: SeriesListOptions): LibraryPage<LibrarySeries> =
-        listAt("library/series/", options)
+    override suspend fun list(
+        scope: LibraryScope,
+        options: SeriesListOptions
+    ): LibraryPage<LibrarySeries> = listAt(scope.path("series/"), options)
 
     override suspend fun getSeries(
         seriesId: String,
@@ -23,14 +25,6 @@ internal class KtorLibrarySeriesClient(
             previewParameters(options.previewLimit)
         )
         return json.decodeLibrary<LibrarySeriesWire>(response.body(), "library series").toModel()
-    }
-
-    override suspend fun listGroupSeries(
-        groupId: String,
-        options: SeriesListOptions
-    ): LibraryPage<LibrarySeries> {
-        require(groupId.isNotBlank()) { "Library group ID must not be blank." }
-        return listAt("library/groups/${groupId.encodeURLPathPart()}/series/", options)
     }
 
     private suspend fun listAt(

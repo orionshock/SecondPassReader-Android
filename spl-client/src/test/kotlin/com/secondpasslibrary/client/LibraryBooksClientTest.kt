@@ -22,7 +22,7 @@ class LibraryBooksClientTest {
     fun `compact book and page mapping preserve server values and order`() = runBlocking {
         val client = authenticatedClient { jsonResponse(FULL_BOOK_PAGE) }
 
-        val page = client.library.books.listBooks(BookListOptions(page = 2, pageSize = 40))
+        val page = client.library.books.list(options = BookListOptions(page = 2, pageSize = 40))
 
         assertEquals(41, page.totalCount)
         assertEquals(2, page.page)
@@ -50,7 +50,7 @@ class LibraryBooksClientTest {
                 jsonResponse(NULLABLE_BOOK_PAGE.replace(PRECISION_PLACEHOLDER, ""))
             }
 
-            val book = client.library.books.listBooks().results.single()
+            val book = client.library.books.list().results.single()
 
             assertNull(book.series)
             assertNull(book.language)
@@ -71,7 +71,7 @@ class LibraryBooksClientTest {
         }
 
         val values = List(4) {
-            client.library.books.listBooks().results.single().publicationDatePrecision
+            client.library.books.list().results.single().publicationDatePrecision
         }
 
         assertEquals(
@@ -93,16 +93,17 @@ class LibraryBooksClientTest {
             jsonResponse(EMPTY_PAGE)
         }
 
-        client.library.books.listBooks(
-            BookListOptions(
-                q = "The Book",
-                authorId = "author-1",
-                seriesId = "series-1",
-                tagSlug = "science-fiction",
-                ordering = BookOrdering.SERIES_INDEX_DESCENDING,
-                page = 3,
-                pageSize = 100
-            )
+        client.library.books.list(
+            options =
+                BookListOptions(
+                    q = "The Book",
+                    authorId = "author-1",
+                    seriesId = "series-1",
+                    tagSlug = "science-fiction",
+                    ordering = BookOrdering.SERIES_INDEX_DESCENDING,
+                    page = 3,
+                    pageSize = 100
+                )
         )
 
         assertEquals("/api/v1/library/books/", request?.url?.encodedPath)
@@ -125,7 +126,7 @@ class LibraryBooksClientTest {
         }
 
         BookOrdering.entries.forEach {
-            client.library.books.listBooks(BookListOptions(ordering = it))
+            client.library.books.list(options = BookListOptions(ordering = it))
         }
 
         assertEquals(
@@ -154,13 +155,14 @@ class LibraryBooksClientTest {
         }
 
         val page =
-            client.library.books.searchLibrary(
-                LibrarySearchOptions(
-                    q = "",
-                    ordering = LibrarySearchOrdering.SERIES_DESCENDING,
-                    page = 4,
-                    pageSize = 200
-                )
+            client.library.books.search(
+                options =
+                    LibrarySearchOptions(
+                        q = "",
+                        ordering = LibrarySearchOrdering.SERIES_DESCENDING,
+                        page = 4,
+                        pageSize = 200
+                    )
             )
 
         assertEquals("/api/v1/library/search", request?.url?.encodedPath)
@@ -183,7 +185,7 @@ class LibraryBooksClientTest {
         }
 
         LibrarySearchOrdering.entries.forEach {
-            client.library.books.searchLibrary(LibrarySearchOptions(ordering = it))
+            client.library.books.search(options = LibrarySearchOptions(ordering = it))
         }
 
         assertEquals(
@@ -217,7 +219,7 @@ class LibraryBooksClientTest {
         }
 
         assertThrows(SplClientException.ProtocolInvalid::class.java) {
-            runBlocking { client.library.books.listBooks() }
+            runBlocking { client.library.books.list() }
         }
     }
 
@@ -229,10 +231,10 @@ class LibraryBooksClientTest {
         val invalidPage = authenticatedClient { jsonResponse("""{"count":-1,"results":[]}""") }
 
         assertThrows(SplClientException.ProtocolInvalid::class.java) {
-            runBlocking { invalidSeries.library.books.listBooks() }
+            runBlocking { invalidSeries.library.books.list() }
         }
         assertThrows(SplClientException.ProtocolInvalid::class.java) {
-            runBlocking { invalidPage.library.books.listBooks() }
+            runBlocking { invalidPage.library.books.list() }
         }
     }
 

@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.library
 
+import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.SeriesOrdering
 import com.secondpasslibrary.client.SplClientException
 import kotlinx.coroutines.CompletableDeferred
@@ -23,7 +24,7 @@ class LibrarySeriesControllerTest {
             seriesList = { axisPage(1, listOf(series("b"), series("a")), 8, hasNext = true) }
         }
         val controller = controller(client)
-        controller.prepare(libraryProfile(), LibraryScope.AllLibrary)
+        controller.prepare(libraryProfile(), LibraryScope.Global)
         controller.activate()
         advanceUntilIdle()
 
@@ -38,7 +39,7 @@ class LibrarySeriesControllerTest {
     fun `committed search and ordering reset to page one`() = runTest {
         val client = FakeLibraryAxisClient()
         val controller = controller(client)
-        controller.prepare(libraryProfile(), LibraryScope.AllLibrary)
+        controller.prepare(libraryProfile(), LibraryScope.Global)
         controller.activate()
         advanceUntilIdle()
 
@@ -67,7 +68,7 @@ class LibrarySeriesControllerTest {
             }
         }
         val controller = controller(client)
-        controller.prepare(libraryProfile(), LibraryScope.AllLibrary)
+        controller.prepare(libraryProfile(), LibraryScope.Global)
         controller.activate()
         advanceUntilIdle()
 
@@ -99,7 +100,7 @@ class LibrarySeriesControllerTest {
             }
         }
         val controller = controller(client)
-        controller.prepare(libraryProfile(), LibraryScope.AllLibrary)
+        controller.prepare(libraryProfile(), LibraryScope.Global)
         controller.activate()
         advanceUntilIdle()
 
@@ -119,7 +120,7 @@ class LibrarySeriesControllerTest {
             groupSeriesList = { _, options -> axisPage(options.page, listOf(series("group"))) }
         }
         val controller = controller(client)
-        controller.prepare(libraryProfile(), LibraryScope.AllLibrary)
+        controller.prepare(libraryProfile(), LibraryScope.Global)
         controller.activate()
         advanceUntilIdle()
         controller.selectSeries("old")
@@ -137,7 +138,7 @@ class LibrarySeriesControllerTest {
     fun `selected Series detail and explicit detail failure are retained in state`() = runTest {
         val client = FakeLibraryAxisClient()
         val controller = controller(client)
-        controller.prepare(libraryProfile(), LibraryScope.AllLibrary)
+        controller.prepare(libraryProfile(), LibraryScope.Global)
         controller.selectSeries("good")
         advanceUntilIdle()
 
@@ -172,7 +173,7 @@ class LibrarySeriesControllerTest {
             }
         }
         val controller = controller(client)
-        controller.prepare(libraryProfile(), LibraryScope.AllLibrary)
+        controller.prepare(libraryProfile(), LibraryScope.Global)
         controller.activate()
         advanceUntilIdle()
         controller.loadNextPage()

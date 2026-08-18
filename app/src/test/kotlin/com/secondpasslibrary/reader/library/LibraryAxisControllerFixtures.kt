@@ -8,12 +8,13 @@ import com.secondpasslibrary.client.AuthenticatedSecondPassClient
 import com.secondpasslibrary.client.AuthorListOptions
 import com.secondpasslibrary.client.BookListOptions
 import com.secondpasslibrary.client.CompactBook
-import com.secondpasslibrary.client.GroupBookListOptions
 import com.secondpasslibrary.client.LibraryAuthor
 import com.secondpasslibrary.client.LibraryEntityDetailOptions
 import com.secondpasslibrary.client.LibraryGroupListOptions
 import com.secondpasslibrary.client.LibraryGroupSummary
 import com.secondpasslibrary.client.LibraryPage
+import com.secondpasslibrary.client.LibraryScope
+import com.secondpasslibrary.client.LibrarySearchOptions
 import com.secondpasslibrary.client.LibrarySeries
 import com.secondpasslibrary.client.PublicationDatePrecision
 import com.secondpasslibrary.client.RecentReadingItem
@@ -35,7 +36,7 @@ internal class FakeLibraryAxisClient :
         FakeAuthenticatedLibraryClient(books = this, authors = this, series = this, groups = this)
 
     val bookRequests = mutableListOf<BookListOptions>()
-    val groupBookRequests = mutableListOf<Pair<String, GroupBookListOptions>>()
+    val groupBookRequests = mutableListOf<Pair<String, BookListOptions>>()
 
     val authorRequests = mutableListOf<AuthorListOptions>()
     val groupAuthorRequests = mutableListOf<Pair<String, AuthorListOptions>>()
@@ -63,37 +64,42 @@ internal class FakeLibraryAxisClient :
     var bookList: suspend (BookListOptions) -> LibraryPage<CompactBook> = {
         axisPage(it.page, emptyList())
     }
-    var groupBookList: suspend (String, GroupBookListOptions) -> LibraryPage<CompactBook> =
+    var groupBookList: suspend (String, BookListOptions) -> LibraryPage<CompactBook> =
         { _, options -> axisPage(options.page, emptyList()) }
 
-    override suspend fun listBooks(options: BookListOptions): LibraryPage<CompactBook> {
-        bookRequests += options
-        return bookList(options)
+    override suspend fun list(
+        scope: LibraryScope,
+        options: BookListOptions
+    ): LibraryPage<CompactBook> = when (scope) {
+        LibraryScope.Global -> {
+            bookRequests += options
+            bookList(options)
+        }
+
+        is LibraryScope.Group -> {
+            groupBookRequests += scope.id to options
+            groupBookList(scope.id, options)
+        }
     }
 
-    override suspend fun searchLibrary(
-        options: com.secondpasslibrary.client.LibrarySearchOptions
+    override suspend fun search(
+        scope: LibraryScope,
+        options: LibrarySearchOptions
     ): LibraryPage<CompactBook> = axisPage(options.page, emptyList())
 
-    override suspend fun listGroupBooks(
-        groupId: String,
-        options: GroupBookListOptions
-    ): LibraryPage<CompactBook> {
-        groupBookRequests += groupId to options
-        return groupBookList(groupId, options)
-    }
-
-    override suspend fun listAuthors(options: AuthorListOptions): LibraryPage<LibraryAuthor> {
-        authorRequests += options
-        return authorList(options)
-    }
-
-    override suspend fun listGroupAuthors(
-        groupId: String,
+    override suspend fun list(
+        scope: LibraryScope,
         options: AuthorListOptions
-    ): LibraryPage<LibraryAuthor> {
-        groupAuthorRequests += groupId to options
-        return groupAuthorList(groupId, options)
+    ): LibraryPage<LibraryAuthor> = when (scope) {
+        LibraryScope.Global -> {
+            authorRequests += options
+            authorList(options)
+        }
+
+        is LibraryScope.Group -> {
+            groupAuthorRequests += scope.id to options
+            groupAuthorList(scope.id, options)
+        }
     }
 
     override suspend fun getAuthor(
@@ -104,17 +110,19 @@ internal class FakeLibraryAxisClient :
         return authorDetail(authorId)
     }
 
-    override suspend fun listSeries(options: SeriesListOptions): LibraryPage<LibrarySeries> {
-        seriesRequests += options
-        return seriesList(options)
-    }
-
-    override suspend fun listGroupSeries(
-        groupId: String,
+    override suspend fun list(
+        scope: LibraryScope,
         options: SeriesListOptions
-    ): LibraryPage<LibrarySeries> {
-        groupSeriesRequests += groupId to options
-        return groupSeriesList(groupId, options)
+    ): LibraryPage<LibrarySeries> = when (scope) {
+        LibraryScope.Global -> {
+            seriesRequests += options
+            seriesList(options)
+        }
+
+        is LibraryScope.Group -> {
+            groupSeriesRequests += scope.id to options
+            groupSeriesList(scope.id, options)
+        }
     }
 
     override suspend fun getSeries(

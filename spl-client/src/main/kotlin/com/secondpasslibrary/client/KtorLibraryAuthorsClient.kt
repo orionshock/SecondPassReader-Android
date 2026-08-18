@@ -10,8 +10,10 @@ internal class KtorLibraryAuthorsClient(
     private val requests: AuthenticatedRequestExecutor,
     private val json: Json
 ) : AuthenticatedLibraryAuthorsClient {
-    override suspend fun listAuthors(options: AuthorListOptions): LibraryPage<LibraryAuthor> =
-        listAt("library/authors/", options)
+    override suspend fun list(
+        scope: LibraryScope,
+        options: AuthorListOptions
+    ): LibraryPage<LibraryAuthor> = listAt(scope.path("authors/"), options)
 
     override suspend fun getAuthor(
         authorId: String,
@@ -23,14 +25,6 @@ internal class KtorLibraryAuthorsClient(
             previewParameters(options.previewLimit)
         )
         return json.decodeLibrary<LibraryAuthorWire>(response.body(), "library author").toModel()
-    }
-
-    override suspend fun listGroupAuthors(
-        groupId: String,
-        options: AuthorListOptions
-    ): LibraryPage<LibraryAuthor> {
-        require(groupId.isNotBlank()) { "Library group ID must not be blank." }
-        return listAt("library/groups/${groupId.encodeURLPathPart()}/authors/", options)
     }
 
     private suspend fun listAt(

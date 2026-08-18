@@ -40,17 +40,17 @@ class LibraryGroupsClientTest {
     }
 
     @Test
-    fun `group books use encoded group path broad query and typed ordering`() = runBlocking {
+    fun `group Books browse uses shared options and encoded scoped path`() = runBlocking {
         var request: HttpRequestData? = null
         val client = authenticatedClient { captured ->
             request = captured
             jsonResponse(EMPTY_PAGE)
         }
 
-        client.library.books.listGroupBooks(
-            "group/one",
-            GroupBookListOptions(
-                q = "author or title",
+        client.library.books.list(
+            LibraryScope.Group("group/one"),
+            BookListOptions(
+                q = "title only",
                 authorId = "author-id",
                 seriesId = "series-id",
                 ordering = BookOrdering.AUTHOR_DESCENDING,
@@ -60,7 +60,7 @@ class LibraryGroupsClientTest {
         )
 
         assertEquals("/api/v1/library/groups/group%2Fone/books/", request?.url?.encodedPath)
-        assertEquals("author or title", request?.url?.parameters?.get("q"))
+        assertEquals("title only", request?.url?.parameters?.get("q"))
         assertEquals("author-id", request?.url?.parameters?.get("author"))
         assertEquals("series-id", request?.url?.parameters?.get("series"))
         assertEquals("-author", request?.url?.parameters?.get("ordering"))
@@ -68,21 +68,38 @@ class LibraryGroupsClientTest {
     }
 
     @Test
+    fun `group broad search uses scoped search endpoint and shared options`() = runBlocking {
+        var request: HttpRequestData? = null
+        val client = authenticatedClient { captured ->
+            request = captured
+            jsonResponse(EMPTY_PAGE)
+        }
+
+        client.library.books.search(
+            LibraryScope.Group("group/one"),
+            LibrarySearchOptions(q = "author or title", ordering = LibrarySearchOrdering.AUTHOR)
+        )
+
+        assertEquals("/api/v1/library/groups/group%2Fone/search", request?.url?.encodedPath)
+        assertEquals("author or title", request?.url?.parameters?.get("q"))
+        assertEquals("author", request?.url?.parameters?.get("ordering"))
+    }
+
+    @Test
     fun `group identifiers paging and required fields are validated`() {
         assertThrows(IllegalArgumentException::class.java) {
             runBlocking {
-                authenticatedClient { jsonResponse(EMPTY_PAGE) }
-                    .library.books.listGroupBooks(" ")
+                LibraryScope.Group(" ")
             }
         }
         assertThrows(IllegalArgumentException::class.java) {
             LibraryGroupListOptions(pageSize = 201)
         }
         assertThrows(IllegalArgumentException::class.java) {
-            GroupBookListOptions(authorId = " ")
+            BookListOptions(authorId = " ")
         }
         assertThrows(IllegalArgumentException::class.java) {
-            GroupBookListOptions(seriesId = " ")
+            BookListOptions(seriesId = " ")
         }
         val malformed = authenticatedClient {
             jsonResponse("""{"count":1,"results":[{"id":"group","name":"Group"}]}""")

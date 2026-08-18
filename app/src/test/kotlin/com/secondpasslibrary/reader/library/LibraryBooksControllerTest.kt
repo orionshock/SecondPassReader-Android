@@ -6,10 +6,10 @@ import com.secondpasslibrary.client.AuthenticatedSecondPassClient
 import com.secondpasslibrary.client.BookListOptions
 import com.secondpasslibrary.client.BookOrdering
 import com.secondpasslibrary.client.CompactBook
-import com.secondpasslibrary.client.GroupBookListOptions
 import com.secondpasslibrary.client.LibraryGroupListOptions
 import com.secondpasslibrary.client.LibraryGroupSummary
 import com.secondpasslibrary.client.LibraryPage
+import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.LibrarySearchOptions
 import com.secondpasslibrary.client.LibrarySearchOrdering
 import com.secondpasslibrary.client.PublicationDatePrecision
@@ -382,7 +382,7 @@ class LibraryBooksControllerTest {
             advanceUntilIdle()
 
             assertTrue(enabled.state.value.advancedGroupsEnabled)
-            assertEquals(LibraryScope.AllLibrary, enabled.state.value.scope)
+            assertEquals(LibraryScope.Global, enabled.state.value.scope)
             assertEquals(
                 listOf("public", "private"),
                 enabled.state.value.groupSelector.groups.map {
@@ -417,7 +417,7 @@ class LibraryBooksControllerTest {
     }
 
     @Test
-    fun `All Library broad search remains distinct after leaving group scope`() = runTest {
+    fun `broad search keeps shared semantics while scope selects endpoint`() = runTest {
         val client = FakeLibraryClient().apply {
             groupCall = { groupPage(1, listOf(group("group-1", false))) }
         }
@@ -430,13 +430,16 @@ class LibraryBooksControllerTest {
         advanceUntilIdle()
         controller.selectScope(LibraryScope.Group("group-1"))
         advanceUntilIdle()
-        controller.selectScope(LibraryScope.AllLibrary)
+        controller.selectScope(LibraryScope.Global)
         advanceUntilIdle()
 
         assertEquals(LibraryBooksMode.BROAD_SEARCH, controller.state.value.books.mode)
         assertEquals("dune", controller.state.value.books.committedQuery)
-        assertEquals(2, client.searchRequests.size)
-        assertEquals(1, client.groupBookRequests.size)
+        assertEquals(
+            listOf(LibraryScope.Global, LibraryScope.Group("group-1"), LibraryScope.Global),
+            client.scopedSearchRequests.map { it.first }
+        )
+        assertTrue(client.groupBookRequests.isEmpty())
     }
 
     @Test
@@ -460,7 +463,9 @@ class LibraryBooksControllerTest {
 
         assertEquals(LibraryScope.Group("group-1"), controller.state.value.scope)
         assertEquals(LibraryAxis.BOOKS, controller.state.value.axis)
-        assertEquals("dune", client.groupBookRequests.single().second.q)
+        val request = client.scopedSearchRequests.last()
+        assertEquals(LibraryScope.Group("group-1"), request.first)
+        assertEquals("dune", request.second.q)
         assertEquals(1, client.groupRequests.size)
     }
 
@@ -499,12 +504,12 @@ class LibraryBooksControllerTest {
         LibraryController(FakeClientProvider(client), FakeDisplayPreferenceStore(), this)
 
     private fun LibraryBooksController.initializeBrowse(profile: ConnectionProfile) =
-        initialize(profile, LibraryBooksMode.BROWSE, "", LibraryScope.AllLibrary)
+        initialize(profile, LibraryBooksMode.BROWSE, "", LibraryScope.Global)
 
     private fun LibraryBooksController.initializeBroadSearch(
         profile: ConnectionProfile,
         query: String
-    ) = initialize(profile, LibraryBooksMode.BROAD_SEARCH, query, LibraryScope.AllLibrary)
+    ) = initialize(profile, LibraryBooksMode.BROAD_SEARCH, query, LibraryScope.Global)
 
     private fun preferenceUnrelatedOrdering(controller: LibraryBooksController) =
         (controller.state.value.ordering as LibraryBooksOrdering.Browse).value
@@ -533,7 +538,8 @@ class LibraryBooksControllerTest {
         val bookRequests = mutableListOf<BookListOptions>()
         val searchRequests = mutableListOf<LibrarySearchOptions>()
         val groupRequests = mutableListOf<LibraryGroupListOptions>()
-        val groupBookRequests = mutableListOf<Pair<String, GroupBookListOptions>>()
+        val groupBookRequests = mutableListOf<Pair<String, BookListOptions>>()
+        val scopedSearchRequests = mutableListOf<Pair<LibraryScope, LibrarySearchOptions>>()
         var listCall: suspend (BookListOptions) -> LibraryPage<CompactBook> = {
             page(it.page, emptyList(), 0)
         }
@@ -544,19 +550,31 @@ class LibraryBooksControllerTest {
             LibraryPage(0, emptyList(), false, false, it.page, it.pageSize)
         }
         var groupBookCall:
-            suspend (String, GroupBookListOptions) -> LibraryPage<CompactBook> = { _, options ->
+            suspend (String, BookListOptions) -> LibraryPage<CompactBook> = { _, options ->
                 page(options.page, emptyList(), 0)
             }
 
-        override suspend fun listBooks(options: BookListOptions): LibraryPage<CompactBook> {
-            bookRequests += options
-            return listCall(options)
+        override suspend fun list(
+            scope: LibraryScope,
+            options: BookListOptions
+        ): LibraryPage<CompactBook> = when (scope) {
+            LibraryScope.Global -> {
+                bookRequests += options
+                listCall(options)
+            }
+
+            is LibraryScope.Group -> {
+                groupBookRequests += scope.id to options
+                groupBookCall(scope.id, options)
+            }
         }
 
-        override suspend fun searchLibrary(
+        override suspend fun search(
+            scope: LibraryScope,
             options: LibrarySearchOptions
         ): LibraryPage<CompactBook> {
             searchRequests += options
+            scopedSearchRequests += scope to options
             return searchCall(options)
         }
 
@@ -565,14 +583,6 @@ class LibraryBooksControllerTest {
         ): LibraryPage<LibraryGroupSummary> {
             groupRequests += options
             return groupCall(options)
-        }
-
-        override suspend fun listGroupBooks(
-            groupId: String,
-            options: GroupBookListOptions
-        ): LibraryPage<CompactBook> {
-            groupBookRequests += groupId to options
-            return groupBookCall(groupId, options)
         }
 
         override suspend fun recentReading(options: RecentReadingOptions): List<RecentReadingItem> =

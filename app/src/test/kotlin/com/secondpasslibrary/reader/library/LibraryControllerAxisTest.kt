@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.library
 
 import com.secondpasslibrary.client.BookOrdering
 import com.secondpasslibrary.client.LibraryGroupSummary
+import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.SplClientException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle

@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.secondpasslibrary.client.LibraryScope
 
 @Composable
 internal fun LibraryScreen(viewModel: LibraryViewModel) {

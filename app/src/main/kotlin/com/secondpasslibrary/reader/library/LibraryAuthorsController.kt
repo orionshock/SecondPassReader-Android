@@ -4,6 +4,7 @@ import com.secondpasslibrary.client.AuthorListOptions
 import com.secondpasslibrary.client.AuthorOrdering
 import com.secondpasslibrary.client.LibraryAuthor
 import com.secondpasslibrary.client.LibraryEntityDetailOptions
+import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import kotlinx.coroutines.CoroutineScope
@@ -26,12 +27,7 @@ internal class LibraryAuthorsController(
                         pageSize = request.pageSize,
                         previewLimit = LIBRARY_AXIS_PREVIEW_LIMIT
                     )
-                when (val selectedScope = request.scope) {
-                    LibraryScope.AllLibrary -> client.library.authors.listAuthors(options)
-
-                    is LibraryScope.Group ->
-                        client.library.authors.listGroupAuthors(selectedScope.id, options)
-                }
+                client.library.authors.list(request.scope, options)
             },
             detailLoader = { client, id ->
                 client.library.authors.getAuthor(

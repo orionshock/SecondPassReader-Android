@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.library
 
 import com.secondpasslibrary.client.LibraryGroupListOptions
 import com.secondpasslibrary.client.LibraryGroupOrdering
+import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import kotlinx.coroutines.CancellationException
@@ -57,7 +58,7 @@ internal class LibraryController(
         val previous = chrome.value
         val sameConnection = connection == connectionIdentity
         val selectedScope =
-            if (sameConnection && advancedGroupsEnabled) previous.scope else LibraryScope.AllLibrary
+            if (sameConnection && advancedGroupsEnabled) previous.scope else LibraryScope.Global
         this.profile = profile
         connectionIdentity = connection
         entryIdentity = identity

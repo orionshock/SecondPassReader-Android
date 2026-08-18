@@ -63,9 +63,9 @@ The authenticated Home surface retains useful verified library, account, group, 
 
 ```text
 AuthenticatedSecondPassClient.library
-  |- books  -> list, broad search, group-scoped list
-  |- authors -> list, detail, group-scoped list
-  |- series -> list, detail, group-scoped list
+  |- books  -> scoped list and scoped broad search
+  |- authors -> scoped list and global detail
+  |- series -> scoped list and global detail
   `- groups -> selector summaries
 ```
 
@@ -73,9 +73,9 @@ Pagination, compact/preview Books, cover references, and shared Library value ty
 
 Recent-reading results preserve server order. Session status remains `active` or `closed`, and progress retains its CFI plus the server's opaque location label without deriving percentages. Shelf list inputs use a closed ordering vocabulary and can request a bounded number of preview books. Omitted `preview_books` remains distinguishable from a returned empty list, and missing item counts are rejected as invalid protocol rather than coerced to zero.
 
-Books browsing and broad Library search are separate SDK operations because their server-side query semantics differ. Both return compact Books through an SDK-owned page model without exposing raw next/previous URLs. Ordering is typed, page size is bounded to the server's 1-200 contract, author/tag/series ordering is preserved, and `SeriesIndex` retains the exact two-decimal wire representation rather than converting it to a floating-point number.
+Library reads resolve an explicit SDK-owned scope (`Global` or `Group`) before applying shared axis semantics. Books browsing remains distinct from broad Library search: scoped browse `q` is title-only, while scoped broad search uses the wider metadata surface. Both return compact Books through an SDK-owned page model without exposing endpoint topology or raw next/previous URLs. Ordering is typed, page size is bounded to 1-200, and `SeriesIndex` retains the exact two-decimal wire representation.
 
-Reader-safe Authors and Series use separate typed list/detail operations, including explicit group-scoped list operations, while reusing the Library page envelope and public cover reference. Preview limits are bounded to 0-24; a positive limit enables the server preview contract, while zero omits it. Omitted preview books remain distinct from a returned empty preview list.
+Reader-safe Authors and Series use the same scoped list operation for Global and Group reads; their detail endpoints remain globally owned. They reuse the Library page envelope and public cover reference. Preview limits are bounded to 0-24; omitted preview books remain distinct from a returned empty preview list.
 
 `PublicBookCoverReference` wraps a server-provided absolute HTTP(S) URL. Covers are public assets, require no bearer credential, may use an external host, and are limited by contract to JPEG, PNG, or WebP. The SDK neither reconstructs cover paths nor fetches image bytes; a future image-loading layer may consume the public reference directly.
 
