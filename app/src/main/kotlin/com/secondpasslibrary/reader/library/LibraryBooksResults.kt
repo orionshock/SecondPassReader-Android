@@ -35,7 +35,7 @@ internal fun LibraryBooksResults(
         state.books.isEmpty() && state.initialLoading -> LoadingLibrary(modifier)
 
         state.books.isEmpty() && state.error != null ->
-            LibraryFailure(state.error, onRetry, modifier)
+            LibraryFailureContent(state.error, onRetry, modifier)
 
         state.books.isEmpty() && state.currentPage > 0 -> EmptyLibrary(modifier)
 

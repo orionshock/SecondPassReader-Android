@@ -73,7 +73,11 @@ internal fun EmptyLibrary(modifier: Modifier) {
 }
 
 @Composable
-internal fun LibraryFailure(error: LibraryBooksLoadError, onRetry: () -> Unit, modifier: Modifier) {
+internal fun LibraryFailureContent(
+    error: LibraryBooksLoadError,
+    onRetry: () -> Unit,
+    modifier: Modifier
+) {
     Column(
         modifier = modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -86,9 +90,9 @@ internal fun LibraryFailure(error: LibraryBooksLoadError, onRetry: () -> Unit, m
     }
 }
 
-private fun LibraryBooksFailure.message(): String = when (this) {
-    LibraryBooksFailure.UNREACHABLE -> "Library is currently unreachable."
-    LibraryBooksFailure.AUTHENTICATION_REJECTED -> "Library authentication was rejected."
-    LibraryBooksFailure.PROTOCOL_INVALID -> "The library returned an invalid response."
-    LibraryBooksFailure.OTHER -> "Books could not be loaded."
+private fun LibraryFailure.message(): String = when (this) {
+    LibraryFailure.UNREACHABLE -> "Library is currently unreachable."
+    LibraryFailure.AUTHENTICATION_REJECTED -> "Library authentication was rejected."
+    LibraryFailure.PROTOCOL_INVALID -> "The library returned an invalid response."
+    LibraryFailure.OTHER -> "Books could not be loaded."
 }

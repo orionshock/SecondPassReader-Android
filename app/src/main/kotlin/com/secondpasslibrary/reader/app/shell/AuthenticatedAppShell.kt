@@ -32,7 +32,7 @@ import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 import com.secondpasslibrary.reader.home.AuthenticatedHome
 import com.secondpasslibrary.reader.home.HomeNavigationIntent
 import com.secondpasslibrary.reader.library.LibraryBooksEntry
-import com.secondpasslibrary.reader.library.LibraryBooksStateHost
+import com.secondpasslibrary.reader.library.LibraryStateHost
 import com.secondpasslibrary.reader.settings.LinkedSettings
 import kotlinx.coroutines.launch
 
@@ -137,7 +137,7 @@ private fun LibraryDestination(
     advancedGroupsEnabled: Boolean,
     onAuthenticationRejected: () -> Unit
 ) {
-    LibraryBooksStateHost(profile, entry, advancedGroupsEnabled, onAuthenticationRejected)
+    LibraryStateHost(profile, entry, advancedGroupsEnabled, onAuthenticationRejected)
 }
 
 @Composable

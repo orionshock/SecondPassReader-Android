@@ -59,7 +59,17 @@ The authenticated Home surface retains useful verified library, account, group, 
 
 ## Authenticated read surface
 
-`KtorSecondPassClient` can create a credential-bound `AuthenticatedSecondPassClient`. The scope retains the validated API base and opaque bearer credential so feature callers do not repeatedly handle either value. It exposes recent reading, paginated shelf summaries with optional preview books, normal Books browsing, and broad Library search; it is not a screen-specific aggregate.
+`KtorSecondPassClient` creates a credential-bound `AuthenticatedSecondPassClient`. The scope retains the validated API base and opaque bearer credential so feature callers do not repeatedly handle either value. Recent reading and shelf summaries remain authenticated root capabilities. Library reads use one hierarchical capability without duplicate flat methods:
+
+```text
+AuthenticatedSecondPassClient.library
+  |- books  -> list, broad search, group-scoped list
+  |- authors -> list, detail, group-scoped list
+  |- series -> list, detail, group-scoped list
+  `- groups -> selector summaries
+```
+
+Pagination, compact/preview Books, cover references, and shared Library value types remain Library-level artifacts. No `tags` child exists until a production tag capability is implemented.
 
 Recent-reading results preserve server order. Session status remains `active` or `closed`, and progress retains its CFI plus the server's opaque location label without deriving percentages. Shelf list inputs use a closed ordering vocabulary and can request a bounded number of preview books. Omitted `preview_books` remains distinguishable from a returned empty list, and missing item counts are rejected as invalid protocol rather than coerced to zero.
 

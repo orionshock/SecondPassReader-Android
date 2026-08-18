@@ -12,9 +12,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
-internal fun LibraryBooksScreen(viewModel: LibraryBooksViewModel) {
+internal fun LibraryScreen(viewModel: LibraryViewModel) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    LibraryBooksContent(
+    LibraryContent(
         state = state,
         onSearch = viewModel::commitSearch,
         onOrderingSelected = { ordering -> viewModel.selectOrdering(ordering) },
@@ -28,8 +28,8 @@ internal fun LibraryBooksScreen(viewModel: LibraryBooksViewModel) {
 }
 
 @Composable
-private fun LibraryBooksContent(
-    state: LibraryBooksState,
+private fun LibraryContent(
+    state: LibraryState,
     onSearch: (String) -> Unit,
     onOrderingSelected: (LibraryBooksOrdering) -> Unit,
     onLayoutSelected: (LibraryBooksLayout) -> Unit,
@@ -52,7 +52,7 @@ private fun LibraryBooksContent(
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         if (state.axis == LibraryAxis.BOOKS) {
-            LibraryBooksResults(state, onLoadNextPage, onRetry, Modifier.weight(1f))
+            LibraryBooksResults(state.books, onLoadNextPage, onRetry, Modifier.weight(1f))
         } else {
             LibraryAxisPlaceholder(state.axis, Modifier.weight(1f))
         }
@@ -72,11 +72,9 @@ private fun LibraryAxisPlaceholder(axis: LibraryAxis, modifier: Modifier) {
     }
 }
 
-private fun LibraryBooksViewModel.selectOrdering(ordering: LibraryBooksOrdering) {
+private fun LibraryViewModel.selectOrdering(ordering: LibraryBooksOrdering) {
     when (ordering) {
         is LibraryBooksOrdering.Browse -> changeBrowseOrdering(ordering.value)
-
-        is LibraryBooksOrdering.BroadSearch ->
-            changeBroadSearchOrdering(ordering.value)
+        is LibraryBooksOrdering.BroadSearch -> changeBroadSearchOrdering(ordering.value)
     }
 }

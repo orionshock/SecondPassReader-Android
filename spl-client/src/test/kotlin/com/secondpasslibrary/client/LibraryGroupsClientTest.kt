@@ -25,7 +25,7 @@ class LibraryGroupsClientTest {
         }
 
         val page =
-            client.listLibraryGroups(
+            client.library.groups.listGroups(
                 LibraryGroupListOptions(page = 2, pageSize = 200)
             )
 
@@ -47,7 +47,7 @@ class LibraryGroupsClientTest {
             jsonResponse(EMPTY_PAGE)
         }
 
-        client.listGroupBooks(
+        client.library.books.listGroupBooks(
             "group/one",
             GroupBookListOptions(
                 q = "author or title",
@@ -66,7 +66,10 @@ class LibraryGroupsClientTest {
     @Test
     fun `group identifiers paging and required fields are validated`() {
         assertThrows(IllegalArgumentException::class.java) {
-            runBlocking { authenticatedClient { jsonResponse(EMPTY_PAGE) }.listGroupBooks(" ") }
+            runBlocking {
+                authenticatedClient { jsonResponse(EMPTY_PAGE) }
+                    .library.books.listGroupBooks(" ")
+            }
         }
         assertThrows(IllegalArgumentException::class.java) {
             LibraryGroupListOptions(pageSize = 201)
@@ -75,7 +78,7 @@ class LibraryGroupsClientTest {
             jsonResponse("""{"count":1,"results":[{"id":"group","name":"Group"}]}""")
         }
         assertThrows(SplClientException.ProtocolInvalid::class.java) {
-            runBlocking { malformed.listLibraryGroups() }
+            runBlocking { malformed.library.groups.listGroups() }
         }
     }
 

@@ -32,13 +32,24 @@ Room `3.0.1` now provides a bounded Home resilience projection. It stores accoun
 
 Home search emits a `LibrarySearch` intent. The shell converts it to a typed `LibrarySearchRoute`; Library initializes explicit broad-search state from that committed query and calls the distinct SDK broad-search capability. Normal Library entry initializes Books-browse state instead. Home does not call either Library API.
 
-`LibraryBooksController` owns transient online Books browsing state. It translates the server's page-number contract into append-style results with an explicit page size of 50, prevents duplicate next-page requests, and discards responses made stale by mode, query, or ordering changes. Initial loads, refreshes, and next-page failures remain distinct; next-page and refresh failures retain accumulated results. The controller resolves the authenticated SDK client through the connection boundary and routes explicit authentication rejection back to connection ownership. Library pages are deliberately not stored in Room: this is browsing state, not an offline catalog projection. Its ViewModel preserves accumulated state for as long as the current navigation owner retains it.
+Library uses explicit parent/child ownership:
+
+```text
+LibraryController
+  |- LibraryBooksController
+  |- LibraryAuthorsController
+  `- LibrarySeriesController
+```
+
+`LibraryController` owns route entry, current axis, Library scope, group-selector loading, and sibling coordination. Home broad-search entry is interpreted here before being delegated to Books. Selecting an Author or Series will later be coordinated here into filtered Books; children never reach sideways. Authors and Series currently establish only ownership boundaries and issue no speculative requests.
+
+`LibraryBooksController` owns transient online Books browsing state. It translates the server's page-number contract into append-style results with an explicit page size of 50, prevents duplicate next-page requests, and discards responses made stale by mode, query, scope, or ordering changes. Initial loads, refreshes, and next-page failures remain distinct; next-page and refresh failures retain accumulated results. Library pages are deliberately not stored in Room: this is browsing state, not an offline catalog projection. `LibraryViewModel` retains the parent and its children for as long as the current navigation owner survives.
 
 Library presents that state as a permanent Books surface with explicit-commit search, mode-specific typed sorting, compact list and adaptive cover-grid layouts, and scroll-proximity paging. Replacement loads retain the previously rendered books under restrained progress instead of flashing an empty surface. Coil loads public covers without credentials and the semantic Library icon owns missing-cover presentation. A dedicated DataStore preference owns only the device-local List/Grid choice; it does not alter requests or persist catalog pages. Saveable list/grid state retains each layout's scroll position while its navigation owner remains available.
 
-Library scope is capability-gated exclusively by authenticated server info. When advanced library groups are enabled, Library loads the complete name-ordered Reader-safe group summary list through `:spl-client` and presents All Library, public, and private/custom scopes with semantic icons. Scope remains Library-owned across query, ordering, and Home broad-search route changes for the same connection. All Library keeps the distinct Books and global-search endpoints; a selected group uses the group-scoped Books endpoint, whose query has broad metadata semantics. Scope changes reset transient paging but do not create a catalog cache.
+Library scope is capability-gated exclusively by authenticated server info. When advanced library groups are enabled, the parent loads the complete name-ordered Reader-safe group summary list through `:spl-client` and presents All Library, public, and private/custom scopes with semantic icons. Scope remains parent-owned across query, ordering, axis, and Home broad-search route changes for the same connection. All Library keeps the distinct Books and global-search endpoints; a selected group delegates the group identity to Books, whose group-scoped query has broad metadata semantics. Scope changes reset transient paging but do not create a catalog cache.
 
-The Books, Authors, and Series axes are explicit Library state. Books alone owns data loading in this slice; Authors and Series are intentional Library placeholders and selecting either does not issue speculative requests.
+The Books, Authors, and Series axes are explicit parent state. Books alone owns data loading in this slice; Authors and Series are intentional Library placeholders and selecting either does not issue speculative requests.
 
 Shelves and Sessions still prove top-level routing only. Authors, Series, Groups, Catalog Tags, Book Detail, reader-mode navigation, deep links, nested feature graphs, and logout remain deferred.
 

@@ -10,43 +10,36 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
 @HiltViewModel
-@Suppress("TooManyFunctions") // Typed UI intents remain on the feature ViewModel facade.
-internal class LibraryBooksViewModel
+@Suppress("TooManyFunctions") // Typed UI intents remain on the Library parent facade.
+internal class LibraryViewModel
 @Inject
 constructor(
     clientProvider: AuthenticatedClientProvider,
     displayPreferenceStore: LibraryDisplayPreferenceStore
 ) : ViewModel() {
     private val controller =
-        LibraryBooksController(clientProvider, displayPreferenceStore, viewModelScope)
+        LibraryController(clientProvider, displayPreferenceStore, viewModelScope)
 
     val state = controller.state
     val connectionEvents = controller.connectionEvents
 
-    fun initializeBrowse(profile: ConnectionProfile, advancedGroupsEnabled: Boolean) =
-        controller.initializeBrowse(profile, advancedGroupsEnabled)
-
-    fun initializeBroadSearch(
+    fun initialize(
         profile: ConnectionProfile,
-        query: String,
+        entry: LibraryBooksEntry,
         advancedGroupsEnabled: Boolean
-    ) = controller.initializeBroadSearch(profile, query, advancedGroupsEnabled)
+    ) = controller.initialize(profile, entry, advancedGroupsEnabled)
 
-    fun commitSearch(query: String) {
-        when (state.value.mode) {
-            LibraryBooksMode.BROWSE -> controller.commitBrowseQuery(query)
-            LibraryBooksMode.BROAD_SEARCH -> controller.commitBroadSearch(query)
-        }
-    }
+    fun commitSearch(query: String) = controller.commitSearch(query)
 
-    fun changeBrowseOrdering(ordering: BookOrdering) = controller.changeBrowseOrdering(ordering)
+    fun changeBrowseOrdering(ordering: BookOrdering) =
+        controller.books.changeBrowseOrdering(ordering)
 
     fun changeBroadSearchOrdering(ordering: LibrarySearchOrdering) =
-        controller.changeBroadSearchOrdering(ordering)
+        controller.books.changeBroadSearchOrdering(ordering)
 
-    fun loadNextPage() = controller.loadNextPage()
+    fun loadNextPage() = controller.books.loadNextPage()
 
-    fun setLayout(layout: LibraryBooksLayout) = controller.setLayout(layout)
+    fun setLayout(layout: LibraryBooksLayout) = controller.books.setLayout(layout)
 
     fun selectScope(scope: LibraryScope) = controller.selectScope(scope)
 
@@ -54,9 +47,9 @@ constructor(
 
     fun retryGroups() = controller.retryGroups()
 
-    fun refresh() = controller.refresh()
+    fun refresh() = controller.books.refresh()
 
-    fun retry() = controller.retry()
+    fun retry() = controller.books.retry()
 
     override fun onCleared() {
         controller.close()

@@ -32,7 +32,7 @@ import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 
 @Composable
 internal fun LibraryBooksControls(
-    state: LibraryBooksState,
+    state: LibraryState,
     onSearch: (String) -> Unit,
     onOrderingSelected: (LibraryBooksOrdering) -> Unit,
     onLayoutSelected: (LibraryBooksLayout) -> Unit,
@@ -41,8 +41,9 @@ internal fun LibraryBooksControls(
     onRetryGroups: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var query by rememberSaveable(state.mode, state.committedQuery) {
-        mutableStateOf(state.committedQuery)
+    val books = state.books
+    var query by rememberSaveable(books.mode, books.committedQuery) {
+        mutableStateOf(books.committedQuery)
     }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
@@ -51,7 +52,7 @@ internal fun LibraryBooksControls(
         ) {
             Text(state.axis.label, style = MaterialTheme.typography.titleLarge)
             Text(
-                if (state.mode ==
+                if (books.mode ==
                     LibraryBooksMode.BROAD_SEARCH
                 ) {
                     "Global results"
@@ -61,16 +62,16 @@ internal fun LibraryBooksControls(
                 color = MaterialTheme.colorScheme.primary,
                 style = MaterialTheme.typography.labelMedium
             )
-            if (state.axis == LibraryAxis.BOOKS && state.currentPage > 0) {
+            if (state.axis == LibraryAxis.BOOKS && books.currentPage > 0) {
                 Text(
-                    "${state.totalCount} ${if (state.totalCount == 1) "book" else "books"}",
+                    "${books.totalCount} ${if (books.totalCount == 1) "book" else "books"}",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelMedium
                 )
             }
         }
         SearchRow(
-            state.mode,
+            books.mode,
             query,
             state.axis == LibraryAxis.BOOKS,
             { query = it }
@@ -80,8 +81,8 @@ internal fun LibraryBooksControls(
             onScopeSelected,
             onAxisSelected,
             onRetryGroups,
-            { OrderingMenu(state, onOrderingSelected) },
-            { LayoutChoices(state.layout, onLayoutSelected) }
+            { OrderingMenu(books, onOrderingSelected) },
+            { LayoutChoices(books.layout, onLayoutSelected) }
         )
     }
 }

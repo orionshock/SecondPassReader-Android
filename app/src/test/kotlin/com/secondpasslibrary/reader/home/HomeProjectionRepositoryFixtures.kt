@@ -1,26 +1,15 @@
 package com.secondpasslibrary.reader.home
 
 import com.secondpasslibrary.client.AuthenticatedSecondPassClient
-import com.secondpasslibrary.client.AuthorListOptions
-import com.secondpasslibrary.client.BookListOptions
-import com.secondpasslibrary.client.CompactBook
-import com.secondpasslibrary.client.GroupBookListOptions
-import com.secondpasslibrary.client.LibraryAuthor
-import com.secondpasslibrary.client.LibraryEntityDetailOptions
-import com.secondpasslibrary.client.LibraryGroupListOptions
-import com.secondpasslibrary.client.LibraryGroupSummary
-import com.secondpasslibrary.client.LibraryPage
-import com.secondpasslibrary.client.LibrarySearchOptions
-import com.secondpasslibrary.client.LibrarySeries
 import com.secondpasslibrary.client.ReadingSessionStatus
 import com.secondpasslibrary.client.RecentReadingBook
 import com.secondpasslibrary.client.RecentReadingItem
 import com.secondpasslibrary.client.RecentReadingOptions
-import com.secondpasslibrary.client.SeriesListOptions
 import com.secondpasslibrary.client.ShelfListOptions
 import com.secondpasslibrary.client.ShelfOwner
 import com.secondpasslibrary.client.ShelfPage
 import com.secondpasslibrary.client.ShelfSummary
+import com.secondpasslibrary.reader.FakeAuthenticatedLibraryClient
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.home.projection.HomeAccountScopeKey
@@ -91,6 +80,8 @@ internal class FakeHomeProjectionStore : HomeProjectionStore {
 }
 
 internal class FakeHomeAuthenticatedClient : AuthenticatedSecondPassClient {
+    override val library = FakeAuthenticatedLibraryClient()
+
     val recentRequests = mutableListOf<RecentReadingOptions>()
     val shelfRequests = mutableListOf<ShelfListOptions>()
     var recentCall: suspend (RecentReadingOptions) -> List<RecentReadingItem> = { emptyList() }
@@ -106,48 +97,6 @@ internal class FakeHomeAuthenticatedClient : AuthenticatedSecondPassClient {
         val items = shelfCall(options)
         return ShelfPage(items.size, false, false, items)
     }
-
-    override suspend fun listBooks(options: BookListOptions): LibraryPage<CompactBook> =
-        error("Book listing is outside this Home projection fixture.")
-
-    override suspend fun searchLibrary(options: LibrarySearchOptions): LibraryPage<CompactBook> =
-        error("Library search is outside this Home projection fixture.")
-
-    override suspend fun listLibraryGroups(
-        options: LibraryGroupListOptions
-    ): LibraryPage<LibraryGroupSummary> =
-        error("Library groups are outside this Home projection fixture.")
-
-    override suspend fun listGroupBooks(
-        groupId: String,
-        options: GroupBookListOptions
-    ): LibraryPage<CompactBook> = error("Group books are outside this Home projection fixture.")
-
-    override suspend fun listAuthors(options: AuthorListOptions): LibraryPage<LibraryAuthor> =
-        error("Authors are outside this Home projection fixture.")
-
-    override suspend fun getAuthor(
-        authorId: String,
-        options: LibraryEntityDetailOptions
-    ): LibraryAuthor = error("Authors are outside this Home projection fixture.")
-
-    override suspend fun listGroupAuthors(
-        groupId: String,
-        options: AuthorListOptions
-    ): LibraryPage<LibraryAuthor> = error("Authors are outside this Home projection fixture.")
-
-    override suspend fun listSeries(options: SeriesListOptions): LibraryPage<LibrarySeries> =
-        error("Series are outside this Home projection fixture.")
-
-    override suspend fun getSeries(
-        seriesId: String,
-        options: LibraryEntityDetailOptions
-    ): LibrarySeries = error("Series are outside this Home projection fixture.")
-
-    override suspend fun listGroupSeries(
-        groupId: String,
-        options: SeriesListOptions
-    ): LibraryPage<LibrarySeries> = error("Series are outside this Home projection fixture.")
 }
 
 internal fun homeRepository(

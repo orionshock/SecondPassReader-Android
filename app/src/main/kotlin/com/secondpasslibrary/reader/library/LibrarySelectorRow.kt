@@ -31,7 +31,7 @@ import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun LibrarySelectorRow(
-    state: LibraryBooksState,
+    state: LibraryState,
     onScopeSelected: (LibraryScope) -> Unit,
     onAxisSelected: (LibraryAxis) -> Unit,
     onRetryGroups: () -> Unit,
@@ -82,7 +82,7 @@ internal fun LibrarySelectorRow(
 
 @Composable
 private fun LibraryScopeMenu(
-    state: LibraryBooksState,
+    state: LibraryState,
     onScopeSelected: (LibraryScope) -> Unit,
     onRetryGroups: () -> Unit
 ) {

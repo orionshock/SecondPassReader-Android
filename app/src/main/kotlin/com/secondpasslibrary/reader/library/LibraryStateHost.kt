@@ -6,28 +6,22 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 
 @Composable
-internal fun LibraryBooksStateHost(
+internal fun LibraryStateHost(
     profile: ConnectionProfile,
     entry: LibraryBooksEntry,
     advancedGroupsEnabled: Boolean,
     onAuthenticationRejected: () -> Unit,
-    viewModel: LibraryBooksViewModel = viewModel()
+    viewModel: LibraryViewModel = viewModel()
 ) {
     LaunchedEffect(profile.apiBaseUrl, profile.clientSessionId, entry, advancedGroupsEnabled) {
-        when (entry) {
-            LibraryBooksEntry.Browse ->
-                viewModel.initializeBrowse(profile, advancedGroupsEnabled)
-
-            is LibraryBooksEntry.BroadSearch ->
-                viewModel.initializeBroadSearch(profile, entry.query, advancedGroupsEnabled)
-        }
+        viewModel.initialize(profile, entry, advancedGroupsEnabled)
     }
     LaunchedEffect(viewModel, onAuthenticationRejected) {
         viewModel.connectionEvents.collect { event ->
             when (event) {
-                LibraryBooksConnectionEvent.AuthenticationRejected -> onAuthenticationRejected()
+                LibraryConnectionEvent.AuthenticationRejected -> onAuthenticationRejected()
             }
         }
     }
-    LibraryBooksScreen(viewModel)
+    LibraryScreen(viewModel)
 }

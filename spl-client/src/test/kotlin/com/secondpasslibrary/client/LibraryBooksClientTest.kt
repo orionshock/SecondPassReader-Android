@@ -22,7 +22,7 @@ class LibraryBooksClientTest {
     fun `compact book and page mapping preserve server values and order`() = runBlocking {
         val client = authenticatedClient { jsonResponse(FULL_BOOK_PAGE) }
 
-        val page = client.listBooks(BookListOptions(page = 2, pageSize = 40))
+        val page = client.library.books.listBooks(BookListOptions(page = 2, pageSize = 40))
 
         assertEquals(41, page.totalCount)
         assertEquals(2, page.page)
@@ -50,7 +50,7 @@ class LibraryBooksClientTest {
                 jsonResponse(NULLABLE_BOOK_PAGE.replace(PRECISION_PLACEHOLDER, ""))
             }
 
-            val book = client.listBooks().results.single()
+            val book = client.library.books.listBooks().results.single()
 
             assertNull(book.series)
             assertNull(book.language)
@@ -70,7 +70,9 @@ class LibraryBooksClientTest {
             jsonResponse(NULLABLE_BOOK_PAGE.replace(PRECISION_PLACEHOLDER, value))
         }
 
-        val values = List(4) { client.listBooks().results.single().publicationDatePrecision }
+        val values = List(4) {
+            client.library.books.listBooks().results.single().publicationDatePrecision
+        }
 
         assertEquals(
             listOf(
@@ -91,7 +93,7 @@ class LibraryBooksClientTest {
             jsonResponse(EMPTY_PAGE)
         }
 
-        client.listBooks(
+        client.library.books.listBooks(
             BookListOptions(
                 q = "The Book",
                 authorId = "author-1",
@@ -122,7 +124,9 @@ class LibraryBooksClientTest {
             jsonResponse(EMPTY_PAGE)
         }
 
-        BookOrdering.entries.forEach { client.listBooks(BookListOptions(ordering = it)) }
+        BookOrdering.entries.forEach {
+            client.library.books.listBooks(BookListOptions(ordering = it))
+        }
 
         assertEquals(
             listOf(
@@ -150,7 +154,7 @@ class LibraryBooksClientTest {
         }
 
         val page =
-            client.searchLibrary(
+            client.library.books.searchLibrary(
                 LibrarySearchOptions(
                     q = "",
                     ordering = LibrarySearchOrdering.SERIES_DESCENDING,
@@ -179,7 +183,7 @@ class LibraryBooksClientTest {
         }
 
         LibrarySearchOrdering.entries.forEach {
-            client.searchLibrary(LibrarySearchOptions(ordering = it))
+            client.library.books.searchLibrary(LibrarySearchOptions(ordering = it))
         }
 
         assertEquals(
@@ -213,7 +217,7 @@ class LibraryBooksClientTest {
         }
 
         assertThrows(SplClientException.ProtocolInvalid::class.java) {
-            runBlocking { client.listBooks() }
+            runBlocking { client.library.books.listBooks() }
         }
     }
 
@@ -225,10 +229,10 @@ class LibraryBooksClientTest {
         val invalidPage = authenticatedClient { jsonResponse("""{"count":-1,"results":[]}""") }
 
         assertThrows(SplClientException.ProtocolInvalid::class.java) {
-            runBlocking { invalidSeries.listBooks() }
+            runBlocking { invalidSeries.library.books.listBooks() }
         }
         assertThrows(SplClientException.ProtocolInvalid::class.java) {
-            runBlocking { invalidPage.listBooks() }
+            runBlocking { invalidPage.library.books.listBooks() }
         }
     }
 

@@ -23,7 +23,7 @@ class LibraryAxesClientTest {
         val page = authenticatedClient {
             request = it
             jsonResponse(AUTHOR_PAGE)
-        }.listAuthors(
+        }.library.authors.listAuthors(
             AuthorListOptions(
                 q = "Le Guin / science fiction",
                 ordering = AuthorOrdering.BOOK_COUNT_DESCENDING,
@@ -61,7 +61,7 @@ class LibraryAxesClientTest {
         val page = authenticatedClient {
             request = it
             jsonResponse(SERIES_PAGE)
-        }.listSeries(SeriesListOptions(q = "cycle", previewLimit = 3))
+        }.library.series.listSeries(SeriesListOptions(q = "cycle", previewLimit = 3))
 
         assertEquals("/api/v1/library/series/", request?.url?.encodedPath)
         assertEquals("name", request?.url?.parameters?.get("ordering"))
@@ -86,8 +86,12 @@ class LibraryAxesClientTest {
             }
         }
 
-        val author = client.getAuthor("author/one")
-        val series = client.getSeries("series/one", LibraryEntityDetailOptions(previewLimit = 4))
+        val author = client.library.authors.getAuthor("author/one")
+        val series =
+            client.library.series.getSeries(
+                "series/one",
+                LibraryEntityDetailOptions(previewLimit = 4)
+            )
 
         assertEquals("/api/v1/library/authors/author%2Fone/", requests[0].url.encodedPath)
         assertFalse(requests[0].url.parameters.contains("include_preview_books"))
@@ -110,8 +114,8 @@ class LibraryAxesClientTest {
             }
         }
 
-        client.listGroupAuthors("group/one", AuthorListOptions(q = "author"))
-        client.listGroupSeries(
+        client.library.authors.listGroupAuthors("group/one", AuthorListOptions(q = "author"))
+        client.library.series.listGroupSeries(
             "group/one",
             SeriesListOptions(ordering = SeriesOrdering.NAME_DESCENDING)
         )
@@ -153,14 +157,21 @@ class LibraryAxesClientTest {
         )
 
         assertThrows(SplClientException.ProtocolInvalid::class.java) {
-            runBlocking { authenticatedClient { jsonResponse(malformedPayloads[0]) }.listAuthors() }
-        }
-        assertThrows(SplClientException.ProtocolInvalid::class.java) {
-            runBlocking { authenticatedClient { jsonResponse(malformedPayloads[1]) }.listSeries() }
+            runBlocking {
+                authenticatedClient { jsonResponse(malformedPayloads[0]) }
+                    .library.authors.listAuthors()
+            }
         }
         assertThrows(SplClientException.ProtocolInvalid::class.java) {
             runBlocking {
-                authenticatedClient { jsonResponse(malformedPayloads[2]) }.getAuthor("a")
+                authenticatedClient { jsonResponse(malformedPayloads[1]) }
+                    .library.series.listSeries()
+            }
+        }
+        assertThrows(SplClientException.ProtocolInvalid::class.java) {
+            runBlocking {
+                authenticatedClient { jsonResponse(malformedPayloads[2]) }
+                    .library.authors.getAuthor("a")
             }
         }
     }
@@ -168,10 +179,16 @@ class LibraryAxesClientTest {
     @Test
     fun `identifiers and zero preview limit are validated before transport`() {
         assertThrows(IllegalArgumentException::class.java) {
-            runBlocking { authenticatedClient { jsonResponse(AUTHOR_DETAIL) }.getAuthor(" ") }
+            runBlocking {
+                authenticatedClient { jsonResponse(AUTHOR_DETAIL) }
+                    .library.authors.getAuthor(" ")
+            }
         }
         assertThrows(IllegalArgumentException::class.java) {
-            runBlocking { authenticatedClient { jsonResponse(SERIES_DETAIL) }.getSeries("") }
+            runBlocking {
+                authenticatedClient { jsonResponse(SERIES_DETAIL) }
+                    .library.series.getSeries("")
+            }
         }
     }
 
