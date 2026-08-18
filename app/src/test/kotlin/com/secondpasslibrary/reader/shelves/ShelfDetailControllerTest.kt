@@ -78,6 +78,22 @@ class ShelfDetailControllerTest {
     }
 
     @Test
+    fun `Book layout survives detail navigation without changing requests`() = runTest {
+        val capability = RecordingShelvesCapability()
+        val controller = controller(capability, this)
+        controller.select("shelf-1")
+        advanceUntilIdle()
+
+        controller.setLayout(ShelfBooksLayout.LIST)
+        controller.clear()
+        controller.select("shelf-2")
+        advanceUntilIdle()
+
+        assertEquals(ShelfBooksLayout.LIST, controller.state.value.items.layout)
+        assertEquals(2, capability.itemRequests.size)
+    }
+
+    @Test
     fun `item paging suppresses duplicate request and appends`() = runTest {
         val gate = CompletableDeferred<Unit>()
         val capability = RecordingShelvesCapability().apply {

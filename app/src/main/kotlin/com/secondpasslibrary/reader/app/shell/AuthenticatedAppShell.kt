@@ -34,6 +34,7 @@ import com.secondpasslibrary.reader.home.HomeNavigationIntent
 import com.secondpasslibrary.reader.library.LibraryBooksEntry
 import com.secondpasslibrary.reader.library.LibraryStateHost
 import com.secondpasslibrary.reader.settings.LinkedSettings
+import com.secondpasslibrary.reader.shelves.ShelvesStateHost
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -68,8 +69,10 @@ internal fun AuthenticatedAppShell(
             modifier = Modifier.fillMaxSize(),
             containerColor = MaterialTheme.colorScheme.background,
             topBar = {
-                AppShellTopBar(currentDestination) {
-                    coroutineScope.launch { drawerState.open() }
+                if (currentDestination != AppDestination.Shelves) {
+                    AppShellTopBar(currentDestination) {
+                        coroutineScope.launch { drawerState.open() }
+                    }
                 }
             }
         ) { contentPadding ->
@@ -79,7 +82,8 @@ internal fun AuthenticatedAppShell(
                 backStack,
                 navigator,
                 onAuthenticationRejected,
-                Modifier.fillMaxSize().padding(contentPadding)
+                onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
+                modifier = Modifier.fillMaxSize().padding(contentPadding)
             )
         }
     }
@@ -92,6 +96,7 @@ private fun AuthenticatedDestinations(
     backStack: MutableList<NavKey>,
     navigator: AppNavigator,
     onAuthenticationRejected: () -> Unit,
+    onOpenDrawer: () -> Unit,
     modifier: Modifier
 ) {
     NavDisplay(
@@ -120,7 +125,7 @@ private fun AuthenticatedDestinations(
                     )
                 }
                 entry(key = AppDestination.Shelves) {
-                    DestinationPlaceholder(AppDestination.Shelves)
+                    ShelvesStateHost(profile, onOpenDrawer, onAuthenticationRejected)
                 }
                 entry(key = AppDestination.Sessions) {
                     DestinationPlaceholder(AppDestination.Sessions)

@@ -1,0 +1,107 @@
+package com.secondpasslibrary.reader.shelves
+
+import com.secondpasslibrary.client.Shelf
+import com.secondpasslibrary.client.ShelfItemOrdering
+import com.secondpasslibrary.client.ShelfOrdering
+import com.secondpasslibrary.client.ShelfOwner
+import com.secondpasslibrary.client.ShelfPreviewBook
+import com.secondpasslibrary.client.ShelfVisibility
+
+internal enum class ShelfOwnerKind {
+    PERSONAL,
+    SHARED_USER,
+    GROUP
+}
+
+internal sealed interface ShelfPreviewPresentation {
+    data object Absent : ShelfPreviewPresentation
+
+    data object Empty : ShelfPreviewPresentation
+
+    data class Books(val books: List<ShelfPreviewBook>) : ShelfPreviewPresentation
+}
+
+internal data class ShelfCardPresentation(
+    val id: String,
+    val name: String,
+    val ownerLabel: String,
+    val ownerKind: ShelfOwnerKind,
+    val visibilityLabel: String,
+    val itemCountLabel: String,
+    val canEdit: Boolean,
+    val previews: ShelfPreviewPresentation
+)
+
+internal data class ShelfOrderingOption(val value: ShelfOrdering, val label: String)
+
+internal data class ShelfItemOrderingOption(val value: ShelfItemOrdering, val label: String)
+
+internal fun Shelf.toCardPresentation() = ShelfCardPresentation(
+    id = id,
+    name = name,
+    ownerLabel = owner.displayLabel(canEdit),
+    ownerKind = owner.kind(canEdit),
+    visibilityLabel = visibility.label,
+    itemCountLabel = itemCount.bookCountLabel,
+    canEdit = canEdit,
+    previews = previewBooks.toPreviewPresentation()
+)
+
+private fun List<ShelfPreviewBook>?.toPreviewPresentation(): ShelfPreviewPresentation = when {
+    this == null -> ShelfPreviewPresentation.Absent
+    isEmpty() -> ShelfPreviewPresentation.Empty
+    else -> ShelfPreviewPresentation.Books(take(SHELF_CARD_PREVIEW_LIMIT))
+}
+
+internal val shelfOrderingOptions =
+    listOf(
+        ShelfOrderingOption(ShelfOrdering.NAME, "Name A-Z"),
+        ShelfOrderingOption(ShelfOrdering.NAME_DESCENDING, "Name Z-A"),
+        ShelfOrderingOption(ShelfOrdering.ITEM_COUNT_DESCENDING, "Most books"),
+        ShelfOrderingOption(ShelfOrdering.ITEM_COUNT, "Fewest books")
+    )
+
+internal val shelfItemOrderingOptions =
+    listOf(
+        ShelfItemOrderingOption(ShelfItemOrdering.POSITION, "Shelf order"),
+        ShelfItemOrderingOption(ShelfItemOrdering.POSITION_DESCENDING, "Reverse shelf order"),
+        ShelfItemOrderingOption(ShelfItemOrdering.TITLE, "Title A-Z"),
+        ShelfItemOrderingOption(ShelfItemOrdering.TITLE_DESCENDING, "Title Z-A"),
+        ShelfItemOrderingOption(ShelfItemOrdering.AUTHOR, "Author A-Z"),
+        ShelfItemOrderingOption(ShelfItemOrdering.AUTHOR_DESCENDING, "Author Z-A")
+    )
+
+internal fun ShelfOrdering.label(): String = shelfOrderingOptions.first { it.value == this }.label
+
+internal fun ShelfItemOrdering.label(): String =
+    shelfItemOrderingOptions.first { it.value == this }.label
+
+internal fun shouldRequestShelfNextPage(
+    lastVisibleIndex: Int,
+    itemCount: Int,
+    prefetchDistance: Int = 6
+): Boolean = itemCount > 0 && lastVisibleIndex >= (itemCount - prefetchDistance).coerceAtLeast(0)
+
+private fun ShelfOwner.displayLabel(canEdit: Boolean): String = when (this) {
+    is ShelfOwner.Group -> name
+
+    is ShelfOwner.User -> when {
+        canEdit -> "My shelf"
+        username.isNullOrBlank() -> "Shared by another reader"
+        else -> "Shared by @$username"
+    }
+}
+
+private fun ShelfOwner.kind(canEdit: Boolean): ShelfOwnerKind = when (this) {
+    is ShelfOwner.Group -> ShelfOwnerKind.GROUP
+    is ShelfOwner.User -> if (canEdit) ShelfOwnerKind.PERSONAL else ShelfOwnerKind.SHARED_USER
+}
+
+private val ShelfVisibility.label: String
+    get() = when (this) {
+        ShelfVisibility.PRIVATE -> "Private"
+        ShelfVisibility.LISTED -> "Listed"
+    }
+
+private val Int.bookCountLabel: String
+    get() = "$this ${if (this == 1) "book" else "books"}"

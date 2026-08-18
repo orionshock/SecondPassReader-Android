@@ -46,11 +46,12 @@ internal class ShelfDetailController(
         cancelRequests()
         generation += 1
         itemsGeneration += 1
+        val layout = state.value.items.layout
         mutableState.value =
             ShelfDetailState(
                 shelfId = shelfId,
                 detail = ShelfDetailResourceState(loading = true),
-                items = ShelfItemsState(initialLoading = true)
+                items = ShelfItemsState(layout = layout, initialLoading = true)
             )
         loadDetail(generation)
         launchItems(1, ShelvesLoadPhase.INITIAL, itemsGeneration)
@@ -74,6 +75,11 @@ internal class ShelfDetailController(
         resetItemsAndLoad(ordering)
     }
 
+    fun setLayout(layout: ShelfBooksLayout) {
+        if (state.value.items.layout == layout) return
+        mutableState.value = state.value.copy(items = state.value.items.copy(layout = layout))
+    }
+
     fun loadNextPage() {
         val current = state.value.items
         if (itemsJob?.isActive == true || current.currentPage == 0 || !current.hasNext) return
@@ -84,7 +90,8 @@ internal class ShelfDetailController(
         cancelRequests()
         generation += 1
         itemsGeneration += 1
-        mutableState.value = ShelfDetailState()
+        mutableState.value =
+            ShelfDetailState(items = ShelfItemsState(layout = state.value.items.layout))
     }
 
     fun close() = cancelRequests()
@@ -130,6 +137,7 @@ internal class ShelfDetailController(
                 items =
                     ShelfItemsState(
                         ordering = ordering,
+                        layout = current.layout,
                         pageSize = current.pageSize,
                         items = current.items,
                         totalCount = current.totalCount,

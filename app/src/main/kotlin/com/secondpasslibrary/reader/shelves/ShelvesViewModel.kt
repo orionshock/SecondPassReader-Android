@@ -42,6 +42,8 @@ constructor(clientProvider: AuthenticatedClientProvider) :
     fun changeItemOrdering(ordering: ShelfItemOrdering) =
         controller.detail.changeItemOrdering(ordering)
 
+    fun setItemLayout(layout: ShelfBooksLayout) = controller.detail.setLayout(layout)
+
     fun loadNextItemPage() = controller.detail.loadNextPage()
 
     fun retryDetail() = controller.detail.retryDetail()

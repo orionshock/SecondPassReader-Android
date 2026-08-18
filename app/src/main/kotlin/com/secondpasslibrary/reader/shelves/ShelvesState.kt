@@ -36,6 +36,7 @@ internal data class ShelfDetailResourceState(
 
 internal data class ShelfItemsState(
     val ordering: ShelfItemOrdering = ShelfItemOrdering.POSITION,
+    val layout: ShelfBooksLayout = ShelfBooksLayout.GRID,
     val pageSize: Int = SHELVES_PAGE_SIZE,
     val items: List<ShelfItem> = emptyList(),
     val totalCount: Int = 0,
@@ -45,6 +46,11 @@ internal data class ShelfItemsState(
     val hasNext: Boolean = false,
     val currentPage: Int = 0
 )
+
+internal enum class ShelfBooksLayout {
+    LIST,
+    GRID
+}
 
 internal data class ShelfDetailState(
     val shelfId: String? = null,
