@@ -66,16 +66,19 @@ AuthenticatedSecondPassClient.library
   |- books  -> scoped list and scoped broad search
   |- authors -> scoped list and global detail
   |- series -> scoped list and global detail
+  |- tags -> scoped list and global detail
   `- groups -> selector summaries
 ```
 
-Pagination, compact/preview Books, cover references, and shared Library value types remain Library-level artifacts. No `tags` child exists until a production tag capability is implemented.
+Pagination, compact/preview Books, cover references, scope, and shared Library value types remain Library-level artifacts. Catalog Tags expose Reader-safe identity, slug, and scoped book counts; endpoint topology remains private to the SDK.
 
 Recent-reading results preserve server order. Session status remains `active` or `closed`, and progress retains its CFI plus the server's opaque location label without deriving percentages. Shelf list inputs use a closed ordering vocabulary and can request a bounded number of preview books. Omitted `preview_books` remains distinguishable from a returned empty list, and missing item counts are rejected as invalid protocol rather than coerced to zero.
 
 Library reads resolve an explicit SDK-owned scope (`Global` or `Group`) before applying shared axis semantics. Books browsing remains distinct from broad Library search: scoped browse `q` is title-only, while scoped broad search uses the wider metadata surface. Both return compact Books through an SDK-owned page model without exposing endpoint topology or raw next/previous URLs. Ordering is typed, page size is bounded to 1-200, and `SeriesIndex` retains the exact two-decimal wire representation.
 
 Reader-safe Authors and Series use the same scoped list operation for Global and Group reads; their detail endpoints remain globally owned. They reuse the Library page envelope and public cover reference. Preview limits are bounded to 0-24; omitted preview books remain distinct from a returned empty preview list.
+
+Catalog Tags are a shared scoped Library filter. Their slug composes with Books browse/broad search and Authors/Series axis search, while the app retains tag identity and display data separately. Changing scope invalidates the available tag vocabulary rather than carrying a coincidentally equal slug across scopes.
 
 `PublicBookCoverReference` wraps a server-provided absolute HTTP(S) URL. Covers are public assets, require no bearer credential, may use an external host, and are limited by contract to JPEG, PNG, or WebP. The SDK neither reconstructs cover paths nor fetches image bytes; a future image-loading layer may consume the public reference directly.
 

@@ -1,7 +1,6 @@
 package com.secondpasslibrary.reader.library
 
-import com.secondpasslibrary.client.LibraryGroupListOptions
-import com.secondpasslibrary.client.LibraryGroupOrdering
+import com.secondpasslibrary.client.LibraryCatalogTag
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
@@ -45,6 +44,7 @@ internal class LibraryController(
     private var entryIdentity: String? = null
     private var connectionIdentity: String? = null
     private var groupsJob: Job? = null
+    private var tagsJob: Job? = null
 
     fun initialize(
         profile: ConnectionProfile,
@@ -59,6 +59,8 @@ internal class LibraryController(
         val sameConnection = connection == connectionIdentity
         val selectedScope =
             if (sameConnection && advancedGroupsEnabled) previous.scope else LibraryScope.Global
+        val preserveTag = sameConnection && previous.scope == selectedScope
+        val selectedTag = previous.selectedTag.takeIf { preserveTag }
         this.profile = profile
         connectionIdentity = connection
         entryIdentity = identity
@@ -72,23 +74,40 @@ internal class LibraryController(
                         previous.groupSelector
                     } else {
                         LibraryGroupSelectorState(loading = advancedGroupsEnabled)
+                    },
+                selectedTag = selectedTag,
+                tagSelector =
+                    if (preserveTag) {
+                        previous.tagSelector
+                    } else {
+                        LibraryTagSelectorState(
+                            loading = true
+                        )
                     }
             )
         when (entry) {
             LibraryBooksEntry.Browse ->
-                books.initialize(profile, LibraryBooksMode.BROWSE, "", selectedScope)
+                books.initialize(
+                    profile,
+                    LibraryBooksMode.BROWSE,
+                    "",
+                    selectedScope,
+                    selectedTag?.slug
+                )
 
             is LibraryBooksEntry.BroadSearch ->
                 books.initialize(
                     profile,
                     LibraryBooksMode.BROAD_SEARCH,
                     entry.query,
-                    selectedScope
+                    selectedScope,
+                    selectedTag?.slug
                 )
         }
-        authors.prepare(profile, selectedScope)
-        series.prepare(profile, selectedScope)
+        authors.prepare(profile, selectedScope, selectedTag?.slug)
+        series.prepare(profile, selectedScope, selectedTag?.slug)
         if (advancedGroupsEnabled && !chrome.value.groupSelector.loaded) loadGroups()
+        if (!chrome.value.tagSelector.loaded) loadTags()
     }
 
     fun selectScope(selected: LibraryScope) {
@@ -103,10 +122,27 @@ internal class LibraryController(
             clearSelectedEntity()
             current = chrome.value
         }
-        chrome.value = current.copy(scope = selected)
-        if (current.axis == LibraryAxis.BOOKS) books.selectScope(selected)
-        authors.selectScope(selected, activate = current.axis == LibraryAxis.AUTHORS)
-        series.selectScope(selected, activate = current.axis == LibraryAxis.SERIES)
+        tagsJob?.cancel()
+        chrome.value =
+            current.copy(
+                scope = selected,
+                selectedTag = null,
+                tagSelector = LibraryTagSelectorState(loading = true)
+            )
+        if (current.resultKind == LibraryResultKind.BOOKS) {
+            books.selectScope(selected, tagSlug = null)
+        }
+        authors.selectScope(
+            selected,
+            tagSlug = null,
+            activate = current.axis == LibraryAxis.AUTHORS
+        )
+        series.selectScope(
+            selected,
+            tagSlug = null,
+            activate = current.axis == LibraryAxis.SERIES
+        )
+        loadTags()
     }
 
     fun selectAxis(selected: LibraryAxis) {
@@ -120,7 +156,8 @@ internal class LibraryController(
         when (selected) {
             LibraryAxis.BOOKS -> {
                 books.clearEntityFilter()
-                books.selectScope(current.scope)
+                books.selectScope(current.scope, current.selectedTag?.slug)
+                books.activate()
             }
 
             LibraryAxis.AUTHORS -> authors.activate()
@@ -198,8 +235,34 @@ internal class LibraryController(
 
     fun retryGroups() = loadGroups()
 
+    fun selectTag(tag: LibraryCatalogTag?) {
+        val current = chrome.value
+        if (tag != null &&
+            current.tagSelector.tags.none { it.id == tag.id && it.slug == tag.slug }
+        ) {
+            return
+        }
+        val selected = tag.takeUnless { current.selectedTag?.id == tag?.id }
+        chrome.value = current.copy(selectedTag = selected)
+        val slug = selected?.slug
+        books.selectTag(slug, activate = current.resultKind == LibraryResultKind.BOOKS)
+        authors.selectTag(
+            slug,
+            activate = current.axis == LibraryAxis.AUTHORS &&
+                current.resultKind == LibraryResultKind.AUTHOR_INDEX
+        )
+        series.selectTag(
+            slug,
+            activate = current.axis == LibraryAxis.SERIES &&
+                current.resultKind == LibraryResultKind.SERIES_INDEX
+        )
+    }
+
+    fun retryTags() = loadTags()
+
     fun close() {
         groupsJob?.cancel()
+        tagsJob?.cancel()
         books.close()
         authors.close()
         series.close()
@@ -214,22 +277,7 @@ internal class LibraryController(
             )
         groupsJob = scope.launch {
             val result = runCatching {
-                val groups = clientProvider.forProfile(activeProfile).library.groups
-                buildList {
-                    var pageNumber = 1
-                    do {
-                        val page =
-                            groups.listGroups(
-                                LibraryGroupListOptions(
-                                    ordering = LibraryGroupOrdering.NAME,
-                                    page = pageNumber,
-                                    pageSize = MAX_GROUP_SELECTOR_PAGE_SIZE
-                                )
-                            )
-                        addAll(page.results)
-                        pageNumber += 1
-                    } while (page.hasNext)
-                }
+                clientProvider.forProfile(activeProfile).library.loadAllGroups()
             }
             (result.exceptionOrNull() as? CancellationException)?.let { throw it }
             result.fold(
@@ -255,6 +303,41 @@ internal class LibraryController(
             )
         }
     }
-}
 
-private const val MAX_GROUP_SELECTOR_PAGE_SIZE = 200
+    private fun loadTags() {
+        val activeProfile = profile ?: return
+        if (tagsJob?.isActive == true) return
+        val requestedScope = chrome.value.scope
+        chrome.value =
+            chrome.value.copy(
+                tagSelector = chrome.value.tagSelector.copy(loading = true, failure = null)
+            )
+        tagsJob = scope.launch {
+            val result = runCatching {
+                clientProvider.forProfile(activeProfile).library.loadAllTags(requestedScope)
+            }
+            (result.exceptionOrNull() as? CancellationException)?.let { throw it }
+            if (chrome.value.scope != requestedScope) return@launch
+            result.fold(
+                onSuccess = { tags ->
+                    chrome.value =
+                        chrome.value.copy(
+                            tagSelector = LibraryTagSelectorState(loaded = true, tags = tags)
+                        )
+                },
+                onFailure = { failure ->
+                    val classified = failure.toLibraryFailure()
+                    chrome.value =
+                        chrome.value.copy(
+                            tagSelector = LibraryTagSelectorState(failure = classified)
+                        )
+                    if (classified == LibraryFailure.AUTHENTICATION_REJECTED) {
+                        connectionEventChannel.trySend(
+                            LibraryConnectionEvent.AuthenticationRejected
+                        )
+                    }
+                }
+            )
+        }
+    }
+}

@@ -35,17 +35,20 @@ internal class LibraryEntityController<T, O>(
 
     private var profile: ConnectionProfile? = null
     private var selectedScope: LibraryScope = LibraryScope.Global
+    private var selectedTagSlug: String? = null
     private var connectionIdentity: String? = null
     private var generation = 0L
     private var detailGeneration = 0L
     private var loadJob: Job? = null
     private var detailJob: Job? = null
 
-    fun prepare(profile: ConnectionProfile, scope: LibraryScope) {
+    fun prepare(profile: ConnectionProfile, scope: LibraryScope, tagSlug: String? = null) {
         val identity = "${profile.apiBaseUrl}\u0000${profile.clientSessionId}"
-        val changed = identity != connectionIdentity || scope != selectedScope
+        val changed =
+            identity != connectionIdentity || scope != selectedScope || tagSlug != selectedTagSlug
         this.profile = profile
         selectedScope = scope
+        selectedTagSlug = tagSlug
         if (!changed) return
         connectionIdentity = identity
         reset(cancelDetail = true)
@@ -57,9 +60,10 @@ internal class LibraryEntityController<T, O>(
         resetAndLoad(current.committedQuery, current.ordering)
     }
 
-    fun selectScope(scope: LibraryScope, activate: Boolean) {
-        if (selectedScope != scope) {
+    fun selectScope(scope: LibraryScope, activate: Boolean, tagSlug: String? = selectedTagSlug) {
+        if (selectedScope != scope || selectedTagSlug != tagSlug) {
             selectedScope = scope
+            selectedTagSlug = tagSlug
             reset(cancelDetail = true)
         }
         if (activate) activate()
@@ -135,6 +139,13 @@ internal class LibraryEntityController<T, O>(
         if (selected.failure != null) select(selected.id)
     }
 
+    fun selectTag(tagSlug: String?, activate: Boolean) {
+        if (selectedTagSlug == tagSlug) return
+        selectedTagSlug = tagSlug
+        resetPreservingSelection()
+        if (activate) activate()
+    }
+
     fun clearSelection() {
         detailJob?.cancel()
         detailGeneration += 1
@@ -193,7 +204,8 @@ internal class LibraryEntityController<T, O>(
                 current.ordering,
                 selectedScope,
                 page,
-                current.pageSize
+                current.pageSize,
+                selectedTagSlug
             )
         mutableState.value =
             current.copy(
@@ -250,6 +262,19 @@ internal class LibraryEntityController<T, O>(
             connectionEventChannel.trySend(LibraryConnectionEvent.AuthenticationRejected)
         }
     }
+
+    private fun resetPreservingSelection() {
+        loadJob?.cancel()
+        generation += 1
+        val current = mutableState.value
+        mutableState.value =
+            LibraryEntityState(
+                committedQuery = current.committedQuery,
+                ordering = current.ordering,
+                pageSize = current.pageSize,
+                selected = current.selected
+            )
+    }
 }
 
 internal data class LibraryEntityRequest<O>(
@@ -257,5 +282,6 @@ internal data class LibraryEntityRequest<O>(
     val ordering: O,
     val scope: LibraryScope,
     val page: Int,
-    val pageSize: Int
+    val pageSize: Int,
+    val tagSlug: String? = null
 )

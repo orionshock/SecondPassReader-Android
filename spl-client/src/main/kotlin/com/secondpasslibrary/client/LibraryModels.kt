@@ -29,12 +29,14 @@ data class BookListOptions(
 
 data class LibrarySearchOptions(
     val q: String = "",
+    val tagSlug: String? = null,
     val ordering: LibrarySearchOrdering? = null,
     val page: Int = DEFAULT_LIBRARY_PAGE,
     val pageSize: Int = DEFAULT_LIBRARY_PAGE_SIZE
 ) {
     init {
         validateLibraryPage(page, pageSize)
+        require(tagSlug == null || tagSlug.isNotBlank()) { "Tag slug must not be blank." }
     }
 }
 
@@ -50,6 +52,7 @@ data class LibraryGroupListOptions(
 
 data class AuthorListOptions(
     val q: String? = null,
+    val tagSlug: String? = null,
     val ordering: AuthorOrdering = AuthorOrdering.NAME,
     val page: Int = DEFAULT_LIBRARY_PAGE,
     val pageSize: Int = DEFAULT_LIBRARY_PAGE_SIZE,
@@ -58,11 +61,13 @@ data class AuthorListOptions(
     init {
         validateLibraryPage(page, pageSize)
         validatePreviewLimit(previewLimit)
+        require(tagSlug == null || tagSlug.isNotBlank()) { "Tag slug must not be blank." }
     }
 }
 
 data class SeriesListOptions(
     val q: String? = null,
+    val tagSlug: String? = null,
     val ordering: SeriesOrdering = SeriesOrdering.NAME,
     val page: Int = DEFAULT_LIBRARY_PAGE,
     val pageSize: Int = DEFAULT_LIBRARY_PAGE_SIZE,
@@ -71,6 +76,18 @@ data class SeriesListOptions(
     init {
         validateLibraryPage(page, pageSize)
         validatePreviewLimit(previewLimit)
+        require(tagSlug == null || tagSlug.isNotBlank()) { "Tag slug must not be blank." }
+    }
+}
+
+data class CatalogTagListOptions(
+    val q: String? = null,
+    val ordering: CatalogTagOrdering = CatalogTagOrdering.NAME,
+    val page: Int = DEFAULT_LIBRARY_PAGE,
+    val pageSize: Int = DEFAULT_LIBRARY_PAGE_SIZE
+) {
+    init {
+        validateLibraryPage(page, pageSize)
     }
 }
 
@@ -121,7 +138,16 @@ enum class SeriesOrdering(internal val queryValue: String) {
     BOOK_COUNT_DESCENDING("-book_count")
 }
 
+enum class CatalogTagOrdering(internal val queryValue: String) {
+    NAME("name"),
+    NAME_DESCENDING("-name"),
+    BOOK_COUNT("book_count"),
+    BOOK_COUNT_DESCENDING("-book_count")
+}
+
 data class LibraryGroupSummary(val id: String, val name: String, val isPublicGroup: Boolean)
+
+data class LibraryCatalogTag(val id: String, val name: String, val slug: String, val bookCount: Int)
 
 data class LibraryPreviewBook(
     val id: String,

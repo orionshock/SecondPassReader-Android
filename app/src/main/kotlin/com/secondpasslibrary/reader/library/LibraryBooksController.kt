@@ -41,16 +41,18 @@ internal class LibraryBooksController(
         profile: ConnectionProfile,
         mode: LibraryBooksMode,
         query: String,
-        scope: LibraryScope
+        scope: LibraryScope,
+        tagSlug: String? = null
     ) {
         val identity =
-            "${profile.apiBaseUrl}\u0000${profile.clientSessionId}\u0000$mode\u0000$query\u0000$scope"
+            "${profile.apiBaseUrl}\u0000${profile.clientSessionId}\u0000$mode\u0000$query\u0000$scope\u0000$tagSlug"
         if (identity == entryIdentity) return
         entryIdentity = identity
         this.profile = profile
         selectedScope = scope
         unfilteredState = null
         loadDisplayPreference()
+        mutableState.value = mutableState.value.copy(tagSlug = tagSlug)
         resetAndLoad(mode, query, defaultOrdering(mode), filter = null)
     }
 
@@ -73,11 +75,42 @@ internal class LibraryBooksController(
         unfilteredState = null
     }
 
-    fun selectScope(scope: LibraryScope) {
-        if (selectedScope == scope) return
+    fun activate() {
+        if (profile == null || loadJob?.isActive == true ||
+            mutableState.value.currentPage > 0
+        ) {
+            return
+        }
+        resetCurrentAndLoad()
+    }
+
+    fun selectScope(
+        scope: LibraryScope,
+        tagSlug: String? = mutableState.value.tagSlug,
+        activate: Boolean = true
+    ) {
+        if (selectedScope == scope && mutableState.value.tagSlug == tagSlug) return
         selectedScope = scope
         entryIdentity = null
-        resetCurrentAndLoad()
+        mutableState.value = mutableState.value.copy(tagSlug = tagSlug)
+        if (activate) {
+            resetCurrentAndLoad()
+        } else {
+            mutableState.value = mutableState.value.invalidatedForTag(tagSlug)
+        }
+    }
+
+    fun selectTag(tagSlug: String?, activate: Boolean) {
+        val current = mutableState.value
+        if (current.tagSlug == tagSlug) return
+        entryIdentity = null
+        unfilteredState = unfilteredState?.invalidatedForTag(tagSlug)
+        mutableState.value = current.copy(tagSlug = tagSlug)
+        if (activate) {
+            resetCurrentAndLoad()
+        } else {
+            mutableState.value = mutableState.value.invalidatedForTag(tagSlug)
+        }
     }
 
     fun commitBrowseQuery(query: String) {
@@ -192,6 +225,7 @@ internal class LibraryBooksController(
             LibraryBooksState(
                 mode = mode,
                 filter = filter,
+                tagSlug = current.tagSlug,
                 committedQuery = query,
                 ordering = ordering,
                 pageSize = current.pageSize,
@@ -300,3 +334,15 @@ internal class LibraryBooksController(
             LibraryBooksOrdering.BroadSearch(LibrarySearchOrdering.TITLE)
     }
 }
+
+private fun LibraryBooksState.invalidatedForTag(tagSlug: String?): LibraryBooksState = copy(
+    tagSlug = tagSlug,
+    books = emptyList(),
+    totalCount = 0,
+    initialLoading = true,
+    nextPageLoading = false,
+    refreshing = false,
+    error = null,
+    hasNext = false,
+    currentPage = 0
+)

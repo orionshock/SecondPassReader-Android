@@ -5,10 +5,13 @@ import com.secondpasslibrary.client.AuthenticatedLibraryBooksClient
 import com.secondpasslibrary.client.AuthenticatedLibraryClient
 import com.secondpasslibrary.client.AuthenticatedLibraryGroupsClient
 import com.secondpasslibrary.client.AuthenticatedLibrarySeriesClient
+import com.secondpasslibrary.client.AuthenticatedLibraryTagsClient
 import com.secondpasslibrary.client.AuthorListOptions
 import com.secondpasslibrary.client.BookListOptions
+import com.secondpasslibrary.client.CatalogTagListOptions
 import com.secondpasslibrary.client.CompactBook
 import com.secondpasslibrary.client.LibraryAuthor
+import com.secondpasslibrary.client.LibraryCatalogTag
 import com.secondpasslibrary.client.LibraryEntityDetailOptions
 import com.secondpasslibrary.client.LibraryGroupListOptions
 import com.secondpasslibrary.client.LibraryGroupSummary
@@ -22,7 +25,8 @@ internal class FakeAuthenticatedLibraryClient(
     override val books: AuthenticatedLibraryBooksClient = UnsupportedLibraryBooksClient,
     override val authors: AuthenticatedLibraryAuthorsClient = UnsupportedLibraryAuthorsClient,
     override val series: AuthenticatedLibrarySeriesClient = UnsupportedLibrarySeriesClient,
-    override val groups: AuthenticatedLibraryGroupsClient = UnsupportedLibraryGroupsClient
+    override val groups: AuthenticatedLibraryGroupsClient = UnsupportedLibraryGroupsClient,
+    override val tags: AuthenticatedLibraryTagsClient = UnsupportedLibraryTagsClient
 ) : AuthenticatedLibraryClient
 
 private object UnsupportedLibraryBooksClient : AuthenticatedLibraryBooksClient {
@@ -65,6 +69,15 @@ private object UnsupportedLibraryGroupsClient : AuthenticatedLibraryGroupsClient
     override suspend fun listGroups(
         options: LibraryGroupListOptions
     ): LibraryPage<LibraryGroupSummary> = unsupported()
+}
+
+private object UnsupportedLibraryTagsClient : AuthenticatedLibraryTagsClient {
+    override suspend fun list(
+        scope: LibraryScope,
+        options: CatalogTagListOptions
+    ): LibraryPage<LibraryCatalogTag> = unsupported()
+
+    override suspend fun get(tagId: String): LibraryCatalogTag = unsupported()
 }
 
 private fun unsupported(): Nothing = error("Library capability is outside this test fixture.")

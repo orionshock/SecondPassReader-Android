@@ -41,7 +41,7 @@ LibraryController
   `- LibrarySeriesController
 ```
 
-`LibraryController` owns route entry, current axis, Library scope, group-selector loading, and sibling coordination. Home broad-search entry is interpreted here before being delegated to Books. Author and Series selections enter through the parent, which retains the active axis, delegates detail loading to the owning child, and configures filtered Books through the Books child. Children never reach sideways.
+`LibraryController` owns route entry, current axis, Library scope, group/tag vocabulary loading, selected Catalog Tag, and sibling coordination. Home broad-search entry is interpreted here before being delegated to Books. Author and Series selections enter through the parent, which retains the active axis, delegates detail loading to the owning child, and configures filtered Books through the Books child. Children never reach sideways; they receive only the effective tag slug.
 
 `LibraryBooksController` owns transient online Books browsing state. It translates the server's page-number contract into append-style results with an explicit page size of 50, prevents duplicate next-page requests, and discards responses made stale by mode, query, scope, or ordering changes. Initial loads, refreshes, and next-page failures remain distinct; next-page and refresh failures retain accumulated results. Library pages are deliberately not stored in Room: this is browsing state, not an offline catalog projection. `LibraryViewModel` retains the parent and its children for as long as the current navigation owner survives.
 
@@ -55,8 +55,10 @@ Library presents that state as a permanent Books surface with explicit-commit se
 
 Library scope is capability-gated exclusively by authenticated server info. When advanced library groups are enabled, the parent loads the complete name-ordered Reader-safe group summary list through `:spl-client` and presents All Library, public, and private/custom scopes with semantic icons. The SDK-owned scope is resolved first, then identical Books-browse, broad-search, Authors, and Series semantics apply; endpoint topology stays inside `:spl-client`. Scope remains parent-owned across query, ordering, axis, and Home broad-search route changes. Scope changes reset transient paging but do not create a catalog cache.
 
-The Books, Authors, and Series axes are explicit parent state and all three have concrete state owners and rendered results surfaces. Filtered Books for a selected Author or Series remain deferred.
+The parent also loads the complete scoped Catalog Tag vocabulary as a bounded, non-persistent filter dataset. A selected tag composes with the current axis query and selected Author/Series Books context without changing search semantics. Tag-list failure leaves current results usable; tag changes reset child paging, and scope changes clear selection before loading the new vocabulary.
 
-Shelves and Sessions still prove top-level routing only. Authors, Series, Groups, Catalog Tags, Book Detail, reader-mode navigation, deep links, nested feature graphs, and logout remain deferred.
+The Books, Authors, and Series axes are explicit parent state and all three have concrete state owners and rendered results surfaces. Selected Author/Series contexts reuse the Books child for filtered results.
+
+Shelves and Sessions still prove top-level routing only. Catalog Tag filter UI, Book Detail, reader-mode navigation, deep links, nested feature graphs, and logout remain deferred.
 
 All feature-facing icons use the semantic layer documented in [Icon vocabulary](icon-vocabulary.md).

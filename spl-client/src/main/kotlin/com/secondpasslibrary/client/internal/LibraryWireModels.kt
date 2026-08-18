@@ -27,6 +27,22 @@ internal data class LibraryGroupWire(
 )
 
 @Serializable
+internal data class LibraryCatalogTagPageWire(
+    val count: Int? = null,
+    val next: String? = null,
+    val previous: String? = null,
+    val results: List<LibraryCatalogTagWire>? = null
+)
+
+@Serializable
+internal data class LibraryCatalogTagWire(
+    val id: String? = null,
+    val name: String? = null,
+    val slug: String? = null,
+    @SerialName("book_count") val bookCount: Int? = null
+)
+
+@Serializable
 internal data class LibraryAuthorPageWire(
     val count: Int? = null,
     val next: String? = null,

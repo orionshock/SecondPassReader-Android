@@ -26,6 +26,7 @@ class LibraryAxesClientTest {
         }.library.authors.list(
             options = AuthorListOptions(
                 q = "Le Guin / science fiction",
+                tagSlug = "fiction",
                 ordering = AuthorOrdering.BOOK_COUNT_DESCENDING,
                 page = 2,
                 pageSize = 40,
@@ -35,6 +36,7 @@ class LibraryAxesClientTest {
 
         assertEquals("/api/v1/library/authors/", request?.url?.encodedPath)
         assertEquals("Le Guin / science fiction", request?.url?.parameters?.get("q"))
+        assertEquals("fiction", request?.url?.parameters?.get("tag"))
         assertFalse(request?.url.toString().contains(' '))
         assertEquals("-book_count", request?.url?.parameters?.get("ordering"))
         assertEquals("true", request?.url?.parameters?.get("include_preview_books"))
@@ -61,11 +63,14 @@ class LibraryAxesClientTest {
         val page = authenticatedClient {
             request = it
             jsonResponse(SERIES_PAGE)
-        }.library.series.list(options = SeriesListOptions(q = "cycle", previewLimit = 3))
+        }.library.series.list(
+            options = SeriesListOptions(q = "cycle", tagSlug = "fantasy", previewLimit = 3)
+        )
 
         assertEquals("/api/v1/library/series/", request?.url?.encodedPath)
         assertEquals("name", request?.url?.parameters?.get("ordering"))
         assertEquals("cycle", request?.url?.parameters?.get("q"))
+        assertEquals("fantasy", request?.url?.parameters?.get("tag"))
         assertEquals("3", request?.url?.parameters?.get("preview_limit"))
         assertEquals("A summary", page.results.single().summary)
         assertEquals(4, page.results.single().bookCount)
@@ -146,6 +151,9 @@ class LibraryAxesClientTest {
         assertThrows(IllegalArgumentException::class.java) { SeriesListOptions(pageSize = 201) }
         assertThrows(IllegalArgumentException::class.java) { AuthorListOptions(previewLimit = -1) }
         assertThrows(IllegalArgumentException::class.java) { SeriesListOptions(previewLimit = 25) }
+        assertThrows(IllegalArgumentException::class.java) { AuthorListOptions(tagSlug = " ") }
+        assertThrows(IllegalArgumentException::class.java) { SeriesListOptions(tagSlug = " ") }
+        assertThrows(IllegalArgumentException::class.java) { LibrarySearchOptions(tagSlug = " ") }
         assertThrows(IllegalArgumentException::class.java) {
             LibraryEntityDetailOptions(previewLimit = 25)
         }

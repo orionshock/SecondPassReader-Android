@@ -77,11 +77,16 @@ class LibraryGroupsClientTest {
 
         client.library.books.search(
             LibraryScope.Group("group/one"),
-            LibrarySearchOptions(q = "author or title", ordering = LibrarySearchOrdering.AUTHOR)
+            LibrarySearchOptions(
+                q = "author or title",
+                tagSlug = "fiction",
+                ordering = LibrarySearchOrdering.AUTHOR
+            )
         )
 
         assertEquals("/api/v1/library/groups/group%2Fone/search", request?.url?.encodedPath)
         assertEquals("author or title", request?.url?.parameters?.get("q"))
+        assertEquals("fiction", request?.url?.parameters?.get("tag"))
         assertEquals("author", request?.url?.parameters?.get("ordering"))
     }
 

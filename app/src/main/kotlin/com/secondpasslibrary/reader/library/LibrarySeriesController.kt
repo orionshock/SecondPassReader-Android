@@ -9,6 +9,7 @@ import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import kotlinx.coroutines.CoroutineScope
 
+@Suppress("TooManyFunctions") // Thin facade exposes the Series child's bounded intents.
 internal class LibrarySeriesController(
     clientProvider: AuthenticatedClientProvider,
     scope: CoroutineScope
@@ -22,6 +23,7 @@ internal class LibrarySeriesController(
                 val options =
                     SeriesListOptions(
                         q = request.query.takeIf(String::isNotBlank),
+                        tagSlug = request.tagSlug,
                         ordering = request.ordering,
                         page = request.page,
                         pageSize = request.pageSize,
@@ -40,11 +42,15 @@ internal class LibrarySeriesController(
     val state = delegate.state
     val connectionEvents = delegate.connectionEvents
 
-    fun prepare(profile: ConnectionProfile, scope: LibraryScope) = delegate.prepare(profile, scope)
+    fun prepare(profile: ConnectionProfile, scope: LibraryScope, tagSlug: String? = null) =
+        delegate.prepare(profile, scope, tagSlug)
 
     fun activate() = delegate.activate()
 
-    fun selectScope(scope: LibraryScope, activate: Boolean) = delegate.selectScope(scope, activate)
+    fun selectScope(scope: LibraryScope, activate: Boolean, tagSlug: String? = null) =
+        delegate.selectScope(scope, activate, tagSlug)
+
+    fun selectTag(tagSlug: String?, activate: Boolean) = delegate.selectTag(tagSlug, activate)
 
     fun commitSearch(query: String) = delegate.commitSearch(query)
 

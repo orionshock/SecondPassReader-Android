@@ -31,6 +31,7 @@ internal class KtorLibraryBooksClient(
     ): LibraryPage<CompactBook> {
         val parameters = buildList {
             add("q" to options.q)
+            options.tagSlug?.let { add("tag" to it) }
             options.ordering?.let { add("ordering" to it.queryValue) }
             add("page" to options.page.toString())
             add("page_size" to options.pageSize.toString())

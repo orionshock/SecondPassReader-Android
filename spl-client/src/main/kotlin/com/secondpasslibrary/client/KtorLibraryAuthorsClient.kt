@@ -33,6 +33,7 @@ internal class KtorLibraryAuthorsClient(
     ): LibraryPage<LibraryAuthor> {
         val parameters = buildList {
             options.q?.let { add("q" to it) }
+            options.tagSlug?.let { add("tag" to it) }
             add("ordering" to options.ordering.queryValue)
             add("page" to options.page.toString())
             add("page_size" to options.pageSize.toString())

@@ -13,6 +13,7 @@ interface AuthenticatedLibraryClient {
     val authors: AuthenticatedLibraryAuthorsClient
     val series: AuthenticatedLibrarySeriesClient
     val groups: AuthenticatedLibraryGroupsClient
+    val tags: AuthenticatedLibraryTagsClient
 }
 
 interface AuthenticatedLibraryBooksClient {
@@ -55,6 +56,15 @@ interface AuthenticatedLibraryGroupsClient {
     suspend fun listGroups(
         options: LibraryGroupListOptions = LibraryGroupListOptions()
     ): LibraryPage<LibraryGroupSummary>
+}
+
+interface AuthenticatedLibraryTagsClient {
+    suspend fun list(
+        scope: LibraryScope = LibraryScope.Global,
+        options: CatalogTagListOptions = CatalogTagListOptions()
+    ): LibraryPage<LibraryCatalogTag>
+
+    suspend fun get(tagId: String): LibraryCatalogTag
 }
 
 interface AuthenticatedSecondPassClientFactory {

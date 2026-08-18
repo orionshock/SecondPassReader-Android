@@ -12,6 +12,7 @@ internal data class LibraryBooksRequest(
     val query: String,
     val ordering: LibraryBooksOrdering,
     val filter: LibraryBooksFilter?,
+    val tagSlug: String?,
     val scope: LibraryScope,
     val page: Int,
     val pageSize: Int
@@ -25,6 +26,7 @@ internal data class LibraryBooksRequest(
                         q = query.takeIf(String::isNotBlank),
                         authorId = (filter as? LibraryBooksFilter.Author)?.id,
                         seriesId = (filter as? LibraryBooksFilter.Series)?.id,
+                        tagSlug = tagSlug,
                         ordering = (ordering as LibraryBooksOrdering.Browse).value,
                         page = page,
                         pageSize = pageSize
@@ -36,6 +38,7 @@ internal data class LibraryBooksRequest(
                     scope,
                     LibrarySearchOptions(
                         q = query,
+                        tagSlug = tagSlug,
                         ordering = (ordering as LibraryBooksOrdering.BroadSearch).value,
                         page = page,
                         pageSize = pageSize
@@ -49,6 +52,7 @@ internal data class LibraryBooksRequest(
             state.committedQuery,
             state.ordering,
             state.filter,
+            state.tagSlug,
             scope,
             page,
             state.pageSize

@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.library
 
+import com.secondpasslibrary.client.LibraryCatalogTag
 import com.secondpasslibrary.client.LibraryScope
 import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
 import kotlinx.coroutines.flow.FlowCollector
@@ -14,7 +15,9 @@ internal data class LibraryChromeState(
     val resultKind: LibraryResultKind = LibraryResultKind.BOOKS,
     val scope: LibraryScope = LibraryScope.Global,
     val advancedGroupsEnabled: Boolean = false,
-    val groupSelector: LibraryGroupSelectorState = LibraryGroupSelectorState()
+    val groupSelector: LibraryGroupSelectorState = LibraryGroupSelectorState(),
+    val selectedTag: LibraryCatalogTag? = null,
+    val tagSelector: LibraryTagSelectorState = LibraryTagSelectorState()
 ) {
     fun toState(
         books: LibraryBooksState,
@@ -26,6 +29,8 @@ internal data class LibraryChromeState(
         scope,
         advancedGroupsEnabled,
         groupSelector,
+        selectedTag,
+        tagSelector,
         books,
         authors,
         series

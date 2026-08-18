@@ -4,11 +4,14 @@ import com.secondpasslibrary.client.AuthenticatedLibraryAuthorsClient
 import com.secondpasslibrary.client.AuthenticatedLibraryBooksClient
 import com.secondpasslibrary.client.AuthenticatedLibraryGroupsClient
 import com.secondpasslibrary.client.AuthenticatedLibrarySeriesClient
+import com.secondpasslibrary.client.AuthenticatedLibraryTagsClient
 import com.secondpasslibrary.client.AuthenticatedSecondPassClient
 import com.secondpasslibrary.client.AuthorListOptions
 import com.secondpasslibrary.client.BookListOptions
+import com.secondpasslibrary.client.CatalogTagListOptions
 import com.secondpasslibrary.client.CompactBook
 import com.secondpasslibrary.client.LibraryAuthor
+import com.secondpasslibrary.client.LibraryCatalogTag
 import com.secondpasslibrary.client.LibraryEntityDetailOptions
 import com.secondpasslibrary.client.LibraryGroupListOptions
 import com.secondpasslibrary.client.LibraryGroupSummary
@@ -31,12 +34,20 @@ internal class FakeLibraryAxisClient :
     AuthenticatedLibraryBooksClient,
     AuthenticatedLibraryAuthorsClient,
     AuthenticatedLibrarySeriesClient,
-    AuthenticatedLibraryGroupsClient {
+    AuthenticatedLibraryGroupsClient,
+    AuthenticatedLibraryTagsClient {
     override val library =
-        FakeAuthenticatedLibraryClient(books = this, authors = this, series = this, groups = this)
+        FakeAuthenticatedLibraryClient(
+            books = this,
+            authors = this,
+            series = this,
+            groups = this,
+            tags = this
+        )
 
     val bookRequests = mutableListOf<BookListOptions>()
     val groupBookRequests = mutableListOf<Pair<String, BookListOptions>>()
+    val searchRequests = mutableListOf<Pair<LibraryScope, LibrarySearchOptions>>()
 
     val authorRequests = mutableListOf<AuthorListOptions>()
     val groupAuthorRequests = mutableListOf<Pair<String, AuthorListOptions>>()
@@ -45,6 +56,7 @@ internal class FakeLibraryAxisClient :
     val groupSeriesRequests = mutableListOf<Pair<String, SeriesListOptions>>()
     val seriesDetailRequests = mutableListOf<Pair<String, LibraryEntityDetailOptions>>()
     val groupRequests = mutableListOf<LibraryGroupListOptions>()
+    val tagRequests = mutableListOf<Pair<LibraryScope, CatalogTagListOptions>>()
 
     var authorList: suspend (AuthorListOptions) -> LibraryPage<LibraryAuthor> = {
         axisPage(it.page, emptyList())
@@ -61,6 +73,8 @@ internal class FakeLibraryAxisClient :
     var groups: suspend (LibraryGroupListOptions) -> LibraryPage<LibraryGroupSummary> = {
         axisPage(it.page, emptyList())
     }
+    var tags: suspend (LibraryScope, CatalogTagListOptions) -> LibraryPage<LibraryCatalogTag> =
+        { _, options -> axisPage(options.page, emptyList()) }
     var bookList: suspend (BookListOptions) -> LibraryPage<CompactBook> = {
         axisPage(it.page, emptyList())
     }
@@ -85,7 +99,10 @@ internal class FakeLibraryAxisClient :
     override suspend fun search(
         scope: LibraryScope,
         options: LibrarySearchOptions
-    ): LibraryPage<CompactBook> = axisPage(options.page, emptyList())
+    ): LibraryPage<CompactBook> {
+        searchRequests += scope to options
+        return axisPage(options.page, emptyList())
+    }
 
     override suspend fun list(
         scope: LibraryScope,
@@ -140,6 +157,17 @@ internal class FakeLibraryAxisClient :
         return groups(options)
     }
 
+    override suspend fun list(
+        scope: LibraryScope,
+        options: CatalogTagListOptions
+    ): LibraryPage<LibraryCatalogTag> {
+        tagRequests += scope to options
+        return tags(scope, options)
+    }
+
+    override suspend fun get(tagId: String): LibraryCatalogTag =
+        error("Catalog tag detail is outside this Library fixture.")
+
     override suspend fun recentReading(options: RecentReadingOptions): List<RecentReadingItem> =
         error("Recent reading is outside this Library fixture.")
 
@@ -155,6 +183,8 @@ internal class FakeLibraryAxisClientProvider(private val client: AuthenticatedSe
 internal fun author(id: String) = LibraryAuthor(id, id, id, "Biography $id", 3, emptyList())
 
 internal fun series(id: String) = LibrarySeries(id, id, id, "Summary $id", 4, emptyList())
+
+internal fun catalogTag(id: String, slug: String = id) = LibraryCatalogTag(id, id, slug, 5)
 
 internal fun axisBook(id: String) = CompactBook(
     id = id,

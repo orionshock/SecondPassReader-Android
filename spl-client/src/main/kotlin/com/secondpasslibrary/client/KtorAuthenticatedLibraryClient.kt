@@ -9,4 +9,5 @@ internal class KtorAuthenticatedLibraryClient(requests: AuthenticatedRequestExec
         KtorLibraryAuthorsClient(requests, json)
     override val series: AuthenticatedLibrarySeriesClient = KtorLibrarySeriesClient(requests, json)
     override val groups: AuthenticatedLibraryGroupsClient = KtorLibraryGroupsClient(requests, json)
+    override val tags: AuthenticatedLibraryTagsClient = KtorLibraryTagsClient(requests, json)
 }

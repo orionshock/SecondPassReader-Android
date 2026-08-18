@@ -29,6 +29,7 @@ internal sealed interface LibraryBooksOrdering {
 internal data class LibraryBooksState(
     val mode: LibraryBooksMode = LibraryBooksMode.BROWSE,
     val filter: LibraryBooksFilter? = null,
+    val tagSlug: String? = null,
     val committedQuery: String = "",
     val ordering: LibraryBooksOrdering = LibraryBooksOrdering.Browse(BookOrdering.TITLE),
     val pageSize: Int = DEFAULT_LIBRARY_PAGE_SIZE,

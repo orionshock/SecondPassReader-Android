@@ -195,6 +195,125 @@ class LibraryControllerAxisTest {
             assertEquals(listOf(1, 2), client.bookRequests.takeLast(2).map { it.page })
         }
 
+    @Test
+    fun `tag vocabulary is complete and selected tag filters every axis`() = runTest {
+        val selected = catalogTag("fiction", "fiction")
+        val client = FakeLibraryAxisClient().apply {
+            bookList = { options ->
+                axisPage(options.page, emptyList(), hasNext = options.page == 1)
+            }
+            tags = { _, options ->
+                if (options.page == 1) {
+                    axisPage(1, listOf(selected), total = 2, hasNext = true)
+                } else {
+                    axisPage(2, listOf(catalogTag("history")), total = 2)
+                }
+            }
+        }
+        val controller = controller(client)
+        controller.initialize(libraryProfile(), LibraryBooksEntry.Browse, false)
+        advanceUntilIdle()
+        controller.commitSearch("dune")
+        advanceUntilIdle()
+        controller.loadNextPage()
+        advanceUntilIdle()
+
+        controller.selectTag(selected)
+        advanceUntilIdle()
+        assertEquals("fiction", client.bookRequests.last().tagSlug)
+        assertEquals("dune", client.bookRequests.last().q)
+        assertEquals(1, client.bookRequests.last().page)
+        assertEquals(
+            listOf("fiction", "history"),
+            controller.state.value.tagSelector.tags.map {
+                it.slug
+            }
+        )
+        assertEquals(selected, controller.state.value.selectedTag)
+
+        controller.selectAxis(LibraryAxis.AUTHORS)
+        advanceUntilIdle()
+        assertEquals("fiction", client.authorRequests.last().tagSlug)
+
+        controller.selectAxis(LibraryAxis.SERIES)
+        advanceUntilIdle()
+        assertEquals("fiction", client.seriesRequests.last().tagSlug)
+    }
+
+    @Test
+    fun `selected entity Books retain shared tag and selecting it again clears it`() = runTest {
+        val selected = catalogTag("fiction", "fiction")
+        val client = FakeLibraryAxisClient().apply {
+            tags = { _, options -> axisPage(options.page, listOf(selected)) }
+        }
+        val controller = controller(client)
+        controller.initialize(libraryProfile(), LibraryBooksEntry.Browse, false)
+        advanceUntilIdle()
+        controller.selectTag(selected)
+        controller.selectAuthor("author-1")
+        advanceUntilIdle()
+
+        assertEquals("author-1", client.bookRequests.last().authorId)
+        assertEquals("fiction", client.bookRequests.last().tagSlug)
+
+        controller.selectTag(selected)
+        advanceUntilIdle()
+        assertEquals(null, controller.state.value.selectedTag)
+        assertEquals(null, client.bookRequests.last().tagSlug)
+        assertEquals("author-1", client.bookRequests.last().authorId)
+    }
+
+    @Test
+    fun `scope change clears tag selection reloads vocabulary and retains Library results`() =
+        runTest {
+            val group = LibraryGroupSummary("group-1", "Group", false)
+            val globalTag = catalogTag("global")
+            val scopedTag = catalogTag("scoped")
+            val client = FakeLibraryAxisClient().apply {
+                groups = { axisPage(it.page, listOf(group)) }
+                tags = { scope, options ->
+                    axisPage(
+                        options.page,
+                        listOf(if (scope == LibraryScope.Global) globalTag else scopedTag)
+                    )
+                }
+                bookList = { axisPage(it.page, listOf(axisBook("book"))) }
+            }
+            val controller = controller(client)
+            controller.initialize(libraryProfile(), LibraryBooksEntry.Browse, true)
+            advanceUntilIdle()
+            controller.selectTag(globalTag)
+            advanceUntilIdle()
+
+            controller.selectScope(LibraryScope.Group(group.id))
+            advanceUntilIdle()
+
+            assertEquals(null, controller.state.value.selectedTag)
+            assertEquals(listOf("scoped"), controller.state.value.tagSelector.tags.map { it.slug })
+            assertEquals(
+                listOf(LibraryScope.Global, LibraryScope.Group(group.id)),
+                client.tagRequests.map {
+                    it.first
+                }
+            )
+            assertEquals(LibraryScope.Group(group.id), controller.state.value.scope)
+        }
+
+    @Test
+    fun `tag vocabulary failure does not destroy loaded Books`() = runTest {
+        val client = FakeLibraryAxisClient().apply {
+            bookList = { axisPage(it.page, listOf(axisBook("book"))) }
+            tags = { _, _ -> throw SplClientException.ProtocolInvalid("tags") }
+        }
+        val controller = controller(client)
+
+        controller.initialize(libraryProfile(), LibraryBooksEntry.Browse, false)
+        advanceUntilIdle()
+
+        assertEquals(listOf("book"), controller.state.value.books.books.map { it.id })
+        assertEquals(LibraryFailure.PROTOCOL_INVALID, controller.state.value.tagSelector.failure)
+    }
+
     private fun kotlinx.coroutines.test.TestScope.controller(client: FakeLibraryAxisClient) =
         LibraryController(
             FakeLibraryAxisClientProvider(client),
