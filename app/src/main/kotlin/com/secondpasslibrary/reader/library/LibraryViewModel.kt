@@ -2,8 +2,10 @@ package com.secondpasslibrary.reader.library
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.secondpasslibrary.client.AuthorOrdering
 import com.secondpasslibrary.client.BookOrdering
 import com.secondpasslibrary.client.LibrarySearchOrdering
+import com.secondpasslibrary.client.SeriesOrdering
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -37,7 +39,11 @@ constructor(
     fun changeBroadSearchOrdering(ordering: LibrarySearchOrdering) =
         controller.books.changeBroadSearchOrdering(ordering)
 
-    fun loadNextPage() = controller.books.loadNextPage()
+    fun changeAuthorOrdering(ordering: AuthorOrdering) = controller.authors.changeOrdering(ordering)
+
+    fun changeSeriesOrdering(ordering: SeriesOrdering) = controller.series.changeOrdering(ordering)
+
+    fun loadNextPage() = controller.loadNextPage()
 
     fun setLayout(layout: LibraryBooksLayout) = controller.books.setLayout(layout)
 
@@ -49,7 +55,15 @@ constructor(
 
     fun refresh() = controller.books.refresh()
 
-    fun retry() = controller.books.retry()
+    fun retry() = controller.retry()
+
+    fun selectAuthor(authorId: String) = controller.selectAuthor(authorId)
+
+    fun selectSeries(seriesId: String) = controller.selectSeries(seriesId)
+
+    fun retryAuthorDetail() = controller.authors.retryDetail()
+
+    fun retrySeriesDetail() = controller.series.retryDetail()
 
     override fun onCleared() {
         controller.close()
