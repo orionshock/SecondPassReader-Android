@@ -59,9 +59,11 @@ The authenticated Home surface retains useful verified library, account, group, 
 
 ## Authenticated read surface
 
-`KtorSecondPassClient` can create a credential-bound `AuthenticatedSecondPassClient`. The scope retains the validated API base and opaque bearer credential so feature callers do not repeatedly handle either value. It currently exposes only recent reading and paginated shelf summaries with optional preview books; it is not a screen-specific Home aggregate.
+`KtorSecondPassClient` can create a credential-bound `AuthenticatedSecondPassClient`. The scope retains the validated API base and opaque bearer credential so feature callers do not repeatedly handle either value. It exposes recent reading, paginated shelf summaries with optional preview books, normal Books browsing, and broad Library search; it is not a screen-specific aggregate.
 
 Recent-reading results preserve server order. Session status remains `active` or `closed`, and progress retains its CFI plus the server's opaque location label without deriving percentages. Shelf list inputs use a closed ordering vocabulary and can request a bounded number of preview books. Omitted `preview_books` remains distinguishable from a returned empty list, and missing item counts are rejected as invalid protocol rather than coerced to zero.
+
+Books browsing and broad Library search are separate SDK operations because their server-side query semantics differ. Both return compact Books through an SDK-owned page model without exposing raw next/previous URLs. Ordering is typed, page size is bounded to the server's 1-200 contract, author/tag/series ordering is preserved, and `SeriesIndex` retains the exact two-decimal wire representation rather than converting it to a floating-point number.
 
 `PublicBookCoverReference` wraps a server-provided absolute HTTP(S) URL. Covers are public assets, require no bearer credential, may use an external host, and are limited by contract to JPEG, PNG, or WebP. The SDK neither reconstructs cover paths nor fetches image bytes; a future image-loading layer may consume the public reference directly.
 
@@ -69,7 +71,7 @@ Recent-reading results preserve server order. Session status remains `active` or
 
 Remote session listing/revocation is not implemented because the audited summary does not define their response bodies and the reference SDK does not yet expose them. The UI therefore does not claim to log out. Error recovery offers an explicitly local “Forget locally” action where appropriate; it does not pretend to revoke the server session.
 
-Also deferred: mDNS discovery, known-server presets, library data, caching/offline behavior, Room, nested feature navigation, and all reader features.
+Also deferred: mDNS discovery, known-server presets, remaining Library capabilities and UI, general offline Library behavior, nested feature navigation, and all reader features.
 
 ## Reference SDK differences
 

@@ -1,5 +1,6 @@
 package com.secondpasslibrary.client
 
+import com.secondpasslibrary.client.internal.CompactBookPageWire
 import com.secondpasslibrary.client.internal.RecentReadingResponseWire
 import com.secondpasslibrary.client.internal.ShelfPageWire
 import io.ktor.client.HttpClient
@@ -47,6 +48,33 @@ internal class KtorAuthenticatedSecondPassClient(
         }
         val response = requests.get("shelves/", parameters)
         return decode<ShelfPageWire>(response.body(), "shelf list").toModel()
+    }
+
+    override suspend fun listBooks(options: BookListOptions): LibraryPage<CompactBook> {
+        val parameters = buildList {
+            options.q?.let { add("q" to it) }
+            options.authorId?.let { add("author" to it) }
+            options.seriesId?.let { add("series" to it) }
+            options.tagSlug?.let { add("tag" to it) }
+            options.ordering?.let { add("ordering" to it.queryValue) }
+            add("page" to options.page.toString())
+            add("page_size" to options.pageSize.toString())
+        }
+        val response = requests.get("library/books/", parameters)
+        return decode<CompactBookPageWire>(response.body(), "book page")
+            .toModel(options.page, options.pageSize)
+    }
+
+    override suspend fun searchLibrary(options: LibrarySearchOptions): LibraryPage<CompactBook> {
+        val parameters = buildList {
+            add("q" to options.q)
+            options.ordering?.let { add("ordering" to it.queryValue) }
+            add("page" to options.page.toString())
+            add("page_size" to options.pageSize.toString())
+        }
+        val response = requests.get("library/search", parameters)
+        return decode<CompactBookPageWire>(response.body(), "book page")
+            .toModel(options.page, options.pageSize)
     }
 
     private inline fun <reified T> decode(body: String, context: String): T = try {

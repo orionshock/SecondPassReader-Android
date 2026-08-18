@@ -1,6 +1,10 @@
 package com.secondpasslibrary.reader.home
 
 import com.secondpasslibrary.client.AuthenticatedSecondPassClient
+import com.secondpasslibrary.client.BookListOptions
+import com.secondpasslibrary.client.CompactBook
+import com.secondpasslibrary.client.LibraryPage
+import com.secondpasslibrary.client.LibrarySearchOptions
 import com.secondpasslibrary.client.ReadingSessionStatus
 import com.secondpasslibrary.client.RecentReadingBook
 import com.secondpasslibrary.client.RecentReadingItem
@@ -94,6 +98,12 @@ internal class FakeHomeAuthenticatedClient : AuthenticatedSecondPassClient {
         val items = shelfCall(options)
         return ShelfPage(items.size, false, false, items)
     }
+
+    override suspend fun listBooks(options: BookListOptions): LibraryPage<CompactBook> =
+        error("Book listing is outside this Home projection fixture.")
+
+    override suspend fun searchLibrary(options: LibrarySearchOptions): LibraryPage<CompactBook> =
+        error("Library search is outside this Home projection fixture.")
 }
 
 internal fun homeRepository(
