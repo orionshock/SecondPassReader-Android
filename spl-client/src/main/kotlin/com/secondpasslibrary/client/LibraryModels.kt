@@ -200,6 +200,51 @@ data class CompactBook(
     val fileFormat: String
 )
 
+data class LibraryBookDetail(
+    val id: String,
+    val title: String,
+    val sortTitle: String,
+    val subtitle: String,
+    val authors: List<BookAuthorSummary>,
+    val series: BookSeriesSummary?,
+    val language: String?,
+    val publisher: String?,
+    val publishedYear: Int?,
+    val publishedMonth: Int?,
+    val publishedDay: Int?,
+    val publicationDatePrecision: PublicationDatePrecision,
+    val cover: PublicBookCoverReference?,
+    val description: String,
+    val identifiers: List<BookIdentifier>,
+    val catalogTags: List<CatalogTagSummary>,
+    val file: BookFile?,
+    val groups: List<BookGroup>
+)
+
+data class BookIdentifier(val id: String, val scheme: String, val value: String)
+
+data class BookFile(
+    val format: String,
+    val fileSize: Long,
+    val checksum: String?,
+    val download: AuthenticatedBookDownloadReference
+)
+
+@JvmInline
+value class AuthenticatedBookDownloadReference private constructor(val url: String) {
+    companion object {
+        internal fun fromServer(url: String): AuthenticatedBookDownloadReference =
+            AuthenticatedBookDownloadReference(requireAbsoluteHttpUrl(url, "book file"))
+    }
+}
+
+data class BookGroup(
+    val id: String,
+    val name: String,
+    val description: String,
+    val isPublicGroup: Boolean
+)
+
 data class BookAuthorSummary(val id: String, val name: String)
 
 data class BookSeriesSummary(

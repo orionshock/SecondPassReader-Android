@@ -11,6 +11,7 @@ import com.secondpasslibrary.client.BookListOptions
 import com.secondpasslibrary.client.CatalogTagListOptions
 import com.secondpasslibrary.client.CompactBook
 import com.secondpasslibrary.client.LibraryAuthor
+import com.secondpasslibrary.client.LibraryBookDetail
 import com.secondpasslibrary.client.LibraryCatalogTag
 import com.secondpasslibrary.client.LibraryEntityDetailOptions
 import com.secondpasslibrary.client.LibraryGroupListOptions
@@ -80,6 +81,13 @@ internal class FakeLibraryAxisClient :
     }
     var groupBookList: suspend (String, BookListOptions) -> LibraryPage<CompactBook> =
         { _, options -> axisPage(options.page, emptyList()) }
+    var bookDetail: suspend (String) -> LibraryBookDetail = { libraryBookDetail(it) }
+    val bookDetailRequests = mutableListOf<String>()
+
+    override suspend fun getBook(bookId: String): LibraryBookDetail {
+        bookDetailRequests += bookId
+        return bookDetail(bookId)
+    }
 
     override suspend fun list(
         scope: LibraryScope,
@@ -202,6 +210,27 @@ internal fun axisBook(id: String) = CompactBook(
     publicationDatePrecision = PublicationDatePrecision.UNSPECIFIED,
     cover = null,
     fileFormat = "epub"
+)
+
+internal fun libraryBookDetail(id: String) = LibraryBookDetail(
+    id = id,
+    title = id,
+    sortTitle = id,
+    subtitle = "",
+    authors = emptyList(),
+    series = null,
+    language = null,
+    publisher = null,
+    publishedYear = null,
+    publishedMonth = null,
+    publishedDay = null,
+    publicationDatePrecision = PublicationDatePrecision.UNSPECIFIED,
+    cover = null,
+    description = "",
+    identifiers = emptyList(),
+    catalogTags = emptyList(),
+    file = null,
+    groups = emptyList()
 )
 
 internal fun <T> axisPage(

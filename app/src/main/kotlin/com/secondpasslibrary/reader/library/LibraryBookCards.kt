@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.library
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,9 +19,9 @@ import androidx.compose.ui.unit.dp
 private const val BOOK_COVER_ASPECT_RATIO = 2f / 3f
 
 @Composable
-internal fun LibraryBookRow(book: LibraryBookPresentation) {
+internal fun LibraryBookRow(book: LibraryBookPresentation, onClick: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         LibraryBookCover(
@@ -53,8 +54,8 @@ internal fun LibraryBookRow(book: LibraryBookPresentation) {
 }
 
 @Composable
-internal fun LibraryBookGridCard(book: LibraryBookPresentation) {
-    OutlinedCard {
+internal fun LibraryBookGridCard(book: LibraryBookPresentation, onClick: () -> Unit) {
+    OutlinedCard(onClick = onClick) {
         Column {
             LibraryBookCover(
                 cover = book.cover,

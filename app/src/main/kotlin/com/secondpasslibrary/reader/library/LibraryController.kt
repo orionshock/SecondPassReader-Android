@@ -25,11 +25,12 @@ internal class LibraryController(
     val books: LibraryBooksController =
         LibraryBooksController(clientProvider, displayPreferenceStore, scope),
     val authors: LibraryAuthorsController = LibraryAuthorsController(clientProvider, scope),
-    val series: LibrarySeriesController = LibrarySeriesController(clientProvider, scope)
+    val series: LibrarySeriesController = LibrarySeriesController(clientProvider, scope),
+    val bookDetail: LibraryBookDetailController = LibraryBookDetailController(clientProvider, scope)
 ) {
     private val chrome = MutableStateFlow(LibraryChromeState())
     val state: StateFlow<LibraryState> =
-        LibraryStateFlow(chrome, books.state, authors.state, series.state)
+        LibraryStateFlow(chrome, books.state, authors.state, series.state, bookDetail.state)
 
     private val connectionEventChannel = Channel<LibraryConnectionEvent>(Channel.BUFFERED)
     val connectionEvents =
@@ -37,7 +38,8 @@ internal class LibraryController(
             connectionEventChannel.receiveAsFlow(),
             books.connectionEvents,
             authors.connectionEvents,
-            series.connectionEvents
+            series.connectionEvents,
+            bookDetail.connectionEvents
         )
 
     private var profile: ConnectionProfile? = null
@@ -62,6 +64,8 @@ internal class LibraryController(
         val preserveTag = sameConnection && previous.scope == selectedScope
         val selectedTag = previous.selectedTag.takeIf { preserveTag }
         this.profile = profile
+        bookDetail.prepare(profile)
+        bookDetail.clear()
         connectionIdentity = connection
         entryIdentity = identity
         chrome.value =
@@ -111,6 +115,7 @@ internal class LibraryController(
     }
 
     fun selectScope(selected: LibraryScope) {
+        if (chrome.value.resultKind == LibraryResultKind.BOOK_DETAIL) clearBookDetail()
         var current = chrome.value
         if (selected == current.scope) return
         if (selected is LibraryScope.Group &&
@@ -146,6 +151,7 @@ internal class LibraryController(
     }
 
     fun selectAxis(selected: LibraryAxis) {
+        if (chrome.value.resultKind == LibraryResultKind.BOOK_DETAIL) clearBookDetail()
         var current = chrome.value
         if (selected == current.axis) return
         if (current.isSelectedEntityBooks) {
@@ -233,6 +239,40 @@ internal class LibraryController(
         chrome.value = chrome.value.copy(resultKind = chrome.value.axis.indexResultKind)
     }
 
+    fun selectBook(bookId: String) {
+        if (chrome.value.resultKind != LibraryResultKind.BOOKS) return
+        bookDetail.select(bookId)
+        chrome.value = chrome.value.copy(resultKind = LibraryResultKind.BOOK_DETAIL)
+    }
+
+    fun clearBookDetail() {
+        if (chrome.value.resultKind != LibraryResultKind.BOOK_DETAIL) return
+        bookDetail.clear()
+        chrome.value = chrome.value.copy(resultKind = LibraryResultKind.BOOKS)
+    }
+
+    fun selectBookAuthor(authorId: String) {
+        if (chrome.value.resultKind != LibraryResultKind.BOOK_DETAIL) return
+        bookDetail.clear()
+        selectAuthor(authorId)
+    }
+
+    fun selectBookSeries(seriesId: String) {
+        if (chrome.value.resultKind != LibraryResultKind.BOOK_DETAIL) return
+        bookDetail.clear()
+        selectSeries(seriesId)
+    }
+
+    fun selectBookTag(tagId: String, tagSlug: String) {
+        if (chrome.value.resultKind != LibraryResultKind.BOOK_DETAIL) return
+        val tag = chrome.value.tagSelector.tags.firstOrNull {
+            it.id == tagId && it.slug == tagSlug
+        } ?: return
+        bookDetail.clear()
+        chrome.value = chrome.value.copy(resultKind = LibraryResultKind.BOOKS)
+        selectTag(tag)
+    }
+
     fun retryGroups() = loadGroups()
 
     fun selectTag(tag: LibraryCatalogTag?) {
@@ -266,6 +306,7 @@ internal class LibraryController(
         books.close()
         authors.close()
         series.close()
+        bookDetail.close()
     }
 
     private fun loadGroups() {

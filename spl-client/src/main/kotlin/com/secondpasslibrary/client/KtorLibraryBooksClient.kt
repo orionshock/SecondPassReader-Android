@@ -1,6 +1,7 @@
 package com.secondpasslibrary.client
 
 import com.secondpasslibrary.client.internal.CompactBookPageWire
+import com.secondpasslibrary.client.internal.LibraryBookDetailWire
 import io.ktor.client.call.body
 import io.ktor.http.encodeURLPathPart
 import kotlinx.serialization.json.Json
@@ -9,6 +10,12 @@ internal class KtorLibraryBooksClient(
     private val requests: AuthenticatedRequestExecutor,
     private val json: Json
 ) : AuthenticatedLibraryBooksClient {
+    override suspend fun getBook(bookId: String): LibraryBookDetail {
+        require(bookId.isNotBlank()) { "Book ID must not be blank." }
+        val response = requests.get("library/books/${bookId.encodeURLPathPart()}/")
+        return json.decodeLibrary<LibraryBookDetailWire>(response.body(), "book detail").toModel()
+    }
+
     override suspend fun list(
         scope: LibraryScope,
         options: BookListOptions

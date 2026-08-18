@@ -11,6 +11,7 @@ import com.secondpasslibrary.client.BookListOptions
 import com.secondpasslibrary.client.CatalogTagListOptions
 import com.secondpasslibrary.client.CompactBook
 import com.secondpasslibrary.client.LibraryAuthor
+import com.secondpasslibrary.client.LibraryBookDetail
 import com.secondpasslibrary.client.LibraryCatalogTag
 import com.secondpasslibrary.client.LibraryEntityDetailOptions
 import com.secondpasslibrary.client.LibraryGroupListOptions
@@ -30,6 +31,8 @@ internal class FakeAuthenticatedLibraryClient(
 ) : AuthenticatedLibraryClient
 
 private object UnsupportedLibraryBooksClient : AuthenticatedLibraryBooksClient {
+    override suspend fun getBook(bookId: String): LibraryBookDetail = unsupported()
+
     override suspend fun list(
         scope: LibraryScope,
         options: BookListOptions

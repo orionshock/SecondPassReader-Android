@@ -21,7 +21,8 @@ import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 internal fun LibraryBookCover(
     cover: LibraryBookCoverPresentation,
     title: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    contentScale: ContentScale = ContentScale.Crop
 ) {
     Box(
         modifier =
@@ -38,7 +39,7 @@ internal fun LibraryBookCover(
                     model = cover.reference.url,
                     contentDescription = "Cover of $title",
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
+                    contentScale = contentScale,
                     loading = { CoverLoading() },
                     error = { MissingLibraryCover(title) },
                     success = { SubcomposeAsyncImageContent() }

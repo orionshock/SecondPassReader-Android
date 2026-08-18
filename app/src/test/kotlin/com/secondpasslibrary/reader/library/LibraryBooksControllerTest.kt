@@ -554,6 +554,11 @@ class LibraryBooksControllerTest {
                 page(options.page, emptyList(), 0)
             }
 
+        override suspend fun getBook(
+            bookId: String
+        ): com.secondpasslibrary.client.LibraryBookDetail =
+            error("Book detail is outside this fixture.")
+
         override suspend fun list(
             scope: LibraryScope,
             options: BookListOptions

@@ -29,6 +29,7 @@ internal fun LibraryBooksResults(
     state: LibraryBooksState,
     onLoadNextPage: () -> Unit,
     onRetry: () -> Unit,
+    onBookSelected: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     when {
@@ -46,10 +47,22 @@ internal fun LibraryBooksResults(
                 stateHolder.SaveableStateProvider(state.layout) {
                     when (state.layout) {
                         LibraryBooksLayout.LIST ->
-                            LibraryBooksList(state, onLoadNextPage, onRetry, Modifier.weight(1f))
+                            LibraryBooksList(
+                                state,
+                                onLoadNextPage,
+                                onRetry,
+                                onBookSelected,
+                                Modifier.weight(1f)
+                            )
 
                         LibraryBooksLayout.GRID ->
-                            LibraryBooksGrid(state, onLoadNextPage, onRetry, Modifier.weight(1f))
+                            LibraryBooksGrid(
+                                state,
+                                onLoadNextPage,
+                                onRetry,
+                                onBookSelected,
+                                Modifier.weight(1f)
+                            )
                     }
                 }
             }
@@ -61,6 +74,7 @@ private fun LibraryBooksList(
     state: LibraryBooksState,
     onLoadNextPage: () -> Unit,
     onRetry: () -> Unit,
+    onBookSelected: (String) -> Unit,
     modifier: Modifier
 ) {
     val listState = rememberLazyListState()
@@ -71,7 +85,7 @@ private fun LibraryBooksList(
         contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)
     ) {
         items(state.books, key = { it.id }) { book ->
-            LibraryBookRow(book.toLibraryPresentation())
+            LibraryBookRow(book.toLibraryPresentation()) { onBookSelected(book.id) }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
         item { NextPageFooter(state, onRetry) }
@@ -83,6 +97,7 @@ private fun LibraryBooksGrid(
     state: LibraryBooksState,
     onLoadNextPage: () -> Unit,
     onRetry: () -> Unit,
+    onBookSelected: (String) -> Unit,
     modifier: Modifier
 ) {
     val gridState = rememberLazyGridState()
@@ -96,7 +111,7 @@ private fun LibraryBooksGrid(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         items(state.books, key = { it.id }) { book ->
-            LibraryBookGridCard(book.toLibraryPresentation())
+            LibraryBookGridCard(book.toLibraryPresentation()) { onBookSelected(book.id) }
         }
         item(span = { GridItemSpan(maxLineSpan) }) { NextPageFooter(state, onRetry) }
     }

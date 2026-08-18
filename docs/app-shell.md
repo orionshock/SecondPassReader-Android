@@ -59,8 +59,10 @@ The parent also loads the complete scoped Catalog Tag vocabulary as a bounded, n
 
 Library chrome exposes that shared filter through a compact semantic Tag control. It opens a modal sheet anchored to the right on tablets, avoiding competition with the shell's left navigation drawer. The sheet renders All tags plus the current scope's name-ordered vocabulary and visible book counts, including independent loading, empty, and retry states. Index results remain visible behind tag-vocabulary failures; no tag rail or tag search is currently present.
 
+Book selection enters a full-screen Library-owned detail child while leaving the originating Books, scope, axis, entity, tag, query, layout, and paging state alive underneath it. `LibraryBookDetailController` owns detail loading/retry only; the Library parent owns entry, back, and Author/Series/Tag handoffs. The SDK supplies validated Book metadata through `library.books.getBook`; endpoint and bearer details remain internal. Description markup is converted to bounded plain text by an app presenter. Reader, sessions, and shelf actions are deliberately visible but disabled until their owning capabilities exist.
+
 The Books, Authors, and Series axes are explicit parent state and all three have concrete state owners and rendered results surfaces. Selected Author/Series contexts reuse the Books child for filtered results.
 
-Shelves and Sessions still prove top-level routing only. Book Detail, reader-mode navigation, deep links, nested feature graphs, and logout remain deferred.
+Shelves and Sessions still prove top-level routing only. Reader-mode navigation, deep links, nested feature graphs, and logout remain deferred.
 
 All feature-facing icons use the semantic layer documented in [Icon vocabulary](icon-vocabulary.md).

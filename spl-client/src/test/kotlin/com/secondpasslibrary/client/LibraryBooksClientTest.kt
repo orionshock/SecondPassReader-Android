@@ -19,6 +19,49 @@ import org.junit.Test
 
 class LibraryBooksClientTest {
     @Test
+    fun `book detail maps ordered metadata nullable file and authenticated reference`() =
+        runBlocking {
+            var request: HttpRequestData? = null
+            val client = authenticatedClient { captured ->
+                request = captured
+                jsonResponse(BOOK_DETAIL)
+            }
+
+            val detail = client.library.books.getBook("book / 1")
+
+            assertEquals("/api/v1/library/books/book%20%2F%201/", request?.url?.encodedPath)
+            assertEquals("Bearer spl_secret", request?.headers?.get(HttpHeaders.Authorization))
+            assertEquals(listOf("Second Author", "First Author"), detail.authors.map { it.name })
+            assertEquals("1.20", detail.series?.seriesIndex?.value)
+            assertEquals(listOf("award", "science-fiction"), detail.catalogTags.map { it.slug })
+            assertEquals(listOf("Private", "Public"), detail.groups.map { it.name })
+            assertEquals(listOf("isbn_13", "other"), detail.identifiers.map { it.scheme })
+            assertEquals(1234567L, detail.file?.fileSize)
+            assertNull(detail.file?.checksum)
+            assertEquals(
+                "https://library.example/api/v1/library/books/book-1/download/",
+                detail.file?.download?.url
+            )
+        }
+
+    @Test
+    fun `book detail preserves nullable cover and file`() = runBlocking {
+        val client = authenticatedClient {
+            jsonResponse(
+                BOOK_DETAIL.replace(
+                    "\"cover_url\":\"https://assets.example/cover.webp\"",
+                    "\"cover_url\":null"
+                ).replace(FILE_JSON, "null")
+            )
+        }
+
+        val detail = client.library.books.getBook("book-1")
+
+        assertNull(detail.cover)
+        assertNull(detail.file)
+    }
+
+    @Test
     fun `compact book and page mapping preserve server values and order`() = runBlocking {
         val client = authenticatedClient { jsonResponse(FULL_BOOK_PAGE) }
 
@@ -261,6 +304,22 @@ class LibraryBooksClientTest {
     )
 
     private companion object {
+        const val FILE_JSON =
+            """{"format":"epub","file_size":1234567,"checksum":null,"download_url":"https://library.example/api/v1/library/books/book-1/download/"}"""
+        const val BOOK_DETAIL =
+            """{
+                "id":"book-1","title":"The Book","sort_title":"Book, The",
+                "subtitle":"A subtitle",
+                "authors":[{"id":"author-2","name":"Second Author"},{"id":"author-1","name":"First Author"}],
+                "series":{"id":"series-1","name":"Series","sort_name":"Series","series_index":"1.20"},
+                "catalog_tags":[{"id":"tag-1","name":"Award","slug":"award"},{"id":"tag-2","name":"Science Fiction","slug":"science-fiction"}],
+                "language":"en","publisher":"Publisher","published_year":2026,
+                "published_month":8,"published_day":17,"published_date_precision":"day",
+                "cover_url":"https://assets.example/cover.webp","description":"<p>Description</p>",
+                "identifiers":[{"id":"identifier-1","scheme":"isbn_13","value":"123"},{"id":"identifier-2","scheme":"other","value":"abc"}],
+                "file":$FILE_JSON,
+                "groups":[{"id":"group-2","name":"Private","description":"Private room","is_public_group":false},{"id":"group-1","name":"Public","description":"Common room","is_public_group":true}]
+            }"""
         const val EMPTY_PAGE = """{"count":0,"next":null,"previous":null,"results":[]}"""
         const val PRECISION_PLACEHOLDER = "__PRECISION__"
         const val NULLABLE_BOOK_PAGE =

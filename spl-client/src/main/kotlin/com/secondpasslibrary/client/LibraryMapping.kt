@@ -53,10 +53,10 @@ private fun CompactBookWire.toModel(): CompactBook = CompactBook(
     title = title.required(COMPACT_BOOK_CONTEXT),
     sortTitle = sortTitle.required(COMPACT_BOOK_CONTEXT),
     subtitle = subtitle ?: invalidProtocol(COMPACT_BOOK_CONTEXT),
-    authors = authors?.map(BookAuthorWire::toModel) ?: invalidProtocol(COMPACT_BOOK_CONTEXT),
+    authors = authors?.map { it.toModel() } ?: invalidProtocol(COMPACT_BOOK_CONTEXT),
     series = series?.toModel(),
     catalogTags =
-        catalogTags?.map(CatalogTagWire::toModel) ?: invalidProtocol(COMPACT_BOOK_CONTEXT),
+        catalogTags?.map { it.toModel() } ?: invalidProtocol(COMPACT_BOOK_CONTEXT),
     language = language,
     publisher = publisher,
     publishedYear = publishedYear,
@@ -67,28 +67,33 @@ private fun CompactBookWire.toModel(): CompactBook = CompactBook(
     fileFormat = fileFormat.required(COMPACT_BOOK_CONTEXT)
 )
 
-private fun BookAuthorWire.toModel(): BookAuthorSummary = BookAuthorSummary(
-    id = id.required(COMPACT_BOOK_CONTEXT),
-    name = name.required(COMPACT_BOOK_CONTEXT)
-)
+internal fun BookAuthorWire.toModel(context: String = COMPACT_BOOK_CONTEXT): BookAuthorSummary =
+    BookAuthorSummary(
+        id = id.required(context),
+        name = name.required(context)
+    )
 
-private fun BookSeriesWire.toModel(): BookSeriesSummary = BookSeriesSummary(
-    id = id.required(COMPACT_BOOK_CONTEXT),
-    name = name.required(COMPACT_BOOK_CONTEXT),
-    sortName = sortName.required(COMPACT_BOOK_CONTEXT),
-    seriesIndex = seriesIndex?.let(SeriesIndex::fromServer)
-)
+internal fun BookSeriesWire.toModel(context: String = COMPACT_BOOK_CONTEXT): BookSeriesSummary =
+    BookSeriesSummary(
+        id = id.required(context),
+        name = name.required(context),
+        sortName = sortName.required(context),
+        seriesIndex = seriesIndex?.let(SeriesIndex::fromServer)
+    )
 
-private fun CatalogTagWire.toModel(): CatalogTagSummary = CatalogTagSummary(
-    id = id.required(COMPACT_BOOK_CONTEXT),
-    name = name.required(COMPACT_BOOK_CONTEXT),
-    slug = slug.required(COMPACT_BOOK_CONTEXT)
-)
+internal fun CatalogTagWire.toModel(context: String = COMPACT_BOOK_CONTEXT): CatalogTagSummary =
+    CatalogTagSummary(
+        id = id.required(context),
+        name = name.required(context),
+        slug = slug.required(context)
+    )
 
-private fun String?.toPublicationPrecision(): PublicationDatePrecision = when (this) {
+internal fun String?.toPublicationPrecision(
+    context: String = COMPACT_BOOK_CONTEXT
+): PublicationDatePrecision = when (this) {
     "" -> PublicationDatePrecision.UNSPECIFIED
     "year" -> PublicationDatePrecision.YEAR
     "month" -> PublicationDatePrecision.MONTH
     "day" -> PublicationDatePrecision.DAY
-    else -> invalidProtocol(COMPACT_BOOK_CONTEXT)
+    else -> invalidProtocol(context)
 }

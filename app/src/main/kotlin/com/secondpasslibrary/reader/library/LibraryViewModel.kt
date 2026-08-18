@@ -73,6 +73,18 @@ constructor(
 
     fun retrySeriesDetail() = controller.series.retryDetail()
 
+    fun selectBook(bookId: String) = controller.selectBook(bookId)
+
+    fun clearBookDetail() = controller.clearBookDetail()
+
+    fun retryBookDetail() = controller.bookDetail.retry()
+
+    fun selectBookAuthor(authorId: String) = controller.selectBookAuthor(authorId)
+
+    fun selectBookSeries(seriesId: String) = controller.selectBookSeries(seriesId)
+
+    fun selectBookTag(tagId: String, tagSlug: String) = controller.selectBookTag(tagId, tagSlug)
+
     override fun onCleared() {
         controller.close()
     }
