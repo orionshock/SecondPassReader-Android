@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.library
+package com.secondpasslibrary.reader.bookdetail
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,14 +25,13 @@ import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 
 @Composable
-internal fun LibraryBookDetailScreen(
-    state: LibraryBookDetailState,
+internal fun BookDetailScreen(
+    state: BookDetailState,
     onBack: () -> Unit,
     onRetry: () -> Unit,
     onAuthorSelected: (String) -> Unit,
     onSeriesSelected: (String) -> Unit,
-    onTagSelected: (String, String) -> Unit,
-    availableTagIds: Set<String>
+    onTagSelected: (String, String) -> Unit
 ) {
     Column(Modifier.fillMaxSize()) {
         Row(
@@ -40,7 +39,7 @@ internal fun LibraryBookDetailScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                AppIconGraphic(AppIcon.Back, "Back to Library")
+                AppIconGraphic(AppIcon.Back, "Back")
             }
             Text("Book Detail", style = MaterialTheme.typography.titleMedium)
         }
@@ -55,8 +54,7 @@ internal fun LibraryBookDetailScreen(
                     state.detail,
                     onAuthorSelected,
                     onSeriesSelected,
-                    onTagSelected,
-                    availableTagIds
+                    onTagSelected
                 )
         }
     }
@@ -70,7 +68,7 @@ private fun DetailLoading() {
         verticalArrangement = Arrangement.Center
     ) {
         CircularProgressIndicator()
-        Text("Loading book…", modifier = Modifier.padding(top = 12.dp))
+        Text("Loading book...", modifier = Modifier.padding(top = 12.dp))
     }
 }
 
@@ -91,8 +89,7 @@ private fun BookDetailHero(
     book: com.secondpasslibrary.client.LibraryBookDetail,
     onAuthorSelected: (String) -> Unit,
     onSeriesSelected: (String) -> Unit,
-    onTagSelected: (String, String) -> Unit,
-    availableTagIds: Set<String>
+    onTagSelected: (String, String) -> Unit
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 720.dp && maxWidth > maxHeight
@@ -109,7 +106,6 @@ private fun BookDetailHero(
                             onAuthorSelected,
                             onSeriesSelected,
                             onTagSelected,
-                            availableTagIds,
                             Modifier.weight(1f)
                         )
                     }
@@ -122,8 +118,7 @@ private fun BookDetailHero(
                             book,
                             onAuthorSelected,
                             onSeriesSelected,
-                            onTagSelected,
-                            availableTagIds
+                            onTagSelected
                         )
                     }
                 }

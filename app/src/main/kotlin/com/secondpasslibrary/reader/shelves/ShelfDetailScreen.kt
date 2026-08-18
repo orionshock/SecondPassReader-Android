@@ -54,6 +54,7 @@ internal fun ShelfDetailContent(
     onLoadNextPage: () -> Unit,
     onRetryDetail: () -> Unit,
     onRetryItems: () -> Unit,
+    onBookSelected: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier.padding(horizontal = 20.dp)) {
@@ -65,7 +66,13 @@ internal fun ShelfDetailContent(
             Modifier.padding(top = 12.dp, bottom = 8.dp)
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        ShelfItemResults(state.items, onLoadNextPage, onRetryItems, Modifier.weight(1f))
+        ShelfItemResults(
+            state.items,
+            onLoadNextPage,
+            onRetryItems,
+            onBookSelected,
+            Modifier.weight(1f)
+        )
     }
 }
 
@@ -74,6 +81,7 @@ private fun ShelfItemResults(
     state: ShelfItemsState,
     onLoadNextPage: () -> Unit,
     onRetry: () -> Unit,
+    onBookSelected: (String) -> Unit,
     modifier: Modifier
 ) {
     when {
@@ -95,10 +103,10 @@ private fun ShelfItemResults(
             stateHolder.SaveableStateProvider(state.layout) {
                 when (state.layout) {
                     ShelfBooksLayout.LIST ->
-                        ShelfItemList(state, onLoadNextPage, onRetry, modifier)
+                        ShelfItemList(state, onLoadNextPage, onRetry, onBookSelected, modifier)
 
                     ShelfBooksLayout.GRID ->
-                        ShelfItemGrid(state, onLoadNextPage, onRetry, modifier)
+                        ShelfItemGrid(state, onLoadNextPage, onRetry, onBookSelected, modifier)
                 }
             }
         }
@@ -110,6 +118,7 @@ private fun ShelfItemList(
     state: ShelfItemsState,
     onLoadNextPage: () -> Unit,
     onRetry: () -> Unit,
+    onBookSelected: (String) -> Unit,
     modifier: Modifier
 ) {
     val listState = rememberLazyListState()
@@ -120,7 +129,7 @@ private fun ShelfItemList(
         contentPadding = PaddingValues(vertical = 8.dp)
     ) {
         items(state.items, key = { it.id }) { item ->
-            CompactBookRow(item.book.toCompactBookPresentation(), onClick = null)
+            CompactBookRow(item.book.toCompactBookPresentation()) { onBookSelected(item.book.id) }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
         item { ShelvesNextPageFooter(state.nextPageLoading, state.error, onRetry) }
@@ -132,6 +141,7 @@ private fun ShelfItemGrid(
     state: ShelfItemsState,
     onLoadNextPage: () -> Unit,
     onRetry: () -> Unit,
+    onBookSelected: (String) -> Unit,
     modifier: Modifier
 ) {
     val gridState = rememberLazyGridState()
@@ -145,7 +155,9 @@ private fun ShelfItemGrid(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         items(state.items, key = { it.id }) { item ->
-            CompactBookGridCard(item.book.toCompactBookPresentation(), onClick = null)
+            CompactBookGridCard(item.book.toCompactBookPresentation()) {
+                onBookSelected(item.book.id)
+            }
         }
         item(span = { GridItemSpan(maxLineSpan) }) {
             ShelvesNextPageFooter(state.nextPageLoading, state.error, onRetry)

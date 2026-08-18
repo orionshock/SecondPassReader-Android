@@ -56,6 +56,19 @@ class ShelfCollectionControllerTest {
     }
 
     @Test
+    fun `Group collection uses group scope independently`() = runTest {
+        val capability = RecordingShelvesCapability()
+        val controller = GroupShelvesController(provider(capability), this)
+        controller.prepare(shelvesProfile())
+
+        controller.activate()
+        advanceUntilIdle()
+
+        assertEquals(ShelfScope.GROUP, capability.listRequests.single().scope)
+        assertEquals(ShelfOrdering.NAME, controller.state.value.ordering)
+    }
+
+    @Test
     fun `next page appends once and preserves server order`() = runTest {
         val gate = CompletableDeferred<Unit>()
         val capability = RecordingShelvesCapability().apply {

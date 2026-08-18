@@ -18,7 +18,11 @@ import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 
 @Composable
-internal fun ShelvesScreen(viewModel: ShelvesViewModel, onOpenDrawer: () -> Unit) {
+internal fun ShelvesScreen(
+    viewModel: ShelvesViewModel,
+    onOpenDrawer: () -> Unit,
+    onBookSelected: (ShelfBookNavigationRequest) -> Unit
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val detail = state.destination as? ShelvesDestination.Detail
     BackHandler(enabled = detail != null, onBack = viewModel::backFromDetail)
@@ -35,8 +39,10 @@ internal fun ShelvesScreen(viewModel: ShelvesViewModel, onOpenDrawer: () -> Unit
                 onOrderingSelected = viewModel::changeCollectionOrdering,
                 onLoadNextPersonal = viewModel::loadNextPersonalPage,
                 onLoadNextShared = viewModel::loadNextSharedPage,
+                onLoadNextGroup = viewModel::loadNextGroupPage,
                 onRetryPersonal = viewModel::retryPersonal,
                 onRetryShared = viewModel::retryShared,
+                onRetryGroup = viewModel::retryGroup,
                 onShelfSelected = viewModel::selectShelf,
                 modifier = modifier
             )
@@ -48,6 +54,11 @@ internal fun ShelvesScreen(viewModel: ShelvesViewModel, onOpenDrawer: () -> Unit
                 onLoadNextPage = viewModel::loadNextItemPage,
                 onRetryDetail = viewModel::retryDetail,
                 onRetryItems = viewModel::retryItems,
+                onBookSelected = { bookId ->
+                    onBookSelected(
+                        ShelfBookNavigationRequest(bookId, detail.shelfId, detail.origin)
+                    )
+                },
                 modifier = modifier
             )
         }

@@ -13,7 +13,8 @@ SecondPassApp
                 NavDisplay
                   Home      -> library search, reading history, shelf previews
                   Library   -> Books browse and broad-search presentation
-                  Shelves   -> intentional placeholder
+                  Shelves   -> personal, shared, and group shelf browsing
+                  BookDetail -> shared app destination with typed return context
                   Sessions  -> intentional placeholder
                   Settings  -> connection/account diagnostics
 ```
@@ -59,7 +60,7 @@ The parent also loads the complete scoped Catalog Tag vocabulary as a bounded, n
 
 Library chrome exposes that shared filter through a compact semantic Tag control. It opens a modal sheet anchored to the right on tablets, avoiding competition with the shell's left navigation drawer. The sheet renders All tags plus the current scope's name-ordered vocabulary and visible book counts, including independent loading, empty, and retry states. Index results remain visible behind tag-vocabulary failures; no tag rail or tag search is currently present.
 
-Book selection enters a full-screen Library-owned detail child while leaving the originating Books, scope, axis, entity, tag, query, layout, and paging state alive underneath it. `LibraryBookDetailController` owns detail loading/retry only; the Library parent owns entry, back, and Author/Series/Tag handoffs. The SDK supplies validated Book metadata through `library.books.getBook`; endpoint and bearer details remain internal. Description markup is converted to bounded plain text by an app presenter. Reader, sessions, and shelf actions are deliberately visible but disabled until their owning capabilities exist.
+Book Detail is one shared app destination rather than a Library child. The serializable `BookDetailRoute` carries a Book ID and typed return target for Library or Shelf Detail. The shell owns route entry, back-stack interpretation, and metadata handoff; `BookDetailController` owns only detail loading/retry and has no Library or Shelves controller dependency. The originating feature entry remains below Book Detail, preserving its live paging, filters, layout, and scroll state when either system or visible back pops the route. Author, Series, and Tag actions emit neutral Book Detail navigation intents that the shell translates into typed Library routes. The SDK supplies validated metadata through `library.books.getBook`; endpoint and bearer details remain internal. Reader, sessions, and shelf actions remain disabled until their owners exist.
 
 The Books, Authors, and Series axes are explicit parent state and all three have concrete state owners and rendered results surfaces. Selected Author/Series contexts reuse the Books child for filtered results.
 
@@ -69,11 +70,12 @@ Shelves now has app-owned parent/child state beneath its still-placeholder desti
 ShelvesController
   |- PersonalShelvesController
   |- SharedShelvesController
+  |- GroupShelvesController
   `- ShelfDetailController
 ```
 
-The parent owns Personal/Shared/Detail navigation and restores the originating collection after detail. Personal and Shared independently own page-50 append state, typed ordering, retries, three-cover preview requests, and retained scroll state. Shelf Detail independently owns Shelf metadata and normal visible-item paging, so either request may fail without destroying the other; item positions remain server values and are never normalized. The editor projection and mutations are deliberately dormant until an edit workflow owns them. This transient state is not stored in the Home Room projection.
+The parent owns Personal/Shared/Group/Detail navigation and restores the originating collection after detail. All three collection siblings independently own page-50 append state, typed ordering, retries, three-cover preview requests, and retained scroll state. Group Shelves use `scope=group` and remain read-only under Reader bearer authority. Shelf Detail independently owns Shelf metadata and normal visible-item paging, so either request may fail without destroying the other; item positions remain server values and are never normalized. The editor projection and mutations are deliberately dormant until an edit workflow owns them. This transient state is not stored in the Home Room projection.
 
-Shelves now renders permanent read-only My Shelves and Shared Shelves collections plus full-screen Shelf Detail. Cards preserve user/group ownership, listed/private visibility, editability, counts, and absent/empty/populated preview semantics without item follow-up calls. Shelf Detail reuses the app-wide compact Book list/grid presentation from `design.book`; cover bytes remain Coil-owned public assets. Book selection is intentionally inert until the shell owns a cross-feature Book Detail route capable of restoring Shelf context. The Sessions screen remains a placeholder. Reader-mode navigation, deep links, nested feature graphs, and logout remain deferred.
+Shelves renders permanent read-only My Shelves, Shared by Others, and Group Shelves collections plus full-screen Shelf Detail. Cards preserve user/group ownership, listed/private visibility, editability, counts, and absent/empty/populated preview semantics without item follow-up calls. Shelf Detail reuses the app-wide compact Book list/grid presentation from `design.book`; cover bytes remain Coil-owned public assets. Selecting a Shelf Book enters the shared Book Detail route and returns to the still-live Shelf Detail and originating collection. The Sessions screen remains a placeholder. Reader-mode navigation, deep links, nested feature graphs, and logout remain deferred.
 
 All feature-facing icons use the semantic layer documented in [Icon vocabulary](icon-vocabulary.md).

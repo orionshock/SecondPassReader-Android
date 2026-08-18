@@ -40,10 +40,15 @@ internal fun ShelvesRootControls(
             onCollectionSelected(ShelvesCollection.PERSONAL)
         }
         CollectionChip(
-            "Shared Shelves",
+            "Shared by Others",
             AppIcon.SharedShelf,
             selected == ShelvesCollection.SHARED
         ) { onCollectionSelected(ShelvesCollection.SHARED) }
+        CollectionChip(
+            "Group Shelves",
+            AppIcon.GroupShelf,
+            selected == ShelvesCollection.GROUP
+        ) { onCollectionSelected(ShelvesCollection.GROUP) }
         Box(Modifier.weight(1f))
         Text(
             "${state.totalCount} ${if (state.totalCount == 1) "shelf" else "shelves"}",

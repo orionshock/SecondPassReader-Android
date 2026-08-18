@@ -15,6 +15,7 @@ internal class ShelvesStateFlow(
     private val navigation: StateFlow<ShelvesNavigationState>,
     private val personal: StateFlow<ShelfCollectionState>,
     private val shared: StateFlow<ShelfCollectionState>,
+    private val group: StateFlow<ShelfCollectionState>,
     private val detail: StateFlow<ShelfDetailState>
 ) : StateFlow<ShelvesState> {
     override val value: ShelvesState
@@ -23,6 +24,7 @@ internal class ShelvesStateFlow(
                 navigation.value.destination,
                 personal.value,
                 shared.value,
+                group.value,
                 detail.value
             )
 
@@ -30,13 +32,14 @@ internal class ShelvesStateFlow(
         get() = listOf(value)
 
     override suspend fun collect(collector: FlowCollector<ShelvesState>): Nothing {
-        combine(navigation, personal, shared, detail) {
+        combine(navigation, personal, shared, group, detail) {
                 nav,
                 personalState,
                 sharedState,
+                groupState,
                 detailState
             ->
-            ShelvesState(nav.destination, personalState, sharedState, detailState)
+            ShelvesState(nav.destination, personalState, sharedState, groupState, detailState)
         }.collect(collector)
         error("Shelves state sources completed unexpectedly.")
     }

@@ -1,12 +1,8 @@
 package com.secondpasslibrary.reader.library
 
-import com.secondpasslibrary.client.BookAuthorSummary
 import com.secondpasslibrary.client.BookOrdering
-import com.secondpasslibrary.client.BookSeriesSummary
-import com.secondpasslibrary.client.CatalogTagSummary
 import com.secondpasslibrary.client.LibraryGroupSummary
 import com.secondpasslibrary.client.LibraryScope
-import com.secondpasslibrary.client.SeriesIndex
 import com.secondpasslibrary.client.SplClientException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -19,96 +15,29 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class LibraryControllerAxisTest {
     @Test
-    fun `Book Detail selection and back preserve originating Library state`() = runTest {
-        val client = FakeLibraryAxisClient().apply {
-            bookList = { axisPage(it.page, listOf(axisBook("book-1"))) }
-        }
-        val controller = controller(client)
-        controller.initialize(libraryProfile(), LibraryBooksEntry.Browse, false)
-        advanceUntilIdle()
-        val booksBefore = controller.state.value.books
-
-        controller.selectBook("book-1")
-        advanceUntilIdle()
-
-        assertEquals(LibraryResultKind.BOOK_DETAIL, controller.state.value.resultKind)
-        assertEquals("book-1", controller.state.value.bookDetail.detail?.id)
-        assertEquals(booksBefore, controller.state.value.books)
-
-        controller.clearBookDetail()
-
-        assertEquals(LibraryResultKind.BOOKS, controller.state.value.resultKind)
-        assertEquals(booksBefore, controller.state.value.books)
-        assertEquals(null, controller.state.value.bookDetail.bookId)
-    }
-
-    @Test
-    fun `Book Detail metadata intents route through parent coordination`() = runTest {
+    fun `external Book Detail metadata intent enters coordinated Library context`() = runTest {
         val tag = catalogTag("tag-1", "fiction")
-        val detail = libraryBookDetail("book-1").copy(
-            authors = listOf(BookAuthorSummary("author-1", "Author")),
-            series = BookSeriesSummary(
-                "series-1",
-                "Series",
-                "Series",
-                SeriesIndex.fromExactValue("2.00")
-            ),
-            catalogTags = listOf(CatalogTagSummary(tag.id, tag.name, tag.slug))
-        )
         val client = FakeLibraryAxisClient().apply {
-            bookDetail = { detail }
             tags = { _, options -> axisPage(options.page, listOf(tag)) }
         }
         val controller = controller(client)
         controller.initialize(libraryProfile(), LibraryBooksEntry.Browse, false)
         advanceUntilIdle()
 
-        controller.selectBook(detail.id)
-        advanceUntilIdle()
-        controller.selectBookAuthor("author-1")
+        controller.navigateTo(LibraryExternalNavigation.Author("author-1"))
         advanceUntilIdle()
         assertEquals(LibraryAxis.AUTHORS, controller.state.value.axis)
         assertEquals("author-1", client.bookRequests.last().authorId)
 
-        controller.selectBook(detail.id)
-        advanceUntilIdle()
-        controller.selectBookSeries("series-1")
+        controller.navigateTo(LibraryExternalNavigation.Series("series-1"))
         advanceUntilIdle()
         assertEquals(LibraryAxis.SERIES, controller.state.value.axis)
         assertEquals("series-1", client.bookRequests.last().seriesId)
 
-        controller.selectBook(detail.id)
+        controller.navigateTo(LibraryExternalNavigation.Tag(tag.id, tag.slug))
         advanceUntilIdle()
-        controller.selectBookTag(tag.id, tag.slug)
-        advanceUntilIdle()
-        assertEquals(tag, controller.state.value.selectedTag)
+        assertEquals(LibraryAxis.BOOKS, controller.state.value.axis)
         assertEquals("fiction", client.bookRequests.last().tagSlug)
-    }
-
-    @Test
-    fun `Book Detail failure leaves loaded Books intact and retry succeeds`() = runTest {
-        var attempts = 0
-        val client = FakeLibraryAxisClient().apply {
-            bookList = { axisPage(it.page, listOf(axisBook("book-1"))) }
-            bookDetail = {
-                attempts += 1
-                if (attempts == 1) throw SplClientException.ProtocolInvalid("book")
-                libraryBookDetail(it)
-            }
-        }
-        val controller = controller(client)
-        controller.initialize(libraryProfile(), LibraryBooksEntry.Browse, false)
-        advanceUntilIdle()
-
-        controller.selectBook("book-1")
-        advanceUntilIdle()
-        assertEquals(LibraryFailure.PROTOCOL_INVALID, controller.state.value.bookDetail.failure)
-        assertEquals(listOf("book-1"), controller.state.value.books.books.map { it.id })
-
-        controller.bookDetail.retry()
-        advanceUntilIdle()
-        assertEquals("book-1", controller.state.value.bookDetail.detail?.id)
-        assertEquals(listOf("book-1"), controller.state.value.books.books.map { it.id })
     }
 
     @Test

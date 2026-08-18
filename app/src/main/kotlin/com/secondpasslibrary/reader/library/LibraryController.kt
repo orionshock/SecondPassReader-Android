@@ -25,12 +25,11 @@ internal class LibraryController(
     val books: LibraryBooksController =
         LibraryBooksController(clientProvider, displayPreferenceStore, scope),
     val authors: LibraryAuthorsController = LibraryAuthorsController(clientProvider, scope),
-    val series: LibrarySeriesController = LibrarySeriesController(clientProvider, scope),
-    val bookDetail: LibraryBookDetailController = LibraryBookDetailController(clientProvider, scope)
+    val series: LibrarySeriesController = LibrarySeriesController(clientProvider, scope)
 ) {
     private val chrome = MutableStateFlow(LibraryChromeState())
     val state: StateFlow<LibraryState> =
-        LibraryStateFlow(chrome, books.state, authors.state, series.state, bookDetail.state)
+        LibraryStateFlow(chrome, books.state, authors.state, series.state)
 
     private val connectionEventChannel = Channel<LibraryConnectionEvent>(Channel.BUFFERED)
     val connectionEvents =
@@ -38,8 +37,7 @@ internal class LibraryController(
             connectionEventChannel.receiveAsFlow(),
             books.connectionEvents,
             authors.connectionEvents,
-            series.connectionEvents,
-            bookDetail.connectionEvents
+            series.connectionEvents
         )
 
     private var profile: ConnectionProfile? = null
@@ -47,6 +45,7 @@ internal class LibraryController(
     private var connectionIdentity: String? = null
     private var groupsJob: Job? = null
     private var tagsJob: Job? = null
+    private var pendingTagNavigation: LibraryExternalNavigation.Tag? = null
 
     fun initialize(
         profile: ConnectionProfile,
@@ -64,8 +63,6 @@ internal class LibraryController(
         val preserveTag = sameConnection && previous.scope == selectedScope
         val selectedTag = previous.selectedTag.takeIf { preserveTag }
         this.profile = profile
-        bookDetail.prepare(profile)
-        bookDetail.clear()
         connectionIdentity = connection
         entryIdentity = identity
         chrome.value =
@@ -115,7 +112,6 @@ internal class LibraryController(
     }
 
     fun selectScope(selected: LibraryScope) {
-        if (chrome.value.resultKind == LibraryResultKind.BOOK_DETAIL) clearBookDetail()
         var current = chrome.value
         if (selected == current.scope) return
         if (selected is LibraryScope.Group &&
@@ -151,7 +147,6 @@ internal class LibraryController(
     }
 
     fun selectAxis(selected: LibraryAxis) {
-        if (chrome.value.resultKind == LibraryResultKind.BOOK_DETAIL) clearBookDetail()
         var current = chrome.value
         if (selected == current.axis) return
         if (current.isSelectedEntityBooks) {
@@ -229,6 +224,28 @@ internal class LibraryController(
         chrome.value = chrome.value.copy(resultKind = LibraryResultKind.BOOKS)
     }
 
+    fun navigateTo(target: LibraryExternalNavigation) {
+        when (target) {
+            is LibraryExternalNavigation.Author -> {
+                val selectedId = chrome.value.takeIf { it.isSelectedEntityBooks }
+                    ?.let { authors.state.value.selected?.detail?.id }
+                if (chrome.value.axis != LibraryAxis.AUTHORS || selectedId != target.id) {
+                    selectAuthor(target.id)
+                }
+            }
+
+            is LibraryExternalNavigation.Series -> {
+                val selectedId = chrome.value.takeIf { it.isSelectedEntityBooks }
+                    ?.let { series.state.value.selected?.detail?.id }
+                if (chrome.value.axis != LibraryAxis.SERIES || selectedId != target.id) {
+                    selectSeries(target.id)
+                }
+            }
+
+            is LibraryExternalNavigation.Tag -> navigateToTag(target)
+        }
+    }
+
     fun clearSelectedEntity() {
         when (chrome.value.axis) {
             LibraryAxis.AUTHORS -> authors.clearSelection()
@@ -237,40 +254,6 @@ internal class LibraryController(
         }
         books.clearEntityFilter()
         chrome.value = chrome.value.copy(resultKind = chrome.value.axis.indexResultKind)
-    }
-
-    fun selectBook(bookId: String) {
-        if (chrome.value.resultKind != LibraryResultKind.BOOKS) return
-        bookDetail.select(bookId)
-        chrome.value = chrome.value.copy(resultKind = LibraryResultKind.BOOK_DETAIL)
-    }
-
-    fun clearBookDetail() {
-        if (chrome.value.resultKind != LibraryResultKind.BOOK_DETAIL) return
-        bookDetail.clear()
-        chrome.value = chrome.value.copy(resultKind = LibraryResultKind.BOOKS)
-    }
-
-    fun selectBookAuthor(authorId: String) {
-        if (chrome.value.resultKind != LibraryResultKind.BOOK_DETAIL) return
-        bookDetail.clear()
-        selectAuthor(authorId)
-    }
-
-    fun selectBookSeries(seriesId: String) {
-        if (chrome.value.resultKind != LibraryResultKind.BOOK_DETAIL) return
-        bookDetail.clear()
-        selectSeries(seriesId)
-    }
-
-    fun selectBookTag(tagId: String, tagSlug: String) {
-        if (chrome.value.resultKind != LibraryResultKind.BOOK_DETAIL) return
-        val tag = chrome.value.tagSelector.tags.firstOrNull {
-            it.id == tagId && it.slug == tagSlug
-        } ?: return
-        bookDetail.clear()
-        chrome.value = chrome.value.copy(resultKind = LibraryResultKind.BOOKS)
-        selectTag(tag)
     }
 
     fun retryGroups() = loadGroups()
@@ -306,7 +289,6 @@ internal class LibraryController(
         books.close()
         authors.close()
         series.close()
-        bookDetail.close()
     }
 
     private fun loadGroups() {
@@ -365,6 +347,7 @@ internal class LibraryController(
                         chrome.value.copy(
                             tagSelector = LibraryTagSelectorState(loaded = true, tags = tags)
                         )
+                    applyPendingTagNavigation()
                 },
                 onFailure = { failure ->
                     val classified = failure.toLibraryFailure()
@@ -380,5 +363,28 @@ internal class LibraryController(
                 }
             )
         }
+    }
+
+    private fun navigateToTag(target: LibraryExternalNavigation.Tag) {
+        if (chrome.value.axis != LibraryAxis.BOOKS) selectAxis(LibraryAxis.BOOKS)
+        val tag = chrome.value.tagSelector.tags.firstOrNull {
+            it.id == target.id && it.slug == target.slug
+        }
+        if (tag != null) {
+            pendingTagNavigation = null
+            if (chrome.value.selectedTag?.id != tag.id) selectTag(tag)
+        } else {
+            pendingTagNavigation = target
+            if (!chrome.value.tagSelector.loading) loadTags()
+        }
+    }
+
+    private fun applyPendingTagNavigation() {
+        val pending = pendingTagNavigation ?: return
+        val tag = chrome.value.tagSelector.tags.firstOrNull {
+            it.id == pending.id && it.slug == pending.slug
+        } ?: return
+        pendingTagNavigation = null
+        selectTag(tag)
     }
 }

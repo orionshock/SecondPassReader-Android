@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.library
+package com.secondpasslibrary.reader.bookdetail
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,6 +22,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.client.LibraryBookDetail
+import com.secondpasslibrary.reader.design.book.PublicBookCover
 
 private const val BOOK_COVER_ASPECT_RATIO = 2f / 3f
 private const val COLLAPSED_DESCRIPTION_LINES = 8
@@ -30,9 +31,8 @@ private const val METADATA_SEPARATOR = " \u00b7 "
 
 @Composable
 internal fun BookDetailCover(book: LibraryBookDetail, modifier: Modifier = Modifier) {
-    LibraryBookCover(
-        cover = book.cover?.let(LibraryBookCoverPresentation::Public)
-            ?: LibraryBookCoverPresentation.Missing,
+    PublicBookCover(
+        reference = book.cover,
         title = book.title,
         modifier = modifier.aspectRatio(BOOK_COVER_ASPECT_RATIO),
         contentScale = ContentScale.Fit
@@ -45,7 +45,6 @@ internal fun BookDetailMetadata(
     onAuthorSelected: (String) -> Unit,
     onSeriesSelected: (String) -> Unit,
     onTagSelected: (String, String) -> Unit,
-    availableTagIds: Set<String>,
     modifier: Modifier = Modifier
 ) {
     val presentation = book.toPresentation()
@@ -73,7 +72,6 @@ internal fun BookDetailMetadata(
             book.catalogTags.forEach { tag ->
                 AssistChip(
                     onClick = { onTagSelected(tag.id, tag.slug) },
-                    enabled = tag.id in availableTagIds,
                     label = { Text(tag.name) }
                 )
             }

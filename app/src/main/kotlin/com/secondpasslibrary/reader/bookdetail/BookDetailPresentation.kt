@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.library
+package com.secondpasslibrary.reader.bookdetail
 
 import com.secondpasslibrary.client.LibraryBookDetail
 import com.secondpasslibrary.client.PublicationDatePrecision

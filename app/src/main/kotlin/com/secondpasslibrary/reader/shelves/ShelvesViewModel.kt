@@ -35,9 +35,13 @@ constructor(clientProvider: AuthenticatedClientProvider) :
 
     fun loadNextSharedPage() = controller.shared.loadNextPage()
 
+    fun loadNextGroupPage() = controller.group.loadNextPage()
+
     fun retryPersonal() = controller.personal.retry()
 
     fun retryShared() = controller.shared.retry()
+
+    fun retryGroup() = controller.group.retry()
 
     fun changeItemOrdering(ordering: ShelfItemOrdering) =
         controller.detail.changeItemOrdering(ordering)

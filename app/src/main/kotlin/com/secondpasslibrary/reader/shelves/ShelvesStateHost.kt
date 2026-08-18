@@ -9,6 +9,7 @@ import com.secondpasslibrary.reader.connection.ConnectionProfile
 internal fun ShelvesStateHost(
     profile: ConnectionProfile,
     onOpenDrawer: () -> Unit,
+    onBookSelected: (ShelfBookNavigationRequest) -> Unit,
     onAuthenticationRejected: () -> Unit,
     viewModel: ShelvesViewModel = viewModel()
 ) {
@@ -20,5 +21,5 @@ internal fun ShelvesStateHost(
             }
         }
     }
-    ShelvesScreen(viewModel, onOpenDrawer)
+    ShelvesScreen(viewModel, onOpenDrawer, onBookSelected)
 }

@@ -7,7 +7,8 @@ import com.secondpasslibrary.client.ShelfOrdering
 
 internal enum class ShelvesCollection {
     PERSONAL,
-    SHARED
+    SHARED,
+    GROUP
 }
 
 internal sealed interface ShelvesDestination {
@@ -15,6 +16,12 @@ internal sealed interface ShelvesDestination {
 
     data class Detail(val shelfId: String, val origin: ShelvesCollection) : ShelvesDestination
 }
+
+internal data class ShelfBookNavigationRequest(
+    val bookId: String,
+    val shelfId: String,
+    val origin: ShelvesCollection
+)
 
 internal data class ShelfCollectionState(
     val ordering: ShelfOrdering = ShelfOrdering.NAME,
@@ -63,6 +70,7 @@ internal data class ShelvesState(
         ShelvesDestination.Collection(ShelvesCollection.PERSONAL),
     val personal: ShelfCollectionState = ShelfCollectionState(),
     val shared: ShelfCollectionState = ShelfCollectionState(),
+    val group: ShelfCollectionState = ShelfCollectionState(),
     val detail: ShelfDetailState = ShelfDetailState()
 )
 

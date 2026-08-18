@@ -14,7 +14,25 @@ internal class AppNavigator(private val backStack: MutableList<NavKey>) {
         backStack.add(LibrarySearchRoute(query))
     }
 
+    fun openBookDetail(bookId: String, returnTarget: BookDetailReturnTarget) {
+        require(bookId.isNotBlank()) { "Book ID must not be blank." }
+        val route = BookDetailRoute(bookId, returnTarget)
+        if (backStack.lastOrNull() != route) backStack.add(route)
+    }
+
+    fun openLibraryAuthor(authorId: String) = replaceWith(LibraryAuthorRoute(authorId))
+
+    fun openLibrarySeries(seriesId: String) = replaceWith(LibrarySeriesRoute(seriesId))
+
+    fun openLibraryTag(tagId: String, tagSlug: String) =
+        replaceWith(LibraryTagRoute(tagId, tagSlug))
+
     fun goBack() {
         if (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+    }
+
+    private fun replaceWith(route: NavKey) {
+        backStack.clear()
+        backStack.add(route)
     }
 }

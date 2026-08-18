@@ -1,6 +1,5 @@
 package com.secondpasslibrary.reader.library
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -15,11 +14,8 @@ import com.secondpasslibrary.client.LibraryCatalogTag
 import com.secondpasslibrary.client.LibraryScope
 
 @Composable
-internal fun LibraryScreen(viewModel: LibraryViewModel) {
+internal fun LibraryScreen(viewModel: LibraryViewModel, onBookSelected: (String) -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    BackHandler(enabled = state.resultKind == LibraryResultKind.BOOK_DETAIL) {
-        viewModel.clearBookDetail()
-    }
     LibraryContent(
         state = state,
         onSearch = viewModel::commitSearch,
@@ -38,12 +34,8 @@ internal fun LibraryScreen(viewModel: LibraryViewModel) {
         onSeriesSelected = viewModel::selectSeries,
         onClearSelectedEntity = viewModel::clearSelectedEntity,
         onRetryAuthorDetail = viewModel::retryAuthorDetail,
-        onRetrySeriesDetail = viewModel::retrySeriesDetail, onBookSelected = viewModel::selectBook,
-        onBackFromBook = viewModel::clearBookDetail,
-        onRetryBookDetail = viewModel::retryBookDetail,
-        onBookAuthorSelected = viewModel::selectBookAuthor,
-        onBookSeriesSelected = viewModel::selectBookSeries,
-        onBookTagSelected = viewModel::selectBookTag
+        onRetrySeriesDetail = viewModel::retrySeriesDetail,
+        onBookSelected = onBookSelected
     )
 }
 
@@ -67,25 +59,8 @@ private fun LibraryContent(
     onClearSelectedEntity: () -> Unit,
     onRetryAuthorDetail: () -> Unit,
     onRetrySeriesDetail: () -> Unit,
-    onBookSelected: (String) -> Unit,
-    onBackFromBook: () -> Unit,
-    onRetryBookDetail: () -> Unit,
-    onBookAuthorSelected: (String) -> Unit,
-    onBookSeriesSelected: (String) -> Unit,
-    onBookTagSelected: (String, String) -> Unit
+    onBookSelected: (String) -> Unit
 ) {
-    if (state.resultKind == LibraryResultKind.BOOK_DETAIL) {
-        LibraryBookDetailScreen(
-            state = state.bookDetail,
-            onBack = onBackFromBook,
-            onRetry = onRetryBookDetail,
-            onAuthorSelected = onBookAuthorSelected,
-            onSeriesSelected = onBookSeriesSelected,
-            onTagSelected = onBookTagSelected,
-            availableTagIds = state.tagSelector.tags.mapTo(hashSetOf()) { it.id }
-        )
-        return
-    }
     LibraryBrowseContent(
         state,
         onSearch,

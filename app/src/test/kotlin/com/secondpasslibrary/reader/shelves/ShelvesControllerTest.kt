@@ -56,6 +56,28 @@ class ShelvesControllerTest {
     }
 
     @Test
+    fun `all three collections retain independent state`() = runTest {
+        val capability = RecordingShelvesCapability().apply {
+            listCall = { options -> shelfPage(options.page, listOf(shelf(options.scope.name))) }
+        }
+        val controller = controller(capability, this)
+        controller.initialize(shelvesProfile())
+        advanceUntilIdle()
+        controller.showCollection(ShelvesCollection.SHARED)
+        advanceUntilIdle()
+        controller.showCollection(ShelvesCollection.GROUP)
+        advanceUntilIdle()
+
+        assertEquals(listOf("PERSONAL"), controller.state.value.personal.shelves.map { it.id })
+        assertEquals(listOf("SHARED"), controller.state.value.shared.shelves.map { it.id })
+        assertEquals(listOf("GROUP"), controller.state.value.group.shelves.map { it.id })
+        assertEquals(
+            ShelvesDestination.Collection(ShelvesCollection.GROUP),
+            controller.state.value.destination
+        )
+    }
+
+    @Test
     fun `back from Shared detail restores Shared collection without reload`() = runTest {
         val capability = RecordingShelvesCapability()
         val controller = controller(capability, this)

@@ -15,8 +15,7 @@ internal enum class LibraryAxis {
 internal enum class LibraryResultKind {
     BOOKS,
     AUTHOR_INDEX,
-    SERIES_INDEX,
-    BOOK_DETAIL;
+    SERIES_INDEX;
 
     val supportsBookLayout: Boolean
         get() = this == BOOKS
@@ -46,8 +45,7 @@ internal data class LibraryState(
     val tagSelector: LibraryTagSelectorState = LibraryTagSelectorState(),
     val books: LibraryBooksState = LibraryBooksState(),
     val authors: LibraryAuthorsState = LibraryEntityState(ordering = AuthorOrdering.NAME),
-    val series: LibrarySeriesState = LibraryEntityState(ordering = SeriesOrdering.NAME),
-    val bookDetail: LibraryBookDetailState = LibraryBookDetailState()
+    val series: LibrarySeriesState = LibraryEntityState(ordering = SeriesOrdering.NAME)
 )
 
 internal enum class LibraryFailure {

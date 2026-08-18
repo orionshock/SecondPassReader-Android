@@ -52,29 +52,31 @@ internal fun ShelvesRoot(
     onOrderingSelected: (com.secondpasslibrary.client.ShelfOrdering) -> Unit,
     onLoadNextPersonal: () -> Unit,
     onLoadNextShared: () -> Unit,
+    onLoadNextGroup: () -> Unit,
     onRetryPersonal: () -> Unit,
     onRetryShared: () -> Unit,
+    onRetryGroup: () -> Unit,
     onShelfSelected: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val selected =
         (state.destination as? ShelvesDestination.Collection)?.collection
             ?: ShelvesCollection.PERSONAL
-    val collectionState = if (selected ==
-        ShelvesCollection.PERSONAL
-    ) {
-        state.personal
-    } else {
-        state.shared
+    val collectionState = when (selected) {
+        ShelvesCollection.PERSONAL -> state.personal
+        ShelvesCollection.SHARED -> state.shared
+        ShelvesCollection.GROUP -> state.group
     }
-    val loadNext = if (selected ==
-        ShelvesCollection.PERSONAL
-    ) {
-        onLoadNextPersonal
-    } else {
-        onLoadNextShared
+    val loadNext = when (selected) {
+        ShelvesCollection.PERSONAL -> onLoadNextPersonal
+        ShelvesCollection.SHARED -> onLoadNextShared
+        ShelvesCollection.GROUP -> onLoadNextGroup
     }
-    val retry = if (selected == ShelvesCollection.PERSONAL) onRetryPersonal else onRetryShared
+    val retry = when (selected) {
+        ShelvesCollection.PERSONAL -> onRetryPersonal
+        ShelvesCollection.SHARED -> onRetryShared
+        ShelvesCollection.GROUP -> onRetryGroup
+    }
     val stateHolder = rememberSaveableStateHolder()
 
     Column(modifier.padding(horizontal = 20.dp)) {

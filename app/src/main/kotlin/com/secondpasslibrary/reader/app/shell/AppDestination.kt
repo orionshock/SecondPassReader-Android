@@ -16,8 +16,47 @@ enum class AppDestination(val label: String, val icon: AppIcon) : NavKey {
 @Serializable
 data class LibrarySearchRoute(val query: String) : NavKey
 
+@Serializable
+data class LibraryAuthorRoute(val authorId: String) : NavKey
+
+@Serializable
+data class LibrarySeriesRoute(val seriesId: String) : NavKey
+
+@Serializable
+data class LibraryTagRoute(val tagId: String, val tagSlug: String) : NavKey
+
+@Serializable
+sealed interface BookDetailReturnTarget {
+    @Serializable
+    data object Library : BookDetailReturnTarget
+
+    @Serializable
+    data class ShelfDetail(val shelfId: String, val origin: ShelfCollectionOrigin) :
+        BookDetailReturnTarget
+}
+
+@Serializable
+enum class ShelfCollectionOrigin {
+    PERSONAL,
+    SHARED,
+    GROUP
+}
+
+@Serializable
+data class BookDetailRoute(val bookId: String, val returnTarget: BookDetailReturnTarget) : NavKey
+
 internal fun NavKey.topLevelDestination(): AppDestination = when (this) {
-    is LibrarySearchRoute -> AppDestination.Library
+    is LibrarySearchRoute,
+    is LibraryAuthorRoute,
+    is LibrarySeriesRoute,
+    is LibraryTagRoute -> AppDestination.Library
+
+    is BookDetailRoute -> when (returnTarget) {
+        BookDetailReturnTarget.Library -> AppDestination.Library
+        is BookDetailReturnTarget.ShelfDetail -> AppDestination.Shelves
+    }
+
     is AppDestination -> this
+
     else -> AppDestination.Home
 }

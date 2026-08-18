@@ -164,3 +164,8 @@ internal class SharedShelvesController(
     clientProvider: AuthenticatedClientProvider,
     scope: CoroutineScope
 ) : ShelfCollectionController(ShelfScope.SHARED, clientProvider, scope)
+
+internal class GroupShelvesController(
+    clientProvider: AuthenticatedClientProvider,
+    scope: CoroutineScope
+) : ShelfCollectionController(ShelfScope.GROUP, clientProvider, scope)

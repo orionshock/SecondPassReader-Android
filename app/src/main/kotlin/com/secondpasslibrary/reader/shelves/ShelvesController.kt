@@ -12,12 +12,19 @@ internal class ShelvesController(
     scope: CoroutineScope,
     val personal: PersonalShelvesController = PersonalShelvesController(clientProvider, scope),
     val shared: SharedShelvesController = SharedShelvesController(clientProvider, scope),
+    val group: GroupShelvesController = GroupShelvesController(clientProvider, scope),
     val detail: ShelfDetailController = ShelfDetailController(clientProvider, scope)
 ) {
     private val navigation = MutableStateFlow(ShelvesNavigationState())
-    val state = ShelvesStateFlow(navigation, personal.state, shared.state, detail.state)
+    val state =
+        ShelvesStateFlow(navigation, personal.state, shared.state, group.state, detail.state)
     val connectionEvents =
-        merge(personal.connectionEvents, shared.connectionEvents, detail.connectionEvents)
+        merge(
+            personal.connectionEvents,
+            shared.connectionEvents,
+            group.connectionEvents,
+            detail.connectionEvents
+        )
 
     private var connectionIdentity: String? = null
 
@@ -25,6 +32,7 @@ internal class ShelvesController(
         val identity = "${profile.apiBaseUrl}\u0000${profile.clientSessionId}"
         personal.prepare(profile)
         shared.prepare(profile)
+        group.prepare(profile)
         detail.prepare(profile)
         if (identity != connectionIdentity) {
             connectionIdentity = identity
@@ -60,6 +68,7 @@ internal class ShelvesController(
     fun close() {
         personal.close()
         shared.close()
+        group.close()
         detail.close()
     }
 
@@ -74,5 +83,6 @@ internal class ShelvesController(
     private fun ShelvesCollection.controller(): ShelfCollectionController = when (this) {
         ShelvesCollection.PERSONAL -> personal
         ShelvesCollection.SHARED -> shared
+        ShelvesCollection.GROUP -> group
     }
 }

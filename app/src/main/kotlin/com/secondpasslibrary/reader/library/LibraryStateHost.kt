@@ -11,10 +11,19 @@ internal fun LibraryStateHost(
     entry: LibraryBooksEntry,
     advancedGroupsEnabled: Boolean,
     onAuthenticationRejected: () -> Unit,
+    onBookSelected: (String) -> Unit,
+    externalNavigation: LibraryExternalNavigation? = null,
     viewModel: LibraryViewModel = viewModel()
 ) {
-    LaunchedEffect(profile.apiBaseUrl, profile.clientSessionId, entry, advancedGroupsEnabled) {
+    LaunchedEffect(
+        profile.apiBaseUrl,
+        profile.clientSessionId,
+        entry,
+        advancedGroupsEnabled,
+        externalNavigation
+    ) {
         viewModel.initialize(profile, entry, advancedGroupsEnabled)
+        externalNavigation?.let(viewModel::navigateTo)
     }
     LaunchedEffect(viewModel, onAuthenticationRejected) {
         viewModel.connectionEvents.collect { event ->
@@ -23,5 +32,5 @@ internal fun LibraryStateHost(
             }
         }
     }
-    LibraryScreen(viewModel)
+    LibraryScreen(viewModel, onBookSelected)
 }

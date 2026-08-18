@@ -21,20 +21,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.navigation3.runtime.NavKey
-import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
-import androidx.navigation3.ui.NavDisplay
 import com.secondpasslibrary.client.AuthenticatedContext
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
-import com.secondpasslibrary.reader.home.AuthenticatedHome
-import com.secondpasslibrary.reader.home.HomeNavigationIntent
-import com.secondpasslibrary.reader.library.LibraryBooksEntry
-import com.secondpasslibrary.reader.library.LibraryStateHost
-import com.secondpasslibrary.reader.settings.LinkedSettings
-import com.secondpasslibrary.reader.shelves.ShelvesStateHost
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -48,6 +39,7 @@ internal fun AuthenticatedAppShell(
     val backStack = rememberNavBackStack(AppDestination.Home)
     val navigator = remember(backStack) { AppNavigator(backStack) }
     val currentDestination = backStack.lastOrNull()?.topLevelDestination() ?: AppDestination.Home
+    val currentRoute = backStack.lastOrNull()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
 
@@ -69,7 +61,9 @@ internal fun AuthenticatedAppShell(
             modifier = Modifier.fillMaxSize(),
             containerColor = MaterialTheme.colorScheme.background,
             topBar = {
-                if (currentDestination != AppDestination.Shelves) {
+                if (currentDestination != AppDestination.Shelves &&
+                    currentRoute !is BookDetailRoute
+                ) {
                     AppShellTopBar(currentDestination) {
                         coroutineScope.launch { drawerState.open() }
                     }
@@ -86,85 +80,6 @@ internal fun AuthenticatedAppShell(
                 modifier = Modifier.fillMaxSize().padding(contentPadding)
             )
         }
-    }
-}
-
-@Composable
-private fun AuthenticatedDestinations(
-    profile: ConnectionProfile,
-    context: AuthenticatedContext,
-    backStack: MutableList<NavKey>,
-    navigator: AppNavigator,
-    onAuthenticationRejected: () -> Unit,
-    onOpenDrawer: () -> Unit,
-    modifier: Modifier
-) {
-    NavDisplay(
-        backStack = backStack,
-        modifier = modifier,
-        onBack = navigator::goBack,
-        entryProvider =
-            entryProvider {
-                entry(key = AppDestination.Home) {
-                    HomeDestination(profile, context, navigator, onAuthenticationRejected)
-                }
-                entry(key = AppDestination.Library) {
-                    LibraryDestination(
-                        profile,
-                        LibraryBooksEntry.Browse,
-                        context.serverInfo.advancedLibraryGroupsEnabled,
-                        onAuthenticationRejected
-                    )
-                }
-                entry<LibrarySearchRoute> { route ->
-                    LibraryDestination(
-                        profile,
-                        LibraryBooksEntry.BroadSearch(route.query),
-                        context.serverInfo.advancedLibraryGroupsEnabled,
-                        onAuthenticationRejected
-                    )
-                }
-                entry(key = AppDestination.Shelves) {
-                    ShelvesStateHost(profile, onOpenDrawer, onAuthenticationRejected)
-                }
-                entry(key = AppDestination.Sessions) {
-                    DestinationPlaceholder(AppDestination.Sessions)
-                }
-                entry(key = AppDestination.Settings) { LinkedSettings(profile, context) }
-            }
-    )
-}
-
-@Composable
-private fun LibraryDestination(
-    profile: ConnectionProfile,
-    entry: LibraryBooksEntry,
-    advancedGroupsEnabled: Boolean,
-    onAuthenticationRejected: () -> Unit
-) {
-    LibraryStateHost(profile, entry, advancedGroupsEnabled, onAuthenticationRejected)
-}
-
-@Composable
-private fun HomeDestination(
-    profile: ConnectionProfile,
-    context: AuthenticatedContext,
-    navigator: AppNavigator,
-    onAuthenticationRejected: () -> Unit
-) {
-    AuthenticatedHome(
-        profile = profile,
-        profileId = context.currentUser.profileId,
-        onNavigation = navigator::handleHomeNavigation,
-        onAuthenticationRejected = onAuthenticationRejected
-    )
-}
-
-private fun AppNavigator.handleHomeNavigation(intent: HomeNavigationIntent) {
-    when (intent) {
-        is HomeNavigationIntent.LibrarySearch -> openLibrarySearch(intent.query)
-        HomeNavigationIntent.OpenShelves -> select(AppDestination.Shelves)
-        HomeNavigationIntent.ViewAllSessions -> select(AppDestination.Sessions)
     }
 }
 

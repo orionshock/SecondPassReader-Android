@@ -1,0 +1,9 @@
+package com.secondpasslibrary.reader.bookdetail
+
+internal sealed interface BookDetailNavigationIntent {
+    data class Author(val id: String) : BookDetailNavigationIntent
+
+    data class Series(val id: String) : BookDetailNavigationIntent
+
+    data class Tag(val id: String, val slug: String) : BookDetailNavigationIntent
+}

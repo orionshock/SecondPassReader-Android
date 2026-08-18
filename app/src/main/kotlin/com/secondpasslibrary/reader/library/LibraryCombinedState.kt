@@ -22,8 +22,7 @@ internal data class LibraryChromeState(
     fun toState(
         books: LibraryBooksState,
         authors: LibraryAuthorsState,
-        series: LibrarySeriesState,
-        bookDetail: LibraryBookDetailState
+        series: LibrarySeriesState
     ) = LibraryState(
         axis,
         resultKind,
@@ -34,8 +33,7 @@ internal data class LibraryChromeState(
         tagSelector,
         books,
         authors,
-        series,
-        bookDetail
+        series
     )
 }
 
@@ -51,24 +49,22 @@ internal class LibraryStateFlow(
     private val chrome: StateFlow<LibraryChromeState>,
     private val books: StateFlow<LibraryBooksState>,
     private val authors: StateFlow<LibraryAuthorsState>,
-    private val series: StateFlow<LibrarySeriesState>,
-    private val bookDetail: StateFlow<LibraryBookDetailState>
+    private val series: StateFlow<LibrarySeriesState>
 ) : StateFlow<LibraryState> {
     override val value: LibraryState
-        get() = chrome.value.toState(books.value, authors.value, series.value, bookDetail.value)
+        get() = chrome.value.toState(books.value, authors.value, series.value)
 
     override val replayCache: List<LibraryState>
         get() = listOf(value)
 
     override suspend fun collect(collector: FlowCollector<LibraryState>): Nothing {
-        combine(chrome, books, authors, series, bookDetail) {
+        combine(chrome, books, authors, series) {
                 parent,
                 booksState,
                 authorsState,
-                seriesState,
-                detailState
+                seriesState
             ->
-            parent.toState(booksState, authorsState, seriesState, detailState)
+            parent.toState(booksState, authorsState, seriesState)
         }.collect(collector)
         error("Library state sources completed unexpectedly.")
     }
