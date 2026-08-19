@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.secondpasslibrary.client.ShelfItemOrdering
 import com.secondpasslibrary.client.ShelfOrdering
+import com.secondpasslibrary.client.ShelfVisibility
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -20,6 +21,8 @@ constructor(clientProvider: AuthenticatedClientProvider) :
     val state = controller.state
     val connectionEvents = controller.connectionEvents
     val createState = controller.create.state
+    val editState = controller.edit.state
+    val deleteState = controller.delete.state
 
     fun initialize(profile: ConnectionProfile) = controller.initialize(profile)
 
@@ -53,10 +56,29 @@ constructor(clientProvider: AuthenticatedClientProvider) :
     fun updateCreateDescription(description: String) =
         controller.create.updateDescription(description)
 
-    fun updateCreateVisibility(visibility: com.secondpasslibrary.client.ShelfVisibility) =
+    fun updateCreateVisibility(visibility: ShelfVisibility) =
         controller.create.updateVisibility(visibility)
 
     fun submitCreate() = controller.submitCreate()
+
+    fun openEdit() = controller.openEdit()
+
+    fun dismissEdit() = controller.edit.reset()
+
+    fun updateEditName(name: String) = controller.edit.updateName(name)
+
+    fun updateEditDescription(description: String) = controller.edit.updateDescription(description)
+
+    fun updateEditVisibility(visibility: ShelfVisibility) =
+        controller.edit.updateVisibility(visibility)
+
+    fun submitEdit() = controller.submitEdit()
+
+    fun openDelete() = controller.openDelete()
+
+    fun dismissDelete() = controller.delete.reset()
+
+    fun confirmDelete() = controller.confirmDelete()
 
     fun changeItemOrdering(ordering: ShelfItemOrdering) =
         controller.detail.changeItemOrdering(ordering)

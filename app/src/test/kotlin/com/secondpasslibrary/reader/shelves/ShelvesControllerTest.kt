@@ -145,6 +145,121 @@ class ShelvesControllerTest {
         assertEquals(listOf("GROUP"), controller.state.value.group.shelves.map { it.id })
     }
 
+    @Test
+    fun `management policy requires editable Personal Shelf`() {
+        assertTrue(canManageShelf(ShelvesCollection.PERSONAL, shelf("one", canEdit = true)))
+        assertFalse(canManageShelf(ShelvesCollection.PERSONAL, shelf("one", canEdit = false)))
+        assertFalse(canManageShelf(ShelvesCollection.SHARED, shelf("one", canEdit = true)))
+        assertFalse(canManageShelf(ShelvesCollection.GROUP, shelf("one", canEdit = true)))
+    }
+
+    @Test
+    fun `successful edit updates detail and Personal only`() = runTest {
+        val original = shelf("personal", canEdit = true)
+        val capability = RecordingShelvesCapability().apply {
+            listCall = { options -> shelfPage(1, listOf(shelf(options.scope.name))) }
+            detailCall = { original }
+            updateCall = { _, _ ->
+                original.copy(
+                    name = "Renamed",
+                    visibility = com.secondpasslibrary.client.ShelfVisibility.LISTED
+                )
+            }
+        }
+        val controller = controller(capability, this)
+        controller.initialize(shelvesProfile())
+        advanceUntilIdle()
+        controller.personal.applyAuthoritativeChange(ShelfCollectionChange.Added(original))
+        controller.showCollection(ShelvesCollection.SHARED)
+        advanceUntilIdle()
+        controller.showCollection(ShelvesCollection.GROUP)
+        advanceUntilIdle()
+        controller.showCollection(ShelvesCollection.PERSONAL)
+        controller.selectShelf(original.id)
+        advanceUntilIdle()
+        val sharedBefore = controller.state.value.shared
+        val groupBefore = controller.state.value.group
+
+        controller.openEdit()
+        controller.edit.updateName("Renamed")
+        controller.submitEdit()
+        advanceUntilIdle()
+
+        assertEquals("Renamed", controller.state.value.detail.detail.shelf?.name)
+        assertEquals(
+            "Renamed",
+            controller.state.value.personal.shelves.first { it.id == original.id }.name
+        )
+        assertEquals(sharedBefore, controller.state.value.shared)
+        assertEquals(groupBefore, controller.state.value.group)
+        assertEquals(
+            ShelvesDestination.Detail(original.id, ShelvesCollection.PERSONAL),
+            controller.state.value.destination
+        )
+    }
+
+    @Test
+    fun `successful delete removes Personal Shelf and returns without touching siblings`() =
+        runTest {
+            val original = shelf("personal", canEdit = true)
+            val capability = RecordingShelvesCapability().apply {
+                listCall = { options -> shelfPage(1, listOf(shelf(options.scope.name))) }
+                detailCall = { original }
+            }
+            val controller = controller(capability, this)
+            controller.initialize(shelvesProfile())
+            advanceUntilIdle()
+            controller.personal.applyAuthoritativeChange(ShelfCollectionChange.Added(original))
+            controller.showCollection(ShelvesCollection.SHARED)
+            advanceUntilIdle()
+            controller.showCollection(ShelvesCollection.GROUP)
+            advanceUntilIdle()
+            controller.showCollection(ShelvesCollection.PERSONAL)
+            controller.selectShelf(original.id)
+            advanceUntilIdle()
+            val sharedBefore = controller.state.value.shared
+            val groupBefore = controller.state.value.group
+
+            controller.openDelete()
+            assertTrue(controller.delete.state.value.open)
+            controller.confirmDelete()
+            advanceUntilIdle()
+
+            assertEquals(listOf(original.id), capability.deleteRequests)
+            assertFalse(controller.state.value.personal.shelves.any { it.id == original.id })
+            assertEquals(sharedBefore, controller.state.value.shared)
+            assertEquals(groupBefore, controller.state.value.group)
+            assertEquals(
+                ShelvesDestination.Collection(ShelvesCollection.PERSONAL),
+                controller.state.value.destination
+            )
+        }
+
+    @Test
+    fun `failed delete keeps Shelf Detail context`() = runTest {
+        val original = shelf("personal", canEdit = true)
+        val capability = RecordingShelvesCapability().apply {
+            detailCall = { original }
+            deleteCall =
+                { throw com.secondpasslibrary.client.SplClientException.ServerUnreachable() }
+        }
+        val controller = controller(capability, this)
+        controller.initialize(shelvesProfile())
+        advanceUntilIdle()
+        controller.selectShelf(original.id)
+        advanceUntilIdle()
+
+        controller.openDelete()
+        controller.confirmDelete()
+        advanceUntilIdle()
+
+        assertEquals(
+            ShelvesDestination.Detail(original.id, ShelvesCollection.PERSONAL),
+            controller.state.value.destination
+        )
+        assertEquals(ShelfManagementFailure.UNREACHABLE, controller.delete.state.value.failure)
+    }
+
     private fun controller(capability: RecordingShelvesCapability, scope: CoroutineScope) =
         ShelvesController(ShelvesTestClientProvider(ShelvesTestClient(capability)), scope)
 }

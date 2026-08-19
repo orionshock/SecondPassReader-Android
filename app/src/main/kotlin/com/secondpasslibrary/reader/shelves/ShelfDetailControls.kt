@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -26,11 +27,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.client.ShelfItemOrdering
+import com.secondpasslibrary.reader.design.icons.AppIcon
+import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 
 @Composable
 internal fun ShelfDetailHeader(
     state: ShelfDetailResourceState,
     onRetry: () -> Unit,
+    canManage: Boolean,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
     modifier: Modifier
 ) {
     Surface(
@@ -55,15 +61,54 @@ internal fun ShelfDetailHeader(
                     OutlinedButton(onClick = onRetry) { Text("Retry details") }
                 }
 
-            state.shelf != null -> ShelfDetailMetadata(state.shelf.toCardPresentation(), state)
+            state.shelf != null ->
+                ShelfDetailMetadata(
+                    state.shelf.toCardPresentation(),
+                    state,
+                    canManage,
+                    onEdit,
+                    onDelete
+                )
         }
     }
 }
 
 @Composable
-private fun ShelfDetailMetadata(model: ShelfCardPresentation, state: ShelfDetailResourceState) {
+private fun ShelfDetailMetadata(
+    model: ShelfCardPresentation,
+    state: ShelfDetailResourceState,
+    canManage: Boolean,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(model.name, style = MaterialTheme.typography.titleLarge)
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                model.name,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleLarge
+            )
+            if (canManage) {
+                OutlinedButton(onClick = onEdit) {
+                    AppIconGraphic(AppIcon.Edit, null, Modifier.size(18.dp))
+                    Text("Edit", Modifier.padding(start = 6.dp))
+                }
+                OutlinedButton(
+                    onClick = onDelete,
+                    colors =
+                        ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                ) {
+                    AppIconGraphic(AppIcon.Delete, null, Modifier.size(18.dp))
+                    Text("Delete", Modifier.padding(start = 6.dp))
+                }
+            }
+        }
         state.shelf?.description?.trim()?.takeIf(String::isNotEmpty)?.let { description ->
             Text(description, style = MaterialTheme.typography.bodyMedium)
         }

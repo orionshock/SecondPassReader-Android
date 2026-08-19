@@ -36,6 +36,14 @@ internal data class ShelfCollectionState(
     val currentPage: Int = 0
 )
 
+internal sealed interface ShelfCollectionChange {
+    data class Added(val shelf: Shelf) : ShelfCollectionChange
+
+    data class Updated(val shelf: Shelf) : ShelfCollectionChange
+
+    data class Removed(val shelfId: String) : ShelfCollectionChange
+}
+
 internal data class ShelfDetailResourceState(
     val shelf: Shelf? = null,
     val loading: Boolean = false,

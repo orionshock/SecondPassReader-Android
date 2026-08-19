@@ -7,15 +7,19 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.merge
 
+@Suppress("TooManyFunctions") // Parent exposes typed coordination intents for its bounded children.
 internal class ShelvesController(
     clientProvider: AuthenticatedClientProvider,
     scope: CoroutineScope,
     val personal: PersonalShelvesController = PersonalShelvesController(clientProvider, scope),
     val shared: SharedShelvesController = SharedShelvesController(clientProvider, scope),
     val group: GroupShelvesController = GroupShelvesController(clientProvider, scope),
-    val detail: ShelfDetailController = ShelfDetailController(clientProvider, scope),
-    val create: CreatePersonalShelfController = CreatePersonalShelfController(clientProvider, scope)
+    val detail: ShelfDetailController = ShelfDetailController(clientProvider, scope)
 ) {
+    val create = CreatePersonalShelfController(clientProvider, scope)
+    val edit = EditPersonalShelfController(clientProvider, scope)
+    val delete = DeletePersonalShelfController(clientProvider, scope)
+
     private val navigation = MutableStateFlow(ShelvesNavigationState())
     val state =
         ShelvesStateFlow(navigation, personal.state, shared.state, group.state, detail.state)
@@ -25,7 +29,9 @@ internal class ShelvesController(
             shared.connectionEvents,
             group.connectionEvents,
             detail.connectionEvents,
-            create.connectionEvents
+            create.connectionEvents,
+            edit.connectionEvents,
+            delete.connectionEvents
         )
 
     private var connectionIdentity: String? = null
@@ -37,6 +43,8 @@ internal class ShelvesController(
         group.prepare(profile)
         detail.prepare(profile)
         create.prepare(profile)
+        edit.prepare(profile)
+        delete.prepare(profile)
         if (identity != connectionIdentity) {
             connectionIdentity = identity
             navigation.value = ShelvesNavigationState()
@@ -45,13 +53,19 @@ internal class ShelvesController(
     }
 
     fun showCollection(collection: ShelvesCollection) {
-        if (navigation.value.destination is ShelvesDestination.Detail) detail.clear()
+        if (navigation.value.destination is ShelvesDestination.Detail) {
+            detail.clear()
+            edit.reset()
+            delete.reset()
+        }
         navigation.value = ShelvesNavigationState(ShelvesDestination.Collection(collection))
         collection.controller().activate()
     }
 
     fun selectShelf(shelfId: String) {
         val current = navigation.value.destination as? ShelvesDestination.Collection ?: return
+        edit.reset()
+        delete.reset()
         detail.select(shelfId)
         navigation.value =
             ShelvesNavigationState(ShelvesDestination.Detail(shelfId, current.collection))
@@ -59,6 +73,8 @@ internal class ShelvesController(
 
     fun backFromDetail() {
         val current = navigation.value.destination as? ShelvesDestination.Detail ?: return
+        edit.reset()
+        delete.reset()
         detail.clear()
         navigation.value = ShelvesNavigationState(ShelvesDestination.Collection(current.origin))
     }
@@ -82,7 +98,37 @@ internal class ShelvesController(
     fun submitCreate() {
         create.submit { shelf ->
             navigation.value = navigation.value.copy(createOpen = false)
-            personal.includeCreatedShelfAndRefresh(shelf)
+            personal.applyAuthoritativeChange(ShelfCollectionChange.Added(shelf), refresh = true)
+        }
+    }
+
+    fun openEdit() {
+        val destination = navigation.value.destination as? ShelvesDestination.Detail ?: return
+        val shelf = detail.state.value.detail.shelf
+        if (!canManageShelf(destination.origin, shelf)) return
+        delete.reset()
+        edit.begin(requireNotNull(shelf))
+    }
+
+    fun submitEdit() {
+        edit.submit { shelf ->
+            detail.applyAuthoritativeShelf(shelf)
+            personal.applyAuthoritativeChange(ShelfCollectionChange.Updated(shelf))
+        }
+    }
+
+    fun openDelete() {
+        val destination = navigation.value.destination as? ShelvesDestination.Detail ?: return
+        val shelf = detail.state.value.detail.shelf
+        if (!canManageShelf(destination.origin, shelf)) return
+        edit.reset()
+        delete.begin(requireNotNull(shelf))
+    }
+
+    fun confirmDelete() {
+        delete.confirm { shelfId ->
+            personal.applyAuthoritativeChange(ShelfCollectionChange.Removed(shelfId))
+            backFromDetail()
         }
     }
 
@@ -92,6 +138,8 @@ internal class ShelvesController(
         group.close()
         detail.close()
         create.close()
+        edit.close()
+        delete.close()
     }
 
     private fun activateCurrentCollection() {

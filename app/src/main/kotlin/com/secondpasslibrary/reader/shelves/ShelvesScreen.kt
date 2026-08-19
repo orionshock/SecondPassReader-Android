@@ -24,7 +24,6 @@ internal fun ShelvesScreen(
     onBookSelected: (ShelfBookNavigationRequest) -> Unit
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val createState by viewModel.createState.collectAsStateWithLifecycle()
     val detail = state.destination as? ShelvesDestination.Detail
     BackHandler(enabled = detail != null, onBack = viewModel::backFromDetail)
 
@@ -61,11 +60,22 @@ internal fun ShelvesScreen(
                         ShelfBookNavigationRequest(bookId, detail.shelfId, detail.origin)
                     )
                 },
+                canManage = canManageShelf(detail.origin, state.detail.detail.shelf),
+                onEdit = viewModel::openEdit,
+                onDelete = viewModel::openDelete,
                 modifier = modifier
             )
         }
     }
-    if (state.createOpen) {
+    ShelvesMutationDialogs(viewModel, state.createOpen)
+}
+
+@Composable
+private fun ShelvesMutationDialogs(viewModel: ShelvesViewModel, createOpen: Boolean) {
+    val createState by viewModel.createState.collectAsStateWithLifecycle()
+    val editState by viewModel.editState.collectAsStateWithLifecycle()
+    val deleteState by viewModel.deleteState.collectAsStateWithLifecycle()
+    if (createOpen) {
         CreatePersonalShelfDialog(
             state = createState,
             onNameChanged = viewModel::updateCreateName,
@@ -73,6 +83,23 @@ internal fun ShelvesScreen(
             onVisibilityChanged = viewModel::updateCreateVisibility,
             onSubmit = viewModel::submitCreate,
             onDismiss = viewModel::dismissCreate
+        )
+    }
+    if (editState.open) {
+        EditPersonalShelfDialog(
+            state = editState,
+            onNameChanged = viewModel::updateEditName,
+            onDescriptionChanged = viewModel::updateEditDescription,
+            onVisibilityChanged = viewModel::updateEditVisibility,
+            onSubmit = viewModel::submitEdit,
+            onDismiss = viewModel::dismissEdit
+        )
+    }
+    if (deleteState.open) {
+        DeletePersonalShelfDialog(
+            state = deleteState,
+            onConfirm = viewModel::confirmDelete,
+            onDismiss = viewModel::dismissDelete
         )
     }
 }

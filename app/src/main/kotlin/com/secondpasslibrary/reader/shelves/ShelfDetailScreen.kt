@@ -55,10 +55,20 @@ internal fun ShelfDetailContent(
     onRetryDetail: () -> Unit,
     onRetryItems: () -> Unit,
     onBookSelected: (String) -> Unit,
+    canManage: Boolean,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier.padding(horizontal = 20.dp)) {
-        ShelfDetailHeader(state.detail, onRetryDetail, Modifier.padding(top = 14.dp))
+        ShelfDetailHeader(
+            state.detail,
+            onRetryDetail,
+            canManage,
+            onEdit,
+            onDelete,
+            Modifier.padding(top = 14.dp)
+        )
         ShelfItemControls(
             state.items,
             onOrderingSelected,

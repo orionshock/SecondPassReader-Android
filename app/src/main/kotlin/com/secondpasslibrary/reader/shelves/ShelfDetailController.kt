@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.shelves
 
+import com.secondpasslibrary.client.Shelf
 import com.secondpasslibrary.client.ShelfItemListOptions
 import com.secondpasslibrary.client.ShelfItemOrdering
 import com.secondpasslibrary.client.ShelfItemPage
@@ -84,6 +85,12 @@ internal class ShelfDetailController(
         val current = state.value.items
         if (itemsJob?.isActive == true || current.currentPage == 0 || !current.hasNext) return
         launchItems(current.currentPage + 1, ShelvesLoadPhase.NEXT_PAGE, itemsGeneration)
+    }
+
+    fun applyAuthoritativeShelf(shelf: Shelf) {
+        if (state.value.shelfId != shelf.id) return
+        mutableState.value =
+            state.value.copy(detail = ShelfDetailResourceState(shelf = shelf))
     }
 
     fun clear() {

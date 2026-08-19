@@ -14,6 +14,7 @@ import com.secondpasslibrary.client.ShelfListOptions
 import com.secondpasslibrary.client.ShelfOwner
 import com.secondpasslibrary.client.ShelfPage
 import com.secondpasslibrary.client.ShelfVisibility
+import com.secondpasslibrary.client.UpdatePersonalShelfInput
 import com.secondpasslibrary.reader.FakeAuthenticatedLibraryClient
 import com.secondpasslibrary.reader.FakeAuthenticatedShelvesClient
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
@@ -26,12 +27,16 @@ internal class RecordingShelvesCapability :
     val detailRequests = mutableListOf<Pair<String, ShelfDetailOptions>>()
     val itemRequests = mutableListOf<Pair<String, ShelfItemListOptions>>()
     val createRequests = mutableListOf<CreatePersonalShelfInput>()
+    val updateRequests = mutableListOf<Pair<String, UpdatePersonalShelfInput>>()
+    val deleteRequests = mutableListOf<String>()
 
     var listCall: suspend (ShelfListOptions) -> ShelfPage = { shelfPage(it.page, emptyList()) }
     var detailCall: suspend (String) -> Shelf = { shelf(it) }
     var itemsCall: suspend (String, ShelfItemListOptions) -> ShelfItemPage =
         { _, options -> shelfItemPage(options.page, emptyList()) }
     var createCall: suspend (CreatePersonalShelfInput) -> Shelf = { shelf("created") }
+    var updateCall: suspend (String, UpdatePersonalShelfInput) -> Shelf = { id, _ -> shelf(id) }
+    var deleteCall: suspend (String) -> Unit = {}
 
     override suspend fun list(options: ShelfListOptions): ShelfPage {
         listRequests += options
@@ -51,6 +56,16 @@ internal class RecordingShelvesCapability :
     override suspend fun create(input: CreatePersonalShelfInput): Shelf {
         createRequests += input
         return createCall(input)
+    }
+
+    override suspend fun update(shelfId: String, input: UpdatePersonalShelfInput): Shelf {
+        updateRequests += shelfId to input
+        return updateCall(shelfId, input)
+    }
+
+    override suspend fun delete(shelfId: String) {
+        deleteRequests += shelfId
+        deleteCall(shelfId)
     }
 }
 

@@ -80,4 +80,6 @@ Shelves renders permanent read-only My Shelves, Shared by Others, and Group Shel
 
 Personal Shelf creation is owned by a focused child beneath `ShelvesController`. It retains and validates the dialog draft, performs the SDK mutation, and preserves the draft on failure. The parent alone opens/closes the surface and refreshes only My Shelves after success; Shared by Others and Group Shelves remain independent. Duplicate names remain server-valid, and `listed` is presented distinctly from public-group ownership.
 
+Personal Shelf container management is split into focused edit and delete state owners. Edit sends only changed mutable metadata and applies the authoritative response to the live Shelf Detail and My Shelves entry. Delete requires explicit non-idempotent confirmation, removes only the successful personal-Shelf result, and returns through the parent to the preserved My Shelves collection. Both retain Detail on failure; Shared and Group state remains read-only and untouched.
+
 All feature-facing icons use the semantic layer documented in [Icon vocabulary](icon-vocabulary.md).

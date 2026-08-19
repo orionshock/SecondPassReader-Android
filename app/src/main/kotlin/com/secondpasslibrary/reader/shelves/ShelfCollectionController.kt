@@ -66,15 +66,15 @@ internal abstract class ShelfCollectionController(
         }
     }
 
-    fun includeCreatedShelfAndRefresh(shelf: Shelf) {
+    fun applyAuthoritativeChange(change: ShelfCollectionChange, refresh: Boolean = false) {
         val current = state.value
+        val changed = current.apply(change)
         mutableState.value =
             current.copy(
-                shelves = (current.shelves.filterNot { it.id == shelf.id } + shelf)
-                    .sortedFor(current.ordering),
-                totalCount = current.totalCount + 1
+                shelves = changed.first.sortedFor(current.ordering),
+                totalCount = changed.second
             )
-        resetAndLoad(current.ordering)
+        if (refresh) resetAndLoad(current.ordering)
     }
 
     fun close() = loadJob?.cancel()
@@ -162,6 +162,23 @@ internal abstract class ShelfCollectionController(
         }
     }
 }
+
+private fun ShelfCollectionState.apply(change: ShelfCollectionChange): Pair<List<Shelf>, Int> =
+    when (change) {
+        is ShelfCollectionChange.Added -> {
+            val exists = shelves.any { it.id == change.shelf.id }
+            shelves.filterNot { it.id == change.shelf.id } + change.shelf to
+                totalCount + if (exists) 0 else 1
+        }
+
+        is ShelfCollectionChange.Updated ->
+            shelves.map { if (it.id == change.shelf.id) change.shelf else it } to totalCount
+
+        is ShelfCollectionChange.Removed -> {
+            val retained = shelves.filterNot { it.id == change.shelfId }
+            retained to (totalCount - (shelves.size - retained.size)).coerceAtLeast(0)
+        }
+    }
 
 private fun List<Shelf>.sortedFor(ordering: ShelfOrdering): List<Shelf> = when (ordering) {
     ShelfOrdering.NAME -> sortedBy { it.name.lowercase() }
