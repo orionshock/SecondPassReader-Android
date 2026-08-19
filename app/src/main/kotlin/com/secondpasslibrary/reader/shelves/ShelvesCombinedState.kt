@@ -7,7 +7,8 @@ import kotlinx.coroutines.flow.combine
 
 internal data class ShelvesNavigationState(
     val destination: ShelvesDestination =
-        ShelvesDestination.Collection(ShelvesCollection.PERSONAL)
+        ShelvesDestination.Collection(ShelvesCollection.PERSONAL),
+    val createOpen: Boolean = false
 )
 
 @OptIn(ExperimentalForInheritanceCoroutinesApi::class)
@@ -25,7 +26,8 @@ internal class ShelvesStateFlow(
                 personal.value,
                 shared.value,
                 group.value,
-                detail.value
+                detail.value,
+                navigation.value.createOpen
             )
 
     override val replayCache: List<ShelvesState>
@@ -39,7 +41,14 @@ internal class ShelvesStateFlow(
                 groupState,
                 detailState
             ->
-            ShelvesState(nav.destination, personalState, sharedState, groupState, detailState)
+            ShelvesState(
+                nav.destination,
+                personalState,
+                sharedState,
+                groupState,
+                detailState,
+                nav.createOpen
+            )
         }.collect(collector)
         error("Shelves state sources completed unexpectedly.")
     }

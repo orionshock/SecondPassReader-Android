@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -29,6 +30,7 @@ internal fun ShelvesRootControls(
     state: ShelfCollectionState,
     onCollectionSelected: (ShelvesCollection) -> Unit,
     onOrderingSelected: (ShelfOrdering) -> Unit,
+    onCreateShelf: () -> Unit,
     modifier: Modifier
 ) {
     Row(
@@ -50,6 +52,12 @@ internal fun ShelvesRootControls(
             selected == ShelvesCollection.GROUP
         ) { onCollectionSelected(ShelvesCollection.GROUP) }
         Box(Modifier.weight(1f))
+        if (selected == ShelvesCollection.PERSONAL) {
+            OutlinedButton(onClick = onCreateShelf) {
+                AppIconGraphic(AppIcon.Add, null, Modifier.size(18.dp))
+                Text("Create shelf", Modifier.padding(start = 6.dp))
+            }
+        }
         Text(
             "${state.totalCount} ${if (state.totalCount == 1) "shelf" else "shelves"}",
             color = MaterialTheme.colorScheme.onSurfaceVariant,

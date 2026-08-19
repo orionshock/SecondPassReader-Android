@@ -13,7 +13,8 @@ internal class ShelvesController(
     val personal: PersonalShelvesController = PersonalShelvesController(clientProvider, scope),
     val shared: SharedShelvesController = SharedShelvesController(clientProvider, scope),
     val group: GroupShelvesController = GroupShelvesController(clientProvider, scope),
-    val detail: ShelfDetailController = ShelfDetailController(clientProvider, scope)
+    val detail: ShelfDetailController = ShelfDetailController(clientProvider, scope),
+    val create: CreatePersonalShelfController = CreatePersonalShelfController(clientProvider, scope)
 ) {
     private val navigation = MutableStateFlow(ShelvesNavigationState())
     val state =
@@ -23,7 +24,8 @@ internal class ShelvesController(
             personal.connectionEvents,
             shared.connectionEvents,
             group.connectionEvents,
-            detail.connectionEvents
+            detail.connectionEvents,
+            create.connectionEvents
         )
 
     private var connectionIdentity: String? = null
@@ -34,6 +36,7 @@ internal class ShelvesController(
         shared.prepare(profile)
         group.prepare(profile)
         detail.prepare(profile)
+        create.prepare(profile)
         if (identity != connectionIdentity) {
             connectionIdentity = identity
             navigation.value = ShelvesNavigationState()
@@ -65,11 +68,30 @@ internal class ShelvesController(
         destination.collection.controller().changeOrdering(ordering)
     }
 
+    fun openCreate() {
+        val destination = navigation.value.destination as? ShelvesDestination.Collection ?: return
+        if (destination.collection != ShelvesCollection.PERSONAL) return
+        navigation.value = navigation.value.copy(createOpen = true)
+    }
+
+    fun dismissCreate() {
+        create.reset()
+        navigation.value = navigation.value.copy(createOpen = false)
+    }
+
+    fun submitCreate() {
+        create.submit { shelf ->
+            navigation.value = navigation.value.copy(createOpen = false)
+            personal.includeCreatedShelfAndRefresh(shelf)
+        }
+    }
+
     fun close() {
         personal.close()
         shared.close()
         group.close()
         detail.close()
+        create.close()
     }
 
     private fun activateCurrentCollection() {

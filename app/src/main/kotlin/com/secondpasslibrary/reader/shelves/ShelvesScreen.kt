@@ -24,6 +24,7 @@ internal fun ShelvesScreen(
     onBookSelected: (ShelfBookNavigationRequest) -> Unit
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val createState by viewModel.createState.collectAsStateWithLifecycle()
     val detail = state.destination as? ShelvesDestination.Detail
     BackHandler(enabled = detail != null, onBack = viewModel::backFromDetail)
 
@@ -44,6 +45,7 @@ internal fun ShelvesScreen(
                 onRetryShared = viewModel::retryShared,
                 onRetryGroup = viewModel::retryGroup,
                 onShelfSelected = viewModel::selectShelf,
+                onCreateShelf = viewModel::openCreate,
                 modifier = modifier
             )
         } else {
@@ -62,6 +64,16 @@ internal fun ShelvesScreen(
                 modifier = modifier
             )
         }
+    }
+    if (state.createOpen) {
+        CreatePersonalShelfDialog(
+            state = createState,
+            onNameChanged = viewModel::updateCreateName,
+            onDescriptionChanged = viewModel::updateCreateDescription,
+            onVisibilityChanged = viewModel::updateCreateVisibility,
+            onSubmit = viewModel::submitCreate,
+            onDismiss = viewModel::dismissCreate
+        )
     }
 }
 

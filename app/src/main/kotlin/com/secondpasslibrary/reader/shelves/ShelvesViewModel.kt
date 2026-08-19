@@ -19,6 +19,7 @@ constructor(clientProvider: AuthenticatedClientProvider) :
 
     val state = controller.state
     val connectionEvents = controller.connectionEvents
+    val createState = controller.create.state
 
     fun initialize(profile: ConnectionProfile) = controller.initialize(profile)
 
@@ -42,6 +43,20 @@ constructor(clientProvider: AuthenticatedClientProvider) :
     fun retryShared() = controller.shared.retry()
 
     fun retryGroup() = controller.group.retry()
+
+    fun openCreate() = controller.openCreate()
+
+    fun dismissCreate() = controller.dismissCreate()
+
+    fun updateCreateName(name: String) = controller.create.updateName(name)
+
+    fun updateCreateDescription(description: String) =
+        controller.create.updateDescription(description)
+
+    fun updateCreateVisibility(visibility: com.secondpasslibrary.client.ShelfVisibility) =
+        controller.create.updateVisibility(visibility)
+
+    fun submitCreate() = controller.submitCreate()
 
     fun changeItemOrdering(ordering: ShelfItemOrdering) =
         controller.detail.changeItemOrdering(ordering)

@@ -57,6 +57,7 @@ internal fun ShelvesRoot(
     onRetryShared: () -> Unit,
     onRetryGroup: () -> Unit,
     onShelfSelected: (String) -> Unit,
+    onCreateShelf: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val selected =
@@ -85,6 +86,7 @@ internal fun ShelvesRoot(
             collectionState,
             onCollectionSelected,
             onOrderingSelected,
+            onCreateShelf,
             Modifier.padding(top = 14.dp, bottom = 8.dp)
         )
         stateHolder.SaveableStateProvider(selected) {

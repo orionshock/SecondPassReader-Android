@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.shelves
 
+import com.secondpasslibrary.client.Shelf
 import com.secondpasslibrary.client.ShelfListOptions
 import com.secondpasslibrary.client.ShelfOrdering
 import com.secondpasslibrary.client.ShelfPage
@@ -36,7 +37,9 @@ internal abstract class ShelfCollectionController(
         this.profile = profile
         if (identity == connectionIdentity) return
         connectionIdentity = identity
-        reset()
+        loadJob?.cancel()
+        generation += 1
+        mutableState.value = ShelfCollectionState(ordering = state.value.ordering)
     }
 
     fun activate() {
@@ -63,13 +66,18 @@ internal abstract class ShelfCollectionController(
         }
     }
 
-    fun close() = loadJob?.cancel()
-
-    private fun reset() {
-        loadJob?.cancel()
-        generation += 1
-        mutableState.value = ShelfCollectionState(ordering = state.value.ordering)
+    fun includeCreatedShelfAndRefresh(shelf: Shelf) {
+        val current = state.value
+        mutableState.value =
+            current.copy(
+                shelves = (current.shelves.filterNot { it.id == shelf.id } + shelf)
+                    .sortedFor(current.ordering),
+                totalCount = current.totalCount + 1
+            )
+        resetAndLoad(current.ordering)
     }
+
+    fun close() = loadJob?.cancel()
 
     private fun resetAndLoad(ordering: ShelfOrdering) {
         if (profile == null) return
@@ -153,6 +161,13 @@ internal abstract class ShelfCollectionController(
             connectionEventChannel.trySend(ShelvesConnectionEvent.AuthenticationRejected)
         }
     }
+}
+
+private fun List<Shelf>.sortedFor(ordering: ShelfOrdering): List<Shelf> = when (ordering) {
+    ShelfOrdering.NAME -> sortedBy { it.name.lowercase() }
+    ShelfOrdering.NAME_DESCENDING -> sortedByDescending { it.name.lowercase() }
+    ShelfOrdering.ITEM_COUNT -> sortedBy { it.itemCount }
+    ShelfOrdering.ITEM_COUNT_DESCENDING -> sortedByDescending { it.itemCount }
 }
 
 internal class PersonalShelvesController(

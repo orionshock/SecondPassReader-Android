@@ -4,6 +4,7 @@ import com.secondpasslibrary.client.Shelf
 import com.secondpasslibrary.client.ShelfItem
 import com.secondpasslibrary.client.ShelfItemOrdering
 import com.secondpasslibrary.client.ShelfOrdering
+import com.secondpasslibrary.client.ShelfVisibility
 
 internal enum class ShelvesCollection {
     PERSONAL,
@@ -71,8 +72,34 @@ internal data class ShelvesState(
     val personal: ShelfCollectionState = ShelfCollectionState(),
     val shared: ShelfCollectionState = ShelfCollectionState(),
     val group: ShelfCollectionState = ShelfCollectionState(),
-    val detail: ShelfDetailState = ShelfDetailState()
+    val detail: ShelfDetailState = ShelfDetailState(),
+    val createOpen: Boolean = false
 )
+
+internal data class CreatePersonalShelfState(
+    val name: String = "",
+    val description: String = "",
+    val visibility: ShelfVisibility = ShelfVisibility.PRIVATE,
+    val submitting: Boolean = false,
+    val nameError: CreateShelfFieldError? = null,
+    val descriptionError: CreateShelfFieldError? = null,
+    val visibilityError: CreateShelfFieldError? = null,
+    val failure: CreateShelfFailure? = null
+)
+
+internal enum class CreateShelfFieldError {
+    REQUIRED,
+    TOO_LONG,
+    SERVER_REJECTED
+}
+
+internal enum class CreateShelfFailure {
+    UNREACHABLE,
+    AUTHENTICATION_REJECTED,
+    REJECTED,
+    FIELD_VALIDATION,
+    OTHER
+}
 
 internal data class ShelvesLoadError(val failure: ShelvesFailure, val phase: ShelvesLoadPhase)
 
