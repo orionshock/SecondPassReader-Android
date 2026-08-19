@@ -174,14 +174,6 @@ private fun AppNavigator.openShelfBook(request: ShelfBookNavigationRequest) {
     )
 }
 
-private fun AppNavigator.handleBookDetailNavigation(intent: BookDetailNavigationIntent) {
-    when (intent) {
-        is BookDetailNavigationIntent.Author -> openLibraryAuthor(intent.id)
-        is BookDetailNavigationIntent.Series -> openLibrarySeries(intent.id)
-        is BookDetailNavigationIntent.Tag -> openLibraryTag(intent.id, intent.slug)
-    }
-}
-
 private fun ShelvesCollection.toRouteOrigin(): ShelfCollectionOrigin = when (this) {
     ShelvesCollection.PERSONAL -> ShelfCollectionOrigin.PERSONAL
     ShelvesCollection.SHARED -> ShelfCollectionOrigin.SHARED

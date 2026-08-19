@@ -1,6 +1,7 @@
 package com.secondpasslibrary.reader.app.shell
 
 import androidx.navigation3.runtime.NavKey
+import com.secondpasslibrary.reader.bookdetail.BookDetailNavigationIntent
 
 internal class AppNavigator(private val backStack: MutableList<NavKey>) {
     fun select(destination: AppDestination) {
@@ -26,6 +27,15 @@ internal class AppNavigator(private val backStack: MutableList<NavKey>) {
 
     fun openLibraryTag(tagId: String, tagSlug: String) =
         replaceWith(LibraryTagRoute(tagId, tagSlug))
+
+    fun handleBookDetailNavigation(intent: BookDetailNavigationIntent) {
+        when (intent) {
+            is BookDetailNavigationIntent.Author -> openLibraryAuthor(intent.id)
+            is BookDetailNavigationIntent.Series -> openLibrarySeries(intent.id)
+            is BookDetailNavigationIntent.Tag -> openLibraryTag(intent.id, intent.slug)
+            BookDetailNavigationIntent.ManageShelves -> select(AppDestination.Shelves)
+        }
+    }
 
     fun goBack() {
         if (backStack.size > 1) backStack.removeAt(backStack.lastIndex)

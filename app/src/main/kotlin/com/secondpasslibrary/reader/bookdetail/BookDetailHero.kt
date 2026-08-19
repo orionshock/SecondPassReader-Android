@@ -45,6 +45,7 @@ internal fun BookDetailMetadata(
     onAuthorSelected: (String) -> Unit,
     onSeriesSelected: (String) -> Unit,
     onTagSelected: (String, String) -> Unit,
+    onAddToShelf: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val presentation = book.toPresentation()
@@ -77,7 +78,7 @@ internal fun BookDetailMetadata(
             }
         }
         Description(presentation.description)
-        BookActions(book.file != null)
+        BookActions(book.file != null, onAddToShelf)
         GroupMemberships(book)
     }
 }
@@ -120,7 +121,7 @@ private fun Description(description: String?) {
 }
 
 @Composable
-private fun BookActions(hasFile: Boolean) {
+private fun BookActions(hasFile: Boolean, onAddToShelf: () -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = MaterialTheme.shapes.small
@@ -131,9 +132,9 @@ private fun BookActions(hasFile: Boolean) {
         ) {
             Text(if (hasFile) "Reader actions are not available yet." else "EPUB unavailable")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("Open reader", "Reading sessions", "Add to shelf").forEach { label ->
-                    OutlinedButton(onClick = {}, enabled = false) { Text(label) }
-                }
+                OutlinedButton(onClick = {}, enabled = false) { Text("Open reader") }
+                OutlinedButton(onClick = {}, enabled = false) { Text("Reading sessions") }
+                OutlinedButton(onClick = onAddToShelf) { Text("Add to shelf") }
             }
         }
     }

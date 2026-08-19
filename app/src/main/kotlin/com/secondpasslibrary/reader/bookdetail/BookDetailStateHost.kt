@@ -18,6 +18,7 @@ internal fun BookDetailStateHost(
     viewModel: BookDetailViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val shelfPickerState by viewModel.shelfPickerState.collectAsStateWithLifecycle()
     BackHandler(onBack = onBack)
     LaunchedEffect(profile.apiBaseUrl, profile.clientSessionId, bookId) {
         viewModel.initialize(profile, bookId)
@@ -35,6 +36,19 @@ internal fun BookDetailStateHost(
         onRetry = viewModel::retry,
         onAuthorSelected = { onNavigation(BookDetailNavigationIntent.Author(it)) },
         onSeriesSelected = { onNavigation(BookDetailNavigationIntent.Series(it)) },
-        onTagSelected = { id, slug -> onNavigation(BookDetailNavigationIntent.Tag(id, slug)) }
+        onTagSelected = { id, slug -> onNavigation(BookDetailNavigationIntent.Tag(id, slug)) },
+        onAddToShelf = viewModel::openShelfPicker
     )
+    if (shelfPickerState.open) {
+        BookShelfPickerDialog(
+            state = shelfPickerState,
+            onRetry = viewModel::retryShelfPicker,
+            onAdd = viewModel::addToShelf,
+            onManageShelves = {
+                viewModel.dismissShelfPicker()
+                onNavigation(BookDetailNavigationIntent.ManageShelves)
+            },
+            onDismiss = viewModel::dismissShelfPicker
+        )
+    }
 }

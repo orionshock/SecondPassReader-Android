@@ -6,6 +6,7 @@ import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.flow.merge
 
 @HiltViewModel
 internal class BookDetailViewModel
@@ -14,24 +15,39 @@ constructor(
     clientProvider: AuthenticatedClientProvider
 ) : ViewModel() {
     private val controller = BookDetailController(clientProvider, viewModelScope)
+    private val shelfPicker = BookShelfPickerController(clientProvider, viewModelScope)
     private var connectionIdentity: String? = null
 
     val state = controller.state
-    val connectionEvents = controller.connectionEvents
+    val shelfPickerState = shelfPicker.state
+    val connectionEvents = merge(controller.connectionEvents, shelfPicker.connectionEvents)
 
     fun initialize(profile: ConnectionProfile, bookId: String) {
         val identity = "${profile.apiBaseUrl}\u0000${profile.clientSessionId}"
         if (identity != connectionIdentity) {
             connectionIdentity = identity
             controller.clear()
+            shelfPicker.dismiss()
         }
         controller.prepare(profile)
+        shelfPicker.prepare(profile)
         controller.select(bookId)
     }
 
     fun retry() = controller.retry()
 
+    fun openShelfPicker() {
+        state.value.bookId?.let(shelfPicker::open)
+    }
+
+    fun dismissShelfPicker() = shelfPicker.dismiss()
+
+    fun retryShelfPicker() = shelfPicker.retry()
+
+    fun addToShelf(shelfId: String) = shelfPicker.addTo(shelfId)
+
     override fun onCleared() {
         controller.close()
+        shelfPicker.close()
     }
 }

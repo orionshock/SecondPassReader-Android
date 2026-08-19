@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.shelves
 
+import com.secondpasslibrary.client.AddShelfItemInput
 import com.secondpasslibrary.client.AuthenticatedSecondPassClient
 import com.secondpasslibrary.client.AuthenticatedShelvesClient
 import com.secondpasslibrary.client.CreatePersonalShelfInput
@@ -37,6 +38,7 @@ internal class RecordingShelvesCapability :
     val moveRequests = mutableListOf<Triple<String, String, ShelfItemMove>>()
     val positionRequests = mutableListOf<Triple<String, String, Int>>()
     val removeRequests = mutableListOf<Pair<String, String>>()
+    val addRequests = mutableListOf<Pair<String, AddShelfItemInput>>()
 
     var listCall: suspend (ShelfListOptions) -> ShelfPage = { shelfPage(it.page, emptyList()) }
     var detailCall: suspend (String) -> Shelf = { shelf(it) }
@@ -52,6 +54,9 @@ internal class RecordingShelvesCapability :
     var positionCall: suspend (String, String, Int) -> ShelfItem =
         { _, itemId, position -> shelfItem(itemId, position) }
     var removeCall: suspend (String, String) -> Unit = { _, _ -> }
+    var addCall: suspend (String, AddShelfItemInput) -> ShelfItem = { shelfId, _ ->
+        shelfItem("added", 0).copy(shelfId = shelfId)
+    }
 
     override suspend fun list(options: ShelfListOptions): ShelfPage {
         listRequests += options
@@ -112,6 +117,11 @@ internal class RecordingShelvesCapability :
     override suspend fun removeItem(shelfId: String, itemId: String) {
         removeRequests += shelfId to itemId
         removeCall(shelfId, itemId)
+    }
+
+    override suspend fun addItem(shelfId: String, input: AddShelfItemInput): ShelfItem {
+        addRequests += shelfId to input
+        return addCall(shelfId, input)
     }
 }
 

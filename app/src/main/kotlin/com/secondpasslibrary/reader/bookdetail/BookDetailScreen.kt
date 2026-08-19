@@ -31,7 +31,8 @@ internal fun BookDetailScreen(
     onRetry: () -> Unit,
     onAuthorSelected: (String) -> Unit,
     onSeriesSelected: (String) -> Unit,
-    onTagSelected: (String, String) -> Unit
+    onTagSelected: (String, String) -> Unit,
+    onAddToShelf: () -> Unit
 ) {
     Column(Modifier.fillMaxSize()) {
         Row(
@@ -54,7 +55,8 @@ internal fun BookDetailScreen(
                     state.detail,
                     onAuthorSelected,
                     onSeriesSelected,
-                    onTagSelected
+                    onTagSelected,
+                    onAddToShelf
                 )
         }
     }
@@ -89,7 +91,8 @@ private fun BookDetailHero(
     book: com.secondpasslibrary.client.LibraryBookDetail,
     onAuthorSelected: (String) -> Unit,
     onSeriesSelected: (String) -> Unit,
-    onTagSelected: (String, String) -> Unit
+    onTagSelected: (String, String) -> Unit,
+    onAddToShelf: () -> Unit
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 720.dp && maxWidth > maxHeight
@@ -106,6 +109,7 @@ private fun BookDetailHero(
                             onAuthorSelected,
                             onSeriesSelected,
                             onTagSelected,
+                            onAddToShelf,
                             Modifier.weight(1f)
                         )
                     }
@@ -118,7 +122,8 @@ private fun BookDetailHero(
                             book,
                             onAuthorSelected,
                             onSeriesSelected,
-                            onTagSelected
+                            onTagSelected,
+                            onAddToShelf
                         )
                     }
                 }

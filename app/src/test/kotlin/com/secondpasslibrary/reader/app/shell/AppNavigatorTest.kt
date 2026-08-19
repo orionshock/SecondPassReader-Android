@@ -1,6 +1,7 @@
 package com.secondpasslibrary.reader.app.shell
 
 import androidx.navigation3.runtime.NavKey
+import com.secondpasslibrary.reader.bookdetail.BookDetailNavigationIntent
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -94,5 +95,18 @@ class AppNavigatorTest {
 
         navigator.openLibraryTag("tag-1", "fiction")
         assertEquals(listOf(LibraryTagRoute("tag-1", "fiction")), backStack)
+    }
+
+    @Test
+    fun `Book Detail Manage Shelves intent enters Shelves as a new context`() {
+        val backStack = mutableListOf<NavKey>(
+            AppDestination.Library,
+            BookDetailRoute("book-1", BookDetailReturnTarget.Library)
+        )
+        val navigator = AppNavigator(backStack)
+
+        navigator.handleBookDetailNavigation(BookDetailNavigationIntent.ManageShelves)
+
+        assertEquals(listOf(AppDestination.Shelves), backStack)
     }
 }
