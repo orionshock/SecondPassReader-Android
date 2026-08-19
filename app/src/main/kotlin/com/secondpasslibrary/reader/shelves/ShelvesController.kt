@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.shelves
 
+import com.secondpasslibrary.client.Shelf
 import com.secondpasslibrary.client.ShelfOrdering
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
@@ -19,10 +20,19 @@ internal class ShelvesController(
     val create = CreatePersonalShelfController(clientProvider, scope)
     val edit = EditPersonalShelfController(clientProvider, scope)
     val delete = DeletePersonalShelfController(clientProvider, scope)
+    val editor =
+        ShelfContentsEditorController(clientProvider, scope, ::reconcileShelfContents)
 
     private val navigation = MutableStateFlow(ShelvesNavigationState())
     val state =
-        ShelvesStateFlow(navigation, personal.state, shared.state, group.state, detail.state)
+        ShelvesStateFlow(
+            navigation,
+            personal.state,
+            shared.state,
+            group.state,
+            detail.state,
+            editor.state
+        )
     val connectionEvents =
         merge(
             personal.connectionEvents,
@@ -31,7 +41,8 @@ internal class ShelvesController(
             detail.connectionEvents,
             create.connectionEvents,
             edit.connectionEvents,
-            delete.connectionEvents
+            delete.connectionEvents,
+            editor.connectionEvents
         )
 
     private var connectionIdentity: String? = null
@@ -45,6 +56,7 @@ internal class ShelvesController(
         create.prepare(profile)
         edit.prepare(profile)
         delete.prepare(profile)
+        editor.prepare(profile)
         if (identity != connectionIdentity) {
             connectionIdentity = identity
             navigation.value = ShelvesNavigationState()
@@ -53,8 +65,9 @@ internal class ShelvesController(
     }
 
     fun showCollection(collection: ShelvesCollection) {
-        if (navigation.value.destination is ShelvesDestination.Detail) {
+        if (navigation.value.destination !is ShelvesDestination.Collection) {
             detail.clear()
+            editor.clear()
             edit.reset()
             delete.reset()
         }
@@ -82,6 +95,25 @@ internal class ShelvesController(
     fun changeCollectionOrdering(ordering: ShelfOrdering) {
         val destination = navigation.value.destination as? ShelvesDestination.Collection ?: return
         destination.collection.controller().changeOrdering(ordering)
+    }
+
+    fun openContentsEditor() {
+        val current = navigation.value.destination as? ShelvesDestination.Detail ?: return
+        val shelf = detail.state.value.detail.shelf
+        if (!canManageShelf(current.origin, shelf)) return
+        editor.open(current.shelfId)
+        navigation.value =
+            ShelvesNavigationState(
+                ShelvesDestination.ContentsEditor(current.shelfId, current.origin)
+            )
+    }
+
+    fun backFromContentsEditor() {
+        val current =
+            navigation.value.destination as? ShelvesDestination.ContentsEditor ?: return
+        editor.clear()
+        navigation.value =
+            ShelvesNavigationState(ShelvesDestination.Detail(current.shelfId, current.origin))
     }
 
     fun openCreate() {
@@ -140,6 +172,7 @@ internal class ShelvesController(
         create.close()
         edit.close()
         delete.close()
+        editor.close()
     }
 
     private fun activateCurrentCollection() {
@@ -147,7 +180,14 @@ internal class ShelvesController(
         when (destination) {
             is ShelvesDestination.Collection -> destination.collection.controller().activate()
             is ShelvesDestination.Detail -> Unit
+            is ShelvesDestination.ContentsEditor -> Unit
         }
+    }
+
+    private fun reconcileShelfContents(shelf: Shelf) {
+        detail.applyAuthoritativeShelf(shelf)
+        detail.reloadItems()
+        personal.applyAuthoritativeChange(ShelfCollectionChange.Updated(shelf))
     }
 
     private fun ShelvesCollection.controller(): ShelfCollectionController = when (this) {

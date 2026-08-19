@@ -63,6 +63,7 @@ internal data class ShelfItemWire(
     val shelf: String? = null,
     val book: CompactBookWire? = null,
     val position: Int? = null,
+    val unavailable: Boolean? = null,
     @SerialName("added_by") val addedBy: ShelfUserWire? = null,
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null

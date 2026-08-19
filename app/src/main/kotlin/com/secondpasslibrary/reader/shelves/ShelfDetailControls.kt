@@ -35,6 +35,7 @@ internal fun ShelfDetailHeader(
     state: ShelfDetailResourceState,
     onRetry: () -> Unit,
     canManage: Boolean,
+    onManageContents: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier
@@ -66,6 +67,7 @@ internal fun ShelfDetailHeader(
                     state.shelf.toCardPresentation(),
                     state,
                     canManage,
+                    onManageContents,
                     onEdit,
                     onDelete
                 )
@@ -78,6 +80,7 @@ private fun ShelfDetailMetadata(
     model: ShelfCardPresentation,
     state: ShelfDetailResourceState,
     canManage: Boolean,
+    onManageContents: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -118,11 +121,22 @@ private fun ShelfDetailMetadata(
             style = MaterialTheme.typography.labelMedium
         )
         if (model.canEdit) {
-            Text(
-                "Owned by you",
-                color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.labelSmall
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Owned by you",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.labelSmall
+                )
+                if (canManage) {
+                    OutlinedButton(onClick = onManageContents) {
+                        AppIconGraphic(AppIcon.SortPositional, null, Modifier.size(18.dp))
+                        Text("Manage contents", Modifier.padding(start = 6.dp))
+                    }
+                }
+            }
         }
     }
 }

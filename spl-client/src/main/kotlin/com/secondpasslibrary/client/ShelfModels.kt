@@ -182,9 +182,7 @@ sealed interface ShelfEditorItem {
         override val shelfId: String,
         override val position: Int,
         override val addedBy: ShelfUser?,
-        val book: CompactBook,
-        val createdAt: String,
-        val updatedAt: String
+        val book: CompactBook
     ) : ShelfEditorItem
 
     data class Unavailable(

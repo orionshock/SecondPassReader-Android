@@ -7,8 +7,12 @@ import com.secondpasslibrary.client.RecentReadingItem
 import com.secondpasslibrary.client.RecentReadingOptions
 import com.secondpasslibrary.client.Shelf
 import com.secondpasslibrary.client.ShelfDetailOptions
+import com.secondpasslibrary.client.ShelfEditorItem
+import com.secondpasslibrary.client.ShelfEditorListOptions
+import com.secondpasslibrary.client.ShelfEditorPage
 import com.secondpasslibrary.client.ShelfItem
 import com.secondpasslibrary.client.ShelfItemListOptions
+import com.secondpasslibrary.client.ShelfItemMove
 import com.secondpasslibrary.client.ShelfItemPage
 import com.secondpasslibrary.client.ShelfListOptions
 import com.secondpasslibrary.client.ShelfOwner
@@ -29,6 +33,10 @@ internal class RecordingShelvesCapability :
     val createRequests = mutableListOf<CreatePersonalShelfInput>()
     val updateRequests = mutableListOf<Pair<String, UpdatePersonalShelfInput>>()
     val deleteRequests = mutableListOf<String>()
+    val editorRequests = mutableListOf<Pair<String, ShelfEditorListOptions>>()
+    val moveRequests = mutableListOf<Triple<String, String, ShelfItemMove>>()
+    val positionRequests = mutableListOf<Triple<String, String, Int>>()
+    val removeRequests = mutableListOf<Pair<String, String>>()
 
     var listCall: suspend (ShelfListOptions) -> ShelfPage = { shelfPage(it.page, emptyList()) }
     var detailCall: suspend (String) -> Shelf = { shelf(it) }
@@ -37,6 +45,13 @@ internal class RecordingShelvesCapability :
     var createCall: suspend (CreatePersonalShelfInput) -> Shelf = { shelf("created") }
     var updateCall: suspend (String, UpdatePersonalShelfInput) -> Shelf = { id, _ -> shelf(id) }
     var deleteCall: suspend (String) -> Unit = {}
+    var editorCall: suspend (String, ShelfEditorListOptions) -> ShelfEditorPage =
+        { _, options -> shelfEditorPage(options.page, emptyList()) }
+    var moveCall: suspend (String, String, ShelfItemMove) -> ShelfItem =
+        { _, itemId, _ -> shelfItem(itemId, 0) }
+    var positionCall: suspend (String, String, Int) -> ShelfItem =
+        { _, itemId, position -> shelfItem(itemId, position) }
+    var removeCall: suspend (String, String) -> Unit = { _, _ -> }
 
     override suspend fun list(options: ShelfListOptions): ShelfPage {
         listRequests += options
@@ -66,6 +81,37 @@ internal class RecordingShelvesCapability :
     override suspend fun delete(shelfId: String) {
         deleteRequests += shelfId
         deleteCall(shelfId)
+    }
+
+    override suspend fun listEditorItems(
+        shelfId: String,
+        options: ShelfEditorListOptions
+    ): ShelfEditorPage {
+        editorRequests += shelfId to options
+        return editorCall(shelfId, options)
+    }
+
+    override suspend fun moveItem(
+        shelfId: String,
+        itemId: String,
+        direction: ShelfItemMove
+    ): ShelfItem {
+        moveRequests += Triple(shelfId, itemId, direction)
+        return moveCall(shelfId, itemId, direction)
+    }
+
+    override suspend fun setItemPosition(
+        shelfId: String,
+        itemId: String,
+        position: Int
+    ): ShelfItem {
+        positionRequests += Triple(shelfId, itemId, position)
+        return positionCall(shelfId, itemId, position)
+    }
+
+    override suspend fun removeItem(shelfId: String, itemId: String) {
+        removeRequests += shelfId to itemId
+        removeCall(shelfId, itemId)
     }
 }
 
@@ -135,3 +181,36 @@ internal fun shelfItemPage(
     total: Int = items.size,
     hasNext: Boolean = false
 ) = ShelfItemPage(total, items, hasNext, page > 1, page, SHELVES_PAGE_SIZE)
+
+internal fun availableEditorItem(id: String, position: Int) = ShelfEditorItem.Available(
+    id = id,
+    shelfId = "shelf-1",
+    position = position,
+    addedBy = null,
+    book = axisBook("book-$id")
+)
+
+internal fun unavailableEditorItem(id: String, position: Int) = ShelfEditorItem.Unavailable(
+    id = id,
+    shelfId = "shelf-1",
+    position = position,
+    addedBy = null
+)
+
+internal fun shelfEditorPage(
+    page: Int,
+    items: List<ShelfEditorItem>,
+    total: Int = items.size,
+    visible: Int = items.count { it is ShelfEditorItem.Available },
+    unavailable: Int = items.count { it is ShelfEditorItem.Unavailable },
+    hasNext: Boolean = false
+) = ShelfEditorPage(
+    total,
+    visible,
+    unavailable,
+    items,
+    hasNext,
+    page > 1,
+    page,
+    SHELVES_PAGE_SIZE
+)

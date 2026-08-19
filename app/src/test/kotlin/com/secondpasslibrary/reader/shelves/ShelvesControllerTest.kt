@@ -260,6 +260,81 @@ class ShelvesControllerTest {
         assertEquals(ShelfManagementFailure.UNREACHABLE, controller.delete.state.value.failure)
     }
 
+    @Test
+    fun `Personal editor mutation reconciles detail and My Shelves only`() = runTest {
+        val original = shelf("personal", canEdit = true)
+        val updated = original.copy(itemCount = 1, previewBooks = emptyList())
+        var mutated = false
+        val capability = RecordingShelvesCapability().apply {
+            listCall = { options -> shelfPage(1, listOf(shelf(options.scope.name))) }
+            detailCall = { if (mutated) updated else original }
+            editorCall = { _, options ->
+                val entries = if (mutated) emptyList() else listOf(availableEditorItem("item", 0))
+                shelfEditorPage(options.page, entries)
+            }
+            removeCall = { _, _ -> mutated = true }
+        }
+        val controller = controller(capability, this)
+        controller.initialize(shelvesProfile())
+        advanceUntilIdle()
+        controller.personal.applyAuthoritativeChange(ShelfCollectionChange.Added(original))
+        controller.showCollection(ShelvesCollection.SHARED)
+        advanceUntilIdle()
+        controller.showCollection(ShelvesCollection.GROUP)
+        advanceUntilIdle()
+        controller.showCollection(ShelvesCollection.PERSONAL)
+        controller.selectShelf(original.id)
+        advanceUntilIdle()
+        val sharedBefore = controller.state.value.shared
+        val groupBefore = controller.state.value.group
+
+        controller.openContentsEditor()
+        advanceUntilIdle()
+        controller.editor.requestRemoval("item")
+        controller.editor.confirmRemoval()
+        advanceUntilIdle()
+
+        assertEquals(1, controller.state.value.detail.detail.shelf?.itemCount)
+        assertEquals(
+            1,
+            controller.state.value.personal.shelves.first { it.id == original.id }.itemCount
+        )
+        assertEquals(sharedBefore, controller.state.value.shared)
+        assertEquals(groupBefore, controller.state.value.group)
+        assertEquals(
+            ShelvesDestination.ContentsEditor(original.id, ShelvesCollection.PERSONAL),
+            controller.state.value.destination
+        )
+        controller.backFromContentsEditor()
+        assertEquals(
+            ShelvesDestination.Detail(original.id, ShelvesCollection.PERSONAL),
+            controller.state.value.destination
+        )
+    }
+
+    @Test
+    fun `Shared and Group Shelf details cannot enter contents editor`() = runTest {
+        val editableResponse = shelf("foreign", canEdit = true)
+        val capability = RecordingShelvesCapability().apply { detailCall = { editableResponse } }
+        val controller = controller(capability, this)
+        controller.initialize(shelvesProfile())
+        advanceUntilIdle()
+
+        listOf(ShelvesCollection.SHARED, ShelvesCollection.GROUP).forEach { collection ->
+            controller.showCollection(collection)
+            advanceUntilIdle()
+            controller.selectShelf("foreign")
+            advanceUntilIdle()
+            controller.openContentsEditor()
+            assertEquals(
+                ShelvesDestination.Detail("foreign", collection),
+                controller.state.value.destination
+            )
+            controller.backFromDetail()
+        }
+        assertTrue(capability.editorRequests.isEmpty())
+    }
+
     private fun controller(capability: RecordingShelvesCapability, scope: CoroutineScope) =
         ShelvesController(ShelvesTestClientProvider(ShelvesTestClient(capability)), scope)
 }

@@ -200,6 +200,28 @@ class ShelvesClientTest {
         }
     }
 
+    @Test
+    fun `editor availability discriminator is required and must match Book visibility`() {
+        val missingFlag = authenticatedClient {
+            jsonResponse(SHELF_EDITOR_PAGE.replaceFirst("\"unavailable\":false,", ""))
+        }
+        val leakedBook = authenticatedClient {
+            jsonResponse(
+                SHELF_EDITOR_PAGE.replaceFirst(
+                    "\"unavailable\":false",
+                    "\"unavailable\":true"
+                )
+            )
+        }
+
+        assertThrows(SplClientException.ProtocolInvalid::class.java) {
+            runBlocking { missingFlag.shelves.listEditorItems("shelf-1") }
+        }
+        assertThrows(SplClientException.ProtocolInvalid::class.java) {
+            runBlocking { leakedBook.shelves.listEditorItems("shelf-1") }
+        }
+    }
+
     private fun authenticatedClient(
         handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData
     ): AuthenticatedSecondPassClient {

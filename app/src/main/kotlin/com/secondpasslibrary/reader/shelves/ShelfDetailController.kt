@@ -93,6 +93,8 @@ internal class ShelfDetailController(
             state.value.copy(detail = ShelfDetailResourceState(shelf = shelf))
     }
 
+    fun reloadItems() = resetItemsAndLoad(state.value.items.ordering)
+
     fun clear() {
         cancelRequests()
         generation += 1

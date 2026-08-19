@@ -56,6 +56,7 @@ internal fun ShelfDetailContent(
     onRetryItems: () -> Unit,
     onBookSelected: (String) -> Unit,
     canManage: Boolean,
+    onManageContents: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
@@ -65,6 +66,7 @@ internal fun ShelfDetailContent(
             state.detail,
             onRetryDetail,
             canManage,
+            onManageContents,
             onEdit,
             onDelete,
             Modifier.padding(top = 14.dp)

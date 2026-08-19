@@ -70,9 +70,8 @@ internal val SHELF_EDITOR_PAGE =
         "count":2,"next":null,"previous":null,"visible_item_count":1,"unavailable_item_count":1,
         "results":[
             {"id":"item-visible","shelf":"shelf-1","book":$COMPACT_BOOK,"position":3,
-             "added_by":{"profile_id":"profile-2","username":"adder"},
-             "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-02T00:00:00Z"},
-            {"id":"item-hidden","shelf":"shelf-1","book":null,"position":8,
+             "unavailable":false,"added_by":{"profile_id":"profile-2","username":"adder"}},
+            {"id":"item-hidden","shelf":"shelf-1","book":null,"position":8,"unavailable":true,
              "added_by":{"profile_id":"profile-2","username":"adder"}}
         ]
     }"""

@@ -79,18 +79,18 @@ private fun ShelfItemWire.toEditorModel(): ShelfEditorItem {
     val shelfId = shelf.required(SHELF_EDITOR_CONTEXT)
     val storedPosition = position ?: invalidProtocol(SHELF_EDITOR_CONTEXT)
     val actor = addedBy?.toModel()
-    val visibleBook = book
-    return if (visibleBook == null) {
+    val isUnavailable = unavailable ?: invalidProtocol(SHELF_EDITOR_CONTEXT)
+    return if (isUnavailable) {
+        if (book != null) invalidProtocol(SHELF_EDITOR_CONTEXT)
         ShelfEditorItem.Unavailable(itemId, shelfId, storedPosition, actor)
     } else {
+        val visibleBook = book ?: invalidProtocol(SHELF_EDITOR_CONTEXT)
         ShelfEditorItem.Available(
             id = itemId,
             shelfId = shelfId,
             position = storedPosition,
             addedBy = actor,
-            book = visibleBook.toModel(),
-            createdAt = createdAt.required(SHELF_EDITOR_CONTEXT),
-            updatedAt = updatedAt.required(SHELF_EDITOR_CONTEXT)
+            book = visibleBook.toModel()
         )
     }
 }

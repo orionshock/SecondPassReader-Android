@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.shelves
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.secondpasslibrary.client.ShelfItemMove
 import com.secondpasslibrary.client.ShelfItemOrdering
 import com.secondpasslibrary.client.ShelfOrdering
 import com.secondpasslibrary.client.ShelfVisibility
@@ -23,6 +24,7 @@ constructor(clientProvider: AuthenticatedClientProvider) :
     val createState = controller.create.state
     val editState = controller.edit.state
     val deleteState = controller.delete.state
+    val editorState = controller.editor.state
 
     fun initialize(profile: ConnectionProfile) = controller.initialize(profile)
 
@@ -79,6 +81,34 @@ constructor(clientProvider: AuthenticatedClientProvider) :
     fun dismissDelete() = controller.delete.reset()
 
     fun confirmDelete() = controller.confirmDelete()
+
+    fun openContentsEditor() = controller.openContentsEditor()
+
+    fun backFromContentsEditor() = controller.backFromContentsEditor()
+
+    fun loadNextEditorPage() = controller.editor.loadNextPage()
+
+    fun retryEditor() = controller.editor.retry()
+
+    fun moveEditorItemUp(itemId: String) = controller.editor.move(itemId, ShelfItemMove.UP)
+
+    fun moveEditorItemDown(itemId: String) = controller.editor.move(itemId, ShelfItemMove.DOWN)
+
+    fun openEditorPosition(itemId: String) = controller.editor.openPosition(itemId)
+
+    fun updateEditorPosition(value: String) = controller.editor.updatePosition(value)
+
+    fun submitEditorPosition() = controller.editor.submitPosition()
+
+    fun dismissEditorPosition() = controller.editor.dismissPosition()
+
+    fun requestEditorRemoval(itemId: String) = controller.editor.requestRemoval(itemId)
+
+    fun confirmEditorRemoval() = controller.editor.confirmRemoval()
+
+    fun dismissEditorRemoval() = controller.editor.dismissRemoval()
+
+    fun dismissEditorMutationFailure() = controller.editor.dismissMutationFailure()
 
     fun changeItemOrdering(ordering: ShelfItemOrdering) =
         controller.detail.changeItemOrdering(ordering)

@@ -17,7 +17,8 @@ internal class ShelvesStateFlow(
     private val personal: StateFlow<ShelfCollectionState>,
     private val shared: StateFlow<ShelfCollectionState>,
     private val group: StateFlow<ShelfCollectionState>,
-    private val detail: StateFlow<ShelfDetailState>
+    private val detail: StateFlow<ShelfDetailState>,
+    private val editor: StateFlow<ShelfContentsEditorState>
 ) : StateFlow<ShelvesState> {
     override val value: ShelvesState
         get() =
@@ -27,6 +28,7 @@ internal class ShelvesStateFlow(
                 shared.value,
                 group.value,
                 detail.value,
+                editor.value,
                 navigation.value.createOpen
             )
 
@@ -34,22 +36,34 @@ internal class ShelvesStateFlow(
         get() = listOf(value)
 
     override suspend fun collect(collector: FlowCollector<ShelvesState>): Nothing {
-        combine(navigation, personal, shared, group, detail) {
+        val core = combine(navigation, personal, shared, group, detail) {
                 nav,
                 personalState,
                 sharedState,
                 groupState,
                 detailState
             ->
+            ShelvesCoreState(nav, personalState, sharedState, groupState, detailState)
+        }
+        combine(core, editor) { value, editorState ->
             ShelvesState(
-                nav.destination,
-                personalState,
-                sharedState,
-                groupState,
-                detailState,
-                nav.createOpen
+                value.navigation.destination,
+                value.personal,
+                value.shared,
+                value.group,
+                value.detail,
+                editorState,
+                value.navigation.createOpen
             )
         }.collect(collector)
         error("Shelves state sources completed unexpectedly.")
     }
 }
+
+private data class ShelvesCoreState(
+    val navigation: ShelvesNavigationState,
+    val personal: ShelfCollectionState,
+    val shared: ShelfCollectionState,
+    val group: ShelfCollectionState,
+    val detail: ShelfDetailState
+)
