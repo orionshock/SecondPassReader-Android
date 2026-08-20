@@ -21,7 +21,9 @@ internal suspend fun requireReadingSessionLifecycleSuccess(
     when (response.status) {
         HttpStatusCode.Unauthorized -> throw SplClientException.AuthenticationRejected()
 
-        HttpStatusCode.Forbidden -> rejectLifecycle(
+        HttpStatusCode.Forbidden -> rejectLifecycleResponse(
+            response,
+            json,
             ReadingSessionLifecycleRejection.PERMISSION_DENIED
         )
 
@@ -43,7 +45,11 @@ internal suspend fun requireReadingSessionLifecycleSuccess(
     }
 }
 
-private suspend fun rejectLifecycleResponse(response: HttpResponse, json: Json): Nothing {
+private suspend fun rejectLifecycleResponse(
+    response: HttpResponse,
+    json: Json,
+    fallback: ReadingSessionLifecycleRejection? = null
+): Nothing {
     val payload = runCatching { json.parseToJsonElement(response.body<String>()).jsonObject }
         .getOrNull()
     val code = payload?.findCode()?.uppercase()
@@ -52,10 +58,16 @@ private suspend fun rejectLifecycleResponse(response: HttpResponse, json: Json):
 
         "PERMISSION_DENIED" -> ReadingSessionLifecycleRejection.PERMISSION_DENIED
 
+        "BOOK_ACCESS_REQUIRED",
+        "CURRENT_BOOK_ACCESS_REQUIRED" ->
+            ReadingSessionLifecycleRejection.CURRENT_BOOK_ACCESS_REQUIRED
+
         "INVALID_REQUEST",
         "IDEMPOTENCY_CONFLICT" -> ReadingSessionLifecycleRejection.INVALID_REQUEST
 
-        else -> if (response.status == HttpStatusCode.Conflict) {
+        else -> if (fallback != null) {
+            fallback
+        } else if (response.status == HttpStatusCode.Conflict) {
             ReadingSessionLifecycleRejection.INVALID_REQUEST
         } else {
             ReadingSessionLifecycleRejection.VALIDATION
@@ -80,6 +92,7 @@ private fun String.toLifecycleField(): ReadingSessionMutationField = when (this)
     "progress" -> ReadingSessionMutationField.PROGRESS
     "cfi" -> ReadingSessionMutationField.CFI
     "location_label" -> ReadingSessionMutationField.LOCATION_LABEL
+    "operations" -> ReadingSessionMutationField.OPERATIONS
     "idempotency_key" -> ReadingSessionMutationField.IDEMPOTENCY_KEY
     else -> ReadingSessionMutationField.GENERAL
 }

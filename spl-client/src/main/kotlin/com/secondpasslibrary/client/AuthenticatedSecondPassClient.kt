@@ -55,6 +55,17 @@ interface AuthenticatedReadingSessionsClient {
         sessionId: String,
         finalization: ReadingSessionFinalization = ReadingSessionFinalization()
     ): ReadingSessionDetailResult
+
+    suspend fun getProgress(sessionId: String): ReadingProgress?
+
+    suspend fun replaceProgress(sessionId: String, progress: ReadingProgressInput): ReadingProgress
+
+    suspend fun listAnnotations(sessionId: String): List<MarginaliaAnnotation>
+
+    suspend fun synchronizeAnnotations(
+        sessionId: String,
+        operations: List<MarginaliaAnnotationOperation>
+    ): List<MarginaliaAnnotation>
 }
 
 interface AuthenticatedShelvesClient {

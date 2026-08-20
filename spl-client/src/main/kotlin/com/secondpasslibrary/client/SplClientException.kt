@@ -56,6 +56,7 @@ sealed class SplClientException(message: String, cause: Throwable? = null) :
 enum class ReadingSessionLifecycleRejection {
     SESSION_CLOSED,
     PERMISSION_DENIED,
+    CURRENT_BOOK_ACCESS_REQUIRED,
     INVALID_REQUEST,
     VALIDATION,
     RESOURCE_NOT_FOUND
@@ -67,6 +68,7 @@ enum class ReadingSessionMutationField {
     PROGRESS,
     CFI,
     LOCATION_LABEL,
+    OPERATIONS,
     IDEMPOTENCY_KEY,
     GENERAL
 }

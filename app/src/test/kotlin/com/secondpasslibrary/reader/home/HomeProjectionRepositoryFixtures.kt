@@ -6,7 +6,11 @@ import com.secondpasslibrary.client.AuthenticatedReadingSessionsClient
 import com.secondpasslibrary.client.AuthenticatedSecondPassClient
 import com.secondpasslibrary.client.AuthenticatedShelvesClient
 import com.secondpasslibrary.client.CreatePersonalShelfInput
+import com.secondpasslibrary.client.MarginaliaAnnotation
+import com.secondpasslibrary.client.MarginaliaAnnotationOperation
 import com.secondpasslibrary.client.MarginaliaPage
+import com.secondpasslibrary.client.ReadingProgress
+import com.secondpasslibrary.client.ReadingProgressInput
 import com.secondpasslibrary.client.ReadingSessionDetailResult
 import com.secondpasslibrary.client.ReadingSessionFinalization
 import com.secondpasslibrary.client.ReadingSessionListItem
@@ -126,6 +130,21 @@ internal class FakeHomeAuthenticatedClient : AuthenticatedSecondPassClient {
                 sessionId: String,
                 finalization: ReadingSessionFinalization
             ): ReadingSessionDetailResult = unsupported()
+
+            override suspend fun getProgress(sessionId: String): ReadingProgress? = unsupported()
+
+            override suspend fun replaceProgress(
+                sessionId: String,
+                progress: ReadingProgressInput
+            ): ReadingProgress = unsupported()
+
+            override suspend fun listAnnotations(sessionId: String): List<MarginaliaAnnotation> =
+                unsupported()
+
+            override suspend fun synchronizeAnnotations(
+                sessionId: String,
+                operations: List<MarginaliaAnnotationOperation>
+            ): List<MarginaliaAnnotation> = unsupported()
         }
     }
     override val shelves = object : AuthenticatedShelvesClient {

@@ -5,10 +5,14 @@ import com.secondpasslibrary.client.AuthenticatedMarginaliaClient
 import com.secondpasslibrary.client.AuthenticatedReadingSessionsClient
 import com.secondpasslibrary.client.BookReadingSessionHistory
 import com.secondpasslibrary.client.BookReadingSessionListOptions
+import com.secondpasslibrary.client.MarginaliaAnnotation
+import com.secondpasslibrary.client.MarginaliaAnnotationOperation
 import com.secondpasslibrary.client.MarginaliaBookListOptions
 import com.secondpasslibrary.client.MarginaliaBookSummary
 import com.secondpasslibrary.client.MarginaliaIdempotencyKey
 import com.secondpasslibrary.client.MarginaliaPage
+import com.secondpasslibrary.client.ReadingProgress
+import com.secondpasslibrary.client.ReadingProgressInput
 import com.secondpasslibrary.client.ReadingSessionBootstrap
 import com.secondpasslibrary.client.ReadingSessionDetailResult
 import com.secondpasslibrary.client.ReadingSessionFinalization
@@ -65,6 +69,21 @@ internal object FakeAuthenticatedMarginaliaClient : AuthenticatedMarginaliaClien
             sessionId: String,
             finalization: ReadingSessionFinalization
         ): ReadingSessionDetailResult = unsupported()
+
+        override suspend fun getProgress(sessionId: String): ReadingProgress? = unsupported()
+
+        override suspend fun replaceProgress(
+            sessionId: String,
+            progress: ReadingProgressInput
+        ): ReadingProgress = unsupported()
+
+        override suspend fun listAnnotations(sessionId: String): List<MarginaliaAnnotation> =
+            unsupported()
+
+        override suspend fun synchronizeAnnotations(
+            sessionId: String,
+            operations: List<MarginaliaAnnotationOperation>
+        ): List<MarginaliaAnnotation> = unsupported()
     }
 
     private fun unsupported(): Nothing = error("Marginalia is outside this test fixture.")

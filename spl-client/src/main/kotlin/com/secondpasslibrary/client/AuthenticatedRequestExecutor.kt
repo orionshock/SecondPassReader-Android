@@ -47,6 +47,9 @@ internal class AuthenticatedRequestExecutor(
     suspend fun patch(path: String, body: String): HttpResponse =
         mutationRequest(HttpMethod.Patch, path, body)
 
+    suspend fun put(path: String, body: String): HttpResponse =
+        mutationRequest(HttpMethod.Put, path, body)
+
     suspend fun delete(path: String): HttpResponse = mutationRequest(HttpMethod.Delete, path)
 
     private suspend fun mutationRequest(

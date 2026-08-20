@@ -49,7 +49,19 @@ class AuthenticatedLibraryHierarchyTest {
         assertTrue(marginaliaMethods.containsAll(setOf("getBooks", "getSessions")))
         assertTrue(
             AuthenticatedReadingSessionsClient::class.java.methods.map { it.name }.toSet()
-                .containsAll(setOf("list", "recent", "get", "updateMetadata", "close"))
+                .containsAll(
+                    setOf(
+                        "list",
+                        "recent",
+                        "get",
+                        "updateMetadata",
+                        "close",
+                        "getProgress",
+                        "replaceProgress",
+                        "listAnnotations",
+                        "synchronizeAnnotations"
+                    )
+                )
         )
         assertTrue(
             AuthenticatedMarginaliaBooksClient::class.java.methods.map { it.name }.toSet()
@@ -58,6 +70,11 @@ class AuthenticatedLibraryHierarchyTest {
         assertFalse(
             rootMethods.any {
                 it in setOf("getActiveSession", "openSession", "startOver", "closeSession")
+            }
+        )
+        assertFalse(
+            AuthenticatedReadingSessionsClient::class.java.methods.any {
+                it.name in setOf("createAnnotation", "updateAnnotation", "deleteAnnotation")
             }
         )
     }

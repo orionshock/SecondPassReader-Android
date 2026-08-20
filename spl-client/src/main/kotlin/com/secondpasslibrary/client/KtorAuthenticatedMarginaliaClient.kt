@@ -15,10 +15,11 @@ internal class KtorAuthenticatedMarginaliaClient(
     json: Json
 ) : AuthenticatedMarginaliaClient {
     private val lifecycle = KtorReadingSessionLifecycleClient(requests, json)
+    private val synchronization = KtorMarginaliaSynchronizationClient(requests, json)
     override val books: AuthenticatedMarginaliaBooksClient =
         KtorMarginaliaBooksClient(requests, json, lifecycle)
     override val sessions: AuthenticatedReadingSessionsClient =
-        KtorReadingSessionsClient(requests, json, lifecycle)
+        KtorReadingSessionsClient(requests, json, lifecycle, synchronization)
 }
 
 internal class KtorMarginaliaBooksClient(
@@ -80,7 +81,8 @@ internal class KtorMarginaliaBooksClient(
 internal class KtorReadingSessionsClient(
     private val requests: AuthenticatedRequestExecutor,
     private val json: Json,
-    private val lifecycle: KtorReadingSessionLifecycleClient
+    private val lifecycle: KtorReadingSessionLifecycleClient,
+    private val synchronization: KtorMarginaliaSynchronizationClient
 ) : AuthenticatedReadingSessionsClient {
     override suspend fun list(
         options: ReadingSessionListOptions
@@ -127,6 +129,22 @@ internal class KtorReadingSessionsClient(
         sessionId: String,
         finalization: ReadingSessionFinalization
     ): ReadingSessionDetailResult = lifecycle.close(sessionId, finalization)
+
+    override suspend fun getProgress(sessionId: String): ReadingProgress? =
+        synchronization.getProgress(sessionId)
+
+    override suspend fun replaceProgress(
+        sessionId: String,
+        progress: ReadingProgressInput
+    ): ReadingProgress = synchronization.replaceProgress(sessionId, progress)
+
+    override suspend fun listAnnotations(sessionId: String): List<MarginaliaAnnotation> =
+        synchronization.listAnnotations(sessionId)
+
+    override suspend fun synchronizeAnnotations(
+        sessionId: String,
+        operations: List<MarginaliaAnnotationOperation>
+    ): List<MarginaliaAnnotation> = synchronization.synchronizeAnnotations(sessionId, operations)
 }
 
 private val ReadingSessionStatus.queryValue: String

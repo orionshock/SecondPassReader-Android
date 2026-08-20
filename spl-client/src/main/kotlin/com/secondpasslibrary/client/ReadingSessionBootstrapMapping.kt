@@ -43,23 +43,32 @@ private fun ReadingSessionSummaryPageWire.toModel() = ClosedReadingSessionPage(
     hasPrevious = previous != null
 )
 
-private fun MarginaliaAnnotationWire.toModel(): MarginaliaAnnotation {
+internal fun MarginaliaAnnotationWire.toModel(): MarginaliaAnnotation {
     val annotationId = id.required(ANNOTATION_CONTEXT)
-    val annotationClientId = clientId.required(ANNOTATION_CONTEXT)
+    val annotationClientId = clientId.boundedOpaque(
+        MAX_ANNOTATION_CLIENT_ID_LENGTH,
+        ANNOTATION_CONTEXT
+    )
     val annotationLocation = MarginaliaAnnotationLocation(
-        cfi = location?.cfi.required(ANNOTATION_CONTEXT),
-        locationLabel = location?.locationLabel ?: invalidProtocol(ANNOTATION_CONTEXT)
+        cfi = location?.cfi.boundedOpaque(MAX_CFI_LENGTH, ANNOTATION_CONTEXT),
+        locationLabel = location?.locationLabel.boundedNullable(
+            MAX_LOCATION_LABEL_LENGTH,
+            ANNOTATION_CONTEXT
+        )
     )
     val annotationCreatedAt = createdAt.required(ANNOTATION_CONTEXT)
     val annotationUpdatedAt = updatedAt.required(ANNOTATION_CONTEXT)
     return when (kind) {
-        "bookmark" -> MarginaliaAnnotation.Bookmark(
-            annotationId,
-            annotationClientId,
-            annotationLocation,
-            annotationCreatedAt,
-            annotationUpdatedAt
-        )
+        "bookmark" -> {
+            if (body != null) invalidProtocol(ANNOTATION_CONTEXT)
+            MarginaliaAnnotation.Bookmark(
+                annotationId,
+                annotationClientId,
+                annotationLocation,
+                annotationCreatedAt,
+                annotationUpdatedAt
+            )
+        }
 
         "highlight" -> MarginaliaAnnotation.Highlight(
             annotationId,
@@ -74,13 +83,16 @@ private fun MarginaliaAnnotationWire.toModel(): MarginaliaAnnotation {
     }
 }
 
-private fun MarginaliaHighlightBodyWire.toModel() = MarginaliaHighlightBody(
-    text = text ?: invalidProtocol(ANNOTATION_CONTEXT),
-    prefix = prefix ?: invalidProtocol(ANNOTATION_CONTEXT),
-    suffix = suffix ?: invalidProtocol(ANNOTATION_CONTEXT),
-    color = color.toHighlightColor(),
-    note = note ?: invalidProtocol(ANNOTATION_CONTEXT)
-)
+private fun MarginaliaHighlightBodyWire.toModel(): MarginaliaHighlightBody {
+    val bodyText = text.boundedOpaque(MAX_HIGHLIGHT_TEXT_LENGTH, ANNOTATION_CONTEXT)
+    return MarginaliaHighlightBody(
+        text = bodyText,
+        prefix = prefix.boundedNullable(MAX_HIGHLIGHT_CONTEXT_LENGTH, ANNOTATION_CONTEXT),
+        suffix = suffix.boundedNullable(MAX_HIGHLIGHT_CONTEXT_LENGTH, ANNOTATION_CONTEXT),
+        color = color.toHighlightColor(),
+        note = note.boundedNullable(MAX_HIGHLIGHT_NOTE_LENGTH, ANNOTATION_CONTEXT)
+    )
+}
 
 private fun String?.toHighlightColor(): MarginaliaHighlightColor = when (this) {
     "yellow" -> MarginaliaHighlightColor.YELLOW

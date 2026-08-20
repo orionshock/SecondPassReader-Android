@@ -6,6 +6,15 @@ import java.util.Locale
 internal fun String?.required(context: String): String =
     this?.trim()?.takeIf(String::isNotEmpty) ?: invalidProtocol(context)
 
+internal fun String?.requiredOpaque(context: String): String =
+    this?.takeIf(String::isNotBlank) ?: invalidProtocol(context)
+
+internal fun String?.boundedOpaque(maxLength: Int, context: String): String =
+    requiredOpaque(context).takeIf { it.length <= maxLength } ?: invalidProtocol(context)
+
+internal fun String?.boundedNullable(maxLength: Int, context: String): String? =
+    this?.takeIf { it.length <= maxLength } ?: if (this == null) null else invalidProtocol(context)
+
 internal fun requireAbsoluteHttpUrl(value: String?, context: String): String =
     absoluteHttpUrlOrNull(value) ?: invalidProtocol(context)
 

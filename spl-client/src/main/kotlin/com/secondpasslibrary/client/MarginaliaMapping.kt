@@ -105,8 +105,8 @@ internal fun RecentReadingBookWire.toBookModel(): ReadingSessionBook = ReadingSe
 )
 
 internal fun ReadingProgressWire.toModel(): ReadingProgress = ReadingProgress(
-    cfi = cfi.required(SESSION_CONTEXT),
-    locationLabel = locationLabel,
+    cfi = cfi.boundedOpaque(MAX_CFI_LENGTH, SESSION_CONTEXT),
+    locationLabel = locationLabel.boundedNullable(MAX_LOCATION_LABEL_LENGTH, SESSION_CONTEXT),
     updatedAt = updatedAt.required(SESSION_CONTEXT)
 )
 
