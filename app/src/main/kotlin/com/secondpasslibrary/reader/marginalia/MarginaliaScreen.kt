@@ -20,7 +20,11 @@ import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 
 @Composable
-internal fun MarginaliaScreen(viewModel: MarginaliaViewModel, onOpenDrawer: () -> Unit) {
+internal fun MarginaliaScreen(
+    viewModel: MarginaliaViewModel,
+    onOpenDrawer: () -> Unit,
+    onBackFromHistory: (() -> Unit)? = null
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sessionsState by viewModel.sessionsState.collectAsStateWithLifecycle()
     val detailState by viewModel.detailState.collectAsStateWithLifecycle()
@@ -28,13 +32,22 @@ internal fun MarginaliaScreen(viewModel: MarginaliaViewModel, onOpenDrawer: () -
     val metadataEditState by viewModel.metadataEditState.collectAsStateWithLifecycle()
     val closeState by viewModel.closeState.collectAsStateWithLifecycle()
     val detail = state.destination as? MarginaliaDestination.SessionDetail
+    val bookHistory =
+        detail == null && sessionsState.context is MarginaliaHistoryContext.Book
+    val bookHistoryBack = if (bookHistory) onBackFromHistory else null
     val listState = rememberLazyListState()
 
-    BackHandler(enabled = detail != null, onBack = viewModel::backFromDetail)
+    BackHandler(enabled = detail != null || bookHistoryBack != null) {
+        if (detail != null) viewModel.backFromDetail() else onBackFromHistory?.invoke()
+    }
     MarginaliaScaffold(
         title = if (detail == null) sessionsState.screenTitle() else detailState.screenTitle(),
-        child = detail != null,
-        onNavigation = if (detail == null) onOpenDrawer else viewModel::backFromDetail
+        child = detail != null || bookHistoryBack != null,
+        onNavigation = when {
+            detail != null -> viewModel::backFromDetail
+            bookHistoryBack != null -> bookHistoryBack
+            else -> onOpenDrawer
+        }
     ) { modifier ->
         if (detail == null) {
             MarginaliaHistoryContent(

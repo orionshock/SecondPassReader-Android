@@ -21,6 +21,13 @@ internal class AppNavigator(private val backStack: MutableList<NavKey>) {
         if (backStack.lastOrNull() != route) backStack.add(route)
     }
 
+    fun openBookMarginalia(bookId: String, source: BookDetailRoute) {
+        require(bookId.isNotBlank()) { "Book ID must not be blank." }
+        require(source.bookId == bookId) { "Marginalia Book must match its Book Detail source." }
+        val route = BookMarginaliaRoute(bookId, MarginaliaReturnTarget.BookDetail(source))
+        if (backStack.lastOrNull() != route) backStack.add(route)
+    }
+
     fun openLibraryAuthor(authorId: String) = replaceWith(LibraryAuthorRoute(authorId))
 
     fun openLibrarySeries(seriesId: String) = replaceWith(LibrarySeriesRoute(seriesId))
@@ -28,11 +35,17 @@ internal class AppNavigator(private val backStack: MutableList<NavKey>) {
     fun openLibraryTag(tagId: String, tagSlug: String) =
         replaceWith(LibraryTagRoute(tagId, tagSlug))
 
-    fun handleBookDetailNavigation(intent: BookDetailNavigationIntent) {
+    fun handleBookDetailNavigation(intent: BookDetailNavigationIntent, source: BookDetailRoute) {
         when (intent) {
             is BookDetailNavigationIntent.Author -> openLibraryAuthor(intent.id)
+
             is BookDetailNavigationIntent.Series -> openLibrarySeries(intent.id)
+
             is BookDetailNavigationIntent.Tag -> openLibraryTag(intent.id, intent.slug)
+
+            is BookDetailNavigationIntent.ReadingSessions ->
+                openBookMarginalia(intent.bookId, source)
+
             BookDetailNavigationIntent.ManageShelves -> select(AppDestination.Shelves)
         }
     }

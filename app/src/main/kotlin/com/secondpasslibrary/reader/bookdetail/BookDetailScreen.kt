@@ -32,6 +32,7 @@ internal fun BookDetailScreen(
     onAuthorSelected: (String) -> Unit,
     onSeriesSelected: (String) -> Unit,
     onTagSelected: (String, String) -> Unit,
+    onReadingSessions: () -> Unit,
     onAddToShelf: () -> Unit
 ) {
     Column(Modifier.fillMaxSize()) {
@@ -56,6 +57,7 @@ internal fun BookDetailScreen(
                     onAuthorSelected,
                     onSeriesSelected,
                     onTagSelected,
+                    onReadingSessions,
                     onAddToShelf
                 )
         }
@@ -92,6 +94,7 @@ private fun BookDetailHero(
     onAuthorSelected: (String) -> Unit,
     onSeriesSelected: (String) -> Unit,
     onTagSelected: (String, String) -> Unit,
+    onReadingSessions: () -> Unit,
     onAddToShelf: () -> Unit
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -109,6 +112,7 @@ private fun BookDetailHero(
                             onAuthorSelected,
                             onSeriesSelected,
                             onTagSelected,
+                            onReadingSessions,
                             onAddToShelf,
                             Modifier.weight(1f)
                         )
@@ -123,6 +127,7 @@ private fun BookDetailHero(
                             onAuthorSelected,
                             onSeriesSelected,
                             onTagSelected,
+                            onReadingSessions,
                             onAddToShelf
                         )
                     }

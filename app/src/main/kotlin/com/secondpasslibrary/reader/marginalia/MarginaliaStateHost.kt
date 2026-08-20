@@ -8,11 +8,15 @@ import com.secondpasslibrary.reader.connection.ConnectionProfile
 @Composable
 internal fun MarginaliaStateHost(
     profile: ConnectionProfile,
+    initialContext: MarginaliaHistoryContext = MarginaliaHistoryContext.Global,
     onOpenDrawer: () -> Unit,
+    onBackFromHistory: (() -> Unit)? = null,
     onAuthenticationRejected: () -> Unit,
     viewModel: MarginaliaViewModel = viewModel()
 ) {
-    LaunchedEffect(profile.apiBaseUrl, profile.clientSessionId) { viewModel.initialize(profile) }
+    LaunchedEffect(profile.apiBaseUrl, profile.clientSessionId, initialContext) {
+        viewModel.initialize(profile, initialContext)
+    }
     LaunchedEffect(viewModel, onAuthenticationRejected) {
         viewModel.connectionEvents.collect { event ->
             when (event) {
@@ -20,5 +24,5 @@ internal fun MarginaliaStateHost(
             }
         }
     }
-    MarginaliaScreen(viewModel, onOpenDrawer)
+    MarginaliaScreen(viewModel, onOpenDrawer, onBackFromHistory)
 }

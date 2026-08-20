@@ -37,6 +37,9 @@ internal fun BookDetailStateHost(
         onAuthorSelected = { onNavigation(BookDetailNavigationIntent.Author(it)) },
         onSeriesSelected = { onNavigation(BookDetailNavigationIntent.Series(it)) },
         onTagSelected = { id, slug -> onNavigation(BookDetailNavigationIntent.Tag(id, slug)) },
+        onReadingSessions = {
+            onNavigation(BookDetailNavigationIntent.ReadingSessions(bookId))
+        },
         onAddToShelf = viewModel::openShelfPicker
     )
     if (shelfPickerState.open) {

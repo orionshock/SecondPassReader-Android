@@ -15,6 +15,7 @@ import com.secondpasslibrary.reader.home.HomeNavigationIntent
 import com.secondpasslibrary.reader.library.LibraryBooksEntry
 import com.secondpasslibrary.reader.library.LibraryExternalNavigation
 import com.secondpasslibrary.reader.library.LibraryStateHost
+import com.secondpasslibrary.reader.marginalia.MarginaliaHistoryContext
 import com.secondpasslibrary.reader.marginalia.MarginaliaStateHost
 import com.secondpasslibrary.reader.settings.LinkedSettings
 import com.secondpasslibrary.reader.shelves.ShelfBookNavigationRequest
@@ -46,6 +47,7 @@ internal fun AuthenticatedDestinations(
             registerTopLevelEntries(bindings)
             registerLibraryRouteEntries(bindings)
             registerSharedBookDetailEntry(bindings)
+            registerBookMarginaliaEntry(bindings)
         }
     )
 }
@@ -79,9 +81,9 @@ private fun EntryProviderScope<NavKey>.registerTopLevelEntries(
     }
     entry(key = AppDestination.Marginalia) {
         MarginaliaStateHost(
-            bindings.profile,
-            bindings.onOpenDrawer,
-            bindings.onAuthenticationRejected
+            profile = bindings.profile,
+            onOpenDrawer = bindings.onOpenDrawer,
+            onAuthenticationRejected = bindings.onAuthenticationRejected
         )
     }
     entry(key = AppDestination.Settings) { LinkedSettings(bindings.profile, bindings.context) }
@@ -127,7 +129,23 @@ private fun EntryProviderScope<NavKey>.registerSharedBookDetailEntry(
             profile = bindings.profile,
             bookId = route.bookId,
             onBack = bindings.navigator::goBack,
-            onNavigation = bindings.navigator::handleBookDetailNavigation,
+            onNavigation = { intent ->
+                bindings.navigator.handleBookDetailNavigation(intent, route)
+            },
+            onAuthenticationRejected = bindings.onAuthenticationRejected
+        )
+    }
+}
+
+private fun EntryProviderScope<NavKey>.registerBookMarginaliaEntry(
+    bindings: AuthenticatedDestinationBindings
+) {
+    entry<BookMarginaliaRoute> { route ->
+        MarginaliaStateHost(
+            profile = bindings.profile,
+            initialContext = MarginaliaHistoryContext.Book(route.bookId),
+            onOpenDrawer = bindings.onOpenDrawer,
+            onBackFromHistory = bindings.navigator::goBack,
             onAuthenticationRejected = bindings.onAuthenticationRejected
         )
     }

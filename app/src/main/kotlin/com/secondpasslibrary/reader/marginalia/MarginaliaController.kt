@@ -30,17 +30,29 @@ internal class MarginaliaController(
         detail.onAuthoritativeUpdate = sessions.authoritativeDetailSink
     }
 
-    fun initialize(profile: ConnectionProfile) {
+    fun initialize(
+        profile: ConnectionProfile,
+        initialContext: MarginaliaHistoryContext = MarginaliaHistoryContext.Global
+    ) {
         val identity = "${profile.apiBaseUrl}\u0000${profile.clientSessionId}"
+        val identityChanged = identity != connectionIdentity
+        val activeContext = when (val destination = state.value.destination) {
+            is MarginaliaDestination.History -> destination.context
+            is MarginaliaDestination.SessionDetail -> destination.returnContext
+        }
+        val contextChanged = activeContext != initialContext
         sessions.prepare(profile)
         detail.prepare(profile)
-        if (identity != connectionIdentity) {
+        if (identityChanged) {
             connectionIdentity = identity
-            mutableState.value = MarginaliaState()
+            mutableState.value = MarginaliaState(MarginaliaDestination.History(initialContext))
+        } else if (contextChanged) {
+            detail.clear()
+            mutableState.value = MarginaliaState(MarginaliaDestination.History(initialContext))
         }
         val destination = state.value.destination
         if (destination is MarginaliaDestination.History) {
-            sessions.enter(destination.context)
+            sessions.enter(destination.context, identityChanged || contextChanged)
         }
     }
 

@@ -23,7 +23,10 @@ constructor(
     val closeState = controller.detail.closeFlow.state
     val connectionEvents = controller.connectionEvents
 
-    fun initialize(profile: ConnectionProfile) = controller.initialize(profile)
+    fun initialize(
+        profile: ConnectionProfile,
+        initialContext: MarginaliaHistoryContext = MarginaliaHistoryContext.Global
+    ) = controller.initialize(profile, initialContext)
 
     fun changeStatus(filter: ReadingSessionStatusFilter) = controller.sessions.changeStatus(filter)
 

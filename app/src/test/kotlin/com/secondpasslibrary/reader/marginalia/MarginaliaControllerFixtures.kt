@@ -30,6 +30,7 @@ internal class RecordingMarginaliaCapability : AuthenticatedMarginaliaClient {
     val annotationRequests = mutableListOf<String>()
     val metadataRequests = mutableListOf<Pair<String, ReadingSessionMetadataInput>>()
     val closeRequests = mutableListOf<Pair<String, ReadingSessionFinalization>>()
+    var openSessionRequests = 0
 
     var globalCall:
         suspend (ReadingSessionListOptions) -> MarginaliaPage<ReadingSessionListItem> = {
@@ -61,6 +62,14 @@ internal class RecordingMarginaliaCapability : AuthenticatedMarginaliaClient {
         ): BookReadingSessionHistory {
             bookRequests += bookId to options
             return bookCall(bookId, options)
+        }
+
+        override suspend fun openSession(
+            bookId: String,
+            metadata: ReadingSessionMetadataInput
+        ): com.secondpasslibrary.client.ReadingSessionBootstrap {
+            openSessionRequests += 1
+            error("History browsing must not open a Reading Session.")
         }
     }
 

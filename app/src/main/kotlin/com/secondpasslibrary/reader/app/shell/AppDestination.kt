@@ -45,6 +45,16 @@ enum class ShelfCollectionOrigin {
 @Serializable
 data class BookDetailRoute(val bookId: String, val returnTarget: BookDetailReturnTarget) : NavKey
 
+@Serializable
+sealed interface MarginaliaReturnTarget {
+    @Serializable
+    data class BookDetail(val route: BookDetailRoute) : MarginaliaReturnTarget
+}
+
+@Serializable
+data class BookMarginaliaRoute(val bookId: String, val returnTarget: MarginaliaReturnTarget) :
+    NavKey
+
 internal fun NavKey.topLevelDestination(): AppDestination = when (this) {
     is LibrarySearchRoute,
     is LibraryAuthorRoute,
@@ -55,6 +65,8 @@ internal fun NavKey.topLevelDestination(): AppDestination = when (this) {
         BookDetailReturnTarget.Library -> AppDestination.Library
         is BookDetailReturnTarget.ShelfDetail -> AppDestination.Shelves
     }
+
+    is BookMarginaliaRoute -> AppDestination.Marginalia
 
     is AppDestination -> this
 

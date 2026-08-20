@@ -110,8 +110,52 @@ class AppNavigatorTest {
         )
         val navigator = AppNavigator(backStack)
 
-        navigator.handleBookDetailNavigation(BookDetailNavigationIntent.ManageShelves)
+        navigator.handleBookDetailNavigation(
+            BookDetailNavigationIntent.ManageShelves,
+            BookDetailRoute("book-1", BookDetailReturnTarget.Library)
+        )
 
         assertEquals(listOf(AppDestination.Shelves), backStack)
+    }
+
+    @Test
+    fun `Library Book Detail opens scoped Marginalia and restores the same detail route`() {
+        val source = BookDetailRoute("book-1", BookDetailReturnTarget.Library)
+        val backStack = mutableListOf<NavKey>(AppDestination.Library, source)
+        val navigator = AppNavigator(backStack)
+
+        navigator.handleBookDetailNavigation(
+            BookDetailNavigationIntent.ReadingSessions("book-1"),
+            source
+        )
+
+        assertEquals(
+            BookMarginaliaRoute("book-1", MarginaliaReturnTarget.BookDetail(source)),
+            backStack.last()
+        )
+        assertEquals(AppDestination.Marginalia, backStack.last().topLevelDestination())
+        navigator.goBack()
+        assertEquals(source, backStack.last())
+    }
+
+    @Test
+    fun `Shelf Book Detail survives scoped Marginalia round trip`() {
+        val source = BookDetailRoute(
+            "book-1",
+            BookDetailReturnTarget.ShelfDetail("shelf-1", ShelfCollectionOrigin.PERSONAL)
+        )
+        val backStack = mutableListOf<NavKey>(AppDestination.Shelves, source)
+        val navigator = AppNavigator(backStack)
+
+        navigator.openBookMarginalia("book-1", source)
+        navigator.goBack()
+
+        assertEquals(listOf(AppDestination.Shelves, source), backStack)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `scoped Marginalia cannot mismatch its Book Detail source`() {
+        val source = BookDetailRoute("book-1", BookDetailReturnTarget.Library)
+        AppNavigator(mutableListOf<NavKey>(source)).openBookMarginalia("book-2", source)
     }
 }

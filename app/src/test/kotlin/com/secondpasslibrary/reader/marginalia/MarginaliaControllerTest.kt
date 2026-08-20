@@ -12,6 +12,53 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class MarginaliaControllerTest {
     @Test
+    fun `Book entry loads scoped history without creating a Reading Session`() = runTest {
+        val capability = RecordingMarginaliaCapability()
+        val controller = MarginaliaController(marginaliaProvider(capability), this)
+
+        controller.initialize(
+            marginaliaProfile(),
+            MarginaliaHistoryContext.Book("book-1")
+        )
+        advanceUntilIdle()
+
+        assertEquals(
+            MarginaliaDestination.History(MarginaliaHistoryContext.Book("book-1")),
+            controller.state.value.destination
+        )
+        assertEquals("book-1", capability.bookRequests.single().first)
+        assertEquals(0, capability.openSessionRequests)
+        assertTrue(controller.sessions.state.value.sessions.isEmpty())
+    }
+
+    @Test
+    fun `a different Book route starts with fresh history filters`() = runTest {
+        val capability = RecordingMarginaliaCapability()
+        val controller = MarginaliaController(marginaliaProvider(capability), this)
+        controller.initialize(
+            marginaliaProfile(),
+            MarginaliaHistoryContext.Book("book-1")
+        )
+        advanceUntilIdle()
+        controller.sessions.changeStatus(ReadingSessionStatusFilter.ACTIVE)
+        advanceUntilIdle()
+        controller.sessions.commitSearch("Kindle")
+        advanceUntilIdle()
+
+        controller.initialize(
+            marginaliaProfile(),
+            MarginaliaHistoryContext.Book("book-2")
+        )
+        advanceUntilIdle()
+
+        assertEquals(ReadingSessionStatusFilter.ALL, controller.sessions.state.value.statusFilter)
+        assertEquals("", controller.sessions.state.value.committedQuery)
+        assertEquals("book-2", capability.bookRequests.last().first)
+        assertEquals(null, capability.bookRequests.last().second.status)
+        assertEquals(null, capability.bookRequests.last().second.q)
+    }
+
+    @Test
     fun `Session selection and back preserve prior Book history state`() = runTest {
         val capability = RecordingMarginaliaCapability()
         val controller = MarginaliaController(marginaliaProvider(capability), this)

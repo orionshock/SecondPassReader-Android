@@ -42,12 +42,16 @@ internal class ReadingSessionsController(
         mutableState.value = ReadingSessionsState()
     }
 
-    fun enter(context: MarginaliaHistoryContext) {
+    fun enter(context: MarginaliaHistoryContext, resetFilters: Boolean = false) {
         require(context !is MarginaliaHistoryContext.Book || context.bookId.isNotBlank()) {
             "Book ID must not be blank."
         }
-        if (state.value.context == context && state.value.currentPage > 0) return
-        resetAndLoad(context, state.value.statusFilter, state.value.committedQuery)
+        if (!resetFilters && state.value.context == context && state.value.currentPage > 0) return
+        resetAndLoad(
+            context,
+            if (resetFilters) ReadingSessionStatusFilter.ALL else state.value.statusFilter,
+            if (resetFilters) "" else state.value.committedQuery
+        )
     }
 
     fun changeStatus(filter: ReadingSessionStatusFilter) {
