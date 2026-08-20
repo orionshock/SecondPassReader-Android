@@ -26,6 +26,10 @@ internal class MarginaliaController(
 
     private var connectionIdentity: String? = null
 
+    init {
+        detail.onAuthoritativeUpdate = sessions.authoritativeDetailSink
+    }
+
     fun initialize(profile: ConnectionProfile) {
         val identity = "${profile.apiBaseUrl}\u0000${profile.clientSessionId}"
         sessions.prepare(profile)
@@ -69,6 +73,7 @@ internal class MarginaliaController(
     }
 
     fun close() {
+        detail.onAuthoritativeUpdate = null
         sessions.close()
         detail.close()
     }

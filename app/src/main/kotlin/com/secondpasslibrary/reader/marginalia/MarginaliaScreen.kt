@@ -25,6 +25,8 @@ internal fun MarginaliaScreen(viewModel: MarginaliaViewModel, onOpenDrawer: () -
     val sessionsState by viewModel.sessionsState.collectAsStateWithLifecycle()
     val detailState by viewModel.detailState.collectAsStateWithLifecycle()
     val annotationState by viewModel.annotationState.collectAsStateWithLifecycle()
+    val metadataEditState by viewModel.metadataEditState.collectAsStateWithLifecycle()
+    val closeState by viewModel.closeState.collectAsStateWithLifecycle()
     val detail = state.destination as? MarginaliaDestination.SessionDetail
     val listState = rememberLazyListState()
 
@@ -49,13 +51,29 @@ internal fun MarginaliaScreen(viewModel: MarginaliaViewModel, onOpenDrawer: () -
             ReadingSessionDetailContent(
                 detailState = detailState,
                 annotationState = annotationState,
-                onRetryDetail = viewModel::retryDetail,
-                onRetryAnnotations = viewModel::retryAnnotations,
+                metadataEditState = metadataEditState,
+                closeState = closeState,
+                actions = viewModel.detailActions(),
                 modifier = modifier
             )
         }
     }
 }
+
+private fun MarginaliaViewModel.detailActions() = ReadingSessionDetailActions(
+    retryDetail = { onDetailIntent(ReadingSessionDetailIntent.RetryDetail) },
+    retryAnnotations = { onDetailIntent(ReadingSessionDetailIntent.RetryAnnotations) },
+    beginEdit = { onDetailIntent(ReadingSessionDetailIntent.BeginEdit) },
+    editNameChanged = { onDetailIntent(ReadingSessionDetailIntent.EditName(it)) },
+    editNotesChanged = { onDetailIntent(ReadingSessionDetailIntent.EditNotes(it)) },
+    saveEdit = { onDetailIntent(ReadingSessionDetailIntent.SaveEdit) },
+    cancelEdit = { onDetailIntent(ReadingSessionDetailIntent.CancelEdit) },
+    beginClose = { onDetailIntent(ReadingSessionDetailIntent.BeginClose) },
+    closeNameChanged = { onDetailIntent(ReadingSessionDetailIntent.CloseName(it)) },
+    closeNotesChanged = { onDetailIntent(ReadingSessionDetailIntent.CloseNotes(it)) },
+    confirmClose = { onDetailIntent(ReadingSessionDetailIntent.ConfirmClose) },
+    cancelClose = { onDetailIntent(ReadingSessionDetailIntent.CancelClose) }
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

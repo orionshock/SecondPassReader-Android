@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -31,29 +33,51 @@ import com.secondpasslibrary.reader.design.book.PublicBookCover
 internal fun ReadingSessionDetailContent(
     detailState: ReadingSessionDetailState,
     annotationState: ReadingSessionAnnotationsState,
-    onRetryDetail: () -> Unit,
-    onRetryAnnotations: () -> Unit,
+    metadataEditState: ReadingSessionMetadataEditState,
+    closeState: ReadingSessionCloseState,
+    actions: ReadingSessionDetailActions,
     modifier: Modifier = Modifier
 ) {
     when {
         detailState.loading -> DetailLoading(modifier)
 
-        detailState.failure != null -> DetailFailure(detailState.failure, onRetryDetail, modifier)
+        detailState.failure != null -> DetailFailure(
+            detailState.failure,
+            actions.retryDetail,
+            modifier
+        )
 
         detailState.detail != null -> LoadedSessionDetail(
             detailState.detail.toDetailPresentation(),
             annotationState,
-            onRetryAnnotations,
+            actions,
             modifier
         )
     }
+    if (metadataEditState.open) ReadingSessionMetadataEditDialog(metadataEditState, actions)
+    if (closeState.open) ReadingSessionCloseDialog(closeState, actions)
 }
+
+internal data class ReadingSessionDetailActions(
+    val retryDetail: () -> Unit,
+    val retryAnnotations: () -> Unit,
+    val beginEdit: () -> Unit,
+    val editNameChanged: (String) -> Unit,
+    val editNotesChanged: (String) -> Unit,
+    val saveEdit: () -> Unit,
+    val cancelEdit: () -> Unit,
+    val beginClose: () -> Unit,
+    val closeNameChanged: (String) -> Unit,
+    val closeNotesChanged: (String) -> Unit,
+    val confirmClose: () -> Unit,
+    val cancelClose: () -> Unit
+)
 
 @Composable
 private fun LoadedSessionDetail(
     detail: ReadingSessionDetailPresentation,
     annotations: ReadingSessionAnnotationsState,
-    onRetryAnnotations: () -> Unit,
+    actions: ReadingSessionDetailActions,
     modifier: Modifier
 ) {
     LazyColumn(
@@ -61,12 +85,9 @@ private fun LoadedSessionDetail(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { SessionDetailHero(detail) }
+        item { SessionDetailHero(detail, actions.beginEdit, actions.beginClose) }
         item {
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 2.dp),
-                color = MaterialTheme.colorScheme.outlineVariant
-            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Text(
                 "Annotations",
                 modifier = Modifier.padding(top = 10.dp),
@@ -78,7 +99,7 @@ private fun LoadedSessionDetail(
             annotations.loading -> item { AnnotationLoading() }
 
             annotations.failure != null -> item {
-                AnnotationFailure(annotations.failure, onRetryAnnotations)
+                AnnotationFailure(annotations.failure, actions.retryAnnotations)
             }
 
             annotations.loaded && annotations.annotations.isEmpty() -> item {
@@ -96,7 +117,11 @@ private fun LoadedSessionDetail(
 }
 
 @Composable
-private fun SessionDetailHero(detail: ReadingSessionDetailPresentation) {
+private fun SessionDetailHero(
+    detail: ReadingSessionDetailPresentation,
+    onBeginEdit: () -> Unit,
+    onBeginClose: () -> Unit
+) {
     Surface(
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainer,
@@ -106,7 +131,7 @@ private fun SessionDetailHero(detail: ReadingSessionDetailPresentation) {
             if (maxWidth >= 900.dp) {
                 Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                     SessionCover(detail, Modifier.width(170.dp).height(250.dp))
-                    SessionMetadata(detail, Modifier.weight(1f))
+                    SessionMetadata(detail, onBeginEdit, onBeginClose, Modifier.weight(1f))
                 }
             } else {
                 Column(
@@ -114,7 +139,7 @@ private fun SessionDetailHero(detail: ReadingSessionDetailPresentation) {
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     SessionCover(detail, Modifier.width(130.dp).height(192.dp))
-                    SessionMetadata(detail, Modifier.fillMaxWidth())
+                    SessionMetadata(detail, onBeginEdit, onBeginClose, Modifier.fillMaxWidth())
                 }
             }
         }
@@ -127,7 +152,12 @@ private fun SessionCover(detail: ReadingSessionDetailPresentation, modifier: Mod
 }
 
 @Composable
-private fun SessionMetadata(detail: ReadingSessionDetailPresentation, modifier: Modifier) {
+private fun SessionMetadata(
+    detail: ReadingSessionDetailPresentation,
+    onBeginEdit: () -> Unit,
+    onBeginClose: () -> Unit,
+    modifier: Modifier
+) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Text(
             detail.bookTitle,
@@ -144,13 +174,24 @@ private fun SessionMetadata(detail: ReadingSessionDetailPresentation, modifier: 
         MetadataLine("Started", detail.startedLabel)
         MetadataLine("Updated", detail.updatedLabel)
         detail.closedLabel?.let { MetadataLine("Closed", it) }
-        detail.closedNotice?.let {
-            Text(
-                it,
-                modifier = Modifier.padding(top = 4.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium
-            )
+        detail.notes?.let { MetadataLine("Notes", it) }
+        detail.closedNotice?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        if (detail.active) {
+            Row(
+                modifier = Modifier.padding(top = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(onClick = onBeginEdit) { Text("Edit session") }
+                Button(
+                    onClick = onBeginClose,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Text("Close session")
+                }
+            }
         }
     }
 }
@@ -186,9 +227,7 @@ private fun MetadataLine(label: String, value: String) {
 
 @Composable
 private fun DetailLoading(modifier: Modifier) {
-    Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator()
-    }
+    Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
 }
 
 @Composable

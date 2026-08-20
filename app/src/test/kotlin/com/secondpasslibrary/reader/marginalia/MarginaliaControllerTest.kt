@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.marginalia
 
+import com.secondpasslibrary.client.ReadingSessionStatus
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -58,5 +59,58 @@ class MarginaliaControllerTest {
             MarginaliaExternalNavigationIntent.Reader("book-1", "session-1"),
             controller.navigation.first()
         )
+    }
+
+    @Test
+    fun `authoritative metadata update reconciles visible history row`() = runTest {
+        val capability = RecordingMarginaliaCapability().apply {
+            globalCall = { marginaliaPage(1, listOf(sessionItem("session-1"))) }
+        }
+        val controller = MarginaliaController(marginaliaProvider(capability), this)
+        controller.initialize(marginaliaProfile())
+        advanceUntilIdle()
+        controller.selectSession("session-1")
+        advanceUntilIdle()
+        controller.detail.beginMetadataEdit()
+        controller.detail.metadataEditor.updateName("Renamed")
+        controller.detail.saveMetadata()
+        advanceUntilIdle()
+
+        assertEquals("Renamed", controller.detail.state.value.detail?.session?.summary?.name)
+        assertEquals("Renamed", controller.sessions.state.value.sessions.single().session.name)
+    }
+
+    @Test
+    fun `close reconciles All Active and Closed history filters`() = runTest {
+        val filters = listOf(
+            ReadingSessionStatusFilter.ALL to 1,
+            ReadingSessionStatusFilter.ACTIVE to 0,
+            ReadingSessionStatusFilter.CLOSED to 1
+        )
+        filters.forEach { (filter, expectedCount) ->
+            val capability = RecordingMarginaliaCapability().apply {
+                globalCall = { marginaliaPage(1, listOf(sessionItem("session-$filter"))) }
+            }
+            val controller = MarginaliaController(marginaliaProvider(capability), this)
+            controller.initialize(marginaliaProfile())
+            advanceUntilIdle()
+            controller.sessions.changeStatus(filter)
+            advanceUntilIdle()
+            controller.selectSession("session-$filter")
+            advanceUntilIdle()
+            controller.detail.beginClose()
+            controller.detail.confirmClose()
+            advanceUntilIdle()
+
+            assertEquals(expectedCount, controller.sessions.state.value.sessions.size)
+            controller.sessions.state.value.sessions.firstOrNull()?.let {
+                assertEquals(ReadingSessionStatus.CLOSED, it.session.status)
+            }
+            assertEquals(
+                ReadingSessionStatus.CLOSED,
+                controller.detail.state.value.detail?.session?.summary?.status
+            )
+            controller.close()
+        }
     }
 }

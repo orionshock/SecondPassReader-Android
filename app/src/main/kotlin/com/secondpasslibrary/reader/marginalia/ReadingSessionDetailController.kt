@@ -16,7 +16,11 @@ internal class ReadingSessionDetailController(
     private val clientProvider: AuthenticatedClientProvider,
     private val coroutineScope: CoroutineScope,
     val annotations: ReadingSessionAnnotationsController =
-        ReadingSessionAnnotationsController(clientProvider, coroutineScope)
+        ReadingSessionAnnotationsController(clientProvider, coroutineScope),
+    val metadataEditor: ReadingSessionMetadataEditorController =
+        ReadingSessionMetadataEditorController(clientProvider, coroutineScope),
+    val closeFlow: ReadingSessionCloseController =
+        ReadingSessionCloseController(clientProvider, coroutineScope)
 ) {
     private val mutableState = MutableStateFlow(ReadingSessionDetailState())
     val state = mutableState.asStateFlow()
@@ -24,8 +28,16 @@ internal class ReadingSessionDetailController(
     private val connectionEventChannel = Channel<MarginaliaConnectionEvent>(Channel.BUFFERED)
     val connectionEvents = merge(
         connectionEventChannel.receiveAsFlow(),
-        annotations.connectionEvents
+        annotations.connectionEvents,
+        metadataEditor.connectionEvents,
+        closeFlow.connectionEvents
     )
+    var onAuthoritativeUpdate: (
+        (
+            com.secondpasslibrary.client.ReadingSessionDetailResult
+        ) -> Unit
+    )? =
+        null
 
     private var profile: ConnectionProfile? = null
     private var connectionIdentity: String? = null
@@ -36,6 +48,8 @@ internal class ReadingSessionDetailController(
         val identity = "${profile.apiBaseUrl}\u0000${profile.clientSessionId}"
         this.profile = profile
         annotations.prepare(profile)
+        metadataEditor.prepare(profile)
+        closeFlow.prepare(profile)
         if (identity == connectionIdentity) return
         connectionIdentity = identity
         clear()
@@ -57,16 +71,32 @@ internal class ReadingSessionDetailController(
         load(sessionId, generation)
     }
 
+    fun beginMetadataEdit() {
+        state.value.detail?.let(metadataEditor::begin)
+    }
+
+    fun saveMetadata() = metadataEditor.submit(::applyAuthoritativeDetail)
+
+    fun beginClose() {
+        state.value.detail?.let(closeFlow::begin)
+    }
+
+    fun confirmClose() = closeFlow.submit(::applyAuthoritativeDetail)
+
     fun clear() {
         loadJob?.cancel()
         generation += 1
         mutableState.value = ReadingSessionDetailState()
         annotations.clear()
+        metadataEditor.reset()
+        closeFlow.reset()
     }
 
     fun close() {
         loadJob?.cancel()
         annotations.close()
+        metadataEditor.close()
+        closeFlow.close()
     }
 
     private fun load(sessionId: String, activeGeneration: Long) {
@@ -95,5 +125,15 @@ internal class ReadingSessionDetailController(
                 }
             )
         }
+    }
+
+    private fun applyAuthoritativeDetail(
+        detail: com.secondpasslibrary.client.ReadingSessionDetailResult
+    ) {
+        if (detail.session.summary.id != state.value.sessionId) return
+        mutableState.value = state.value.copy(detail = detail, loading = false, failure = null)
+        metadataEditor.reset()
+        closeFlow.reset()
+        onAuthoritativeUpdate?.invoke(detail)
     }
 }

@@ -19,6 +19,8 @@ constructor(
     val sessionsState = controller.sessions.state
     val detailState = controller.detail.state
     val annotationState = controller.detail.annotations.state
+    val metadataEditState = controller.detail.metadataEditor.state
+    val closeState = controller.detail.closeFlow.state
     val connectionEvents = controller.connectionEvents
 
     fun initialize(profile: ConnectionProfile) = controller.initialize(profile)
@@ -35,9 +37,37 @@ constructor(
 
     fun backFromDetail() = controller.backFromDetail()
 
-    fun retryDetail() = controller.detail.retry()
+    fun onDetailIntent(intent: ReadingSessionDetailIntent) {
+        when (intent) {
+            ReadingSessionDetailIntent.RetryDetail -> controller.detail.retry()
 
-    fun retryAnnotations() = controller.detail.annotations.retry()
+            ReadingSessionDetailIntent.RetryAnnotations -> controller.detail.annotations.retry()
+
+            ReadingSessionDetailIntent.BeginEdit -> controller.detail.beginMetadataEdit()
+
+            is ReadingSessionDetailIntent.EditName ->
+                controller.detail.metadataEditor.updateName(intent.value)
+
+            is ReadingSessionDetailIntent.EditNotes ->
+                controller.detail.metadataEditor.updateNotes(intent.value)
+
+            ReadingSessionDetailIntent.SaveEdit -> controller.detail.saveMetadata()
+
+            ReadingSessionDetailIntent.CancelEdit -> controller.detail.metadataEditor.reset()
+
+            ReadingSessionDetailIntent.BeginClose -> controller.detail.beginClose()
+
+            is ReadingSessionDetailIntent.CloseName ->
+                controller.detail.closeFlow.updateName(intent.value)
+
+            is ReadingSessionDetailIntent.CloseNotes ->
+                controller.detail.closeFlow.updateNotes(intent.value)
+
+            ReadingSessionDetailIntent.ConfirmClose -> controller.detail.confirmClose()
+
+            ReadingSessionDetailIntent.CancelClose -> controller.detail.closeFlow.reset()
+        }
+    }
 
     override fun onCleared() {
         controller.close()

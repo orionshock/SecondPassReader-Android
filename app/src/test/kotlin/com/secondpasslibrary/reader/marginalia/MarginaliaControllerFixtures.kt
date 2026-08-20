@@ -11,8 +11,10 @@ import com.secondpasslibrary.client.MarginaliaPage
 import com.secondpasslibrary.client.ReadingSessionBook
 import com.secondpasslibrary.client.ReadingSessionDetail
 import com.secondpasslibrary.client.ReadingSessionDetailResult
+import com.secondpasslibrary.client.ReadingSessionFinalization
 import com.secondpasslibrary.client.ReadingSessionListItem
 import com.secondpasslibrary.client.ReadingSessionListOptions
+import com.secondpasslibrary.client.ReadingSessionMetadataInput
 import com.secondpasslibrary.client.ReadingSessionStatus
 import com.secondpasslibrary.client.ReadingSessionSummary
 import com.secondpasslibrary.reader.FakeAuthenticatedLibraryClient
@@ -26,6 +28,8 @@ internal class RecordingMarginaliaCapability : AuthenticatedMarginaliaClient {
     val bookRequests = mutableListOf<Pair<String, BookReadingSessionListOptions>>()
     val detailRequests = mutableListOf<String>()
     val annotationRequests = mutableListOf<String>()
+    val metadataRequests = mutableListOf<Pair<String, ReadingSessionMetadataInput>>()
+    val closeRequests = mutableListOf<Pair<String, ReadingSessionFinalization>>()
 
     var globalCall:
         suspend (ReadingSessionListOptions) -> MarginaliaPage<ReadingSessionListItem> = {
@@ -40,6 +44,14 @@ internal class RecordingMarginaliaCapability : AuthenticatedMarginaliaClient {
         }
     var detailCall: suspend (String) -> ReadingSessionDetailResult = { sessionDetail(it) }
     var annotationsCall: suspend (String) -> List<MarginaliaAnnotation> = { emptyList() }
+    var metadataCall: suspend (String, ReadingSessionMetadataInput) -> ReadingSessionDetailResult =
+        { id, input ->
+            sessionDetail(id).withMetadata(input.name.orEmpty(), input.notes.orEmpty())
+        }
+    var closeCall: suspend (String, ReadingSessionFinalization) -> ReadingSessionDetailResult =
+        { id, input ->
+            sessionDetail(id).withClosedMetadata(input.name.orEmpty(), input.notes.orEmpty())
+        }
 
     override val books = object : AuthenticatedMarginaliaBooksClient by
     FakeAuthenticatedMarginaliaClient.books {
@@ -69,6 +81,22 @@ internal class RecordingMarginaliaCapability : AuthenticatedMarginaliaClient {
         override suspend fun listAnnotations(sessionId: String): List<MarginaliaAnnotation> {
             annotationRequests += sessionId
             return annotationsCall(sessionId)
+        }
+
+        override suspend fun updateMetadata(
+            sessionId: String,
+            metadata: ReadingSessionMetadataInput
+        ): ReadingSessionDetailResult {
+            metadataRequests += sessionId to metadata
+            return metadataCall(sessionId, metadata)
+        }
+
+        override suspend fun close(
+            sessionId: String,
+            finalization: ReadingSessionFinalization
+        ): ReadingSessionDetailResult {
+            closeRequests += sessionId to finalization
+            return closeCall(sessionId, finalization)
         }
     }
 }
@@ -125,6 +153,29 @@ internal fun sessionItem(id: String, status: ReadingSessionStatus = ReadingSessi
 internal fun sessionDetail(id: String) = ReadingSessionDetailResult(
     book = sessionBook("book-$id"),
     session = ReadingSessionDetail(sessionSummary(id), null)
+)
+
+internal fun ReadingSessionDetailResult.withMetadata(
+    name: String,
+    notes: String
+): ReadingSessionDetailResult = copy(
+    session = session.copy(summary = session.summary.copy(name = name, notes = notes))
+)
+
+internal fun ReadingSessionDetailResult.withClosedMetadata(
+    name: String,
+    notes: String
+): ReadingSessionDetailResult = copy(
+    session = session.copy(
+        summary = session.summary.copy(
+            name = name,
+            notes = notes,
+            status = ReadingSessionStatus.CLOSED,
+            closedAt = "2026-08-03T00:00:00Z",
+            updatedAt = "2026-08-03T00:00:00Z",
+            lastActivityAt = "2026-08-03T00:00:00Z"
+        )
+    )
 )
 
 internal fun <T> marginaliaPage(

@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.marginalia
 
 import com.secondpasslibrary.client.BookReadingSessionListOptions
 import com.secondpasslibrary.client.MarginaliaPage
+import com.secondpasslibrary.client.ReadingSessionDetailResult
 import com.secondpasslibrary.client.ReadingSessionListItem
 import com.secondpasslibrary.client.ReadingSessionListOptions
 import com.secondpasslibrary.client.ReadingSessionStatus
@@ -82,6 +83,36 @@ internal class ReadingSessionsController(
     }
 
     fun close() = loadJob?.cancel()
+
+    val authoritativeDetailSink: (ReadingSessionDetailResult) -> Unit = { detail ->
+        val current = state.value
+        val index = current.sessions.indexOfFirst { it.session.id == detail.session.summary.id }
+        if (index >= 0) {
+            val matchesFilter = when (current.statusFilter) {
+                ReadingSessionStatusFilter.ALL -> true
+
+                ReadingSessionStatusFilter.ACTIVE ->
+                    detail.session.summary.status == ReadingSessionStatus.ACTIVE
+
+                ReadingSessionStatusFilter.CLOSED ->
+                    detail.session.summary.status == ReadingSessionStatus.CLOSED
+            }
+            val sessions = current.sessions.toMutableList()
+            if (matchesFilter) {
+                sessions[index] = ReadingSessionListItem(detail.session.summary, detail.book)
+            } else {
+                sessions.removeAt(index)
+            }
+            mutableState.value = current.copy(
+                sessions = sessions,
+                totalCount = if (matchesFilter) {
+                    current.totalCount
+                } else {
+                    (current.totalCount - 1).coerceAtLeast(0)
+                }
+            )
+        }
+    }
 
     private fun resetAndLoad(
         context: MarginaliaHistoryContext,

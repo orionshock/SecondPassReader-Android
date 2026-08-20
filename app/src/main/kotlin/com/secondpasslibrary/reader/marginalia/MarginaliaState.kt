@@ -3,6 +3,7 @@ package com.secondpasslibrary.reader.marginalia
 import com.secondpasslibrary.client.MarginaliaAnnotation
 import com.secondpasslibrary.client.ReadingSessionBook
 import com.secondpasslibrary.client.ReadingSessionDetailResult
+import com.secondpasslibrary.client.ReadingSessionFinalization
 import com.secondpasslibrary.client.ReadingSessionListItem
 
 internal sealed interface MarginaliaHistoryContext {
@@ -53,6 +54,65 @@ internal data class ReadingSessionAnnotationsState(
     val loaded: Boolean = false,
     val failure: MarginaliaFailure? = null
 )
+
+internal data class ReadingSessionMetadataEditState(
+    val open: Boolean = false,
+    val sessionId: String? = null,
+    val name: String = "",
+    val notes: String = "",
+    val originalName: String = "",
+    val originalNotes: String = "",
+    val nameError: ReadingSessionNameError? = null,
+    val saving: Boolean = false,
+    val failure: ReadingSessionMutationFailure? = null
+) {
+    val dirty: Boolean get() = name != originalName || notes != originalNotes
+}
+
+internal data class ReadingSessionCloseState(
+    val open: Boolean = false,
+    val sessionId: String? = null,
+    val name: String = "",
+    val notes: String = "",
+    val nameError: ReadingSessionNameError? = null,
+    val closing: Boolean = false,
+    val failure: ReadingSessionMutationFailure? = null,
+    val retryFinalization: ReadingSessionFinalization? = null
+) {
+    val unnamedWarning: Boolean get() = name.isBlank()
+    val exactRetryRequired: Boolean get() = retryFinalization != null
+}
+
+internal enum class ReadingSessionNameError {
+    TOO_LONG,
+    SERVER_REJECTED
+}
+
+internal enum class ReadingSessionMutationFailure {
+    UNREACHABLE,
+    AUTHENTICATION_REJECTED,
+    SESSION_CLOSED,
+    NOT_AUTHORIZED,
+    NOT_FOUND,
+    VALIDATION,
+    PROTOCOL_INVALID,
+    OTHER
+}
+
+internal sealed interface ReadingSessionDetailIntent {
+    data object RetryDetail : ReadingSessionDetailIntent
+    data object RetryAnnotations : ReadingSessionDetailIntent
+    data object BeginEdit : ReadingSessionDetailIntent
+    data class EditName(val value: String) : ReadingSessionDetailIntent
+    data class EditNotes(val value: String) : ReadingSessionDetailIntent
+    data object SaveEdit : ReadingSessionDetailIntent
+    data object CancelEdit : ReadingSessionDetailIntent
+    data object BeginClose : ReadingSessionDetailIntent
+    data class CloseName(val value: String) : ReadingSessionDetailIntent
+    data class CloseNotes(val value: String) : ReadingSessionDetailIntent
+    data object ConfirmClose : ReadingSessionDetailIntent
+    data object CancelClose : ReadingSessionDetailIntent
+}
 
 internal data class MarginaliaState(
     val destination: MarginaliaDestination =
