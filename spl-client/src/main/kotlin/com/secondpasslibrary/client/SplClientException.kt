@@ -46,6 +46,29 @@ sealed class SplClientException(message: String, cause: Throwable? = null) :
         val reason: ShelfMutationRejection,
         val fields: Set<ShelfMutationField> = emptySet()
     ) : SplClientException("The shelf mutation was rejected.")
+
+    class ReadingSessionLifecycleRejected(
+        val reason: ReadingSessionLifecycleRejection,
+        val fields: Set<ReadingSessionMutationField> = emptySet()
+    ) : SplClientException("The Reading Session lifecycle operation was rejected.")
+}
+
+enum class ReadingSessionLifecycleRejection {
+    SESSION_CLOSED,
+    PERMISSION_DENIED,
+    INVALID_REQUEST,
+    VALIDATION,
+    RESOURCE_NOT_FOUND
+}
+
+enum class ReadingSessionMutationField {
+    NAME,
+    NOTES,
+    PROGRESS,
+    CFI,
+    LOCATION_LABEL,
+    IDEMPOTENCY_KEY,
+    GENERAL
 }
 
 enum class ShelfMutationRejection {

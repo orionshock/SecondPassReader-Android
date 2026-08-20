@@ -76,13 +76,17 @@ AuthenticatedSecondPassClient.shelves
   `- owned-personal Shelf and item mutations
 
 AuthenticatedSecondPassClient.marginalia
-  |- books -> paged summaries, detail, and Book-scoped Session history
-  `- sessions -> global history, recent reading, and Session detail
+  |- books -> summaries/history plus active lookup, open/resume, and start-over
+  `- sessions -> global/recent/detail reads plus metadata update and close
 ```
 
 Pagination, compact/preview Books, cover references, scope, and shared Library value types remain Library-level artifacts. Catalog Tags expose Reader-safe identity, slug, and scoped book counts; endpoint topology remains private to the SDK.
 
-Marginalia reads preserve server ordering and historical Book context after current visibility is lost; `canOpen` remains an advisory current-visibility value. Session status remains `active` or `closed`, annotation counts and activity timestamps remain server-owned, and progress retains its CFI plus nullable opaque location label without deriving percentages. Session detail does not implicitly load annotations. Shelf reads preserve discriminated user/group ownership, private/listed visibility, item identity separately from Book identity, non-contiguous stored positions, matched Book items, and omitted versus empty previews. Normal item pages expose only visible Compact Books; the editor projection represents unavailable retained items without inventing Book metadata.
+Marginalia reads preserve server ordering and historical Book context after current visibility is lost; `canOpen` remains advisory. Session status stays `active` or `closed`, while counts and activity timestamps remain server-owned. Active lookup/open/start-over return one bootstrap boundary containing Book context, the nullable active Session, current annotations, and the first closed-history page. Ordinary Session detail does not load annotations.
+
+Open/resume converges on the server's one-active-Session rule rather than creating Sessions client-side. Close can atomically finalize metadata/progress. Start-over requires a caller-owned stable `MarginaliaIdempotencyKey`; the SDK validates and reuses it for transport execution but does not persist it. App orchestration must retain that key across logical-operation retries. Progress replacement and standalone annotation synchronization remain deferred.
+
+Shelf reads preserve discriminated user/group ownership, private/listed visibility, item identity separately from Book identity, non-contiguous stored positions, matched Book items, and omitted versus empty previews. Normal item pages expose only visible Compact Books; the editor projection represents unavailable retained items without inventing Book metadata.
 
 The Android SDK aims to expose each SPL subsystem's complete Reader-bearer capability even when the first-party Android UI adopts that capability incrementally. UI sequencing does not define or restrict the publishable SDK boundary.
 

@@ -14,15 +14,17 @@ internal class KtorAuthenticatedMarginaliaClient(
     requests: AuthenticatedRequestExecutor,
     json: Json
 ) : AuthenticatedMarginaliaClient {
+    private val lifecycle = KtorReadingSessionLifecycleClient(requests, json)
     override val books: AuthenticatedMarginaliaBooksClient =
-        KtorMarginaliaBooksClient(requests, json)
+        KtorMarginaliaBooksClient(requests, json, lifecycle)
     override val sessions: AuthenticatedReadingSessionsClient =
-        KtorReadingSessionsClient(requests, json)
+        KtorReadingSessionsClient(requests, json, lifecycle)
 }
 
 internal class KtorMarginaliaBooksClient(
     private val requests: AuthenticatedRequestExecutor,
-    private val json: Json
+    private val json: Json,
+    private val lifecycle: KtorReadingSessionLifecycleClient
 ) : AuthenticatedMarginaliaBooksClient {
     override suspend fun list(
         options: MarginaliaBookListOptions
@@ -59,11 +61,26 @@ internal class KtorMarginaliaBooksClient(
             "Book reading sessions"
         ).toModel(options.page, options.pageSize)
     }
+
+    override suspend fun getActiveSession(bookId: String): ReadingSessionBootstrap =
+        lifecycle.getActiveSession(bookId)
+
+    override suspend fun openSession(
+        bookId: String,
+        metadata: ReadingSessionMetadataInput
+    ): ReadingSessionBootstrap = lifecycle.openSession(bookId, metadata)
+
+    override suspend fun startOver(
+        bookId: String,
+        idempotencyKey: MarginaliaIdempotencyKey,
+        finalization: ReadingSessionFinalization
+    ): ReadingSessionBootstrap = lifecycle.startOver(bookId, idempotencyKey, finalization)
 }
 
 internal class KtorReadingSessionsClient(
     private val requests: AuthenticatedRequestExecutor,
-    private val json: Json
+    private val json: Json,
+    private val lifecycle: KtorReadingSessionLifecycleClient
 ) : AuthenticatedReadingSessionsClient {
     override suspend fun list(
         options: ReadingSessionListOptions
@@ -100,6 +117,16 @@ internal class KtorReadingSessionsClient(
             "reading session detail"
         ).toModel()
     }
+
+    override suspend fun updateMetadata(
+        sessionId: String,
+        metadata: ReadingSessionMetadataInput
+    ): ReadingSessionDetailResult = lifecycle.updateMetadata(sessionId, metadata)
+
+    override suspend fun close(
+        sessionId: String,
+        finalization: ReadingSessionFinalization
+    ): ReadingSessionDetailResult = lifecycle.close(sessionId, finalization)
 }
 
 private val ReadingSessionStatus.queryValue: String

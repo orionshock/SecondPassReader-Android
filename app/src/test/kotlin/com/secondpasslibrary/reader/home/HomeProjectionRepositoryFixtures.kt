@@ -8,8 +8,10 @@ import com.secondpasslibrary.client.AuthenticatedShelvesClient
 import com.secondpasslibrary.client.CreatePersonalShelfInput
 import com.secondpasslibrary.client.MarginaliaPage
 import com.secondpasslibrary.client.ReadingSessionDetailResult
+import com.secondpasslibrary.client.ReadingSessionFinalization
 import com.secondpasslibrary.client.ReadingSessionListItem
 import com.secondpasslibrary.client.ReadingSessionListOptions
+import com.secondpasslibrary.client.ReadingSessionMetadataInput
 import com.secondpasslibrary.client.ReadingSessionStatus
 import com.secondpasslibrary.client.RecentReadingBook
 import com.secondpasslibrary.client.RecentReadingItem
@@ -114,6 +116,16 @@ internal class FakeHomeAuthenticatedClient : AuthenticatedSecondPassClient {
             }
 
             override suspend fun get(sessionId: String): ReadingSessionDetailResult = unsupported()
+
+            override suspend fun updateMetadata(
+                sessionId: String,
+                metadata: ReadingSessionMetadataInput
+            ): ReadingSessionDetailResult = unsupported()
+
+            override suspend fun close(
+                sessionId: String,
+                finalization: ReadingSessionFinalization
+            ): ReadingSessionDetailResult = unsupported()
         }
     }
     override val shelves = object : AuthenticatedShelvesClient {

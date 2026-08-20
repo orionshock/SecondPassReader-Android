@@ -22,6 +22,19 @@ interface AuthenticatedMarginaliaBooksClient {
         bookId: String,
         options: BookReadingSessionListOptions = BookReadingSessionListOptions()
     ): BookReadingSessionHistory
+
+    suspend fun getActiveSession(bookId: String): ReadingSessionBootstrap
+
+    suspend fun openSession(
+        bookId: String,
+        metadata: ReadingSessionMetadataInput = ReadingSessionMetadataInput()
+    ): ReadingSessionBootstrap
+
+    suspend fun startOver(
+        bookId: String,
+        idempotencyKey: MarginaliaIdempotencyKey,
+        finalization: ReadingSessionFinalization = ReadingSessionFinalization()
+    ): ReadingSessionBootstrap
 }
 
 interface AuthenticatedReadingSessionsClient {
@@ -32,6 +45,16 @@ interface AuthenticatedReadingSessionsClient {
     suspend fun recent(options: RecentReadingOptions): List<RecentReadingItem>
 
     suspend fun get(sessionId: String): ReadingSessionDetailResult
+
+    suspend fun updateMetadata(
+        sessionId: String,
+        metadata: ReadingSessionMetadataInput
+    ): ReadingSessionDetailResult
+
+    suspend fun close(
+        sessionId: String,
+        finalization: ReadingSessionFinalization = ReadingSessionFinalization()
+    ): ReadingSessionDetailResult
 }
 
 interface AuthenticatedShelvesClient {

@@ -71,3 +71,65 @@ internal data class ReadingSessionWire(
     val progress: ReadingProgressWire? = null,
     val book: RecentReadingBookWire? = null
 )
+
+@Serializable
+internal data class ReadingSessionBootstrapWire(
+    val created: Boolean? = null,
+    val context: ReadingSessionContextWire? = null,
+    val session: ReadingSessionWire? = null,
+    val annotations: List<MarginaliaAnnotationWire>? = null,
+    @SerialName("closed_sessions") val closedSessions: ReadingSessionSummaryPageWire? = null
+)
+
+@Serializable
+internal data class ReadingSessionSummaryPageWire(
+    val count: Int? = null,
+    val next: String? = null,
+    val previous: String? = null,
+    val results: List<ReadingSessionWire>? = null
+)
+
+@Serializable
+internal data class MarginaliaAnnotationWire(
+    val id: String? = null,
+    @SerialName("client_id") val clientId: String? = null,
+    val kind: String? = null,
+    val location: MarginaliaAnnotationLocationWire? = null,
+    val body: MarginaliaHighlightBodyWire? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null
+)
+
+@Serializable
+internal data class MarginaliaAnnotationLocationWire(
+    val cfi: String? = null,
+    @SerialName("location_label") val locationLabel: String? = null
+)
+
+@Serializable
+internal data class MarginaliaHighlightBodyWire(
+    val text: String? = null,
+    val prefix: String? = null,
+    val suffix: String? = null,
+    val color: String? = null,
+    val note: String? = null
+)
+
+@Serializable
+internal data class ReadingSessionMetadataInputWire(
+    val name: String? = null,
+    val notes: String? = null
+)
+
+@Serializable
+internal data class ReadingProgressInputWire(
+    val cfi: String,
+    @SerialName("location_label") val locationLabel: String? = null
+)
+
+@Serializable
+internal data class ReadingSessionFinalizationWire(
+    val name: String? = null,
+    val notes: String? = null,
+    val progress: ReadingProgressInputWire? = null
+)

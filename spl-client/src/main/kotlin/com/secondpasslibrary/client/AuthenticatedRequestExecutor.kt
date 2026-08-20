@@ -24,23 +24,25 @@ internal class AuthenticatedRequestExecutor(
         path: String,
         parameters: List<Pair<String, String>> = emptyList()
     ): HttpResponse {
-        val response =
-            try {
-                httpClient.get(resolveApiUrl(apiBaseUrl, path)) {
-                    parameters.forEach { (name, value) -> parameter(name, value) }
-                    credential.useSecret { token ->
-                        header(HttpHeaders.Authorization, "Bearer $token")
-                    }
-                }
-            } catch (failure: IOException) {
-                throw SplClientException.ServerUnreachable(failure)
-            }
+        val response = getResponse(path, parameters)
         requireAuthenticatedSuccess(response)
         return response
     }
 
-    suspend fun post(path: String, body: String): HttpResponse =
-        mutationRequest(HttpMethod.Post, path, body)
+    suspend fun getResponse(
+        path: String,
+        parameters: List<Pair<String, String>> = emptyList()
+    ): HttpResponse = try {
+        httpClient.get(resolveApiUrl(apiBaseUrl, path)) {
+            parameters.forEach { (name, value) -> parameter(name, value) }
+            credential.useSecret { token -> header(HttpHeaders.Authorization, "Bearer $token") }
+        }
+    } catch (failure: IOException) {
+        throw SplClientException.ServerUnreachable(failure)
+    }
+
+    suspend fun post(path: String, body: String, idempotencyKey: String? = null): HttpResponse =
+        mutationRequest(HttpMethod.Post, path, body, idempotencyKey)
 
     suspend fun patch(path: String, body: String): HttpResponse =
         mutationRequest(HttpMethod.Patch, path, body)
@@ -50,10 +52,12 @@ internal class AuthenticatedRequestExecutor(
     private suspend fun mutationRequest(
         method: HttpMethod,
         path: String,
-        body: String? = null
+        body: String? = null,
+        idempotencyKey: String? = null
     ): HttpResponse = try {
         httpClient.request(resolveApiUrl(apiBaseUrl, path)) {
             this.method = method
+            idempotencyKey?.let { header("Idempotency-Key", it) }
             credential.useSecret { token -> header(HttpHeaders.Authorization, "Bearer $token") }
             body?.let {
                 contentType(ContentType.Application.Json)
