@@ -124,6 +124,24 @@ class MarginaliaClientTest {
         }
 
     @Test
+    fun `Book history exposes its narrow not-found boundary`() {
+        val client = authenticatedClient {
+            jsonResponse(
+                """{"detail":"No Book matches the given query."}""",
+                HttpStatusCode.NotFound
+            )
+        }
+
+        assertThrows(SplClientException.BookReadingSessionHistoryNotFound::class.java) {
+            runBlocking {
+                client.marginalia.books.listSessions(
+                    "visible-book-without-history"
+                )
+            }
+        }
+    }
+
+    @Test
     fun `Session detail maps nullable opaque progress label`() = runBlocking {
         var request: HttpRequestData? = null
         val client = authenticatedClient { captured ->

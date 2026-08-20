@@ -6,6 +6,7 @@ import com.secondpasslibrary.client.ReadingSessionDetailResult
 import com.secondpasslibrary.client.ReadingSessionListItem
 import com.secondpasslibrary.client.ReadingSessionListOptions
 import com.secondpasslibrary.client.ReadingSessionStatus
+import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import kotlinx.coroutines.CancellationException
@@ -213,7 +214,28 @@ private sealed interface ReadingSessionsRequest {
         override suspend fun load(
             client: com.secondpasslibrary.client.AuthenticatedSecondPassClient
         ): ReadingSessionsPage {
-            val result = client.marginalia.books.listSessions(bookId, options)
+            val result = try {
+                client.marginalia.books.listSessions(bookId, options)
+            } catch (_: SplClientException.BookReadingSessionHistoryNotFound) {
+                if (options.page != 1) {
+                    throw SplClientException.BookReadingSessionHistoryNotFound()
+                }
+                val bootstrap = client.marginalia.books.getActiveSession(bookId)
+                if (bootstrap.activeSession != null) {
+                    throw SplClientException.ProtocolInvalid("Book reading sessions")
+                }
+                return ReadingSessionsPage(
+                    bootstrap.book,
+                    MarginaliaPage(
+                        totalCount = 0,
+                        results = emptyList(),
+                        hasNext = false,
+                        hasPrevious = false,
+                        page = options.page,
+                        pageSize = options.pageSize
+                    )
+                )
+            }
             return ReadingSessionsPage(
                 result.book,
                 MarginaliaPage(

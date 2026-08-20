@@ -7,6 +7,7 @@ import com.secondpasslibrary.client.internal.ReadingSessionDetailWire
 import com.secondpasslibrary.client.internal.ReadingSessionPageWire
 import com.secondpasslibrary.client.internal.RecentReadingResponseWire
 import io.ktor.client.call.body
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.encodeURLPathPart
 import kotlinx.serialization.json.Json
 
@@ -53,10 +54,14 @@ internal class KtorMarginaliaBooksClient(
             addAll(options.pageParameters())
         }
         val response =
-            requests.get(
+            requests.getResponse(
                 "marginalia/books/${bookId.encodeURLPathPart()}/sessions/",
                 parameters
             )
+        if (response.status == HttpStatusCode.NotFound) {
+            throw SplClientException.BookReadingSessionHistoryNotFound()
+        }
+        requireAuthenticatedSuccess(response)
         return json.decodeLibrary<BookReadingSessionPageWire>(
             response.body(),
             "Book reading sessions"

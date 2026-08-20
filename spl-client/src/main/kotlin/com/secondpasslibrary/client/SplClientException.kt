@@ -42,6 +42,9 @@ sealed class SplClientException(message: String, cause: Throwable? = null) :
     class AuthenticatedRequestFailed(cause: Throwable? = null) :
         SplClientException("Authenticated server context could not be loaded.", cause)
 
+    class BookReadingSessionHistoryNotFound :
+        SplClientException("The Book has no readable Reading Session history.")
+
     class ShelfMutationRejected(
         val reason: ShelfMutationRejection,
         val fields: Set<ShelfMutationField> = emptySet()

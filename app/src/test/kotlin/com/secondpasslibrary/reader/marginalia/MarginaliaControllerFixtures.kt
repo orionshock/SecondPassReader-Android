@@ -9,6 +9,7 @@ import com.secondpasslibrary.client.BookReadingSessionListOptions
 import com.secondpasslibrary.client.MarginaliaAnnotation
 import com.secondpasslibrary.client.MarginaliaPage
 import com.secondpasslibrary.client.ReadingSessionBook
+import com.secondpasslibrary.client.ReadingSessionBootstrap
 import com.secondpasslibrary.client.ReadingSessionDetail
 import com.secondpasslibrary.client.ReadingSessionDetailResult
 import com.secondpasslibrary.client.ReadingSessionFinalization
@@ -30,6 +31,7 @@ internal class RecordingMarginaliaCapability : AuthenticatedMarginaliaClient {
     val annotationRequests = mutableListOf<String>()
     val metadataRequests = mutableListOf<Pair<String, ReadingSessionMetadataInput>>()
     val closeRequests = mutableListOf<Pair<String, ReadingSessionFinalization>>()
+    val activeSessionRequests = mutableListOf<String>()
     var openSessionRequests = 0
 
     var globalCall:
@@ -44,6 +46,9 @@ internal class RecordingMarginaliaCapability : AuthenticatedMarginaliaClient {
             )
         }
     var detailCall: suspend (String) -> ReadingSessionDetailResult = { sessionDetail(it) }
+    var activeSessionCall: suspend (String) -> ReadingSessionBootstrap = {
+        emptySessionBootstrap(it)
+    }
     var annotationsCall: suspend (String) -> List<MarginaliaAnnotation> = { emptyList() }
     var metadataCall: suspend (String, ReadingSessionMetadataInput) -> ReadingSessionDetailResult =
         { id, input ->
@@ -70,6 +75,11 @@ internal class RecordingMarginaliaCapability : AuthenticatedMarginaliaClient {
         ): com.secondpasslibrary.client.ReadingSessionBootstrap {
             openSessionRequests += 1
             error("History browsing must not open a Reading Session.")
+        }
+
+        override suspend fun getActiveSession(bookId: String): ReadingSessionBootstrap {
+            activeSessionRequests += bookId
+            return activeSessionCall(bookId)
         }
     }
 
@@ -162,6 +172,19 @@ internal fun sessionItem(id: String, status: ReadingSessionStatus = ReadingSessi
 internal fun sessionDetail(id: String) = ReadingSessionDetailResult(
     book = sessionBook("book-$id"),
     session = ReadingSessionDetail(sessionSummary(id), null)
+)
+
+internal fun emptySessionBootstrap(bookId: String) = ReadingSessionBootstrap(
+    created = false,
+    book = sessionBook(bookId),
+    activeSession = null,
+    annotations = emptyList(),
+    closedSessions = com.secondpasslibrary.client.ClosedReadingSessionPage(
+        totalCount = 0,
+        results = emptyList(),
+        hasNext = false,
+        hasPrevious = false
+    )
 )
 
 internal fun ReadingSessionDetailResult.withMetadata(
