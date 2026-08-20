@@ -79,7 +79,7 @@ private val ReadingSessionStatus.presentationLabel: String
         ReadingSessionStatus.CLOSED -> "Closed"
     }
 
-private fun annotationCountLabel(count: Int) =
+internal fun annotationCountLabel(count: Int) =
     if (count == 1) "1 annotation" else "$count annotations"
 
 private const val SESSION_PAGING_THRESHOLD = 5

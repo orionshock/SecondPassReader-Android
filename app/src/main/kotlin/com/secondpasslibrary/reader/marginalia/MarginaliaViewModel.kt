@@ -18,6 +18,7 @@ constructor(
     val state = controller.state
     val sessionsState = controller.sessions.state
     val detailState = controller.detail.state
+    val annotationState = controller.detail.annotations.state
     val connectionEvents = controller.connectionEvents
 
     fun initialize(profile: ConnectionProfile) = controller.initialize(profile)
@@ -35,6 +36,8 @@ constructor(
     fun backFromDetail() = controller.backFromDetail()
 
     fun retryDetail() = controller.detail.retry()
+
+    fun retryAnnotations() = controller.detail.annotations.retry()
 
     override fun onCleared() {
         controller.close()

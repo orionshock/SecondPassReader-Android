@@ -12,7 +12,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class ReadingSessionDetailControllerTest {
     @Test
-    fun `detail loads metadata without annotations`() = runTest {
+    fun `detail starts independent metadata and annotation loads`() = runTest {
         val capability = RecordingMarginaliaCapability()
         val controller = ReadingSessionDetailController(marginaliaProvider(capability), this)
         controller.prepare(marginaliaProfile())
@@ -20,8 +20,23 @@ class ReadingSessionDetailControllerTest {
         advanceUntilIdle()
 
         assertEquals(listOf("session-1"), capability.detailRequests)
+        assertEquals(listOf("session-1"), capability.annotationRequests)
         assertEquals("session-1", controller.state.value.detail?.session?.summary?.id)
         assertNull(controller.state.value.failure)
+    }
+
+    @Test
+    fun `annotation failure does not erase loaded metadata`() = runTest {
+        val capability = RecordingMarginaliaCapability().apply {
+            annotationsCall = { throw SplClientException.ServerUnreachable() }
+        }
+        val controller = ReadingSessionDetailController(marginaliaProvider(capability), this)
+        controller.prepare(marginaliaProfile())
+        controller.select("session-1")
+        advanceUntilIdle()
+
+        assertEquals("session-1", controller.state.value.detail?.session?.summary?.id)
+        assertEquals(MarginaliaFailure.UNREACHABLE, controller.annotations.state.value.failure)
     }
 
     @Test

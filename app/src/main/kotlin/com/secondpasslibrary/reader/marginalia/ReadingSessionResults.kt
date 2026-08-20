@@ -223,7 +223,7 @@ private fun SessionLoadFailure(
     }
 }
 
-private fun MarginaliaFailure.userMessage(): String = when (this) {
+internal fun MarginaliaFailure.userMessage(): String = when (this) {
     MarginaliaFailure.UNREACHABLE -> "The library is currently unreachable."
     MarginaliaFailure.AUTHENTICATION_REJECTED -> "Library authentication was rejected."
     MarginaliaFailure.PROTOCOL_INVALID -> "The library returned an invalid response."

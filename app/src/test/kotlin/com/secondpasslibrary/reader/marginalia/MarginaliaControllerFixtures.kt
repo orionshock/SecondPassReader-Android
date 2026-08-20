@@ -6,6 +6,7 @@ import com.secondpasslibrary.client.AuthenticatedReadingSessionsClient
 import com.secondpasslibrary.client.AuthenticatedSecondPassClient
 import com.secondpasslibrary.client.BookReadingSessionHistory
 import com.secondpasslibrary.client.BookReadingSessionListOptions
+import com.secondpasslibrary.client.MarginaliaAnnotation
 import com.secondpasslibrary.client.MarginaliaPage
 import com.secondpasslibrary.client.ReadingSessionBook
 import com.secondpasslibrary.client.ReadingSessionDetail
@@ -24,6 +25,7 @@ internal class RecordingMarginaliaCapability : AuthenticatedMarginaliaClient {
     val globalRequests = mutableListOf<ReadingSessionListOptions>()
     val bookRequests = mutableListOf<Pair<String, BookReadingSessionListOptions>>()
     val detailRequests = mutableListOf<String>()
+    val annotationRequests = mutableListOf<String>()
 
     var globalCall:
         suspend (ReadingSessionListOptions) -> MarginaliaPage<ReadingSessionListItem> = {
@@ -37,6 +39,7 @@ internal class RecordingMarginaliaCapability : AuthenticatedMarginaliaClient {
             )
         }
     var detailCall: suspend (String) -> ReadingSessionDetailResult = { sessionDetail(it) }
+    var annotationsCall: suspend (String) -> List<MarginaliaAnnotation> = { emptyList() }
 
     override val books = object : AuthenticatedMarginaliaBooksClient by
     FakeAuthenticatedMarginaliaClient.books {
@@ -61,6 +64,11 @@ internal class RecordingMarginaliaCapability : AuthenticatedMarginaliaClient {
         override suspend fun get(sessionId: String): ReadingSessionDetailResult {
             detailRequests += sessionId
             return detailCall(sessionId)
+        }
+
+        override suspend fun listAnnotations(sessionId: String): List<MarginaliaAnnotation> {
+            annotationRequests += sessionId
+            return annotationsCall(sessionId)
         }
     }
 }

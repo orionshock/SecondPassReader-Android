@@ -8,24 +8,18 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
-internal class ReadingSessionDetailController(
+internal class ReadingSessionAnnotationsController(
     private val clientProvider: AuthenticatedClientProvider,
-    private val coroutineScope: CoroutineScope,
-    val annotations: ReadingSessionAnnotationsController =
-        ReadingSessionAnnotationsController(clientProvider, coroutineScope)
+    private val coroutineScope: CoroutineScope
 ) {
-    private val mutableState = MutableStateFlow(ReadingSessionDetailState())
+    private val mutableState = MutableStateFlow(ReadingSessionAnnotationsState())
     val state = mutableState.asStateFlow()
 
     private val connectionEventChannel = Channel<MarginaliaConnectionEvent>(Channel.BUFFERED)
-    val connectionEvents = merge(
-        connectionEventChannel.receiveAsFlow(),
-        annotations.connectionEvents
-    )
+    val connectionEvents = connectionEventChannel.receiveAsFlow()
 
     private var profile: ConnectionProfile? = null
     private var connectionIdentity: String? = null
@@ -35,7 +29,6 @@ internal class ReadingSessionDetailController(
     fun prepare(profile: ConnectionProfile) {
         val identity = "${profile.apiBaseUrl}\u0000${profile.clientSessionId}"
         this.profile = profile
-        annotations.prepare(profile)
         if (identity == connectionIdentity) return
         connectionIdentity = identity
         clear()
@@ -46,8 +39,7 @@ internal class ReadingSessionDetailController(
         if (profile == null) return
         loadJob?.cancel()
         generation += 1
-        mutableState.value = ReadingSessionDetailState(sessionId = sessionId, loading = true)
-        annotations.select(sessionId)
+        mutableState.value = ReadingSessionAnnotationsState(sessionId = sessionId, loading = true)
         load(sessionId, generation)
     }
 
@@ -60,34 +52,37 @@ internal class ReadingSessionDetailController(
     fun clear() {
         loadJob?.cancel()
         generation += 1
-        mutableState.value = ReadingSessionDetailState()
-        annotations.clear()
+        mutableState.value = ReadingSessionAnnotationsState()
     }
 
-    fun close() {
-        loadJob?.cancel()
-        annotations.close()
-    }
+    fun close() = loadJob?.cancel()
 
     private fun load(sessionId: String, activeGeneration: Long) {
         val activeProfile = profile ?: return
         mutableState.value = state.value.copy(loading = true, failure = null)
         loadJob = coroutineScope.launch {
             val result = runCatching {
-                clientProvider.forProfile(activeProfile).marginalia.sessions.get(sessionId)
+                clientProvider.forProfile(
+                    activeProfile
+                ).marginalia.sessions.listAnnotations(sessionId)
             }
             (result.exceptionOrNull() as? CancellationException)?.let { throw it }
             if (activeGeneration != generation) return@launch
             result.fold(
-                onSuccess = { detail ->
-                    mutableState.value =
-                        ReadingSessionDetailState(sessionId = sessionId, detail = detail)
+                onSuccess = { annotations ->
+                    mutableState.value = ReadingSessionAnnotationsState(
+                        sessionId = sessionId,
+                        annotations = annotations,
+                        loaded = true
+                    )
                 },
-                onFailure = { failure ->
-                    val classified = failure.toMarginaliaFailure()
-                    mutableState.value =
-                        ReadingSessionDetailState(sessionId = sessionId, failure = classified)
-                    if (classified == MarginaliaFailure.AUTHENTICATION_REJECTED) {
+                onFailure = { throwable ->
+                    val failure = throwable.toMarginaliaFailure()
+                    mutableState.value = ReadingSessionAnnotationsState(
+                        sessionId = sessionId,
+                        failure = failure
+                    )
+                    if (failure == MarginaliaFailure.AUTHENTICATION_REJECTED) {
                         connectionEventChannel.trySend(
                             MarginaliaConnectionEvent.AuthenticationRejected
                         )

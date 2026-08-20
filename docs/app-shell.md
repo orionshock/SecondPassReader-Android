@@ -93,8 +93,11 @@ Marginalia is the permanent top-level name and owns Reading Session browsing:
 MarginaliaController
   |- ReadingSessionsController
   `- ReadingSessionDetailController
+       `- ReadingSessionAnnotationsController
 ```
 
-The parent owns explicit global versus Book-scoped history context, Session selection, return context, and typed future Book Detail/Reader navigation intents. The list child owns explicit-commit search, active/closed filtering, and page-50 seamless history while preserving server order; global and Book-scoped requests remain distinct SDK operations. The permanent browser renders dense cover-led rows, locale/timezone-aware activity timestamps, independent initial/append feedback, and context-specific empty states. The detail child loads Session metadata and Book context independently without coupling future annotation loading to metadata availability; its permanent detail presentation remains deferred. Authentication rejection is surfaced to connection ownership rather than clearing credentials inside Marginalia. Entering and returning from detail leaves the live list/filter/paging and Compose scroll state intact.
+The parent owns explicit global versus Book-scoped history context, Session selection, return context, and typed future Book Detail/Reader navigation intents. The list child owns explicit-commit search, active/closed filtering, and page-50 seamless history while preserving server order; global and Book-scoped requests remain distinct SDK operations. The permanent browser renders dense cover-led rows, locale/timezone-aware activity timestamps, independent initial/append feedback, and context-specific empty states.
+
+Reading Session Detail renders Book-led metadata and progress labels without exposing raw CFIs. Its annotation child independently loads the authoritative server-ordered collection, so metadata remains usable when annotations fail. Presentation models discard protocol identities and CFI/context fields before Compose. Bookmark and Highlight variants remain discriminated; durable color tokens map through a focused design palette into thin accents and restrained tinted quote surfaces. Detail is read-only, including closed Sessions, and returning leaves the live list/filter/paging and Compose scroll state intact. Authentication rejection is surfaced to connection ownership rather than clearing credentials inside Marginalia.
 
 All feature-facing icons use the semantic layer documented in [Icon vocabulary](icon-vocabulary.md).

@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.marginalia
 
+import com.secondpasslibrary.client.MarginaliaAnnotation
 import com.secondpasslibrary.client.ReadingSessionBook
 import com.secondpasslibrary.client.ReadingSessionDetailResult
 import com.secondpasslibrary.client.ReadingSessionListItem
@@ -42,6 +43,14 @@ internal data class ReadingSessionDetailState(
     val sessionId: String? = null,
     val detail: ReadingSessionDetailResult? = null,
     val loading: Boolean = false,
+    val failure: MarginaliaFailure? = null
+)
+
+internal data class ReadingSessionAnnotationsState(
+    val sessionId: String? = null,
+    val annotations: List<MarginaliaAnnotation> = emptyList(),
+    val loading: Boolean = false,
+    val loaded: Boolean = false,
     val failure: MarginaliaFailure? = null
 )
 

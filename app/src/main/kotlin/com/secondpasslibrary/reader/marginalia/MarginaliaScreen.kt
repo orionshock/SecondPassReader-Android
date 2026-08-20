@@ -24,12 +24,13 @@ internal fun MarginaliaScreen(viewModel: MarginaliaViewModel, onOpenDrawer: () -
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sessionsState by viewModel.sessionsState.collectAsStateWithLifecycle()
     val detailState by viewModel.detailState.collectAsStateWithLifecycle()
+    val annotationState by viewModel.annotationState.collectAsStateWithLifecycle()
     val detail = state.destination as? MarginaliaDestination.SessionDetail
     val listState = rememberLazyListState()
 
     BackHandler(enabled = detail != null, onBack = viewModel::backFromDetail)
     MarginaliaScaffold(
-        title = if (detail == null) sessionsState.screenTitle() else "Reading session",
+        title = if (detail == null) sessionsState.screenTitle() else detailState.screenTitle(),
         child = detail != null,
         onNavigation = if (detail == null) onOpenDrawer else viewModel::backFromDetail
     ) { modifier ->
@@ -45,10 +46,12 @@ internal fun MarginaliaScreen(viewModel: MarginaliaViewModel, onOpenDrawer: () -
                 modifier = modifier
             )
         } else {
-            ReadingSessionDetailPlaceholder(
-                detailState,
-                viewModel::retryDetail,
-                modifier
+            ReadingSessionDetailContent(
+                detailState = detailState,
+                annotationState = annotationState,
+                onRetryDetail = viewModel::retryDetail,
+                onRetryAnnotations = viewModel::retryAnnotations,
+                modifier = modifier
             )
         }
     }
