@@ -15,7 +15,7 @@ SecondPassApp
                   Library   -> Books browse and broad-search presentation
                   Shelves   -> personal, shared, and group shelf browsing
                   BookDetail -> shared app destination with typed return context
-                  Sessions  -> intentional placeholder
+                  Marginalia -> Reading Session history browser
                   Settings  -> connection/account diagnostics
 ```
 
@@ -79,7 +79,7 @@ ShelvesController
 
 The parent owns Personal/Shared/Group/Detail navigation and restores the originating collection after detail. All three collection siblings independently own page-50 append state, typed ordering, retries, three-cover preview requests, and retained scroll state. Group Shelves use `scope=group` and remain read-only under Reader bearer authority. Shelf Detail independently owns Shelf metadata and normal visible-item paging, so either request may fail without destroying the other; item positions remain server values and are never normalized. This transient state is not stored in the Home Room projection.
 
-Shelves renders permanent read-only My Shelves, Shared by Others, and Group Shelves collections plus full-screen Shelf Detail. Cards preserve user/group ownership, listed/private visibility, editability, counts, and absent/empty/populated preview semantics without item follow-up calls. Shelf Detail reuses the app-wide compact Book list/grid presentation from `design.book`; cover bytes remain Coil-owned public assets. Selecting a Shelf Book enters the shared Book Detail route and returns to the still-live Shelf Detail and originating collection. The Sessions screen remains a placeholder. Reader-mode navigation, deep links, nested feature graphs, and logout remain deferred.
+Shelves renders permanent read-only My Shelves, Shared by Others, and Group Shelves collections plus full-screen Shelf Detail. Cards preserve user/group ownership, listed/private visibility, editability, counts, and absent/empty/populated preview semantics without item follow-up calls. Shelf Detail reuses the app-wide compact Book list/grid presentation from `design.book`; cover bytes remain Coil-owned public assets. Selecting a Shelf Book enters the shared Book Detail route and returns to the still-live Shelf Detail and originating collection. Reader-mode navigation, deep links, nested feature graphs, and logout remain deferred.
 
 Personal Shelf creation is owned by a focused child beneath `ShelvesController`. It retains and validates the dialog draft, performs the SDK mutation, and preserves the draft on failure. The parent alone opens/closes the surface and refreshes only My Shelves after success; Shared by Others and Group Shelves remain independent. Duplicate names remain server-valid, and `listed` is presented distinctly from public-group ownership.
 
@@ -87,7 +87,7 @@ Personal Shelf container management is split into focused edit and delete state 
 
 Personal Shelf contents management has a separate editor owner and consumes only the SDK editor projection, never the normal visible-item list. Available entries retain their Book metadata; unavailable retained entries expose only safe item identity and position. Relative moves remain server-aware across page boundaries. Exact positioning is presented one-based but converted to the server's zero-based value only at mutation time, and is disabled whenever unavailable entries exist. Successful moves, positioning, and removals reload canonical editor order, then reconcile normal Shelf Detail and the matching My Shelves summary without touching Shared or Group collections.
 
-Marginalia has app-owned state beneath the still-placeholder Sessions destination:
+Marginalia is the permanent top-level name and owns Reading Session browsing:
 
 ```text
 MarginaliaController
@@ -95,6 +95,6 @@ MarginaliaController
   `- ReadingSessionDetailController
 ```
 
-The parent owns explicit global versus Book-scoped history context, Session selection, return context, and typed future Book Detail/Reader navigation intents. The list child owns explicit-commit search, active/closed filtering, and page-50 seamless history while preserving server order; global and Book-scoped requests remain distinct SDK operations. The detail child loads Session metadata and Book context independently without coupling future annotation loading to metadata availability. Authentication rejection is surfaced to connection ownership rather than clearing credentials inside Marginalia. Entering and returning from detail leaves the live list/filter/paging state intact. No Marginalia UI is wired in this state-only slice.
+The parent owns explicit global versus Book-scoped history context, Session selection, return context, and typed future Book Detail/Reader navigation intents. The list child owns explicit-commit search, active/closed filtering, and page-50 seamless history while preserving server order; global and Book-scoped requests remain distinct SDK operations. The permanent browser renders dense cover-led rows, locale/timezone-aware activity timestamps, independent initial/append feedback, and context-specific empty states. The detail child loads Session metadata and Book context independently without coupling future annotation loading to metadata availability; its permanent detail presentation remains deferred. Authentication rejection is surfaced to connection ownership rather than clearing credentials inside Marginalia. Entering and returning from detail leaves the live list/filter/paging and Compose scroll state intact.
 
 All feature-facing icons use the semantic layer documented in [Icon vocabulary](icon-vocabulary.md).

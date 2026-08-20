@@ -15,6 +15,7 @@ import com.secondpasslibrary.reader.home.HomeNavigationIntent
 import com.secondpasslibrary.reader.library.LibraryBooksEntry
 import com.secondpasslibrary.reader.library.LibraryExternalNavigation
 import com.secondpasslibrary.reader.library.LibraryStateHost
+import com.secondpasslibrary.reader.marginalia.MarginaliaStateHost
 import com.secondpasslibrary.reader.settings.LinkedSettings
 import com.secondpasslibrary.reader.shelves.ShelfBookNavigationRequest
 import com.secondpasslibrary.reader.shelves.ShelvesCollection
@@ -76,7 +77,13 @@ private fun EntryProviderScope<NavKey>.registerTopLevelEntries(
             onAuthenticationRejected = bindings.onAuthenticationRejected
         )
     }
-    entry(key = AppDestination.Sessions) { DestinationPlaceholder(AppDestination.Sessions) }
+    entry(key = AppDestination.Marginalia) {
+        MarginaliaStateHost(
+            bindings.profile,
+            bindings.onOpenDrawer,
+            bindings.onAuthenticationRejected
+        )
+    }
     entry(key = AppDestination.Settings) { LinkedSettings(bindings.profile, bindings.context) }
 }
 
@@ -163,7 +170,7 @@ private fun AppNavigator.handleHomeNavigation(intent: HomeNavigationIntent) {
     when (intent) {
         is HomeNavigationIntent.LibrarySearch -> openLibrarySearch(intent.query)
         HomeNavigationIntent.OpenShelves -> select(AppDestination.Shelves)
-        HomeNavigationIntent.ViewAllSessions -> select(AppDestination.Sessions)
+        HomeNavigationIntent.ViewAllSessions -> select(AppDestination.Marginalia)
     }
 }
 

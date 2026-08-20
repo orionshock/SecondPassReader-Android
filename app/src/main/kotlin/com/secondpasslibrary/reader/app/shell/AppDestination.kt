@@ -9,7 +9,7 @@ enum class AppDestination(val label: String, val icon: AppIcon) : NavKey {
     Home("Home", AppIcon.Home),
     Library("Library", AppIcon.Library),
     Shelves("Shelves", AppIcon.Shelf),
-    Sessions("Sessions", AppIcon.Sessions),
+    Marginalia("Marginalia", AppIcon.Sessions),
     Settings("Settings", AppIcon.Settings)
 }
 

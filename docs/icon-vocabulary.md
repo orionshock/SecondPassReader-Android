@@ -41,7 +41,7 @@ Feature and shell code use `AppIcon` semantic keys and `AppIconGraphic`; raw Mat
 | `GroupShelf` | `group_work` | Group-owned shelf | Shelf ownership |
 | `Groups` | `groups` | Groups collection or private group scope | Group navigation/scope |
 | `Help` | `help` | Contextual help | Help affordances |
-| `Sessions` | `history` | Sessions or marginalia history | Drawer Sessions, history navigation |
+| `Sessions` | `history` | Reading Sessions or marginalia history | Drawer Marginalia, history navigation |
 | `Home` | `home` | Application Home | Drawer Home |
 | `Marginalia` | `ink_highlighter` | Marginalia workspace | Reader menu/workspace |
 | `MoveShelfItemDown` | `keyboard_arrow_down` | Move shelf item down | Shelf editing |

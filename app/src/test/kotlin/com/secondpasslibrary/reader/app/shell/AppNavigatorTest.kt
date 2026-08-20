@@ -7,6 +7,11 @@ import org.junit.Test
 
 class AppNavigatorTest {
     @Test
+    fun `top-level history destination is named Marginalia`() {
+        assertEquals("Marginalia", AppDestination.Marginalia.label)
+    }
+
+    @Test
     fun `top-level selection replaces the current destination`() {
         val backStack = mutableListOf<NavKey>(AppDestination.Home)
         val navigator = AppNavigator(backStack)

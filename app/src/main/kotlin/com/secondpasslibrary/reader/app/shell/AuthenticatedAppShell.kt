@@ -62,6 +62,7 @@ internal fun AuthenticatedAppShell(
             containerColor = MaterialTheme.colorScheme.background,
             topBar = {
                 if (currentDestination != AppDestination.Shelves &&
+                    currentDestination != AppDestination.Marginalia &&
                     currentRoute !is BookDetailRoute
                 ) {
                     AppShellTopBar(currentDestination) {
