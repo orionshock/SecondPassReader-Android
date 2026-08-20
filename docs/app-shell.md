@@ -87,4 +87,14 @@ Personal Shelf container management is split into focused edit and delete state 
 
 Personal Shelf contents management has a separate editor owner and consumes only the SDK editor projection, never the normal visible-item list. Available entries retain their Book metadata; unavailable retained entries expose only safe item identity and position. Relative moves remain server-aware across page boundaries. Exact positioning is presented one-based but converted to the server's zero-based value only at mutation time, and is disabled whenever unavailable entries exist. Successful moves, positioning, and removals reload canonical editor order, then reconcile normal Shelf Detail and the matching My Shelves summary without touching Shared or Group collections.
 
+Marginalia has app-owned state beneath the still-placeholder Sessions destination:
+
+```text
+MarginaliaController
+  |- ReadingSessionsController
+  `- ReadingSessionDetailController
+```
+
+The parent owns explicit global versus Book-scoped history context, Session selection, return context, and typed future Book Detail/Reader navigation intents. The list child owns explicit-commit search, active/closed filtering, and page-50 seamless history while preserving server order; global and Book-scoped requests remain distinct SDK operations. The detail child loads Session metadata and Book context independently without coupling future annotation loading to metadata availability. Authentication rejection is surfaced to connection ownership rather than clearing credentials inside Marginalia. Entering and returning from detail leaves the live list/filter/paging state intact. No Marginalia UI is wired in this state-only slice.
+
 All feature-facing icons use the semantic layer documented in [Icon vocabulary](icon-vocabulary.md).
