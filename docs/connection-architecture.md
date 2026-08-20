@@ -59,7 +59,7 @@ The authenticated Home surface retains useful verified library, account, group, 
 
 ## Authenticated read surface
 
-`KtorSecondPassClient` creates a credential-bound `AuthenticatedSecondPassClient`. The scope retains the validated API base and opaque bearer credential so feature callers do not repeatedly handle either value. Recent reading remains an authenticated root capability. Library and Shelves use cohesive capability families rather than duplicate flat methods:
+`KtorSecondPassClient` creates a credential-bound `AuthenticatedSecondPassClient`. The scope retains the validated API base and opaque bearer credential so feature callers do not repeatedly handle either value. Library, Shelves, and Marginalia use cohesive capability families rather than duplicate flat methods:
 
 ```text
 AuthenticatedSecondPassClient.library
@@ -74,11 +74,15 @@ AuthenticatedSecondPassClient.shelves
   |- normal visible-item pages
   |- personal-shelf editor pages with unavailable-item placeholders
   `- owned-personal Shelf and item mutations
+
+AuthenticatedSecondPassClient.marginalia
+  |- books -> paged summaries, detail, and Book-scoped Session history
+  `- sessions -> global history, recent reading, and Session detail
 ```
 
 Pagination, compact/preview Books, cover references, scope, and shared Library value types remain Library-level artifacts. Catalog Tags expose Reader-safe identity, slug, and scoped book counts; endpoint topology remains private to the SDK.
 
-Recent-reading results preserve server order. Session status remains `active` or `closed`, and progress retains its CFI plus the server's opaque location label without deriving percentages. Shelf reads preserve discriminated user/group ownership, private/listed visibility, item identity separately from Book identity, non-contiguous stored positions, matched Book items, and omitted versus empty previews. Normal item pages expose only visible Compact Books; the editor projection represents unavailable retained items without inventing Book metadata.
+Marginalia reads preserve server ordering and historical Book context after current visibility is lost; `canOpen` remains an advisory current-visibility value. Session status remains `active` or `closed`, annotation counts and activity timestamps remain server-owned, and progress retains its CFI plus nullable opaque location label without deriving percentages. Session detail does not implicitly load annotations. Shelf reads preserve discriminated user/group ownership, private/listed visibility, item identity separately from Book identity, non-contiguous stored positions, matched Book items, and omitted versus empty previews. Normal item pages expose only visible Compact Books; the editor projection represents unavailable retained items without inventing Book metadata.
 
 The Android SDK aims to expose each SPL subsystem's complete Reader-bearer capability even when the first-party Android UI adopts that capability incrementally. UI sequencing does not define or restrict the publishable SDK boundary.
 

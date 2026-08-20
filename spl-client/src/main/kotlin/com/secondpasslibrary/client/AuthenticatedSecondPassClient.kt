@@ -3,8 +3,35 @@ package com.secondpasslibrary.client
 interface AuthenticatedSecondPassClient {
     val library: AuthenticatedLibraryClient
     val shelves: AuthenticatedShelvesClient
+    val marginalia: AuthenticatedMarginaliaClient
+}
 
-    suspend fun recentReading(options: RecentReadingOptions): List<RecentReadingItem>
+interface AuthenticatedMarginaliaClient {
+    val books: AuthenticatedMarginaliaBooksClient
+    val sessions: AuthenticatedReadingSessionsClient
+}
+
+interface AuthenticatedMarginaliaBooksClient {
+    suspend fun list(
+        options: MarginaliaBookListOptions = MarginaliaBookListOptions()
+    ): MarginaliaPage<MarginaliaBookSummary>
+
+    suspend fun get(bookId: String): MarginaliaBookSummary
+
+    suspend fun listSessions(
+        bookId: String,
+        options: BookReadingSessionListOptions = BookReadingSessionListOptions()
+    ): BookReadingSessionHistory
+}
+
+interface AuthenticatedReadingSessionsClient {
+    suspend fun list(
+        options: ReadingSessionListOptions = ReadingSessionListOptions()
+    ): MarginaliaPage<ReadingSessionListItem>
+
+    suspend fun recent(options: RecentReadingOptions): List<RecentReadingItem>
+
+    suspend fun get(sessionId: String): ReadingSessionDetailResult
 }
 
 interface AuthenticatedShelvesClient {

@@ -49,8 +49,8 @@ class KtorAuthenticatedSecondPassClientTest {
                             "status": "active",
                             "last_activity_at": "2026-08-15T12:00:00Z",
                             "book": {
-                                "id": "book-1",
-                                "title": "First Book",
+                                "id": "book-2",
+                                "title": "Second Book",
                                 "cover_url": null,
                                 "can_open": false
                             },
@@ -61,22 +61,12 @@ class KtorAuthenticatedSecondPassClientTest {
             )
         }
 
-        val result = client.recentReading(RecentReadingOptions(limit = 10, includeClosed = true))
+        val result =
+            client.marginalia.sessions.recent(
+                RecentReadingOptions(limit = 10, includeClosed = true)
+            )
 
-        assertEquals(listOf("session-closed", "session-active"), result.map { it.sessionId })
-        assertEquals(ReadingSessionStatus.CLOSED, result[0].status)
-        assertEquals(ReadingSessionStatus.ACTIVE, result[1].status)
-        assertEquals("", result[1].sessionName)
-        assertEquals("Chapter 2", result[0].progress?.locationLabel)
-        assertNull(result[1].progress)
-        assertEquals(
-            "https://assets.example/covers/book-2.webp",
-            result[0].book.cover?.url
-        )
-        assertNull(result[1].book.cover)
-        assertEquals("10", request?.url?.parameters?.get("limit"))
-        assertEquals("true", request?.url?.parameters?.get("include_closed"))
-        assertEquals("Bearer spl_secret", request?.headers?.get(HttpHeaders.Authorization))
+        assertRecentReading(result, request)
     }
 
     @Test
@@ -187,6 +177,21 @@ class KtorAuthenticatedSecondPassClientTest {
         status = status,
         headers = headersOf(HttpHeaders.ContentType, "application/json")
     )
+
+    private fun assertRecentReading(result: List<RecentReadingItem>, request: HttpRequestData?) {
+        assertEquals(listOf("session-closed", "session-active"), result.map { it.sessionId })
+        assertEquals(listOf("book-2", "book-2"), result.map { it.book.id })
+        assertEquals(ReadingSessionStatus.CLOSED, result[0].status)
+        assertEquals(ReadingSessionStatus.ACTIVE, result[1].status)
+        assertEquals("", result[1].sessionName)
+        assertEquals("Chapter 2", result[0].progress?.locationLabel)
+        assertNull(result[1].progress)
+        assertEquals("https://assets.example/covers/book-2.webp", result[0].book.cover?.url)
+        assertNull(result[1].book.cover)
+        assertEquals("10", request?.url?.parameters?.get("limit"))
+        assertEquals("true", request?.url?.parameters?.get("include_closed"))
+        assertEquals("Bearer spl_secret", request?.headers?.get(HttpHeaders.Authorization))
+    }
 
     private companion object {
         const val SHELF_PAGE =

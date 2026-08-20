@@ -47,7 +47,7 @@ internal fun HomeRecentReadingEntity.toModel() = RecentReadingItem(
         progressCfi?.let { cfi ->
             ReadingProgress(
                 cfi = cfi,
-                locationLabel = requireNotNull(progressLocationLabel),
+                locationLabel = progressLocationLabel,
                 updatedAt = requireNotNull(progressUpdatedAt)
             )
         }

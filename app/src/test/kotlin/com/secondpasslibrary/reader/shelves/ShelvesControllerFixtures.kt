@@ -4,8 +4,6 @@ import com.secondpasslibrary.client.AddShelfItemInput
 import com.secondpasslibrary.client.AuthenticatedSecondPassClient
 import com.secondpasslibrary.client.AuthenticatedShelvesClient
 import com.secondpasslibrary.client.CreatePersonalShelfInput
-import com.secondpasslibrary.client.RecentReadingItem
-import com.secondpasslibrary.client.RecentReadingOptions
 import com.secondpasslibrary.client.Shelf
 import com.secondpasslibrary.client.ShelfDetailOptions
 import com.secondpasslibrary.client.ShelfEditorItem
@@ -128,9 +126,7 @@ internal class RecordingShelvesCapability :
 internal class ShelvesTestClient(override val shelves: AuthenticatedShelvesClient) :
     AuthenticatedSecondPassClient {
     override val library = FakeAuthenticatedLibraryClient()
-
-    override suspend fun recentReading(options: RecentReadingOptions): List<RecentReadingItem> =
-        error("Recent reading is outside this Shelves fixture.")
+    override val marginalia = com.secondpasslibrary.reader.FakeAuthenticatedMarginaliaClient
 }
 
 internal class ShelvesTestClientProvider(client: AuthenticatedSecondPassClient) :

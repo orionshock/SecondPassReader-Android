@@ -37,6 +37,22 @@ class AuthenticatedLibraryHierarchyTest {
         )
     }
 
+    @Test
+    fun `authenticated client exposes Marginalia hierarchy without flat recent method`() {
+        val rootMethods = AuthenticatedSecondPassClient::class.java.methods.map { it.name }.toSet()
+        val marginaliaMethods = AuthenticatedMarginaliaClient::class.java.methods.map {
+            it.name
+        }.toSet()
+
+        assertTrue("Marginalia parent is missing", "getMarginalia" in rootMethods)
+        assertFalse("Recent reading must not remain flat", "recentReading" in rootMethods)
+        assertTrue(marginaliaMethods.containsAll(setOf("getBooks", "getSessions")))
+        assertTrue(
+            AuthenticatedReadingSessionsClient::class.java.methods.map { it.name }.toSet()
+                .containsAll(setOf("list", "recent", "get"))
+        )
+    }
+
     private fun assertAxisHasOnlyScopedList(axis: Class<*>, removedGroupMethod: String) {
         val methods = axis.methods.map { it.name }
         assertTrue("Scoped list capability is missing", "list" in methods)

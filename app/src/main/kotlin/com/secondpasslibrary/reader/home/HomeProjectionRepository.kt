@@ -54,7 +54,7 @@ internal class HomeProjectionRepository internal constructor(
         val refresh = refreshOnce(ProjectionRequestKey.recent(account.scopeKey, variant)) {
             val client = clientProvider.forProfile(account.profile)
             val items =
-                client.recentReading(
+                client.marginalia.sessions.recent(
                     RecentReadingOptions(variant.limit, variant.includeClosed)
                 )
             store.replaceRecentReading(account.scopeKey, variant, items, clock.instant())

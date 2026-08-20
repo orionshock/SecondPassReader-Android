@@ -27,11 +27,13 @@ data class RecentReadingItem(
     val progress: ReadingProgress?
 )
 
-data class RecentReadingBook(
+data class ReadingSessionBook(
     val id: String,
     val title: String,
     val cover: PublicBookCoverReference?,
     val canOpen: Boolean
 )
 
-data class ReadingProgress(val cfi: String, val locationLabel: String, val updatedAt: String)
+typealias RecentReadingBook = ReadingSessionBook
+
+data class ReadingProgress(val cfi: String, val locationLabel: String?, val updatedAt: String)

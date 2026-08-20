@@ -1,9 +1,15 @@
 package com.secondpasslibrary.reader.home
 
 import com.secondpasslibrary.client.AddShelfItemInput
+import com.secondpasslibrary.client.AuthenticatedMarginaliaClient
+import com.secondpasslibrary.client.AuthenticatedReadingSessionsClient
 import com.secondpasslibrary.client.AuthenticatedSecondPassClient
 import com.secondpasslibrary.client.AuthenticatedShelvesClient
 import com.secondpasslibrary.client.CreatePersonalShelfInput
+import com.secondpasslibrary.client.MarginaliaPage
+import com.secondpasslibrary.client.ReadingSessionDetailResult
+import com.secondpasslibrary.client.ReadingSessionListItem
+import com.secondpasslibrary.client.ReadingSessionListOptions
 import com.secondpasslibrary.client.ReadingSessionStatus
 import com.secondpasslibrary.client.RecentReadingBook
 import com.secondpasslibrary.client.RecentReadingItem
@@ -23,6 +29,7 @@ import com.secondpasslibrary.client.ShelfSummary
 import com.secondpasslibrary.client.ShelfVisibility
 import com.secondpasslibrary.client.UpdatePersonalShelfInput
 import com.secondpasslibrary.reader.FakeAuthenticatedLibraryClient
+import com.secondpasslibrary.reader.FakeAuthenticatedMarginaliaClient
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.home.projection.HomeAccountScopeKey
@@ -94,6 +101,21 @@ internal class FakeHomeProjectionStore : HomeProjectionStore {
 
 internal class FakeHomeAuthenticatedClient : AuthenticatedSecondPassClient {
     override val library = FakeAuthenticatedLibraryClient()
+    override val marginalia = object : AuthenticatedMarginaliaClient {
+        override val books = FakeAuthenticatedMarginaliaClient.books
+        override val sessions = object : AuthenticatedReadingSessionsClient {
+            override suspend fun list(
+                options: ReadingSessionListOptions
+            ): MarginaliaPage<ReadingSessionListItem> = unsupported()
+
+            override suspend fun recent(options: RecentReadingOptions): List<RecentReadingItem> {
+                recentRequests += options
+                return recentCall(options)
+            }
+
+            override suspend fun get(sessionId: String): ReadingSessionDetailResult = unsupported()
+        }
+    }
     override val shelves = object : AuthenticatedShelvesClient {
         override suspend fun list(options: ShelfListOptions): ShelfPage {
             shelfRequests += options
@@ -143,11 +165,6 @@ internal class FakeHomeAuthenticatedClient : AuthenticatedSecondPassClient {
     val shelfRequests = mutableListOf<ShelfListOptions>()
     var recentCall: suspend (RecentReadingOptions) -> List<RecentReadingItem> = { emptyList() }
     var shelfCall: suspend (ShelfListOptions) -> List<ShelfSummary> = { emptyList() }
-
-    override suspend fun recentReading(options: RecentReadingOptions): List<RecentReadingItem> {
-        recentRequests += options
-        return recentCall(options)
-    }
 }
 
 internal fun homeRepository(

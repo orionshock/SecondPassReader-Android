@@ -264,8 +264,8 @@ value class SeriesIndex private constructor(val value: String) {
             return SeriesIndex(value)
         }
 
-        internal fun fromServer(value: String): SeriesIndex =
-            runCatching { fromExactValue(value) }.getOrElse { invalidProtocol("compact book") }
+        internal fun fromServer(value: String, context: String = "compact book"): SeriesIndex =
+            runCatching { fromExactValue(value) }.getOrElse { invalidProtocol(context) }
     }
 }
 
