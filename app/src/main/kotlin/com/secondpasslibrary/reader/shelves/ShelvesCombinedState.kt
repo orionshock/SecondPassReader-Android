@@ -1,5 +1,8 @@
 package com.secondpasslibrary.reader.shelves
 
+import com.secondpasslibrary.reader.shelves.collection.ShelfCollectionState
+import com.secondpasslibrary.reader.shelves.detail.ShelfDetailState
+import com.secondpasslibrary.reader.shelves.editor.ShelfContentsEditorState
 import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.StateFlow

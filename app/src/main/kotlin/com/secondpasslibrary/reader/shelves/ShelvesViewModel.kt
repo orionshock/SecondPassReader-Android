@@ -8,6 +8,7 @@ import com.secondpasslibrary.client.ShelfOrdering
 import com.secondpasslibrary.client.ShelfVisibility
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.shelves.detail.ShelfBooksLayout
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 

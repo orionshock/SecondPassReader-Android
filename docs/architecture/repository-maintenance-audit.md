@@ -461,7 +461,7 @@ These are targeted clusters, not a universal package template.
 | `connection/ConnectionCoordinator.kt` | 413 | A | One explicit connection/pairing/restore state machine. Splitting its transitions would make exactly-once and persistence ordering harder to audit. Keep intact. |
 | `library/LibraryController.kt` | 390 | B | Parent coordination is cohesive, but group/tag vocabulary loading is now one small extractable child state machine. |
 | `library/LibraryBooksController.kt` | 348 | A | One Books state machine covering mode/filter/scope/paging/stale responses and layout persistence. `unfilteredState` is part of Author/Series return semantics, not a second owner. Keep intact for now. |
-| `shelves/ShelfContentsEditorController.kt` | 329 | A | One canonical editor workflow: editor paging, move/position/remove mutation, ambiguity/reconciliation, and dialog state. Extraction would scatter invariants around unavailable items and server order. Keep intact. |
+| `shelves/editor/ShelfContentsEditorController.kt` | 329 | A | One canonical editor workflow: editor paging, move/position/remove mutation, ambiguity/reconciliation, and dialog state. Extraction would scatter invariants around unavailable items and server order. Keep intact. |
 | `app/SecondPassApp.kt` | 303 | C | Root app selection and complete connection UI are separate responsibilities. Extract connection presentation by ownership, not line target. |
 | `spl-client/LibraryModels.kt` | 298 | B | Public Library model catalog is coherent at subsystem level but structurally dense. Split into query/order, paging, compact/detail Book, and axis model files in the same package. |
 | `library/LibraryEntityController.kt` | 287 | A | One reusable Author/Series index-plus-detail state machine with sound stale-response handling. Keep behavior together; rename it to expose its actual axis role. |
@@ -571,6 +571,8 @@ Each slice should be independently buildable and behavior-focused.
    visually verify.
 4. **Shelves topology pass.** Move collection/detail/management/editor files and their states/tests
    into shallow packages. No controller behavior changes.
+   Completed: production and test files now mirror those four ownership clusters; Shelves root
+   retains aggregate coordination and shared presentation/failure infrastructure.
 5. **Library topology and vocabulary owner.** Move Books/axis/chrome clusters first, then extract
    the filter-vocabulary child in a separate commit-sized change. Rename `LibraryEntity*` during
    that move.
@@ -614,4 +616,3 @@ product/runtime correction.
   boundaries are already searchable.
 - Do not introduce a Book Detail duplicate per origin. The shared app-level destination and typed
   return context are sound.
-

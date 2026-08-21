@@ -1,5 +1,9 @@
 package com.secondpasslibrary.reader.shelves
 
+import com.secondpasslibrary.reader.shelves.collection.ShelfCollectionChange
+import com.secondpasslibrary.reader.shelves.management.CreatePersonalShelfState
+import com.secondpasslibrary.reader.shelves.management.ShelfManagementFailure
+import com.secondpasslibrary.reader.shelves.management.canManageShelf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle

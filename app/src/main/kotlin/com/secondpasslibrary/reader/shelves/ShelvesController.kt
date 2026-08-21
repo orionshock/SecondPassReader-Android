@@ -6,6 +6,17 @@ import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.shelves.collection.GroupShelvesController
+import com.secondpasslibrary.reader.shelves.collection.PersonalShelvesController
+import com.secondpasslibrary.reader.shelves.collection.SharedShelvesController
+import com.secondpasslibrary.reader.shelves.collection.ShelfCollectionChange
+import com.secondpasslibrary.reader.shelves.collection.ShelfCollectionController
+import com.secondpasslibrary.reader.shelves.detail.ShelfDetailController
+import com.secondpasslibrary.reader.shelves.editor.ShelfContentsEditorController
+import com.secondpasslibrary.reader.shelves.management.CreatePersonalShelfController
+import com.secondpasslibrary.reader.shelves.management.DeletePersonalShelfController
+import com.secondpasslibrary.reader.shelves.management.EditPersonalShelfController
+import com.secondpasslibrary.reader.shelves.management.canManageShelf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.merge

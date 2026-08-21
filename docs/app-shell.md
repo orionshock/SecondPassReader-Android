@@ -66,15 +66,14 @@ Book Detail is one shared app destination rather than a Library child. The seria
 
 The Books, Authors, and Series axes are explicit parent state and all three have concrete state owners and rendered results surfaces. Selected Author/Series contexts reuse the Books child for filtered results.
 
-Shelves now has app-owned parent/child state beneath its still-placeholder destination:
+Shelves has app-owned parent/child state beneath its app destination:
 
 ```text
 ShelvesController
-  |- PersonalShelvesController
-  |- SharedShelvesController
-  |- GroupShelvesController
-  |- ShelfDetailController
-  `- ShelfContentsEditorController
+  |- collection/ (Personal, Shared, and Group collection owners)
+  |- detail/ShelfDetailController
+  |- management/ (create, edit, and delete owners)
+  `- editor/ShelfContentsEditorController
 ```
 
 The parent owns Personal/Shared/Group/Detail navigation and restores the originating collection after detail. All three collection siblings independently own page-50 append state, typed ordering, retries, three-cover preview requests, and retained scroll state. Group Shelves use `scope=group` and remain read-only under Reader bearer authority. Shelf Detail independently owns Shelf metadata and normal visible-item paging, so either request may fail without destroying the other; item positions remain server values and are never normalized. This transient state is not stored in the Home Room projection.

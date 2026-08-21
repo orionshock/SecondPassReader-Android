@@ -16,6 +16,16 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
+import com.secondpasslibrary.reader.shelves.collection.ShelvesRoot
+import com.secondpasslibrary.reader.shelves.detail.ShelfDetailContent
+import com.secondpasslibrary.reader.shelves.editor.RemoveShelfItemDialog
+import com.secondpasslibrary.reader.shelves.editor.ShelfContentsEditorContent
+import com.secondpasslibrary.reader.shelves.editor.ShelfContentsEditorState
+import com.secondpasslibrary.reader.shelves.editor.ShelfPositionDialog
+import com.secondpasslibrary.reader.shelves.management.CreatePersonalShelfDialog
+import com.secondpasslibrary.reader.shelves.management.DeletePersonalShelfDialog
+import com.secondpasslibrary.reader.shelves.management.EditPersonalShelfDialog
+import com.secondpasslibrary.reader.shelves.management.canManageShelf
 
 @Composable
 internal fun ShelvesScreen(
