@@ -197,6 +197,21 @@ class HomeControllerTest {
     }
 
     @Test
+    fun `account profile remains an independent Home reset key`() = runTest {
+        val account = projectionAccount()
+        val client = FakeHomeAuthenticatedClient()
+        val controller = controller(FakeHomeProjectionStore(), client)
+        controller.initialize(account.profile, account.profileId)
+        advanceUntilIdle()
+
+        controller.initialize(account.profile, "profile-2")
+        advanceUntilIdle()
+
+        assertEquals(2, client.recentRequests.size)
+        assertEquals(2, client.shelfRequests.size)
+    }
+
+    @Test
     fun `authentication rejection emits one connection event and is not offline`() = runTest {
         val account = projectionAccount()
         val client = FakeHomeAuthenticatedClient().apply {

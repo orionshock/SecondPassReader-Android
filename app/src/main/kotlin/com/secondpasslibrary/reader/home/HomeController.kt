@@ -1,6 +1,8 @@
 package com.secondpasslibrary.reader.home
 
+import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import com.secondpasslibrary.reader.home.projection.HomeRecentReadingVariant
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -23,16 +25,18 @@ internal class HomeController(
     private val connectionEventChannel = Channel<HomeConnectionEvent>(Channel.BUFFERED)
     val connectionEvents = connectionEventChannel.receiveAsFlow()
 
-    private var identity: String? = null
+    private var connectionIdentity: AuthenticatedConnectionIdentity? = null
+    private var accountProfileId: String? = null
     private var account: HomeProjectionAccount? = null
     private var authenticationRejectionReported = false
     private var recentReadingLoad: Job? = null
     private var shelfLoad: Job? = null
 
     fun initialize(profile: ConnectionProfile, profileId: String) {
-        val newIdentity = "${profile.apiBaseUrl}\u0000$profileId\u0000${profile.clientSessionId}"
-        if (newIdentity == identity) return
-        identity = newIdentity
+        val nextConnectionIdentity = profile.authenticatedConnectionIdentity
+        if (nextConnectionIdentity == connectionIdentity && profileId == accountProfileId) return
+        connectionIdentity = nextConnectionIdentity
+        accountProfileId = profileId
         account = HomeProjectionAccount(profile, profileId)
         authenticationRejectionReported = false
         recentReadingLoad?.cancel()

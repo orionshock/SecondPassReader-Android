@@ -3,7 +3,9 @@ package com.secondpasslibrary.reader.library
 import com.secondpasslibrary.client.LibraryCatalogTag
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
+import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
@@ -41,8 +43,9 @@ internal class LibraryController(
         )
 
     private var profile: ConnectionProfile? = null
-    private var entryIdentity: String? = null
-    private var connectionIdentity: String? = null
+    private var entryKey: LibraryBooksEntry? = null
+    private var connectionIdentity: AuthenticatedConnectionIdentity? = null
+    private var advancedGroupsCapability: Boolean? = null
     private var groupsJob: Job? = null
     private var tagsJob: Job? = null
     private var pendingTagNavigation: LibraryExternalNavigation.Tag? = null
@@ -52,19 +55,18 @@ internal class LibraryController(
         entry: LibraryBooksEntry,
         advancedGroupsEnabled: Boolean
     ) {
-        val connection =
-            "${profile.apiBaseUrl}\u0000${profile.clientSessionId}\u0000$advancedGroupsEnabled"
-        val identity = "$connection\u0000$entry"
-        if (identity == entryIdentity) return
+        val nextConnectionIdentity = profile.authenticatedConnectionIdentity
+        val sameConnection = hasSameConnection(nextConnectionIdentity, advancedGroupsEnabled)
+        if (sameConnection && entry == entryKey) return
         val previous = chrome.value
-        val sameConnection = connection == connectionIdentity
         val selectedScope =
             if (sameConnection && advancedGroupsEnabled) previous.scope else LibraryScope.Global
         val preserveTag = sameConnection && previous.scope == selectedScope
         val selectedTag = previous.selectedTag.takeIf { preserveTag }
         this.profile = profile
-        connectionIdentity = connection
-        entryIdentity = identity
+        connectionIdentity = nextConnectionIdentity
+        advancedGroupsCapability = advancedGroupsEnabled
+        entryKey = entry
         chrome.value =
             LibraryChromeState(
                 axis = LibraryAxis.BOOKS,
@@ -110,6 +112,11 @@ internal class LibraryController(
         if (advancedGroupsEnabled && !chrome.value.groupSelector.loaded) loadGroups()
         if (!chrome.value.tagSelector.loaded) loadTags()
     }
+
+    private fun hasSameConnection(
+        identity: AuthenticatedConnectionIdentity,
+        advancedGroupsEnabled: Boolean
+    ): Boolean = identity == connectionIdentity && advancedGroupsEnabled == advancedGroupsCapability
 
     fun selectScope(selected: LibraryScope) {
         var current = chrome.value

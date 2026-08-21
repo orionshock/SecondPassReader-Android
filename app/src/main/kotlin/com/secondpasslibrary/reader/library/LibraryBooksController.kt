@@ -6,7 +6,9 @@ import com.secondpasslibrary.client.LibraryPage
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.LibrarySearchOrdering
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
+import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -31,7 +33,8 @@ internal class LibraryBooksController(
 
     private var profile: ConnectionProfile? = null
     private var selectedScope: LibraryScope = LibraryScope.Global
-    private var entryIdentity: String? = null
+    private var connectionIdentity: AuthenticatedConnectionIdentity? = null
+    private var entryKey: LibraryBooksEntryKey? = null
     private var requestGeneration = 0L
     private var loadJob: Job? = null
     private var preferenceJob: Job? = null
@@ -44,10 +47,11 @@ internal class LibraryBooksController(
         scope: LibraryScope,
         tagSlug: String? = null
     ) {
-        val identity =
-            "${profile.apiBaseUrl}\u0000${profile.clientSessionId}\u0000$mode\u0000$query\u0000$scope\u0000$tagSlug"
-        if (identity == entryIdentity) return
-        entryIdentity = identity
+        val nextConnectionIdentity = profile.authenticatedConnectionIdentity
+        val nextEntryKey = LibraryBooksEntryKey(mode, query, scope, tagSlug)
+        if (nextConnectionIdentity == connectionIdentity && nextEntryKey == entryKey) return
+        connectionIdentity = nextConnectionIdentity
+        entryKey = nextEntryKey
         this.profile = profile
         selectedScope = scope
         unfilteredState = null
@@ -91,7 +95,7 @@ internal class LibraryBooksController(
     ) {
         if (selectedScope == scope && mutableState.value.tagSlug == tagSlug) return
         selectedScope = scope
-        entryIdentity = null
+        entryKey = null
         mutableState.value = mutableState.value.copy(tagSlug = tagSlug)
         if (activate) {
             resetCurrentAndLoad()
@@ -103,7 +107,7 @@ internal class LibraryBooksController(
     fun selectTag(tagSlug: String?, activate: Boolean) {
         val current = mutableState.value
         if (current.tagSlug == tagSlug) return
-        entryIdentity = null
+        entryKey = null
         unfilteredState = unfilteredState?.invalidatedForTag(tagSlug)
         mutableState.value = current.copy(tagSlug = tagSlug)
         if (activate) {
@@ -249,7 +253,7 @@ internal class LibraryBooksController(
         require(filterId.isNotBlank()) { "Library Books filter ID must not be blank." }
         if (mutableState.value.filter == null) unfilteredState = mutableState.value
         selectedScope = scope
-        entryIdentity = null
+        entryKey = null
         resetAndLoad(
             LibraryBooksMode.BROWSE,
             query = "",
@@ -345,4 +349,11 @@ private fun LibraryBooksState.invalidatedForTag(tagSlug: String?): LibraryBooksS
     error = null,
     hasNext = false,
     currentPage = 0
+)
+
+private data class LibraryBooksEntryKey(
+    val mode: LibraryBooksMode,
+    val query: String,
+    val scope: LibraryScope,
+    val tagSlug: String?
 )

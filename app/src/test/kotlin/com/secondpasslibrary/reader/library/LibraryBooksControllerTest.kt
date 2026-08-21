@@ -80,6 +80,34 @@ class LibraryBooksControllerTest {
     }
 
     @Test
+    fun `entry query remains independent from connection identity`() = runTest {
+        val client = FakeLibraryClient()
+        val controller = controller(client)
+        val profile = profile()
+        controller.initialize(profile, LibraryBooksMode.BROWSE, "first", LibraryScope.Global)
+        advanceUntilIdle()
+
+        controller.initialize(profile, LibraryBooksMode.BROWSE, "second", LibraryScope.Global)
+        advanceUntilIdle()
+
+        assertEquals(listOf("first", "second"), client.bookRequests.map { it.q })
+    }
+
+    @Test
+    fun `re-pairing resets Books state for an unchanged entry`() = runTest {
+        val client = FakeLibraryClient()
+        val controller = controller(client)
+        val profile = profile()
+        controller.initializeBrowse(profile)
+        advanceUntilIdle()
+
+        controller.initializeBrowse(profile.copy(clientSessionId = "replacement-session"))
+        advanceUntilIdle()
+
+        assertEquals(2, client.bookRequests.size)
+    }
+
+    @Test
     fun `page two appends without reordering prior results`() = runTest {
         val client = FakeLibraryClient().apply {
             listCall = { request ->

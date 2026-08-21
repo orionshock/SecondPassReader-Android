@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 
 @Composable
 internal fun ShelvesStateHost(
@@ -13,7 +14,8 @@ internal fun ShelvesStateHost(
     onAuthenticationRejected: () -> Unit,
     viewModel: ShelvesViewModel = viewModel()
 ) {
-    LaunchedEffect(profile.apiBaseUrl, profile.clientSessionId) { viewModel.initialize(profile) }
+    val connectionIdentity = profile.authenticatedConnectionIdentity
+    LaunchedEffect(connectionIdentity) { viewModel.initialize(profile) }
     LaunchedEffect(viewModel, onAuthenticationRejected) {
         viewModel.connectionEvents.collect { event ->
             when (event) {

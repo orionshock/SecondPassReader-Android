@@ -5,7 +5,9 @@ import com.secondpasslibrary.client.ReadingSessionMetadataInput
 import com.secondpasslibrary.client.ReadingSessionMutationField
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
+import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -24,14 +26,14 @@ internal class ReadingSessionMetadataEditorController(
     private val connectionChannel = Channel<MarginaliaConnectionEvent>(Channel.BUFFERED)
     val connectionEvents = connectionChannel.receiveAsFlow()
     private var profile: ConnectionProfile? = null
-    private var identity: String? = null
+    private var connectionIdentity: AuthenticatedConnectionIdentity? = null
     private var job: Job? = null
 
     fun prepare(profile: ConnectionProfile) {
-        val nextIdentity = "${profile.apiBaseUrl}\u0000${profile.clientSessionId}"
+        val nextConnectionIdentity = profile.authenticatedConnectionIdentity
         this.profile = profile
-        if (nextIdentity == identity) return
-        identity = nextIdentity
+        if (nextConnectionIdentity == connectionIdentity) return
+        connectionIdentity = nextConnectionIdentity
         reset()
     }
 

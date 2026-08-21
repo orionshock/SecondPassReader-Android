@@ -7,7 +7,9 @@ import com.secondpasslibrary.client.ShelfEditorListOptions
 import com.secondpasslibrary.client.ShelfEditorPage
 import com.secondpasslibrary.client.ShelfItemMove
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
+import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -28,16 +30,16 @@ internal class ShelfContentsEditorController(
     private val connectionEventChannel = Channel<ShelvesConnectionEvent>(Channel.BUFFERED)
     val connectionEvents = connectionEventChannel.receiveAsFlow()
     private var profile: ConnectionProfile? = null
-    private var connectionIdentity: String? = null
+    private var connectionIdentity: AuthenticatedConnectionIdentity? = null
     private var generation = 0L
     private var loadJob: Job? = null
     private var mutationJob: Job? = null
 
     fun prepare(profile: ConnectionProfile) {
-        val identity = "${profile.apiBaseUrl}\u0000${profile.clientSessionId}"
+        val nextConnectionIdentity = profile.authenticatedConnectionIdentity
         this.profile = profile
-        if (identity == connectionIdentity) return
-        connectionIdentity = identity
+        if (nextConnectionIdentity == connectionIdentity) return
+        connectionIdentity = nextConnectionIdentity
         clear()
     }
 

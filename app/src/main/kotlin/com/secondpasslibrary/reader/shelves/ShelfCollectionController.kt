@@ -6,7 +6,9 @@ import com.secondpasslibrary.client.ShelfOrdering
 import com.secondpasslibrary.client.ShelfPage
 import com.secondpasslibrary.client.ShelfScope
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
+import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -28,15 +30,15 @@ internal abstract class ShelfCollectionController(
     val connectionEvents = connectionEventChannel.receiveAsFlow()
 
     private var profile: ConnectionProfile? = null
-    private var connectionIdentity: String? = null
+    private var connectionIdentity: AuthenticatedConnectionIdentity? = null
     private var generation = 0L
     private var loadJob: Job? = null
 
     fun prepare(profile: ConnectionProfile) {
-        val identity = "${profile.apiBaseUrl}\u0000${profile.clientSessionId}"
+        val nextConnectionIdentity = profile.authenticatedConnectionIdentity
         this.profile = profile
-        if (identity == connectionIdentity) return
-        connectionIdentity = identity
+        if (nextConnectionIdentity == connectionIdentity) return
+        connectionIdentity = nextConnectionIdentity
         loadJob?.cancel()
         generation += 1
         mutableState.value = ShelfCollectionState(ordering = state.value.ordering)

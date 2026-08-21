@@ -3,7 +3,9 @@ package com.secondpasslibrary.reader.bookdetail
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
+import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.merge
@@ -16,16 +18,16 @@ constructor(
 ) : ViewModel() {
     private val controller = BookDetailController(clientProvider, viewModelScope)
     private val shelfPicker = BookShelfPickerController(clientProvider, viewModelScope)
-    private var connectionIdentity: String? = null
+    private var connectionIdentity: AuthenticatedConnectionIdentity? = null
 
     val state = controller.state
     val shelfPickerState = shelfPicker.state
     val connectionEvents = merge(controller.connectionEvents, shelfPicker.connectionEvents)
 
     fun initialize(profile: ConnectionProfile, bookId: String) {
-        val identity = "${profile.apiBaseUrl}\u0000${profile.clientSessionId}"
-        if (identity != connectionIdentity) {
-            connectionIdentity = identity
+        val nextConnectionIdentity = profile.authenticatedConnectionIdentity
+        if (nextConnectionIdentity != connectionIdentity) {
+            connectionIdentity = nextConnectionIdentity
             controller.clear()
             shelfPicker.dismiss()
         }

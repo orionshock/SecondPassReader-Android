@@ -7,6 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 
 @Composable
 internal fun BookDetailStateHost(
@@ -19,8 +20,9 @@ internal fun BookDetailStateHost(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val shelfPickerState by viewModel.shelfPickerState.collectAsStateWithLifecycle()
+    val connectionIdentity = profile.authenticatedConnectionIdentity
     BackHandler(onBack = onBack)
-    LaunchedEffect(profile.apiBaseUrl, profile.clientSessionId, bookId) {
+    LaunchedEffect(connectionIdentity, bookId) {
         viewModel.initialize(profile, bookId)
     }
     LaunchedEffect(viewModel, onAuthenticationRejected) {

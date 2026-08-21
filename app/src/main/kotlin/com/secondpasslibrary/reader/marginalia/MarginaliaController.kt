@@ -1,7 +1,9 @@
 package com.secondpasslibrary.reader.marginalia
 
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
+import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,7 +26,7 @@ internal class MarginaliaController(
 
     val connectionEvents = merge(sessions.connectionEvents, detail.connectionEvents)
 
-    private var connectionIdentity: String? = null
+    private var connectionIdentity: AuthenticatedConnectionIdentity? = null
 
     init {
         detail.onAuthoritativeUpdate = sessions.authoritativeDetailSink
@@ -34,8 +36,8 @@ internal class MarginaliaController(
         profile: ConnectionProfile,
         initialContext: MarginaliaHistoryContext = MarginaliaHistoryContext.Global
     ) {
-        val identity = "${profile.apiBaseUrl}\u0000${profile.clientSessionId}"
-        val identityChanged = identity != connectionIdentity
+        val nextConnectionIdentity = profile.authenticatedConnectionIdentity
+        val identityChanged = nextConnectionIdentity != connectionIdentity
         val activeContext = when (val destination = state.value.destination) {
             is MarginaliaDestination.History -> destination.context
             is MarginaliaDestination.SessionDetail -> destination.returnContext
@@ -44,7 +46,7 @@ internal class MarginaliaController(
         sessions.prepare(profile)
         detail.prepare(profile)
         if (identityChanged) {
-            connectionIdentity = identity
+            connectionIdentity = nextConnectionIdentity
             mutableState.value = MarginaliaState(MarginaliaDestination.History(initialContext))
         } else if (contextChanged) {
             detail.clear()

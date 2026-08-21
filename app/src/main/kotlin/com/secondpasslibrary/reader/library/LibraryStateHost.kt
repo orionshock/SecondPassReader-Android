@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 
 @Composable
 internal fun LibraryStateHost(
@@ -15,9 +16,9 @@ internal fun LibraryStateHost(
     externalNavigation: LibraryExternalNavigation? = null,
     viewModel: LibraryViewModel = viewModel()
 ) {
+    val connectionIdentity = profile.authenticatedConnectionIdentity
     LaunchedEffect(
-        profile.apiBaseUrl,
-        profile.clientSessionId,
+        connectionIdentity,
         entry,
         advancedGroupsEnabled,
         externalNavigation

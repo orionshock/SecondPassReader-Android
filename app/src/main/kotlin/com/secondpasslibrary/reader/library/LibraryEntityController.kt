@@ -4,7 +4,9 @@ import com.secondpasslibrary.client.AuthenticatedSecondPassClient
 import com.secondpasslibrary.client.LibraryPage
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
+import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -36,21 +38,23 @@ internal class LibraryEntityController<T, O>(
     private var profile: ConnectionProfile? = null
     private var selectedScope: LibraryScope = LibraryScope.Global
     private var selectedTagSlug: String? = null
-    private var connectionIdentity: String? = null
+    private var connectionIdentity: AuthenticatedConnectionIdentity? = null
     private var generation = 0L
     private var detailGeneration = 0L
     private var loadJob: Job? = null
     private var detailJob: Job? = null
 
     fun prepare(profile: ConnectionProfile, scope: LibraryScope, tagSlug: String? = null) {
-        val identity = "${profile.apiBaseUrl}\u0000${profile.clientSessionId}"
+        val nextConnectionIdentity = profile.authenticatedConnectionIdentity
         val changed =
-            identity != connectionIdentity || scope != selectedScope || tagSlug != selectedTagSlug
+            nextConnectionIdentity != connectionIdentity ||
+                scope != selectedScope ||
+                tagSlug != selectedTagSlug
         this.profile = profile
         selectedScope = scope
         selectedTagSlug = tagSlug
         if (!changed) return
-        connectionIdentity = identity
+        connectionIdentity = nextConnectionIdentity
         reset(cancelDetail = true)
     }
 

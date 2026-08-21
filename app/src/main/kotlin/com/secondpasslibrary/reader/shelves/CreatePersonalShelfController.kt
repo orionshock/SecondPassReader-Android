@@ -6,7 +6,9 @@ import com.secondpasslibrary.client.ShelfMutationField
 import com.secondpasslibrary.client.ShelfVisibility
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
+import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -27,14 +29,14 @@ internal class CreatePersonalShelfController(
     val connectionEvents = connectionEventChannel.receiveAsFlow()
 
     private var profile: ConnectionProfile? = null
-    private var connectionIdentity: String? = null
+    private var connectionIdentity: AuthenticatedConnectionIdentity? = null
     private var submitJob: Job? = null
 
     fun prepare(profile: ConnectionProfile) {
-        val identity = "${profile.apiBaseUrl}\u0000${profile.clientSessionId}"
+        val nextConnectionIdentity = profile.authenticatedConnectionIdentity
         this.profile = profile
-        if (identity == connectionIdentity) return
-        connectionIdentity = identity
+        if (nextConnectionIdentity == connectionIdentity) return
+        connectionIdentity = nextConnectionIdentity
         reset()
     }
 

@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 
 @Composable
 internal fun MarginaliaStateHost(
@@ -14,7 +15,8 @@ internal fun MarginaliaStateHost(
     onAuthenticationRejected: () -> Unit,
     viewModel: MarginaliaViewModel = viewModel()
 ) {
-    LaunchedEffect(profile.apiBaseUrl, profile.clientSessionId, initialContext) {
+    val connectionIdentity = profile.authenticatedConnectionIdentity
+    LaunchedEffect(connectionIdentity, initialContext) {
         viewModel.initialize(profile, initialContext)
     }
     LaunchedEffect(viewModel, onAuthenticationRejected) {

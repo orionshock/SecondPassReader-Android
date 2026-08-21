@@ -3,7 +3,9 @@ package com.secondpasslibrary.reader.shelves
 import com.secondpasslibrary.client.Shelf
 import com.secondpasslibrary.client.ShelfOrdering
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
+import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.merge
@@ -45,10 +47,10 @@ internal class ShelvesController(
             editor.connectionEvents
         )
 
-    private var connectionIdentity: String? = null
+    private var connectionIdentity: AuthenticatedConnectionIdentity? = null
 
     fun initialize(profile: ConnectionProfile) {
-        val identity = "${profile.apiBaseUrl}\u0000${profile.clientSessionId}"
+        val nextConnectionIdentity = profile.authenticatedConnectionIdentity
         personal.prepare(profile)
         shared.prepare(profile)
         group.prepare(profile)
@@ -57,8 +59,8 @@ internal class ShelvesController(
         edit.prepare(profile)
         delete.prepare(profile)
         editor.prepare(profile)
-        if (identity != connectionIdentity) {
-            connectionIdentity = identity
+        if (nextConnectionIdentity != connectionIdentity) {
+            connectionIdentity = nextConnectionIdentity
             navigation.value = ShelvesNavigationState()
         }
         activateCurrentCollection()

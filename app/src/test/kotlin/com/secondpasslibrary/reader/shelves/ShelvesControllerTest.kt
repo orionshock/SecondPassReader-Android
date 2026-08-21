@@ -13,6 +13,28 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class ShelvesControllerTest {
     @Test
+    fun `re-pairing resets navigation and reloads Personal Shelves`() = runTest {
+        val capability = RecordingShelvesCapability().apply {
+            listCall = { options -> shelfPage(options.page, listOf(shelf("personal"))) }
+        }
+        val controller = controller(capability, this)
+        val profile = shelvesProfile()
+        controller.initialize(profile)
+        advanceUntilIdle()
+        controller.selectShelf("personal")
+        advanceUntilIdle()
+
+        controller.initialize(profile.copy(clientSessionId = "replacement-session"))
+        advanceUntilIdle()
+
+        assertEquals(
+            ShelvesDestination.Collection(ShelvesCollection.PERSONAL),
+            controller.state.value.destination
+        )
+        assertEquals(2, capability.listRequests.count { it.scope.name == "PERSONAL" })
+    }
+
+    @Test
     fun `selection routes through parent and back restores Personal state`() = runTest {
         val capability = RecordingShelvesCapability().apply {
             listCall = { options -> shelfPage(options.page, listOf(shelf("personal"))) }

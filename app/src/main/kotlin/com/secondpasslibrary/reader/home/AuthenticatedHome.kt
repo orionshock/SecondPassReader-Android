@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 import kotlinx.coroutines.flow.collectLatest
@@ -42,9 +43,10 @@ fun AuthenticatedHome(
     viewModel: HomeViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val connectionIdentity = profile.authenticatedConnectionIdentity
     val currentOnNavigation by rememberUpdatedState(onNavigation)
     val currentOnAuthenticationRejected by rememberUpdatedState(onAuthenticationRejected)
-    LaunchedEffect(profile.apiBaseUrl, profile.clientSessionId, profileId) {
+    LaunchedEffect(connectionIdentity, profileId) {
         viewModel.initialize(profile, profileId)
     }
     LaunchedEffect(viewModel) {
