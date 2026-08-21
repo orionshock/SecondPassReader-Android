@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.library
+package com.secondpasslibrary.reader.library.books
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column

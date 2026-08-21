@@ -2,12 +2,15 @@ package com.secondpasslibrary.reader.library
 
 import com.secondpasslibrary.client.LibraryCatalogTag
 import com.secondpasslibrary.client.LibraryScope
+import com.secondpasslibrary.reader.library.axis.LibraryAuthorsState
+import com.secondpasslibrary.reader.library.axis.LibrarySeriesState
+import com.secondpasslibrary.reader.library.books.LibraryBooksState
 import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 
-internal val LibraryChromeState.isSelectedEntityBooks: Boolean
+internal val LibraryChromeState.isSelectedAuthorSeriesBooks: Boolean
     get() = resultKind == LibraryResultKind.BOOKS && axis != LibraryAxis.BOOKS
 
 internal data class LibraryChromeState(

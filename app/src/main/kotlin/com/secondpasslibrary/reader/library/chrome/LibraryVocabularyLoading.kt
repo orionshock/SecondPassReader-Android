@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.library
+package com.secondpasslibrary.reader.library.chrome
 
 import com.secondpasslibrary.client.AuthenticatedLibraryClient
 import com.secondpasslibrary.client.CatalogTagListOptions

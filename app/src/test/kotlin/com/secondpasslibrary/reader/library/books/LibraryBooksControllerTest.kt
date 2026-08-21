@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.library
+package com.secondpasslibrary.reader.library.books
 
 import com.secondpasslibrary.client.AuthenticatedLibraryBooksClient
 import com.secondpasslibrary.client.AuthenticatedLibraryGroupsClient
@@ -17,6 +17,11 @@ import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.FakeAuthenticatedLibraryClient
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.library.DEFAULT_LIBRARY_PAGE_SIZE
+import com.secondpasslibrary.reader.library.LibraryAxis
+import com.secondpasslibrary.reader.library.LibraryConnectionEvent
+import com.secondpasslibrary.reader.library.LibraryController
+import com.secondpasslibrary.reader.library.LibraryFailure
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable

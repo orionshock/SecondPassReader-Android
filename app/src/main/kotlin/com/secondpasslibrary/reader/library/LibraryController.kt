@@ -6,6 +6,14 @@ import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.library.axis.LibraryAuthorsController
+import com.secondpasslibrary.reader.library.axis.LibrarySeriesController
+import com.secondpasslibrary.reader.library.books.LibraryBooksController
+import com.secondpasslibrary.reader.library.books.LibraryBooksEntry
+import com.secondpasslibrary.reader.library.books.LibraryBooksMode
+import com.secondpasslibrary.reader.library.books.LibraryDisplayPreferenceStore
+import com.secondpasslibrary.reader.library.chrome.loadAllGroups
+import com.secondpasslibrary.reader.library.chrome.loadAllTags
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
@@ -126,8 +134,8 @@ internal class LibraryController(
         ) {
             return
         }
-        if (current.isSelectedEntityBooks) {
-            clearSelectedEntity()
+        if (current.isSelectedAuthorSeriesBooks) {
+            clearSelectedAuthorSeries()
             current = chrome.value
         }
         tagsJob?.cancel()
@@ -156,8 +164,8 @@ internal class LibraryController(
     fun selectAxis(selected: LibraryAxis) {
         var current = chrome.value
         if (selected == current.axis) return
-        if (current.isSelectedEntityBooks) {
-            clearSelectedEntity()
+        if (current.isSelectedAuthorSeriesBooks) {
+            clearSelectedAuthorSeries()
             current = chrome.value
         }
         chrome.value = current.copy(axis = selected, resultKind = selected.indexResultKind)
@@ -234,7 +242,7 @@ internal class LibraryController(
     fun navigateTo(target: LibraryExternalNavigation) {
         when (target) {
             is LibraryExternalNavigation.Author -> {
-                val selectedId = chrome.value.takeIf { it.isSelectedEntityBooks }
+                val selectedId = chrome.value.takeIf { it.isSelectedAuthorSeriesBooks }
                     ?.let { authors.state.value.selected?.detail?.id }
                 if (chrome.value.axis != LibraryAxis.AUTHORS || selectedId != target.id) {
                     selectAuthor(target.id)
@@ -242,7 +250,7 @@ internal class LibraryController(
             }
 
             is LibraryExternalNavigation.Series -> {
-                val selectedId = chrome.value.takeIf { it.isSelectedEntityBooks }
+                val selectedId = chrome.value.takeIf { it.isSelectedAuthorSeriesBooks }
                     ?.let { series.state.value.selected?.detail?.id }
                 if (chrome.value.axis != LibraryAxis.SERIES || selectedId != target.id) {
                     selectSeries(target.id)
@@ -253,7 +261,7 @@ internal class LibraryController(
         }
     }
 
-    fun clearSelectedEntity() {
+    fun clearSelectedAuthorSeries() {
         when (chrome.value.axis) {
             LibraryAxis.AUTHORS -> authors.clearSelection()
             LibraryAxis.SERIES -> series.clearSelection()

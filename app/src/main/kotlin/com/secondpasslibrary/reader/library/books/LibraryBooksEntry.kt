@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.library
+package com.secondpasslibrary.reader.library.books
 
 internal sealed interface LibraryBooksEntry {
     data object Browse : LibraryBooksEntry

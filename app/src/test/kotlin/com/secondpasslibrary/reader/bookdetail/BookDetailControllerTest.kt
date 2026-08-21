@@ -1,10 +1,10 @@
 package com.secondpasslibrary.reader.bookdetail
 
 import com.secondpasslibrary.client.SplClientException
-import com.secondpasslibrary.reader.library.FakeLibraryAxisClient
-import com.secondpasslibrary.reader.library.FakeLibraryAxisClientProvider
-import com.secondpasslibrary.reader.library.libraryBookDetail
-import com.secondpasslibrary.reader.library.libraryProfile
+import com.secondpasslibrary.reader.library.axis.FakeLibraryAxisClient
+import com.secondpasslibrary.reader.library.axis.FakeLibraryAxisClientProvider
+import com.secondpasslibrary.reader.library.axis.libraryBookDetail
+import com.secondpasslibrary.reader.library.axis.libraryProfile
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest

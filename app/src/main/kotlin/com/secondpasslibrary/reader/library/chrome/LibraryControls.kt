@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.library
+package com.secondpasslibrary.reader.library.chrome
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,6 +32,18 @@ import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.SeriesOrdering
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
+import com.secondpasslibrary.reader.library.LibraryAxis
+import com.secondpasslibrary.reader.library.LibraryResultKind
+import com.secondpasslibrary.reader.library.LibraryState
+import com.secondpasslibrary.reader.library.axis.authorOrderingOptions
+import com.secondpasslibrary.reader.library.axis.libraryLabel
+import com.secondpasslibrary.reader.library.axis.seriesOrderingOptions
+import com.secondpasslibrary.reader.library.books.LibraryBooksFilter
+import com.secondpasslibrary.reader.library.books.LibraryBooksLayout
+import com.secondpasslibrary.reader.library.books.LibraryBooksMode
+import com.secondpasslibrary.reader.library.books.LibraryBooksOrdering
+import com.secondpasslibrary.reader.library.books.label
+import com.secondpasslibrary.reader.library.books.libraryOrderingOptions
 
 @Composable
 internal fun LibraryControls(

@@ -1,7 +1,7 @@
 package com.secondpasslibrary.reader.bookdetail
 
 import com.secondpasslibrary.client.PublicationDatePrecision
-import com.secondpasslibrary.reader.library.libraryBookDetail
+import com.secondpasslibrary.reader.library.axis.libraryBookDetail
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

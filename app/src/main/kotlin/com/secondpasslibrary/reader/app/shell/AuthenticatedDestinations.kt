@@ -12,9 +12,9 @@ import com.secondpasslibrary.reader.bookdetail.BookDetailStateHost
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.home.AuthenticatedHome
 import com.secondpasslibrary.reader.home.HomeNavigationIntent
-import com.secondpasslibrary.reader.library.LibraryBooksEntry
 import com.secondpasslibrary.reader.library.LibraryExternalNavigation
 import com.secondpasslibrary.reader.library.LibraryStateHost
+import com.secondpasslibrary.reader.library.books.LibraryBooksEntry
 import com.secondpasslibrary.reader.marginalia.MarginaliaHistoryContext
 import com.secondpasslibrary.reader.marginalia.MarginaliaStateHost
 import com.secondpasslibrary.reader.settings.LinkedSettings

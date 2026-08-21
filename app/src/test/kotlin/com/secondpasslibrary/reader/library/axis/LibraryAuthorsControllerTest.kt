@@ -1,8 +1,10 @@
-package com.secondpasslibrary.reader.library
+package com.secondpasslibrary.reader.library.axis
 
 import com.secondpasslibrary.client.AuthorOrdering
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.SplClientException
+import com.secondpasslibrary.reader.library.DEFAULT_LIBRARY_PAGE_SIZE
+import com.secondpasslibrary.reader.library.LibraryFailure
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
@@ -181,7 +183,7 @@ class LibraryAuthorsControllerTest {
         advanceUntilIdle()
 
         assertEquals(listOf("first"), controller.state.value.items.map { it.id })
-        assertEquals(LibraryEntityLoadPhase.NEXT_PAGE, controller.state.value.error?.phase)
+        assertEquals(PagedLibraryAxisLoadPhase.NEXT_PAGE, controller.state.value.error?.phase)
         controller.retry()
         advanceUntilIdle()
 

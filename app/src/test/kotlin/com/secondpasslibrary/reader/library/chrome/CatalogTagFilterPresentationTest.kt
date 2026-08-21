@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.library
+package com.secondpasslibrary.reader.library.chrome
 
 import com.secondpasslibrary.client.LibraryCatalogTag
 import org.junit.Assert.assertEquals

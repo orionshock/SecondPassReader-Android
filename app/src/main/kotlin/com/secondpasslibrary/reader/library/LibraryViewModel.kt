@@ -10,6 +10,10 @@ import com.secondpasslibrary.client.LibrarySearchOrdering
 import com.secondpasslibrary.client.SeriesOrdering
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.library.books.LibraryBooksEntry
+import com.secondpasslibrary.reader.library.books.LibraryBooksLayout
+import com.secondpasslibrary.reader.library.books.LibraryBooksOrdering
+import com.secondpasslibrary.reader.library.books.LibraryDisplayPreferenceStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
@@ -67,7 +71,7 @@ constructor(
 
     fun selectSeries(seriesId: String) = controller.selectSeries(seriesId)
 
-    fun clearSelectedEntity() = controller.clearSelectedEntity()
+    fun clearSelectedAuthorSeries() = controller.clearSelectedAuthorSeries()
 
     fun retryAuthorDetail() = controller.authors.retryDetail()
 

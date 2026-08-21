@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.library
+package com.secondpasslibrary.reader.library.axis
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,9 +25,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.secondpasslibrary.reader.library.LibraryFailure
+import com.secondpasslibrary.reader.library.books.LibraryBookCover
 
 @Composable
-internal fun LibraryEntityCard(model: LibraryEntityCardPresentation, onSelect: (String) -> Unit) {
+internal fun LibraryAuthorSeriesCard(
+    model: LibraryAuthorSeriesCardPresentation,
+    onSelect: (String) -> Unit
+) {
     OutlinedCard(onClick = { onSelect(model.id) }) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(14.dp),
@@ -53,11 +58,11 @@ internal fun LibraryEntityCard(model: LibraryEntityCardPresentation, onSelect: (
 }
 
 @Composable
-private fun PreviewCoverStack(previews: LibraryPreviewBooksPresentation) {
+private fun PreviewCoverStack(previews: LibraryAuthorSeriesPreviewBooksPresentation) {
     when (previews) {
-        LibraryPreviewBooksPresentation.Omitted -> Unit
+        LibraryAuthorSeriesPreviewBooksPresentation.Omitted -> Unit
 
-        is LibraryPreviewBooksPresentation.Returned -> {
+        is LibraryAuthorSeriesPreviewBooksPresentation.Returned -> {
             if (previews.books.isEmpty()) {
                 Text(
                     "No previews",
@@ -81,8 +86,8 @@ private fun PreviewCoverStack(previews: LibraryPreviewBooksPresentation) {
 }
 
 @Composable
-internal fun SelectedEntityHeader(
-    detail: LibrarySelectedEntityPresentation,
+internal fun SelectedAuthorSeriesHeader(
+    detail: LibraryAuthorSeriesDetailPresentation,
     onRetry: () -> Unit,
     returnLabel: String? = null,
     onReturn: (() -> Unit)? = null
@@ -93,7 +98,7 @@ internal fun SelectedEntityHeader(
         }
         OutlinedCard(Modifier.fillMaxWidth()) {
             when (detail) {
-                is LibrarySelectedEntityPresentation.Loading ->
+                is LibraryAuthorSeriesDetailPresentation.Loading ->
                     Row(
                         Modifier.fillMaxWidth().padding(18.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -103,10 +108,12 @@ internal fun SelectedEntityHeader(
                         Text("Loading details...")
                     }
 
-                is LibrarySelectedEntityPresentation.Failure ->
+                is LibraryAuthorSeriesDetailPresentation.Failure ->
                     EntityDetailFailure(detail.failure, onRetry)
 
-                is LibrarySelectedEntityPresentation.Content -> SelectedEntityContent(detail)
+                is LibraryAuthorSeriesDetailPresentation.Content -> SelectedAuthorSeriesContent(
+                    detail
+                )
             }
         }
     }
@@ -119,13 +126,16 @@ private fun EntityDetailFailure(failure: LibraryFailure, onRetry: () -> Unit) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(entityFailureMessage(failure, "details"), color = MaterialTheme.colorScheme.error)
+        Text(
+            authorSeriesFailureMessage(failure, "details"),
+            color = MaterialTheme.colorScheme.error
+        )
         OutlinedButton(onClick = onRetry) { Text("Retry") }
     }
 }
 
 @Composable
-private fun SelectedEntityContent(detail: LibrarySelectedEntityPresentation.Content) {
+private fun SelectedAuthorSeriesContent(detail: LibraryAuthorSeriesDetailPresentation.Content) {
     var expanded by rememberSaveable(detail.id) { mutableStateOf(false) }
     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Text(detail.name, style = MaterialTheme.typography.titleLarge)

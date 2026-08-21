@@ -12,6 +12,15 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondpasslibrary.client.LibraryCatalogTag
 import com.secondpasslibrary.client.LibraryScope
+import com.secondpasslibrary.reader.library.axis.LibraryAuthorsResults
+import com.secondpasslibrary.reader.library.axis.LibrarySeriesResults
+import com.secondpasslibrary.reader.library.axis.SelectedAuthorSeriesHeader
+import com.secondpasslibrary.reader.library.axis.toAuthorDetailPresentation
+import com.secondpasslibrary.reader.library.axis.toSeriesDetailPresentation
+import com.secondpasslibrary.reader.library.books.LibraryBooksLayout
+import com.secondpasslibrary.reader.library.books.LibraryBooksOrdering
+import com.secondpasslibrary.reader.library.books.LibraryBooksResults
+import com.secondpasslibrary.reader.library.chrome.LibraryControls
 
 @Composable
 internal fun LibraryScreen(viewModel: LibraryViewModel, onBookSelected: (String) -> Unit) {
@@ -32,7 +41,7 @@ internal fun LibraryScreen(viewModel: LibraryViewModel, onBookSelected: (String)
         onRetry = viewModel::retry,
         onAuthorSelected = viewModel::selectAuthor,
         onSeriesSelected = viewModel::selectSeries,
-        onClearSelectedEntity = viewModel::clearSelectedEntity,
+        onClearSelectedAuthorSeries = viewModel::clearSelectedAuthorSeries,
         onRetryAuthorDetail = viewModel::retryAuthorDetail,
         onRetrySeriesDetail = viewModel::retrySeriesDetail,
         onBookSelected = onBookSelected
@@ -56,7 +65,7 @@ private fun LibraryContent(
     onRetry: () -> Unit,
     onAuthorSelected: (String) -> Unit,
     onSeriesSelected: (String) -> Unit,
-    onClearSelectedEntity: () -> Unit,
+    onClearSelectedAuthorSeries: () -> Unit,
     onRetryAuthorDetail: () -> Unit,
     onRetrySeriesDetail: () -> Unit,
     onBookSelected: (String) -> Unit
@@ -77,7 +86,7 @@ private fun LibraryContent(
         onRetry,
         onAuthorSelected,
         onSeriesSelected,
-        onClearSelectedEntity,
+        onClearSelectedAuthorSeries,
         onRetryAuthorDetail,
         onRetrySeriesDetail,
         onBookSelected
@@ -102,7 +111,7 @@ private fun LibraryBrowseContent(
     onRetry: () -> Unit,
     onAuthorSelected: (String) -> Unit,
     onSeriesSelected: (String) -> Unit,
-    onClearSelectedEntity: () -> Unit,
+    onClearSelectedAuthorSeries: () -> Unit,
     onRetryAuthorDetail: () -> Unit,
     onRetrySeriesDetail: () -> Unit,
     onBookSelected: (String) -> Unit
@@ -131,7 +140,7 @@ private fun LibraryBrowseContent(
                     onRetry,
                     onRetryAuthorDetail,
                     onRetrySeriesDetail,
-                    onClearSelectedEntity,
+                    onClearSelectedAuthorSeries,
                     onBookSelected,
                     Modifier.weight(1f)
                 )
@@ -166,7 +175,7 @@ private fun FilterableBooksResults(
     onRetry: () -> Unit,
     onRetryAuthorDetail: () -> Unit,
     onRetrySeriesDetail: () -> Unit,
-    onClearSelectedEntity: () -> Unit,
+    onClearSelectedAuthorSeries: () -> Unit,
     onBookSelected: (String) -> Unit,
     modifier: Modifier
 ) {
@@ -176,21 +185,21 @@ private fun FilterableBooksResults(
 
             LibraryAxis.AUTHORS ->
                 state.authors.selected?.let { selected ->
-                    SelectedEntityHeader(
+                    SelectedAuthorSeriesHeader(
                         selected.toAuthorDetailPresentation(),
                         onRetryAuthorDetail,
                         "Back to authors",
-                        onClearSelectedEntity
+                        onClearSelectedAuthorSeries
                     )
                 }
 
             LibraryAxis.SERIES ->
                 state.series.selected?.let { selected ->
-                    SelectedEntityHeader(
+                    SelectedAuthorSeriesHeader(
                         selected.toSeriesDetailPresentation(),
                         onRetrySeriesDetail,
                         "Back to series",
-                        onClearSelectedEntity
+                        onClearSelectedAuthorSeries
                     )
                 }
         }

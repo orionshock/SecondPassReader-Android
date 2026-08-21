@@ -22,7 +22,7 @@ import com.secondpasslibrary.reader.FakeAuthenticatedLibraryClient
 import com.secondpasslibrary.reader.FakeAuthenticatedShelvesClient
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.library.axisBook
+import com.secondpasslibrary.reader.library.axis.axisBook
 
 internal class RecordingShelvesCapability :
     AuthenticatedShelvesClient by FakeAuthenticatedShelvesClient {

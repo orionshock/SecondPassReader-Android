@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.library
+package com.secondpasslibrary.reader.library.axis
 
 import com.secondpasslibrary.client.AuthorOrdering
 import com.secondpasslibrary.client.BookOrdering
@@ -7,26 +7,39 @@ import com.secondpasslibrary.client.LibraryPreviewBook
 import com.secondpasslibrary.client.LibrarySeries
 import com.secondpasslibrary.client.PublicBookCoverReference
 import com.secondpasslibrary.client.SeriesOrdering
+import com.secondpasslibrary.reader.library.LibraryAxis
+import com.secondpasslibrary.reader.library.LibraryFailure
+import com.secondpasslibrary.reader.library.LibraryResultKind
+import com.secondpasslibrary.reader.library.LibraryState
+import com.secondpasslibrary.reader.library.books.LibraryBookCoverPresentation
+import com.secondpasslibrary.reader.library.books.LibraryBooksFilter
+import com.secondpasslibrary.reader.library.books.LibraryBooksMode
+import com.secondpasslibrary.reader.library.books.LibraryBooksOrdering
+import com.secondpasslibrary.reader.library.books.libraryOrderingOptions
+import com.secondpasslibrary.reader.library.books.shouldRequestNextPage
+import com.secondpasslibrary.reader.library.chrome.committedQuery
+import com.secondpasslibrary.reader.library.chrome.orderingLabel
+import com.secondpasslibrary.reader.library.chrome.resultCount
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class LibraryEntityPresentationTest {
+class LibraryAuthorSeriesPresentationTest {
     @Test
     fun `Author and Series cards map identity and book-count labels`() {
         val author = LibraryAuthor("a", "Author", "Author", "", 1, null)
         val series = LibrarySeries("s", "Series", "Series", "", 12, null)
 
-        assertEquals("Author", author.toLibraryEntityPresentation().name)
-        assertEquals("1 book", author.toLibraryEntityPresentation().bookCountLabel)
-        assertEquals("Series", series.toLibraryEntityPresentation().name)
-        assertEquals("12 books", series.toLibraryEntityPresentation().bookCountLabel)
+        assertEquals("Author", author.toLibraryAuthorSeriesPresentation().name)
+        assertEquals("1 book", author.toLibraryAuthorSeriesPresentation().bookCountLabel)
+        assertEquals("Series", series.toLibraryAuthorSeriesPresentation().name)
+        assertEquals("12 books", series.toLibraryAuthorSeriesPresentation().bookCountLabel)
     }
 
     @Test
     fun `preview omission empty return and populated return remain distinct`() {
-        val omitted = authorWithPreviews(null).toLibraryEntityPresentation().previews
-        val empty = authorWithPreviews(emptyList()).toLibraryEntityPresentation().previews
+        val omitted = authorWithPreviews(null).toLibraryAuthorSeriesPresentation().previews
+        val empty = authorWithPreviews(emptyList()).toLibraryAuthorSeriesPresentation().previews
         val populated =
             authorWithPreviews(
                 listOf(
@@ -37,11 +50,11 @@ class LibraryEntityPresentationTest {
                         PublicBookCoverReference.fromAbsoluteUrl("https://covers.example/book.webp")
                     )
                 )
-            ).toLibraryEntityPresentation().previews
+            ).toLibraryAuthorSeriesPresentation().previews
 
-        assertEquals(LibraryPreviewBooksPresentation.Omitted, omitted)
-        assertEquals(LibraryPreviewBooksPresentation.Returned(emptyList()), empty)
-        val books = (populated as LibraryPreviewBooksPresentation.Returned).books
+        assertEquals(LibraryAuthorSeriesPreviewBooksPresentation.Omitted, omitted)
+        assertEquals(LibraryAuthorSeriesPreviewBooksPresentation.Returned(emptyList()), empty)
+        val books = (populated as LibraryAuthorSeriesPreviewBooksPresentation.Returned).books
         assertEquals(LibraryBookCoverPresentation.Missing, books.first().cover)
         assertTrue(books.last().cover is LibraryBookCoverPresentation.Public)
     }
@@ -51,7 +64,8 @@ class LibraryEntityPresentationTest {
         val previews = (
             authorWithPreviews(
                 (1..4).map { LibraryPreviewBook("$it", "Book $it", null) }
-            ).toLibraryEntityPresentation().previews as LibraryPreviewBooksPresentation.Returned
+            ).toLibraryAuthorSeriesPresentation().previews as
+                LibraryAuthorSeriesPreviewBooksPresentation.Returned
             ).books
 
         assertEquals(listOf("1", "2", "3"), previews.map { it.id })
@@ -81,7 +95,7 @@ class LibraryEntityPresentationTest {
                 axis = LibraryAxis.AUTHORS,
                 resultKind = LibraryResultKind.AUTHOR_INDEX,
                 authors =
-                    LibraryEntityState(
+                    PagedLibraryAxisState(
                         committedQuery = "le guin",
                         ordering = AuthorOrdering.BOOK_COUNT_DESCENDING,
                         totalCount = 7,
@@ -125,26 +139,26 @@ class LibraryEntityPresentationTest {
 
     @Test
     fun `selected Author detail maps loading failure and content explicitly`() {
-        val loading = LibraryEntityDetailState<LibraryAuthor>("a", loading = true)
+        val loading = PagedLibraryAxisDetailState<LibraryAuthor>("a", loading = true)
         val failure =
-            LibraryEntityDetailState<LibraryAuthor>(
+            PagedLibraryAxisDetailState<LibraryAuthor>(
                 "a",
                 failure = LibraryFailure.PROTOCOL_INVALID
             )
         val content =
-            LibraryEntityDetailState(
+            PagedLibraryAxisDetailState(
                 "a",
                 detail = LibraryAuthor("a", "Author", "Author", "Biography", 2, emptyList())
             )
 
         assertTrue(
-            loading.toAuthorDetailPresentation() is LibrarySelectedEntityPresentation.Loading
+            loading.toAuthorDetailPresentation() is LibraryAuthorSeriesDetailPresentation.Loading
         )
         assertTrue(
-            failure.toAuthorDetailPresentation() is LibrarySelectedEntityPresentation.Failure
+            failure.toAuthorDetailPresentation() is LibraryAuthorSeriesDetailPresentation.Failure
         )
         val presented =
-            content.toAuthorDetailPresentation() as LibrarySelectedEntityPresentation.Content
+            content.toAuthorDetailPresentation() as LibraryAuthorSeriesDetailPresentation.Content
         assertEquals("Biography", presented.description)
         assertEquals("2 books", presented.bookCountLabel)
     }
@@ -152,13 +166,13 @@ class LibraryEntityPresentationTest {
     @Test
     fun `selected Series detail maps blank summary to absent description`() {
         val detail =
-            LibraryEntityDetailState(
+            PagedLibraryAxisDetailState(
                 "s",
                 detail = LibrarySeries("s", "Series", "Series", "  ", 3, emptyList())
             )
 
         val presented =
-            detail.toSeriesDetailPresentation() as LibrarySelectedEntityPresentation.Content
+            detail.toSeriesDetailPresentation() as LibraryAuthorSeriesDetailPresentation.Content
         assertEquals(null, presented.description)
         assertEquals("3 books", presented.bookCountLabel)
     }

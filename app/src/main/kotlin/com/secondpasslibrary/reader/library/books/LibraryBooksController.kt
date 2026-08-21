@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.library
+package com.secondpasslibrary.reader.library.books
 
 import com.secondpasslibrary.client.BookOrdering
 import com.secondpasslibrary.client.CompactBook
@@ -9,6 +9,9 @@ import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.library.LibraryConnectionEvent
+import com.secondpasslibrary.reader.library.LibraryFailure
+import com.secondpasslibrary.reader.library.toLibraryFailure
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job

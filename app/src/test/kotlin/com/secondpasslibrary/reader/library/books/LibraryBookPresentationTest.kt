@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.library
+package com.secondpasslibrary.reader.library.books
 
 import com.secondpasslibrary.client.BookAuthorSummary
 import com.secondpasslibrary.client.BookOrdering

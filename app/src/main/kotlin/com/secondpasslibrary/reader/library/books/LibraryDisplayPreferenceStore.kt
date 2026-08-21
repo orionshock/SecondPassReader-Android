@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.library
+package com.secondpasslibrary.reader.library.books
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit

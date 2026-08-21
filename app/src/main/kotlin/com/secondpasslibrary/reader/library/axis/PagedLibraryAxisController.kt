@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.library
+package com.secondpasslibrary.reader.library.axis
 
 import com.secondpasslibrary.client.AuthenticatedSecondPassClient
 import com.secondpasslibrary.client.LibraryPage
@@ -7,6 +7,9 @@ import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.library.LibraryConnectionEvent
+import com.secondpasslibrary.reader.library.LibraryFailure
+import com.secondpasslibrary.reader.library.toLibraryFailure
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -18,19 +21,19 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 @Suppress("TooManyFunctions") // Bounded list paging and selected-detail state-machine intents.
-internal class LibraryEntityController<T, O>(
+internal class PagedLibraryAxisController<T, O>(
     private val clientProvider: AuthenticatedClientProvider,
     private val coroutineScope: CoroutineScope,
     defaultOrdering: O,
-    private val pageLoader: suspend (AuthenticatedSecondPassClient, LibraryEntityRequest<O>) ->
+    private val pageLoader: suspend (AuthenticatedSecondPassClient, PagedLibraryAxisRequest<O>) ->
     LibraryPage<T>,
     private val detailLoader: suspend (AuthenticatedSecondPassClient, String) -> T
 ) {
     private val mutableState =
-        MutableStateFlow<LibraryEntityState<T, O>>(
-            LibraryEntityState<T, O>(ordering = defaultOrdering)
+        MutableStateFlow<PagedLibraryAxisState<T, O>>(
+            PagedLibraryAxisState<T, O>(ordering = defaultOrdering)
         )
-    val state: StateFlow<LibraryEntityState<T, O>> = mutableState.asStateFlow()
+    val state: StateFlow<PagedLibraryAxisState<T, O>> = mutableState.asStateFlow()
 
     private val connectionEventChannel = Channel<LibraryConnectionEvent>(Channel.BUFFERED)
     val connectionEvents = connectionEventChannel.receiveAsFlow()
@@ -87,17 +90,17 @@ internal class LibraryEntityController<T, O>(
     fun loadNextPage() {
         val current = mutableState.value
         if (loadJob?.isActive == true || current.currentPage == 0 || !current.hasNext) return
-        launchPage(current.currentPage + 1, LibraryEntityLoadPhase.NEXT_PAGE)
+        launchPage(current.currentPage + 1, PagedLibraryAxisLoadPhase.NEXT_PAGE)
     }
 
     fun retry() {
         when (mutableState.value.error?.phase) {
-            LibraryEntityLoadPhase.INITIAL -> {
+            PagedLibraryAxisLoadPhase.INITIAL -> {
                 val current = mutableState.value
                 resetAndLoad(current.committedQuery, current.ordering)
             }
 
-            LibraryEntityLoadPhase.NEXT_PAGE -> loadNextPage()
+            PagedLibraryAxisLoadPhase.NEXT_PAGE -> loadNextPage()
 
             null -> Unit
         }
@@ -111,7 +114,7 @@ internal class LibraryEntityController<T, O>(
         val activeGeneration = detailGeneration
         mutableState.value =
             mutableState.value.copy(
-                selected = LibraryEntityDetailState(id = id, loading = true)
+                selected = PagedLibraryAxisDetailState(id = id, loading = true)
             )
         detailJob = coroutineScope.launch {
             val result = runCatching {
@@ -123,14 +126,14 @@ internal class LibraryEntityController<T, O>(
                 onSuccess = { detail ->
                     mutableState.value =
                         mutableState.value.copy(
-                            selected = LibraryEntityDetailState(id = id, detail = detail)
+                            selected = PagedLibraryAxisDetailState(id = id, detail = detail)
                         )
                 },
                 onFailure = { failure ->
                     val classified = failure.toLibraryFailure()
                     mutableState.value =
                         mutableState.value.copy(
-                            selected = LibraryEntityDetailState(id = id, failure = classified)
+                            selected = PagedLibraryAxisDetailState(id = id, failure = classified)
                         )
                     reportAuthenticationRejection(classified)
                 }
@@ -170,7 +173,7 @@ internal class LibraryEntityController<T, O>(
         }
         val current = mutableState.value
         mutableState.value =
-            LibraryEntityState(
+            PagedLibraryAxisState(
                 ordering = current.ordering,
                 pageSize = current.pageSize,
                 selected = current.selected.takeUnless { cancelDetail }
@@ -183,7 +186,7 @@ internal class LibraryEntityController<T, O>(
         generation += 1
         val current = mutableState.value
         mutableState.value =
-            LibraryEntityState(
+            PagedLibraryAxisState(
                 committedQuery = query,
                 ordering = ordering,
                 pageSize = current.pageSize,
@@ -192,18 +195,18 @@ internal class LibraryEntityController<T, O>(
                 initialLoading = true,
                 selected = current.selected
             )
-        launchPage(1, LibraryEntityLoadPhase.INITIAL, generation)
+        launchPage(1, PagedLibraryAxisLoadPhase.INITIAL, generation)
     }
 
     private fun launchPage(
         page: Int,
-        phase: LibraryEntityLoadPhase,
+        phase: PagedLibraryAxisLoadPhase,
         activeGeneration: Long = generation
     ) {
         val activeProfile = profile ?: return
         val current = mutableState.value
         val request =
-            LibraryEntityRequest(
+            PagedLibraryAxisRequest(
                 current.committedQuery,
                 current.ordering,
                 selectedScope,
@@ -213,8 +216,8 @@ internal class LibraryEntityController<T, O>(
             )
         mutableState.value =
             current.copy(
-                initialLoading = phase == LibraryEntityLoadPhase.INITIAL,
-                nextPageLoading = phase == LibraryEntityLoadPhase.NEXT_PAGE,
+                initialLoading = phase == PagedLibraryAxisLoadPhase.INITIAL,
+                nextPageLoading = phase == PagedLibraryAxisLoadPhase.NEXT_PAGE,
                 error = null
             )
         loadJob = coroutineScope.launch {
@@ -230,10 +233,10 @@ internal class LibraryEntityController<T, O>(
         }
     }
 
-    private fun applyPage(page: LibraryPage<T>, phase: LibraryEntityLoadPhase) {
+    private fun applyPage(page: LibraryPage<T>, phase: PagedLibraryAxisLoadPhase) {
         val current = mutableState.value
         val items =
-            if (phase == LibraryEntityLoadPhase.NEXT_PAGE) {
+            if (phase == PagedLibraryAxisLoadPhase.NEXT_PAGE) {
                 current.items + page.results
             } else {
                 page.results
@@ -250,13 +253,13 @@ internal class LibraryEntityController<T, O>(
             )
     }
 
-    private fun applyFailure(failure: Throwable, phase: LibraryEntityLoadPhase) {
+    private fun applyFailure(failure: Throwable, phase: PagedLibraryAxisLoadPhase) {
         val classified = failure.toLibraryFailure()
         mutableState.value =
             mutableState.value.copy(
                 initialLoading = false,
                 nextPageLoading = false,
-                error = LibraryEntityLoadError(classified, phase)
+                error = PagedLibraryAxisLoadError(classified, phase)
             )
         reportAuthenticationRejection(classified)
     }
@@ -272,7 +275,7 @@ internal class LibraryEntityController<T, O>(
         generation += 1
         val current = mutableState.value
         mutableState.value =
-            LibraryEntityState(
+            PagedLibraryAxisState(
                 committedQuery = current.committedQuery,
                 ordering = current.ordering,
                 pageSize = current.pageSize,
@@ -281,7 +284,7 @@ internal class LibraryEntityController<T, O>(
     }
 }
 
-internal data class LibraryEntityRequest<O>(
+internal data class PagedLibraryAxisRequest<O>(
     val query: String,
     val ordering: O,
     val scope: LibraryScope,

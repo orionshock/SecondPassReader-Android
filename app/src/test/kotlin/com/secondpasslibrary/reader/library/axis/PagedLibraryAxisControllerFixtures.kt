@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.library
+package com.secondpasslibrary.reader.library.axis
 
 import com.secondpasslibrary.client.AuthenticatedLibraryAuthorsClient
 import com.secondpasslibrary.client.AuthenticatedLibraryBooksClient
@@ -25,6 +25,7 @@ import com.secondpasslibrary.client.SeriesListOptions
 import com.secondpasslibrary.reader.FakeAuthenticatedLibraryClient
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.library.DEFAULT_LIBRARY_PAGE_SIZE
 
 internal class FakeLibraryAxisClient :
     AuthenticatedSecondPassClient,

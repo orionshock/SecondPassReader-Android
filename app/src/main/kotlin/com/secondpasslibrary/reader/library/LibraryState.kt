@@ -5,6 +5,10 @@ import com.secondpasslibrary.client.LibraryCatalogTag
 import com.secondpasslibrary.client.LibraryGroupSummary
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.SeriesOrdering
+import com.secondpasslibrary.reader.library.axis.LibraryAuthorsState
+import com.secondpasslibrary.reader.library.axis.LibrarySeriesState
+import com.secondpasslibrary.reader.library.axis.PagedLibraryAxisState
+import com.secondpasslibrary.reader.library.books.LibraryBooksState
 
 internal enum class LibraryAxis {
     BOOKS,
@@ -44,8 +48,8 @@ internal data class LibraryState(
     val selectedTag: LibraryCatalogTag? = null,
     val tagSelector: LibraryTagSelectorState = LibraryTagSelectorState(),
     val books: LibraryBooksState = LibraryBooksState(),
-    val authors: LibraryAuthorsState = LibraryEntityState(ordering = AuthorOrdering.NAME),
-    val series: LibrarySeriesState = LibraryEntityState(ordering = SeriesOrdering.NAME)
+    val authors: LibraryAuthorsState = PagedLibraryAxisState(ordering = AuthorOrdering.NAME),
+    val series: LibrarySeriesState = PagedLibraryAxisState(ordering = SeriesOrdering.NAME)
 )
 
 internal enum class LibraryFailure {
@@ -58,3 +62,5 @@ internal enum class LibraryFailure {
 internal sealed interface LibraryConnectionEvent {
     data object AuthenticationRejected : LibraryConnectionEvent
 }
+
+internal const val DEFAULT_LIBRARY_PAGE_SIZE = 50

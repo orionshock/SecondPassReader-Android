@@ -576,6 +576,10 @@ Each slice should be independently buildable and behavior-focused.
 5. **Library topology and vocabulary owner.** Move Books/axis/chrome clusters first, then extract
    the filter-vocabulary child in a separate commit-sized change. Rename `LibraryEntity*` during
    that move.
+   Completed: Library production and test files now mirror the shallow `books`, `axis`, and
+   `chrome` ownership clusters. The app-owned `LibraryEntity*` family is now
+   `PagedLibraryAxis*` for behavior and `LibraryAuthorSeries*` for concrete presentation. The
+   vocabulary-loading behavior deliberately remains in `LibraryController` for a later slice.
 6. **Marginalia topology and scoped-history loader.** Cluster history/detail files, then extract the
    unlinked-Book fallback loader and replace the mutable detail-update callback with explicit parent
    coordination.

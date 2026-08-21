@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.library
+package com.secondpasslibrary.reader.library.chrome
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +30,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.secondpasslibrary.client.LibraryCatalogTag
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
+import com.secondpasslibrary.reader.library.LibraryState
 
 @Composable
 internal fun LibraryTagFilterButton(selectedTag: LibraryCatalogTag?, onClick: () -> Unit) {

@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.library
+package com.secondpasslibrary.reader.library.books
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier

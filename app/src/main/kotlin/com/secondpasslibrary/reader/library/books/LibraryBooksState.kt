@@ -1,8 +1,10 @@
-package com.secondpasslibrary.reader.library
+package com.secondpasslibrary.reader.library.books
 
 import com.secondpasslibrary.client.BookOrdering
 import com.secondpasslibrary.client.CompactBook
 import com.secondpasslibrary.client.LibrarySearchOrdering
+import com.secondpasslibrary.reader.library.DEFAULT_LIBRARY_PAGE_SIZE
+import com.secondpasslibrary.reader.library.LibraryFailure
 
 internal enum class LibraryBooksMode {
     BROWSE,
@@ -54,5 +56,3 @@ internal enum class LibraryBooksLoadPhase {
     NEXT_PAGE,
     REFRESH
 }
-
-internal const val DEFAULT_LIBRARY_PAGE_SIZE = 50

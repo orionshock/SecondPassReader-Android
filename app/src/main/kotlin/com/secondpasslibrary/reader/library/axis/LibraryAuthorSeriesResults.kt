@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.library
+package com.secondpasslibrary.reader.library.axis
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +26,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.client.LibraryAuthor
 import com.secondpasslibrary.client.LibrarySeries
+import com.secondpasslibrary.reader.library.LibraryFailure
+import com.secondpasslibrary.reader.library.books.LoadingLibrary
+import com.secondpasslibrary.reader.library.books.shouldRequestNextPage
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
@@ -39,10 +42,10 @@ internal fun LibraryAuthorsResults(
     onRetryDetail: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    LibraryEntityResults(
+    LibraryAuthorSeriesResults(
         state,
         "authors",
-        LibraryAuthor::toLibraryEntityPresentation,
+        LibraryAuthor::toLibraryAuthorSeriesPresentation,
         { it.toAuthorDetailPresentation() },
         onSelect,
         onLoadNextPage,
@@ -61,10 +64,10 @@ internal fun LibrarySeriesResults(
     onRetryDetail: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    LibraryEntityResults(
+    LibraryAuthorSeriesResults(
         state,
         "series",
-        LibrarySeries::toLibraryEntityPresentation,
+        LibrarySeries::toLibraryAuthorSeriesPresentation,
         { it.toSeriesDetailPresentation() },
         onSelect,
         onLoadNextPage,
@@ -75,11 +78,11 @@ internal fun LibrarySeriesResults(
 }
 
 @Composable
-private fun <T, O> LibraryEntityResults(
-    state: LibraryEntityState<T, O>,
+private fun <T, O> LibraryAuthorSeriesResults(
+    state: PagedLibraryAxisState<T, O>,
     axisLabel: String,
-    present: (T) -> LibraryEntityCardPresentation,
-    presentDetail: (LibraryEntityDetailState<T>) -> LibrarySelectedEntityPresentation,
+    present: (T) -> LibraryAuthorSeriesCardPresentation,
+    presentDetail: (PagedLibraryAxisDetailState<T>) -> LibraryAuthorSeriesDetailPresentation,
     onSelect: (String) -> Unit,
     onLoadNextPage: () -> Unit,
     onRetry: () -> Unit,
@@ -90,7 +93,7 @@ private fun <T, O> LibraryEntityResults(
         state.items.isEmpty() && state.initialLoading -> LoadingLibrary(modifier)
 
         state.items.isEmpty() && state.error != null ->
-            EntityFailure(state.error.failure, axisLabel, onRetry, modifier)
+            AuthorSeriesFailure(state.error.failure, axisLabel, onRetry, modifier)
 
         state.items.isEmpty() && state.currentPage > 0 && state.selected == null ->
             Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -109,7 +112,7 @@ private fun <T, O> LibraryEntityResults(
             Column(modifier) {
                 state.selected?.let { selected ->
                     Box(Modifier.padding(top = 12.dp)) {
-                        SelectedEntityHeader(presentDetail(selected), onRetryDetail)
+                        SelectedAuthorSeriesHeader(presentDetail(selected), onRetryDetail)
                     }
                 }
                 LazyColumn(
@@ -122,16 +125,16 @@ private fun <T, O> LibraryEntityResults(
                         item {
                             LinearProgressIndicator(Modifier.fillMaxWidth())
                         }
-                    } else if (state.error?.phase == LibraryEntityLoadPhase.INITIAL) {
+                    } else if (state.error?.phase == PagedLibraryAxisLoadPhase.INITIAL) {
                         item {
-                            InlineEntityFailure(state.error.failure, axisLabel, onRetry)
+                            InlineAuthorSeriesFailure(state.error.failure, axisLabel, onRetry)
                         }
                     }
                     items(state.items, key = { present(it).id }) { item ->
-                        LibraryEntityCard(present(item), onSelect)
+                        LibraryAuthorSeriesCard(present(item), onSelect)
                     }
                     item {
-                        EntityNextPageFooter(state, onRetry)
+                        AuthorSeriesNextPageFooter(state, onRetry)
                     }
                 }
             }
@@ -140,7 +143,10 @@ private fun <T, O> LibraryEntityResults(
 }
 
 @Composable
-private fun <T, O> EntityNextPageFooter(state: LibraryEntityState<T, O>, onRetry: () -> Unit) {
+private fun <T, O> AuthorSeriesNextPageFooter(
+    state: PagedLibraryAxisState<T, O>,
+    onRetry: () -> Unit
+) {
     Box(Modifier.fillMaxWidth().height(64.dp), contentAlignment = Alignment.Center) {
         when {
             state.nextPageLoading -> CircularProgressIndicator(
@@ -148,14 +154,14 @@ private fun <T, O> EntityNextPageFooter(state: LibraryEntityState<T, O>, onRetry
                 strokeWidth = 2.dp
             )
 
-            state.error?.phase == LibraryEntityLoadPhase.NEXT_PAGE ->
+            state.error?.phase == PagedLibraryAxisLoadPhase.NEXT_PAGE ->
                 OutlinedButton(onClick = onRetry) { Text("Could not load more - Retry") }
         }
     }
 }
 
 @Composable
-private fun EntityFailure(
+private fun AuthorSeriesFailure(
     failure: LibraryFailure,
     subject: String,
     onRetry: () -> Unit,
@@ -166,7 +172,7 @@ private fun EntityFailure(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(entityFailureMessage(failure, subject), color = MaterialTheme.colorScheme.error)
+        Text(authorSeriesFailureMessage(failure, subject), color = MaterialTheme.colorScheme.error)
         OutlinedButton(onClick = onRetry, modifier = Modifier.padding(top = 10.dp)) {
             Text("Retry")
         }
@@ -174,18 +180,22 @@ private fun EntityFailure(
 }
 
 @Composable
-private fun InlineEntityFailure(failure: LibraryFailure, subject: String, onRetry: () -> Unit) {
+private fun InlineAuthorSeriesFailure(
+    failure: LibraryFailure,
+    subject: String,
+    onRetry: () -> Unit
+) {
     Row(
         Modifier.fillMaxWidth().padding(12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(entityFailureMessage(failure, subject), color = MaterialTheme.colorScheme.error)
+        Text(authorSeriesFailureMessage(failure, subject), color = MaterialTheme.colorScheme.error)
         OutlinedButton(onClick = onRetry) { Text("Retry") }
     }
 }
 
-internal fun entityFailureMessage(failure: LibraryFailure, subject: String): String =
+internal fun authorSeriesFailureMessage(failure: LibraryFailure, subject: String): String =
     when (failure) {
         LibraryFailure.UNREACHABLE -> "Library is currently unreachable."
         LibraryFailure.AUTHENTICATION_REJECTED -> "Library authentication was rejected."

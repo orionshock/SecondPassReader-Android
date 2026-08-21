@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.library
+package com.secondpasslibrary.reader.library.axis
 
 import com.secondpasslibrary.client.LibraryEntityDetailOptions
 import com.secondpasslibrary.client.LibraryScope
@@ -15,7 +15,7 @@ internal class LibrarySeriesController(
     scope: CoroutineScope
 ) {
     private val delegate =
-        LibraryEntityController(
+        PagedLibraryAxisController(
             clientProvider = clientProvider,
             coroutineScope = scope,
             defaultOrdering = SeriesOrdering.NAME,
@@ -69,4 +69,4 @@ internal class LibrarySeriesController(
     fun close() = delegate.close()
 }
 
-internal typealias LibrarySeriesState = LibraryEntityState<LibrarySeries, SeriesOrdering>
+internal typealias LibrarySeriesState = PagedLibraryAxisState<LibrarySeries, SeriesOrdering>

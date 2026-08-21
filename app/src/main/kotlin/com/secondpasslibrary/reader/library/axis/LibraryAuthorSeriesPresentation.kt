@@ -1,99 +1,103 @@
-package com.secondpasslibrary.reader.library
+package com.secondpasslibrary.reader.library.axis
 
 import com.secondpasslibrary.client.AuthorOrdering
 import com.secondpasslibrary.client.LibraryAuthor
 import com.secondpasslibrary.client.LibraryPreviewBook
 import com.secondpasslibrary.client.LibrarySeries
 import com.secondpasslibrary.client.SeriesOrdering
+import com.secondpasslibrary.reader.library.LibraryFailure
+import com.secondpasslibrary.reader.library.books.LibraryBookCoverPresentation
 
-internal sealed interface LibraryPreviewBooksPresentation {
-    data object Omitted : LibraryPreviewBooksPresentation
+internal sealed interface LibraryAuthorSeriesPreviewBooksPresentation {
+    data object Omitted : LibraryAuthorSeriesPreviewBooksPresentation
 
-    data class Returned(val books: List<LibraryPreviewBookPresentation>) :
-        LibraryPreviewBooksPresentation
+    data class Returned(val books: List<LibraryAuthorSeriesPreviewBookPresentation>) :
+        LibraryAuthorSeriesPreviewBooksPresentation
 }
 
-internal data class LibraryPreviewBookPresentation(
+internal data class LibraryAuthorSeriesPreviewBookPresentation(
     val id: String,
     val title: String,
     val cover: LibraryBookCoverPresentation
 )
 
-internal data class LibraryEntityCardPresentation(
+internal data class LibraryAuthorSeriesCardPresentation(
     val id: String,
     val name: String,
     val bookCountLabel: String,
-    val previews: LibraryPreviewBooksPresentation
+    val previews: LibraryAuthorSeriesPreviewBooksPresentation
 )
 
-internal sealed interface LibrarySelectedEntityPresentation {
+internal sealed interface LibraryAuthorSeriesDetailPresentation {
     val id: String
 
-    data class Loading(override val id: String) : LibrarySelectedEntityPresentation
+    data class Loading(override val id: String) : LibraryAuthorSeriesDetailPresentation
 
     data class Failure(override val id: String, val failure: LibraryFailure) :
-        LibrarySelectedEntityPresentation
+        LibraryAuthorSeriesDetailPresentation
 
     data class Content(
         override val id: String,
         val name: String,
         val bookCountLabel: String,
         val description: String?
-    ) : LibrarySelectedEntityPresentation
+    ) : LibraryAuthorSeriesDetailPresentation
 }
 
 internal data class LibraryAuthorOrderingOption(val ordering: AuthorOrdering, val label: String)
 
 internal data class LibrarySeriesOrderingOption(val ordering: SeriesOrdering, val label: String)
 
-internal fun LibraryAuthor.toLibraryEntityPresentation() = LibraryEntityCardPresentation(
-    id,
-    name,
-    bookCountLabel(bookCount),
-    previewBooks.toPresentation()
-)
+internal fun LibraryAuthor.toLibraryAuthorSeriesPresentation() =
+    LibraryAuthorSeriesCardPresentation(
+        id,
+        name,
+        bookCountLabel(bookCount),
+        previewBooks.toPresentation()
+    )
 
-internal fun LibrarySeries.toLibraryEntityPresentation() = LibraryEntityCardPresentation(
-    id,
-    name,
-    bookCountLabel(bookCount),
-    previewBooks.toPresentation()
-)
+internal fun LibrarySeries.toLibraryAuthorSeriesPresentation() =
+    LibraryAuthorSeriesCardPresentation(
+        id,
+        name,
+        bookCountLabel(bookCount),
+        previewBooks.toPresentation()
+    )
 
-internal fun LibraryEntityDetailState<LibraryAuthor>.toAuthorDetailPresentation():
-    LibrarySelectedEntityPresentation =
+internal fun PagedLibraryAxisDetailState<LibraryAuthor>.toAuthorDetailPresentation():
+    LibraryAuthorSeriesDetailPresentation =
     when {
-        loading -> LibrarySelectedEntityPresentation.Loading(id)
+        loading -> LibraryAuthorSeriesDetailPresentation.Loading(id)
 
-        failure != null -> LibrarySelectedEntityPresentation.Failure(id, failure)
+        failure != null -> LibraryAuthorSeriesDetailPresentation.Failure(id, failure)
 
         detail != null ->
-            LibrarySelectedEntityPresentation.Content(
+            LibraryAuthorSeriesDetailPresentation.Content(
                 id,
                 detail.name,
                 bookCountLabel(detail.bookCount),
                 detail.biography.takeIf(String::isNotBlank)
             )
 
-        else -> LibrarySelectedEntityPresentation.Loading(id)
+        else -> LibraryAuthorSeriesDetailPresentation.Loading(id)
     }
 
-internal fun LibraryEntityDetailState<LibrarySeries>.toSeriesDetailPresentation():
-    LibrarySelectedEntityPresentation =
+internal fun PagedLibraryAxisDetailState<LibrarySeries>.toSeriesDetailPresentation():
+    LibraryAuthorSeriesDetailPresentation =
     when {
-        loading -> LibrarySelectedEntityPresentation.Loading(id)
+        loading -> LibraryAuthorSeriesDetailPresentation.Loading(id)
 
-        failure != null -> LibrarySelectedEntityPresentation.Failure(id, failure)
+        failure != null -> LibraryAuthorSeriesDetailPresentation.Failure(id, failure)
 
         detail != null ->
-            LibrarySelectedEntityPresentation.Content(
+            LibraryAuthorSeriesDetailPresentation.Content(
                 id,
                 detail.name,
                 bookCountLabel(detail.bookCount),
                 detail.summary.takeIf(String::isNotBlank)
             )
 
-        else -> LibrarySelectedEntityPresentation.Loading(id)
+        else -> LibraryAuthorSeriesDetailPresentation.Loading(id)
     }
 
 internal fun authorOrderingOptions() = listOf(
@@ -116,14 +120,15 @@ internal fun AuthorOrdering.libraryLabel() =
 internal fun SeriesOrdering.libraryLabel() =
     seriesOrderingOptions().first { it.ordering == this }.label
 
-private fun List<LibraryPreviewBook>?.toPresentation(): LibraryPreviewBooksPresentation =
+private fun List<LibraryPreviewBook>?.toPresentation():
+    LibraryAuthorSeriesPreviewBooksPresentation =
     this?.let { previews ->
-        LibraryPreviewBooksPresentation.Returned(
+        LibraryAuthorSeriesPreviewBooksPresentation.Returned(
             previews.take(LIBRARY_AXIS_PREVIEW_LIMIT).map { it.toPresentation() }
         )
-    } ?: LibraryPreviewBooksPresentation.Omitted
+    } ?: LibraryAuthorSeriesPreviewBooksPresentation.Omitted
 
-private fun LibraryPreviewBook.toPresentation() = LibraryPreviewBookPresentation(
+private fun LibraryPreviewBook.toPresentation() = LibraryAuthorSeriesPreviewBookPresentation(
     id,
     title,
     cover?.let(LibraryBookCoverPresentation::Public)

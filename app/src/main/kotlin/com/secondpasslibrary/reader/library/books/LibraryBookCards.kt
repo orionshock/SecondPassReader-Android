@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.library
+package com.secondpasslibrary.reader.library.books
 
 import androidx.compose.runtime.Composable
 import com.secondpasslibrary.reader.design.book.CompactBookGridCard

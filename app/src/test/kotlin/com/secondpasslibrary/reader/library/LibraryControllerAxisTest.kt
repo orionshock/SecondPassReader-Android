@@ -4,6 +4,20 @@ import com.secondpasslibrary.client.BookOrdering
 import com.secondpasslibrary.client.LibraryGroupSummary
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.SplClientException
+import com.secondpasslibrary.reader.library.axis.FakeLibraryAxisClient
+import com.secondpasslibrary.reader.library.axis.FakeLibraryAxisClientProvider
+import com.secondpasslibrary.reader.library.axis.LibraryAuthorsController
+import com.secondpasslibrary.reader.library.axis.LibrarySeriesController
+import com.secondpasslibrary.reader.library.axis.author
+import com.secondpasslibrary.reader.library.axis.axisBook
+import com.secondpasslibrary.reader.library.axis.axisPage
+import com.secondpasslibrary.reader.library.axis.catalogTag
+import com.secondpasslibrary.reader.library.axis.libraryProfile
+import com.secondpasslibrary.reader.library.axis.series
+import com.secondpasslibrary.reader.library.books.LibraryBooksController
+import com.secondpasslibrary.reader.library.books.LibraryBooksEntry
+import com.secondpasslibrary.reader.library.books.LibraryBooksLayout
+import com.secondpasslibrary.reader.library.books.LibraryDisplayPreferenceStore
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -132,7 +146,7 @@ class LibraryControllerAxisTest {
 
         controller.selectAuthor("author-1")
         advanceUntilIdle()
-        controller.clearSelectedEntity()
+        controller.clearSelectedAuthorSeries()
 
         assertEquals(LibraryAxis.AUTHORS, controller.state.value.axis)
         assertEquals(LibraryResultKind.AUTHOR_INDEX, controller.state.value.resultKind)
