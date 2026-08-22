@@ -25,6 +25,12 @@ internal data class ShelfBookNavigationRequest(
     val origin: ShelvesCollection
 )
 
+internal data class ShelvesNavigationState(
+    val destination: ShelvesDestination =
+        ShelvesDestination.Collection(ShelvesCollection.PERSONAL),
+    val createOpen: Boolean = false
+)
+
 internal data class ShelvesState(
     val destination: ShelvesDestination =
         ShelvesDestination.Collection(ShelvesCollection.PERSONAL),

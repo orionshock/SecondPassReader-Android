@@ -6,10 +6,11 @@ import com.secondpasslibrary.reader.library.axis.LibraryAuthorsState
 import com.secondpasslibrary.reader.library.axis.LibrarySeriesState
 import com.secondpasslibrary.reader.library.books.LibraryBooksState
 import com.secondpasslibrary.reader.library.chrome.LibraryFilterVocabularyState
-import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
-import kotlinx.coroutines.flow.FlowCollector
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 
 internal val LibraryChromeState.isSelectedAuthorSeriesBooks: Boolean
     get() = resultKind == LibraryResultKind.BOOKS && axis != LibraryAxis.BOOKS
@@ -47,30 +48,37 @@ internal val LibraryAxis.indexResultKind: LibraryResultKind
         LibraryAxis.SERIES -> LibraryResultKind.SERIES_INDEX
     }
 
-@OptIn(ExperimentalForInheritanceCoroutinesApi::class)
-internal class LibraryStateFlow(
-    private val chrome: StateFlow<LibraryChromeState>,
-    private val vocabulary: StateFlow<LibraryFilterVocabularyState>,
-    private val books: StateFlow<LibraryBooksState>,
-    private val authors: StateFlow<LibraryAuthorsState>,
-    private val series: StateFlow<LibrarySeriesState>
-) : StateFlow<LibraryState> {
-    override val value: LibraryState
-        get() = chrome.value.toState(vocabulary.value, books.value, authors.value, series.value)
+internal fun libraryStateFlow(
+    scope: CoroutineScope,
+    chrome: StateFlow<LibraryChromeState>,
+    vocabulary: StateFlow<LibraryFilterVocabularyState>,
+    books: StateFlow<LibraryBooksState>,
+    authors: StateFlow<LibraryAuthorsState>,
+    series: StateFlow<LibrarySeriesState>
+): StateFlow<LibraryState> = combine(
+    chrome,
+    vocabulary,
+    books,
+    authors,
+    series,
+    ::toLibraryState
+).stateIn(
+    scope,
+    // Feature state must remain current before Compose or another external collector arrives.
+    SharingStarted.Eagerly,
+    toLibraryState(
+        chrome.value,
+        vocabulary.value,
+        books.value,
+        authors.value,
+        series.value
+    )
+)
 
-    override val replayCache: List<LibraryState>
-        get() = listOf(value)
-
-    override suspend fun collect(collector: FlowCollector<LibraryState>): Nothing {
-        combine(chrome, vocabulary, books, authors, series) {
-                parent,
-                vocabularyState,
-                booksState,
-                authorsState,
-                seriesState
-            ->
-            parent.toState(vocabularyState, booksState, authorsState, seriesState)
-        }.collect(collector)
-        error("Library state sources completed unexpectedly.")
-    }
-}
+private fun toLibraryState(
+    chrome: LibraryChromeState,
+    vocabulary: LibraryFilterVocabularyState,
+    books: LibraryBooksState,
+    authors: LibraryAuthorsState,
+    series: LibrarySeriesState
+): LibraryState = chrome.toState(vocabulary, books, authors, series)

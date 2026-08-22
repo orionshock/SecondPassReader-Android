@@ -24,8 +24,7 @@ route; drawer navigation discards it.
 
 The strongest remaining topology problem is in `:spl-client`: public interfaces/models and
 internal Ktor clients/mappers still share `com.secondpasslibrary.client`. The strongest remaining
-app responsibility problem is the experimental aggregate `StateFlow` implementation duplicated
-by Library and Shelves.
+app architecture risk is the top-level destination state lifetime described above.
 
 ## Current topology and responsibility findings
 
@@ -85,6 +84,8 @@ cross-child transitions remain parent-owned.
 
 The child controllers are private implementation details. `LibraryViewModel` sends commands
 through explicit `LibraryController` methods, matching the existing aggregate-state ownership.
+Parent and child snapshots are aggregated with eagerly shared `combine(...).stateIn(...)`, using
+actual source snapshots as the initial value so state exists before UI collection begins.
 
 Remaining findings are detailed in **Library re-read after Maintenance 6** below.
 
@@ -99,13 +100,10 @@ its five `BookShelfPicker*` files still sit at the Book Detail root. A shallow
 The collection/detail/management/editor topology is truthful. Root state is aggregate navigation
 state; mutation reconciliation remains parent-owned. `ShelfContentsEditorController` is large but
 cohesive around editor projection, unavailable items, mutations, and canonical reconciliation.
+Its aggregate uses the same feature-owned eager `stateIn` policy without a generic state framework.
 
-Remaining:
-
-- `ShelvesStateFlow` manually implements experimental `StateFlow` inheritance, matching the
-  Library issue described below.
-- `ShelvesViewModel` is verbose delegation, not a hidden behavioral owner. Do not split it merely
-  by method count.
+`ShelvesViewModel` is verbose delegation, not a hidden behavioral owner. Do not split it merely by
+method count.
 
 ### Marginalia
 
@@ -158,16 +156,6 @@ Remaining:
 - Direction: establish route-entry lifetime tests, then choose stable top-level entries/back stacks
   or shell-scoped feature state before Reader resources are introduced.
 - Risk: high/product-visible. This is not a behavior-preserving refactor.
-
-### Medium — Experimental aggregate `StateFlow` implementations
-
-- Files: `LibraryCombinedState.kt`, `ShelvesCombinedState.kt`.
-- Evidence: both opt into `ExperimentalForInheritanceCoroutinesApi`, manually implement `value`
-  and `collect`, and construct those snapshots through separate paths.
-- Direction: replace them with ordinary coroutine composition owned by each parent scope. Do not
-  create a universal feature-state framework.
-- Risk: medium because synchronous initial `value`, cancellation, and eager collection semantics
-  must be frozen in tests.
 
 ### Medium — SDK implementation and public API share one package
 
@@ -222,7 +210,6 @@ That clean result is meaningful but not dispositive:
   `PagedLibraryAxisController`, and the two thin Author/Series facades suppress
   `TooManyFunctions` with bounded-intent rationales.
 - `LibraryScreen.LibraryBrowseContent` suppresses `LongParameterList` for its callback boundary.
-- `LibraryStateFlow` requires an experimental inheritance opt-in.
 - Production size is concentrated in explicit state machines; test size is concentrated in one
   Books controller suite.
 
@@ -232,42 +219,6 @@ by result kind/axis. `selectScope` and `selectTag` fan state into the three chil
 This is the parent controller's stated responsibility. Extracting it would require another owner
 to mutate parent chrome state while knowing all three children, reproducing rather than reducing
 coupling. There is no complexity evidence for that extraction today.
-
-### Candidate 1 — Replace custom aggregate StateFlow inheritance
-
-**Files and methods**
-
-- `LibraryCombinedState.kt`: `LibraryChromeState.toState`, `LibraryStateFlow.value`, and
-  `LibraryStateFlow.collect`.
-- `LibraryController.kt`: aggregate state construction.
-- `ShelvesCombinedState.kt`: same implementation pattern and therefore the natural paired scope.
-
-**Problem**
-
-The aggregate manually implements an experimental interface. Synchronous `value` reads and
-collected emissions use two construction paths. The implementation is small, but it carries more
-lifecycle and consistency risk than its size suggests.
-
-**Evidence**
-
-- Explicit `ExperimentalForInheritanceCoroutinesApi` opt-in.
-- The same pattern exists in Shelves, so another feature would likely copy it.
-- Detekt reports no complexity violation; the concern is framework-contract ownership and
-  duplicated composition, not branching.
-
-**Safest boundary**
-
-Freeze immediate initial-state, connection reset, and child-emission behavior in tests. Then use
-ordinary `combine(...).stateIn(...)` owned by each parent scope, or avoid an aggregate only if all
-callers can consume explicit states without presentation churn. Change Library and Shelves in one
-focused slice; do not create a generic state framework.
-
-**Risk and timing**
-
-- Expected behavioral risk: **medium**, especially around eager collection and synchronous
-  `value` expectations.
-- Recommendation: **defer until after Candidates 1 and 2**, then handle Library and Shelves
-  together.
 
 ### Lower-priority Library observations
 
@@ -285,13 +236,12 @@ focused slice; do not create a generic state framework.
 
 ## Remaining maintenance sequence
 
-1. Replace Library/Shelves custom aggregate `StateFlow` inheritance.
-2. Move `:spl-client` implementation under internal subsystem packages and fix stale internal
+1. Move `:spl-client` implementation under internal subsystem packages and fix stale internal
    names.
-3. Move the Book Detail shelf-picker child cluster and perform remaining low-risk naming cleanup.
-4. Establish top-level navigation state-lifetime tests and then make the deliberate retention
+2. Move the Book Detail shelf-picker child cluster and perform remaining low-risk naming cleanup.
+3. Establish top-level navigation state-lifetime tests and then make the deliberate retention
    change before Reader work.
-5. Decide public SDK package/method naming before publication or another large SDK expansion.
+4. Decide public SDK package/method naming before publication or another large SDK expansion.
 
 ## Do not change without new evidence
 

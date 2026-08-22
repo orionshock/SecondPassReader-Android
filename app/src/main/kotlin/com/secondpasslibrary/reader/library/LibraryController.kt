@@ -42,7 +42,14 @@ internal class LibraryController(
 ) {
     private val chrome = MutableStateFlow(LibraryChromeState())
     val state: StateFlow<LibraryState> =
-        LibraryStateFlow(chrome, vocabulary.state, books.state, authors.state, series.state)
+        libraryStateFlow(
+            scope,
+            chrome,
+            vocabulary.state,
+            books.state,
+            authors.state,
+            series.state
+        )
 
     val connectionEvents =
         merge(

@@ -6,6 +6,8 @@ import com.secondpasslibrary.reader.shelves.management.ShelfManagementFailure
 import com.secondpasslibrary.reader.shelves.management.canManageShelf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -361,6 +363,12 @@ class ShelvesControllerTest {
         assertTrue(capability.editorRequests.isEmpty())
     }
 
-    private fun controller(capability: RecordingShelvesCapability, scope: CoroutineScope) =
-        ShelvesController(ShelvesTestClientProvider(ShelvesTestClient(capability)), scope)
+    private fun controller(capability: RecordingShelvesCapability, scope: TestScope) =
+        ShelvesController(
+            ShelvesTestClientProvider(ShelvesTestClient(capability)),
+            CoroutineScope(
+                scope.backgroundScope.coroutineContext +
+                    UnconfinedTestDispatcher(scope.testScheduler)
+            )
+        )
 }

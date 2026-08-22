@@ -18,13 +18,22 @@ import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.library.DEFAULT_LIBRARY_PAGE_SIZE
 import com.secondpasslibrary.reader.library.LibraryController
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 
 internal fun TestScope.libraryBooksController(client: FakeLibraryClient) =
     LibraryBooksController(FakeClientProvider(client), FakeDisplayPreferenceStore(), this)
 
-internal fun TestScope.libraryController(client: FakeLibraryClient) =
-    LibraryController(FakeClientProvider(client), FakeDisplayPreferenceStore(), this)
+@OptIn(ExperimentalCoroutinesApi::class)
+internal fun TestScope.libraryController(client: FakeLibraryClient) = LibraryController(
+    FakeClientProvider(client),
+    FakeDisplayPreferenceStore(),
+    CoroutineScope(
+        backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler)
+    )
+)
 
 internal fun LibraryBooksController.initializeBrowse(profile: ConnectionProfile) =
     initialize(profile, LibraryBooksMode.BROWSE, "", LibraryScope.Global)

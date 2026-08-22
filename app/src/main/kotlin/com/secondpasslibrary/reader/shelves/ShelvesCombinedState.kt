@@ -3,65 +3,49 @@ package com.secondpasslibrary.reader.shelves
 import com.secondpasslibrary.reader.shelves.collection.ShelfCollectionState
 import com.secondpasslibrary.reader.shelves.detail.ShelfDetailState
 import com.secondpasslibrary.reader.shelves.editor.ShelfContentsEditorState
-import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
-import kotlinx.coroutines.flow.FlowCollector
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 
-internal data class ShelvesNavigationState(
-    val destination: ShelvesDestination =
-        ShelvesDestination.Collection(ShelvesCollection.PERSONAL),
-    val createOpen: Boolean = false
-)
-
-@OptIn(ExperimentalForInheritanceCoroutinesApi::class)
-internal class ShelvesStateFlow(
-    private val navigation: StateFlow<ShelvesNavigationState>,
-    private val personal: StateFlow<ShelfCollectionState>,
-    private val shared: StateFlow<ShelfCollectionState>,
-    private val group: StateFlow<ShelfCollectionState>,
-    private val detail: StateFlow<ShelfDetailState>,
-    private val editor: StateFlow<ShelfContentsEditorState>
-) : StateFlow<ShelvesState> {
-    override val value: ShelvesState
-        get() =
-            ShelvesState(
-                navigation.value.destination,
+internal fun shelvesStateFlow(
+    scope: CoroutineScope,
+    navigation: StateFlow<ShelvesNavigationState>,
+    personal: StateFlow<ShelfCollectionState>,
+    shared: StateFlow<ShelfCollectionState>,
+    group: StateFlow<ShelfCollectionState>,
+    detail: StateFlow<ShelfDetailState>,
+    editor: StateFlow<ShelfContentsEditorState>
+): StateFlow<ShelvesState> {
+    val core = combine(navigation, personal, shared, group, detail, ::ShelvesCoreState)
+    return combine(core, editor, ::toShelvesState).stateIn(
+        scope,
+        // Eager sharing matches the former aggregate, which stayed current without a collector.
+        SharingStarted.Eagerly,
+        toShelvesState(
+            ShelvesCoreState(
+                navigation.value,
                 personal.value,
                 shared.value,
                 group.value,
-                detail.value,
-                editor.value,
-                navigation.value.createOpen
-            )
-
-    override val replayCache: List<ShelvesState>
-        get() = listOf(value)
-
-    override suspend fun collect(collector: FlowCollector<ShelvesState>): Nothing {
-        val core = combine(navigation, personal, shared, group, detail) {
-                nav,
-                personalState,
-                sharedState,
-                groupState,
-                detailState
-            ->
-            ShelvesCoreState(nav, personalState, sharedState, groupState, detailState)
-        }
-        combine(core, editor) { value, editorState ->
-            ShelvesState(
-                value.navigation.destination,
-                value.personal,
-                value.shared,
-                value.group,
-                value.detail,
-                editorState,
-                value.navigation.createOpen
-            )
-        }.collect(collector)
-        error("Shelves state sources completed unexpectedly.")
-    }
+                detail.value
+            ),
+            editor.value
+        )
+    )
 }
+
+private fun toShelvesState(core: ShelvesCoreState, editor: ShelfContentsEditorState): ShelvesState =
+    ShelvesState(
+        core.navigation.destination,
+        core.personal,
+        core.shared,
+        core.group,
+        core.detail,
+        editor,
+        core.navigation.createOpen
+    )
 
 private data class ShelvesCoreState(
     val navigation: ShelvesNavigationState,

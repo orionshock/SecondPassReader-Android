@@ -23,7 +23,9 @@ import com.secondpasslibrary.reader.library.books.LibraryBooksLayout
 import com.secondpasslibrary.reader.library.books.LibraryBooksOrdering
 import com.secondpasslibrary.reader.library.books.LibraryDisplayPreferenceStore
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -34,6 +36,31 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LibraryControllerAxisTest {
+    @Test
+    fun `connection identity change resets aggregate parent and child state`() = runTest {
+        val client = FakeLibraryAxisClient().apply {
+            authorList = { options -> axisPage(options.page, listOf(author("author-1"))) }
+        }
+        val controller = controller(client)
+        val profile = libraryProfile()
+        controller.initialize(profile, LibraryBooksEntry.Browse, false)
+        advanceUntilIdle()
+        controller.selectAxis(LibraryAxis.AUTHORS)
+        advanceUntilIdle()
+        assertEquals(LibraryAxis.AUTHORS, controller.state.value.axis)
+        assertEquals(listOf("author-1"), controller.state.value.authors.items.map { it.id })
+
+        controller.initialize(
+            profile.copy(clientSessionId = "replacement-session"),
+            LibraryBooksEntry.Browse,
+            false
+        )
+        advanceUntilIdle()
+
+        assertEquals(LibraryAxis.BOOKS, controller.state.value.axis)
+        assertTrue(controller.state.value.authors.items.isEmpty())
+    }
+
     @Test
     fun `parent delegates Books ordering and refresh through aggregate state`() = runTest {
         val client = FakeLibraryAxisClient().apply {
@@ -508,7 +535,9 @@ class LibraryControllerAxisTest {
     ) = LibraryController(
         FakeLibraryAxisClientProvider(client),
         preferences,
-        this
+        CoroutineScope(
+            backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler)
+        )
     )
 
     private class TrackingDisplayPreferenceStore : LibraryDisplayPreferenceStore {

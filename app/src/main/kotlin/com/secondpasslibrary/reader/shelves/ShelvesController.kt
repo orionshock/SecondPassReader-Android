@@ -38,7 +38,8 @@ internal class ShelvesController(
 
     private val navigation = MutableStateFlow(ShelvesNavigationState())
     val state =
-        ShelvesStateFlow(
+        shelvesStateFlow(
+            scope,
             navigation,
             personal.state,
             shared.state,
