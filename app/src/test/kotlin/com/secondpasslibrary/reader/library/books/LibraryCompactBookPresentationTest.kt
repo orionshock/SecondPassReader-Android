@@ -1,22 +1,18 @@
 package com.secondpasslibrary.reader.library.books
 
 import com.secondpasslibrary.client.BookAuthorSummary
-import com.secondpasslibrary.client.BookOrdering
 import com.secondpasslibrary.client.BookSeriesSummary
 import com.secondpasslibrary.client.CompactBook
-import com.secondpasslibrary.client.LibrarySearchOrdering
 import com.secondpasslibrary.client.PublicBookCoverReference
 import com.secondpasslibrary.client.PublicationDatePrecision
 import com.secondpasslibrary.client.SeriesIndex
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class LibraryBookPresentationTest {
+class LibraryCompactBookPresentationTest {
     @Test
-    fun `book presentation keeps ordered authors and exact series index`() {
+    fun `Library presentation keeps ordered authors and exact series index`() {
         val presentation =
             book(
                 authors =
@@ -31,7 +27,7 @@ class LibraryBookPresentationTest {
                         "Sequence",
                         SeriesIndex.fromExactValue("12.50")
                     )
-            ).toLibraryPresentation()
+            ).toLibraryCompactBookPresentation()
 
         assertEquals("Second Author, First Author", presentation.authors)
         assertEquals("Sequence · 12.50", presentation.series)
@@ -39,48 +35,20 @@ class LibraryBookPresentationTest {
 
     @Test
     fun `missing and public covers map without inventing URLs`() {
-        assertEquals(
-            LibraryBookCoverPresentation.Missing,
-            book().toLibraryPresentation().cover
-        )
+        assertNull(book().toLibraryCompactBookPresentation().cover)
         val reference = PublicBookCoverReference.fromAbsoluteUrl("https://covers.example/book.webp")
 
-        val cover = book(cover = reference).toLibraryPresentation().cover
-
-        assertEquals(LibraryBookCoverPresentation.Public(reference), cover)
+        assertEquals(reference, book(cover = reference).toLibraryCompactBookPresentation().cover)
     }
 
     @Test
     fun `blank optional display metadata is omitted`() {
-        val presentation = book(subtitle = "", publisher = "").toLibraryPresentation()
+        val presentation =
+            book(subtitle = "", publisher = "").toLibraryCompactBookPresentation()
 
         assertNull(presentation.subtitle)
         assertNull(presentation.authors)
         assertNull(presentation.publisher)
-    }
-
-    @Test
-    fun `ordering choices remain bounded by Library mode`() {
-        val browse = libraryOrderingOptions(LibraryBooksMode.BROWSE).map { it.ordering }
-        val broad = libraryOrderingOptions(LibraryBooksMode.BROAD_SEARCH).map { it.ordering }
-
-        assertTrue(browse.contains(LibraryBooksOrdering.Browse(BookOrdering.SERIES_INDEX)))
-        assertTrue(browse.contains(LibraryBooksOrdering.Browse(BookOrdering.PUBLISHER)))
-        assertFalse(
-            broad.any { it is LibraryBooksOrdering.Browse }
-        )
-        assertTrue(
-            broad.contains(
-                LibraryBooksOrdering.BroadSearch(LibrarySearchOrdering.SERIES_DESCENDING)
-            )
-        )
-    }
-
-    @Test
-    fun `paging trigger starts only near the loaded result boundary`() {
-        assertFalse(shouldRequestNextPage(lastVisibleIndex = 10, itemCount = 50))
-        assertTrue(shouldRequestNextPage(lastVisibleIndex = 44, itemCount = 50))
-        assertFalse(shouldRequestNextPage(lastVisibleIndex = -1, itemCount = 0))
     }
 
     private fun book(

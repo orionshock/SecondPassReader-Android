@@ -4,9 +4,9 @@ import com.secondpasslibrary.client.AuthorOrdering
 import com.secondpasslibrary.client.LibraryAuthor
 import com.secondpasslibrary.client.LibraryPreviewBook
 import com.secondpasslibrary.client.LibrarySeries
+import com.secondpasslibrary.client.PublicBookCoverReference
 import com.secondpasslibrary.client.SeriesOrdering
 import com.secondpasslibrary.reader.library.LibraryFailure
-import com.secondpasslibrary.reader.library.books.LibraryBookCoverPresentation
 
 internal sealed interface LibraryAuthorSeriesPreviewBooksPresentation {
     data object Omitted : LibraryAuthorSeriesPreviewBooksPresentation
@@ -18,7 +18,7 @@ internal sealed interface LibraryAuthorSeriesPreviewBooksPresentation {
 internal data class LibraryAuthorSeriesPreviewBookPresentation(
     val id: String,
     val title: String,
-    val cover: LibraryBookCoverPresentation
+    val cover: PublicBookCoverReference?
 )
 
 internal data class LibraryAuthorSeriesCardPresentation(
@@ -131,8 +131,7 @@ private fun List<LibraryPreviewBook>?.toPresentation():
 private fun LibraryPreviewBook.toPresentation() = LibraryAuthorSeriesPreviewBookPresentation(
     id,
     title,
-    cover?.let(LibraryBookCoverPresentation::Public)
-        ?: LibraryBookCoverPresentation.Missing
+    cover
 )
 
 private fun bookCountLabel(count: Int) = "$count ${if (count == 1) "book" else "books"}"

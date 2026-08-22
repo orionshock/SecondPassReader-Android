@@ -25,8 +25,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.secondpasslibrary.reader.design.book.PublicBookCover
 import com.secondpasslibrary.reader.library.LibraryFailure
-import com.secondpasslibrary.reader.library.books.LibraryBookCover
 
 @Composable
 internal fun LibraryAuthorSeriesCard(
@@ -73,10 +73,13 @@ private fun PreviewCoverStack(previews: LibraryAuthorSeriesPreviewBooksPresentat
                 val width = 44.dp + 27.dp * (previews.books.size - 1)
                 Box(Modifier.width(width).height(66.dp)) {
                     previews.books.forEachIndexed { index, book ->
-                        LibraryBookCover(
-                            book.cover,
-                            book.title,
-                            Modifier.offset(x = 27.dp * index).size(width = 44.dp, height = 66.dp)
+                        PublicBookCover(
+                            reference = book.cover,
+                            title = book.title,
+                            modifier =
+                                Modifier
+                                    .offset(x = 27.dp * index)
+                                    .size(width = 44.dp, height = 66.dp)
                         )
                     }
                 }

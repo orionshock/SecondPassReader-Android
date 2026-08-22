@@ -1,42 +1,9 @@
 package com.secondpasslibrary.reader.library.books
 
 import com.secondpasslibrary.client.BookOrdering
-import com.secondpasslibrary.client.CompactBook
 import com.secondpasslibrary.client.LibrarySearchOrdering
-import com.secondpasslibrary.client.PublicBookCoverReference
-
-internal sealed interface LibraryBookCoverPresentation {
-    data object Missing : LibraryBookCoverPresentation
-
-    data class Public(val reference: PublicBookCoverReference) : LibraryBookCoverPresentation
-}
-
-internal data class LibraryBookPresentation(
-    val id: String,
-    val title: String,
-    val subtitle: String?,
-    val authors: String?,
-    val series: String?,
-    val publisher: String?,
-    val cover: LibraryBookCoverPresentation
-)
 
 internal data class LibraryOrderingOption(val ordering: LibraryBooksOrdering, val label: String)
-
-internal fun CompactBook.toLibraryPresentation() = LibraryBookPresentation(
-    id = id,
-    title = title,
-    subtitle = subtitle.takeIf(String::isNotBlank),
-    authors = authors.joinToString { it.name }.takeIf(String::isNotBlank),
-    series =
-        series?.let { value ->
-            value.seriesIndex?.let { "${value.name} · ${it.value}" } ?: value.name
-        },
-    publisher = publisher?.takeIf(String::isNotBlank),
-    cover =
-        cover?.let(LibraryBookCoverPresentation::Public)
-            ?: LibraryBookCoverPresentation.Missing
-)
 
 internal fun libraryOrderingOptions(
     mode: LibraryBooksMode,
@@ -101,12 +68,6 @@ internal fun LibraryBooksOrdering.label(): String = libraryOrderingOptions(
         LibraryBooksMode.BROAD_SEARCH
     }
 ).first { it.ordering == this }.label
-
-internal fun shouldRequestNextPage(
-    lastVisibleIndex: Int,
-    itemCount: Int,
-    prefetchDistance: Int = 6
-): Boolean = itemCount > 0 && lastVisibleIndex >= (itemCount - prefetchDistance).coerceAtLeast(0)
 
 private fun browse(ordering: BookOrdering, label: String) =
     LibraryOrderingOption(LibraryBooksOrdering.Browse(ordering), label)

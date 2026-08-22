@@ -1,7 +1,6 @@
 package com.secondpasslibrary.reader.library.axis
 
 import com.secondpasslibrary.client.AuthorOrdering
-import com.secondpasslibrary.client.BookOrdering
 import com.secondpasslibrary.client.LibraryAuthor
 import com.secondpasslibrary.client.LibraryPreviewBook
 import com.secondpasslibrary.client.LibrarySeries
@@ -11,15 +10,10 @@ import com.secondpasslibrary.reader.library.LibraryAxis
 import com.secondpasslibrary.reader.library.LibraryFailure
 import com.secondpasslibrary.reader.library.LibraryResultKind
 import com.secondpasslibrary.reader.library.LibraryState
-import com.secondpasslibrary.reader.library.books.LibraryBookCoverPresentation
-import com.secondpasslibrary.reader.library.books.LibraryBooksFilter
-import com.secondpasslibrary.reader.library.books.LibraryBooksMode
-import com.secondpasslibrary.reader.library.books.LibraryBooksOrdering
-import com.secondpasslibrary.reader.library.books.libraryOrderingOptions
-import com.secondpasslibrary.reader.library.books.shouldRequestNextPage
 import com.secondpasslibrary.reader.library.chrome.committedQuery
 import com.secondpasslibrary.reader.library.chrome.orderingLabel
 import com.secondpasslibrary.reader.library.chrome.resultCount
+import com.secondpasslibrary.reader.library.presentation.LibraryPagingTriggerPolicy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -55,8 +49,11 @@ class LibraryAuthorSeriesPresentationTest {
         assertEquals(LibraryAuthorSeriesPreviewBooksPresentation.Omitted, omitted)
         assertEquals(LibraryAuthorSeriesPreviewBooksPresentation.Returned(emptyList()), empty)
         val books = (populated as LibraryAuthorSeriesPreviewBooksPresentation.Returned).books
-        assertEquals(LibraryBookCoverPresentation.Missing, books.first().cover)
-        assertTrue(books.last().cover is LibraryBookCoverPresentation.Public)
+        assertEquals(null, books.first().cover)
+        assertEquals(
+            PublicBookCoverReference.fromAbsoluteUrl("https://covers.example/book.webp"),
+            books.last().cover
+        )
     }
 
     @Test
@@ -116,28 +113,6 @@ class LibraryAuthorSeriesPresentationTest {
     }
 
     @Test
-    fun `filtered Books expose context-appropriate ordering choices`() {
-        assertEquals(
-            BookOrdering.TITLE,
-            (
-                libraryOrderingOptions(
-                    LibraryBooksMode.BROWSE,
-                    LibraryBooksFilter.Author("author")
-                ).first().ordering as LibraryBooksOrdering.Browse
-                ).value
-        )
-        assertEquals(
-            BookOrdering.SERIES_INDEX,
-            (
-                libraryOrderingOptions(
-                    LibraryBooksMode.BROWSE,
-                    LibraryBooksFilter.Series("series")
-                ).first().ordering as LibraryBooksOrdering.Browse
-                ).value
-        )
-    }
-
-    @Test
     fun `selected Author detail maps loading failure and content explicitly`() {
         val loading = PagedLibraryAxisDetailState<LibraryAuthor>("a", loading = true)
         val failure =
@@ -179,8 +154,13 @@ class LibraryAuthorSeriesPresentationTest {
 
     @Test
     fun `paging trigger remains based on proximity rather than axis type`() {
-        assertTrue(shouldRequestNextPage(lastVisibleIndex = 14, itemCount = 20))
-        assertEquals(false, shouldRequestNextPage(lastVisibleIndex = 4, itemCount = 20))
+        assertTrue(
+            LibraryPagingTriggerPolicy.shouldRequestNextPage(lastVisibleIndex = 14, itemCount = 20)
+        )
+        assertEquals(
+            false,
+            LibraryPagingTriggerPolicy.shouldRequestNextPage(lastVisibleIndex = 4, itemCount = 20)
+        )
     }
 
     private fun authorWithPreviews(previews: List<LibraryPreviewBook>?) =

@@ -60,13 +60,6 @@ internal fun ReplacementFeedback(state: LibraryBooksState, onRetry: () -> Unit) 
 }
 
 @Composable
-internal fun LoadingLibrary(modifier: Modifier) {
-    Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator()
-    }
-}
-
-@Composable
 internal fun EmptyLibrary(modifier: Modifier) {
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text("No books found.", color = MaterialTheme.colorScheme.onSurfaceVariant)

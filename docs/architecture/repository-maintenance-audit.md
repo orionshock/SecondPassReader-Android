@@ -625,3 +625,173 @@ product/runtime correction.
   boundaries are already searchable.
 - Do not introduce a Book Detail duplicate per origin. The shared app-level destination and typed
   return context are sound.
+
+## Post-topology checkpoint
+
+### 1. Did topology improve searchability?
+
+Yes. The Shelves, Library, and Marginalia moves achieved their primary purpose.
+
+- `rg "PagedLibraryAxis"` now lands on one shared Author/Series state machine, its state, and the
+  two thin axis facades. `rg "LibraryAuthorSeries"` lands on the corresponding presentation family.
+- `rg "ShelfCollection"`, `rg "ShelfDetail"`, and `rg "ShelfContents"` now form distinct clusters
+  whose production and test paths mirror one another.
+- `rg "ReadingSessions"`, `rg "ReadingSessionDetail"`, and the annotation/metadata/close searches
+  now reveal the Marginalia parent/child tree without first opening a flat package of unrelated
+  files.
+- Root packages now mostly contain aggregate state, navigation, state hosts, screens, ViewModels,
+  shared failure vocabulary, and parent coordination. That is a useful map for a fresh reader.
+
+The remaining cross-feature search results are legitimate integration points. For example,
+`ReadingSessions` also appears in Book Detail and app navigation because those owners enter the
+book-scoped Marginalia route. `ShelfDetail` appears in app routes because shared Book Detail must
+restore a Shelf origin. Those results explain collaboration rather than obscure ownership.
+
+Tests now mirror the production clusters. The app-test-root `FakeAuthenticated*Client` files still
+add some broad search noise, as noted in the original audit, but the feature-owned controller tests
+and fixtures are discoverable.
+
+### 2. Remaining naming and locality problems
+
+At this checkpoint, the clearest remaining locality defect was inside Library presentation. The
+Author/Series axis imported four declarations from `library.books`:
+
+- `LibraryBookCoverPresentation`
+- `LibraryBookCover`
+- `LoadingLibrary`
+- `shouldRequestNextPage`
+
+Their actual ownership is not uniformly Books-specific:
+
+- Public/missing cover presentation and the cover renderer are shared compact-Book-preview
+  presentation. Author and Series previews are real consumers, so these should live at a shallow
+  Library-shared presentation boundary rather than under `books`.
+- `LoadingLibrary` is generic Library result feedback used by Books and Author/Series indexes.
+- `shouldRequestNextPage` is a UI paging-trigger policy shared by independently owned paged result
+  surfaces. It does not own paging state and should have an explicit shared presentation/policy
+  name.
+- Compact Book row/grid mapping, Book metadata labels, Book ordering labels, and the actual Books
+  list/grid result components remain Books-owned.
+
+This is a locality correction, not a reason to create a generic app-wide presentation package.
+`LibraryVocabularyLoading` accurately describes two paginated loading functions today, but it will
+become factually incomplete if vocabulary state ownership is extracted.
+
+Completed in Maintenance 5: Axis now consumes `design.book.PublicBookCover` directly and shared
+Library loading/paging policy from `library.presentation`. Books maps directly into the existing
+design-owned `CompactBookPresentation`; the redundant Library model and cover/card wrappers were
+removed. Books ordering presentation remains correctly Books-owned in its own file.
+
+Shelves has no equivalent child-to-child import. Marginalia detail imports only its own annotation,
+metadata, and close children; those dependencies follow the ownership tree.
+
+### 3. Library responsibility finding
+
+`LibraryController` is still a valid parent coordinator for axis, scope, selected tag, route entry,
+Author/Series-to-Books transitions, and child activation. It also owns a separate stateful workflow:
+
+- `groupsJob` and `tagsJob` lifecycle and duplicate-load suppression;
+- complete group/tag pagination through `loadAllGroups` and `loadAllTags`;
+- loading, loaded, empty, and failure states for both vocabularies;
+- scope-bound stale tag-response rejection;
+- vocabulary retry;
+- authentication-rejection reporting from vocabulary requests; and
+- applying deferred tag navigation after scoped tags arrive.
+
+That workflow is now visibly independent enough to justify a `LibraryFilterVocabularyController`.
+The child should own group/tag resource state, jobs, SDK loading, scoped stale-response rejection,
+retry, and its authentication event. The Library parent should retain selected scope, selected tag,
+pending external tag-navigation intent, and coordination that applies a resolved tag to Books,
+Authors, and Series. Pending route resolution crosses navigation and vocabulary, so it should not
+be buried entirely inside the loader.
+
+This extraction would reduce the 405-line parent without weakening its authority. It is a real
+responsibility change with medium behavior risk because scope changes, deferred tag navigation,
+and authentication propagation must remain exactly ordered.
+
+### 4. Shelves responsibility finding
+
+The Shelves root is now appropriately boring.
+
+- `ShelvesState` is an aggregate root snapshot: destination plus the independently owned Personal,
+  Shared, Group, Detail, and Editor states. `ShelvesNavigationState`, collection identity, typed
+  destinations, and Book navigation request are genuinely root-owned.
+- `ShelvesLoadError`, `ShelvesLoadPhase`, `ShelvesFailure`, connection events, and paging constants
+  are shared by collection, detail, and editor. Their root locality is justified even though a
+  future filename split could improve symbol search.
+- `ShelvesFeedback` is used by collection, detail, and editor loading/paging surfaces and deserves
+  to remain root-shared.
+- `ShelvesPresentation` contains shared Shelf owner/card presentation plus collection/detail
+  ordering labels and paging-trigger policy. Both collection cards and the Detail header consume
+  its Shelf presentation, so moving it into either child would recreate a sideways dependency.
+- `ShelvesViewModel` is verbose delegation, not a hidden behavioral owner. Its methods expose typed
+  UI intents into the existing controller tree; it does not make server, reconciliation, or
+  navigation decisions.
+
+Reconciliation remains at the nearest legitimate parent. Create/edit/delete results update only
+Personal Shelves and Detail as appropriate; editor reconciliation reports an authoritative Shelf
+through its constructor callback, and `ShelvesController` refreshes Detail items plus the Personal
+summary. That path is explicit and not currently awkward enough to redesign.
+
+No Shelves responsibility extraction should precede Reader work merely because
+`ShelfContentsEditorController` is large.
+
+### 5. Marginalia responsibility finding
+
+The history/detail split exposes two precise seams.
+
+First, the book-scoped empty-history fallback is a **loader**, specifically a
+`BookScopedReadingSessionHistoryLoader`. It performs I/O and sequences two SDK reads:
+`listSessions`, then only on `BookReadingSessionHistoryNotFound`, `getActiveSession`, followed by
+construction of a valid empty page from authoritative Book context. It is not a Policy because it
+is not a deterministic decision over supplied values, and it is not a Repository because it owns
+no cache, persistence, or multi-source arbitration. Extracting it would leave
+`ReadingSessionsController` focused on context/filter/search/paging and stale-response state.
+
+Second, `ReadingSessionDetailController.onAuthoritativeUpdate` is a mutable callback installed and
+cleared by `MarginaliaController`. The smallest explicit replacement is a constructor-injected,
+narrow typed sink such as `ReadingSessionAuthoritativeUpdateSink`. The parent should provide the
+sink when constructing Detail; the sink should forward the authoritative SDK result to History's
+existing reconciliation operation. A child event `Flow` would add collection lifecycle for a
+synchronous mutation result and is unnecessary here. Detail must still not know History directly.
+
+Annotations remain a clean Detail child with independent loading and failure. Metadata editing and
+close finalization own their drafts, validation, jobs, and mutation failures, then return the
+authoritative result to Detail. Their shared name-validation and mutation-failure vocabulary is
+correctly placed at Detail root. Neither child reaches into History.
+
+### 6. Current approximate 300-line assessment
+
+| File | Lines | Current assessment |
+| --- | ---: | --- |
+| `library/LibraryController.kt` | 405 | **New seam obvious.** Parent coordination is sound; filter-vocabulary resource ownership should be extracted. |
+| `library/books/LibraryBooksController.kt` | 362 | **Still cohesive.** Mode, scope/filter context, paging, stale rejection, and layout preference form one Books state machine. No action warranted. |
+| `shelves/editor/ShelfContentsEditorController.kt` | 337 | **Still cohesive.** Editor paging, unavailable-item rules, mutation, and canonical reconciliation are one transaction workflow. No action warranted. |
+| `library/axis/PagedLibraryAxisController.kt` | 294 | **Still cohesive.** Shared Author/Series index/detail paging is exactly the responsibility named by the type. No action warranted. |
+| `marginalia/history/ReadingSessionsController.kt` | 284 | **New seam obvious.** Its paging state is cohesive; move only the bounded Book-history loader. No other split is warranted. |
+
+Line count does not identify a Shelves parent or ViewModel problem. The largest remaining files are
+mostly explicit state machines whose invariants benefit from locality.
+
+### 7. Ranked next three maintenance slices
+
+1. **Shared Library browse presentation ownership**
+   - Why now: Author/Series currently imports generic cover, loading, and paging-trigger symbols
+     from the Books child. The new topology makes that lateral dependency conspicuous.
+   - Expected behavior risk: **low**.
+   - Change kind: **topology-only**, with precise renames where ownership becomes clearer.
+   - Completed in Maintenance 5 with no remaining Axis-to-Books production or test imports.
+2. **Extract `LibraryFilterVocabularyController`**
+   - Why now: it is the only substantial child state machine still embedded in the Library parent,
+     and removing it clarifies scope/tag coordination before more Library filters are added.
+   - Expected behavior risk: **medium**.
+   - Change kind: **responsibility-changing**, behavior-preserving.
+3. **Extract `BookScopedReadingSessionHistoryLoader`**
+   - Why now: the fallback is a contract-specific two-request workflow with focused tests and a
+     clean boundary now visible inside History.
+   - Expected behavior risk: **low**.
+   - Change kind: **responsibility-changing**, behavior-preserving.
+
+After those, replace the mutable Reading Session authoritative-update callback with the
+constructor-injected typed sink described above. That should remain a separate small slice rather
+than being hidden inside the loader extraction.

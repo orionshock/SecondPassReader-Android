@@ -20,6 +20,10 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.secondpasslibrary.reader.design.book.CompactBookGridCard
+import com.secondpasslibrary.reader.design.book.CompactBookRow
+import com.secondpasslibrary.reader.library.presentation.LibraryBrowseLoading
+import com.secondpasslibrary.reader.library.presentation.LibraryPagingTriggerPolicy
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
@@ -33,7 +37,7 @@ internal fun LibraryBooksResults(
     modifier: Modifier = Modifier
 ) {
     when {
-        state.books.isEmpty() && state.initialLoading -> LoadingLibrary(modifier)
+        state.books.isEmpty() && state.initialLoading -> LibraryBrowseLoading(modifier)
 
         state.books.isEmpty() && state.error != null ->
             LibraryFailureContent(state.error, onRetry, modifier)
@@ -85,7 +89,7 @@ private fun LibraryBooksList(
         contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)
     ) {
         items(state.books, key = { it.id }) { book ->
-            LibraryBookRow(book.toLibraryPresentation()) { onBookSelected(book.id) }
+            CompactBookRow(book.toLibraryCompactBookPresentation()) { onBookSelected(book.id) }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
         item { NextPageFooter(state, onRetry) }
@@ -111,7 +115,9 @@ private fun LibraryBooksGrid(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         items(state.books, key = { it.id }) { book ->
-            LibraryBookGridCard(book.toLibraryPresentation()) { onBookSelected(book.id) }
+            CompactBookGridCard(book.toLibraryCompactBookPresentation()) {
+                onBookSelected(book.id)
+            }
         }
         item(span = { GridItemSpan(maxLineSpan) }) { NextPageFooter(state, onRetry) }
     }
@@ -125,7 +131,10 @@ private fun NextPageEffect(
 ) {
     LaunchedEffect(listState, state.books.size, state.hasNext) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
-            .map { shouldRequestNextPage(it, state.books.size) && state.hasNext }
+            .map {
+                LibraryPagingTriggerPolicy.shouldRequestNextPage(it, state.books.size) &&
+                    state.hasNext
+            }
             .distinctUntilChanged()
             .filter { it }
             .collect { onLoadNextPage() }
@@ -140,7 +149,10 @@ private fun NextPageEffect(
 ) {
     LaunchedEffect(gridState, state.books.size, state.hasNext) {
         snapshotFlow { gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
-            .map { shouldRequestNextPage(it, state.books.size) && state.hasNext }
+            .map {
+                LibraryPagingTriggerPolicy.shouldRequestNextPage(it, state.books.size) &&
+                    state.hasNext
+            }
             .distinctUntilChanged()
             .filter { it }
             .collect { onLoadNextPage() }

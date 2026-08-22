@@ -27,8 +27,8 @@ import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.client.LibraryAuthor
 import com.secondpasslibrary.client.LibrarySeries
 import com.secondpasslibrary.reader.library.LibraryFailure
-import com.secondpasslibrary.reader.library.books.LoadingLibrary
-import com.secondpasslibrary.reader.library.books.shouldRequestNextPage
+import com.secondpasslibrary.reader.library.presentation.LibraryBrowseLoading
+import com.secondpasslibrary.reader.library.presentation.LibraryPagingTriggerPolicy
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
@@ -90,7 +90,7 @@ private fun <T, O> LibraryAuthorSeriesResults(
     modifier: Modifier
 ) {
     when {
-        state.items.isEmpty() && state.initialLoading -> LoadingLibrary(modifier)
+        state.items.isEmpty() && state.initialLoading -> LibraryBrowseLoading(modifier)
 
         state.items.isEmpty() && state.error != null ->
             AuthorSeriesFailure(state.error.failure, axisLabel, onRetry, modifier)
@@ -104,7 +104,10 @@ private fun <T, O> LibraryAuthorSeriesResults(
             val listState = rememberLazyListState()
             LaunchedEffect(listState, state.items.size, state.hasNext) {
                 snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
-                    .map { shouldRequestNextPage(it, state.items.size) && state.hasNext }
+                    .map {
+                        LibraryPagingTriggerPolicy.shouldRequestNextPage(it, state.items.size) &&
+                            state.hasNext
+                    }
                     .distinctUntilChanged()
                     .filter { it }
                     .collect { onLoadNextPage() }
