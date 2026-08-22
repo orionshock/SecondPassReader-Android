@@ -24,8 +24,7 @@ route; drawer navigation discards it.
 
 The strongest remaining topology problem is in `:spl-client`: public interfaces/models and
 internal Ktor clients/mappers still share `com.secondpasslibrary.client`. The strongest remaining
-app responsibility problems are the mutable Marginalia authoritative-update callback and root
-application ownership of the full connection presentation.
+app responsibility problem is the mutable Marginalia authoritative-update callback.
 
 ## Current topology and responsibility findings
 
@@ -50,13 +49,10 @@ Remaining:
 `ConnectionCoordinator` remains one cohesive pairing/restore/verification state machine. Its
 exactly-once consume and durable-storage ordering are reasons to keep it intact.
 
-Remaining:
-
-- `SecondPassApp.kt` chooses linked versus unlinked state and renders the complete connection UI.
-  Move connection presentation beside `ConnectionUiState`; leave only root selection in the app
-  owner.
-- `ConnectionModule.kt` contains two DI modules. Split the file by the existing module names when
-  connection presentation is cleaned up.
+`SecondPassApp.kt` owns lifecycle notification and linked/unlinked root selection. Unlinked
+presentation and its state-down/intents-up action contract live in `ConnectionScreen.kt` and
+`ConnectionScreenActions.kt`. Connection storage and SPL client bindings live in module files
+matching their declarations.
 
 ### Home
 
@@ -162,13 +158,6 @@ Remaining:
   or shell-scoped feature state before Reader resources are introduced.
 - Risk: high/product-visible. This is not a behavior-preserving refactor.
 
-### Medium — Connection presentation lives in the application root
-
-- Files: `SecondPassApp.kt`, `ConnectionUiState`, `ConnectionViewModel`.
-- Direction: move connection state hosting and presentation into `connection`; leave root linked
-  versus unlinked selection in `SecondPassApp`.
-- Risk: low if state and callbacks remain unchanged.
-
 ### Medium — Experimental aggregate `StateFlow` implementations
 
 - Files: `LibraryCombinedState.kt`, `ShelvesCombinedState.kt`.
@@ -199,7 +188,6 @@ Remaining:
 - `AppDestination.kt` -> `AppRoutes.kt`.
 - `LibraryWireDecoder` -> protocol-body naming.
 - `AuthenticatedRead*` -> Recent Reading naming.
-- `ConnectionModule.kt` -> files matching its two DI modules.
 - move `BookShelfPicker*` into `bookdetail.shelfpicker`.
 
 ## Approximate 300-line production file review
@@ -210,7 +198,6 @@ Remaining:
 | `library/books/LibraryBooksController.kt` | 362 | Cohesive Books state machine; no responsibility split justified. |
 | `shelves/editor/ShelfContentsEditorController.kt` | 337 | Cohesive editor transaction workflow; keep intact. |
 | `library/LibraryController.kt` | 351 | Large parent facade; current cross-axis behavior remains legitimate parent coordination. |
-| `app/SecondPassApp.kt` | 303 | Multiple responsibilities; extract connection presentation. |
 | `spl-client/LibraryModels.kt` | 298 | Structurally dense public catalog; declaration-only split is optional. |
 | `library/axis/PagedLibraryAxisController.kt` | 294 | Cohesive shared Author/Series state machine; keep intact. |
 
@@ -298,17 +285,16 @@ focused slice; do not create a generic state framework.
 
 ## Remaining maintenance sequence
 
-1. Extract connection presentation from `SecondPassApp`; split the existing DI-module file.
-2. Extract `BookScopedReadingSessionHistoryLoader`.
-5. Replace the mutable Reading Session authoritative-update callback with a typed constructor
+1. Extract `BookScopedReadingSessionHistoryLoader`.
+2. Replace the mutable Reading Session authoritative-update callback with a typed constructor
    sink.
-6. Replace Library/Shelves custom aggregate `StateFlow` inheritance.
-7. Move `:spl-client` implementation under internal subsystem packages and fix stale internal
+3. Replace Library/Shelves custom aggregate `StateFlow` inheritance.
+4. Move `:spl-client` implementation under internal subsystem packages and fix stale internal
    names.
-8. Move the Book Detail shelf-picker child cluster and perform remaining low-risk naming cleanup.
-9. Establish top-level navigation state-lifetime tests and then make the deliberate retention
+5. Move the Book Detail shelf-picker child cluster and perform remaining low-risk naming cleanup.
+6. Establish top-level navigation state-lifetime tests and then make the deliberate retention
    change before Reader work.
-10. Decide public SDK package/method naming before publication or another large SDK expansion.
+7. Decide public SDK package/method naming before publication or another large SDK expansion.
 
 ## Do not change without new evidence
 
