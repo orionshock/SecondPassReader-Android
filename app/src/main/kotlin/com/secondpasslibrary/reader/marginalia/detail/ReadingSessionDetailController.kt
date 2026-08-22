@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.marginalia.detail
 
+import com.secondpasslibrary.client.ReadingSessionDetailResult
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
@@ -23,6 +24,7 @@ import kotlinx.coroutines.launch
 internal class ReadingSessionDetailController(
     private val clientProvider: AuthenticatedClientProvider,
     private val coroutineScope: CoroutineScope,
+    private val authoritativeUpdateSink: ReadingSessionAuthoritativeUpdateSink,
     val annotations: ReadingSessionAnnotationsController =
         ReadingSessionAnnotationsController(clientProvider, coroutineScope),
     val metadataEditor: ReadingSessionMetadataEditorController =
@@ -40,13 +42,6 @@ internal class ReadingSessionDetailController(
         metadataEditor.connectionEvents,
         closeFlow.connectionEvents
     )
-    var onAuthoritativeUpdate: (
-        (
-            com.secondpasslibrary.client.ReadingSessionDetailResult
-        ) -> Unit
-    )? =
-        null
-
     private var profile: ConnectionProfile? = null
     private var connectionIdentity: AuthenticatedConnectionIdentity? = null
     private var generation = 0L
@@ -135,13 +130,11 @@ internal class ReadingSessionDetailController(
         }
     }
 
-    private fun applyAuthoritativeDetail(
-        detail: com.secondpasslibrary.client.ReadingSessionDetailResult
-    ) {
+    private fun applyAuthoritativeDetail(detail: ReadingSessionDetailResult) {
         if (detail.session.summary.id != state.value.sessionId) return
         mutableState.value = state.value.copy(detail = detail, loading = false, failure = null)
         metadataEditor.reset()
         closeFlow.reset()
-        onAuthoritativeUpdate?.invoke(detail)
+        authoritativeUpdateSink.onReadingSessionUpdated(detail)
     }
 }

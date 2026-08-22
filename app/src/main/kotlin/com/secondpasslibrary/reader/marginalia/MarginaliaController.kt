@@ -4,6 +4,7 @@ import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.marginalia.detail.ReadingSessionAuthoritativeUpdateSink
 import com.secondpasslibrary.reader.marginalia.detail.ReadingSessionDetailController
 import com.secondpasslibrary.reader.marginalia.history.ReadingSessionsController
 import kotlinx.coroutines.CoroutineScope
@@ -18,7 +19,11 @@ internal class MarginaliaController(
     scope: CoroutineScope,
     val sessions: ReadingSessionsController = ReadingSessionsController(clientProvider, scope),
     val detail: ReadingSessionDetailController =
-        ReadingSessionDetailController(clientProvider, scope)
+        ReadingSessionDetailController(
+            clientProvider,
+            scope,
+            ReadingSessionAuthoritativeUpdateSink(sessions::reconcileAuthoritativeUpdate)
+        )
 ) {
     private val mutableState = MutableStateFlow(MarginaliaState())
     val state = mutableState.asStateFlow()
@@ -29,10 +34,6 @@ internal class MarginaliaController(
     val connectionEvents = merge(sessions.connectionEvents, detail.connectionEvents)
 
     private var connectionIdentity: AuthenticatedConnectionIdentity? = null
-
-    init {
-        detail.onAuthoritativeUpdate = sessions.authoritativeDetailSink
-    }
 
     fun initialize(
         profile: ConnectionProfile,
@@ -89,7 +90,6 @@ internal class MarginaliaController(
     }
 
     fun close() {
-        detail.onAuthoritativeUpdate = null
         sessions.close()
         detail.close()
     }

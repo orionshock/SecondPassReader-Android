@@ -24,7 +24,8 @@ route; drawer navigation discards it.
 
 The strongest remaining topology problem is in `:spl-client`: public interfaces/models and
 internal Ktor clients/mappers still share `com.secondpasslibrary.client`. The strongest remaining
-app responsibility problem is the mutable Marginalia authoritative-update callback.
+app responsibility problem is the experimental aggregate `StateFlow` implementation duplicated
+by Library and Shelves.
 
 ## Current topology and responsibility findings
 
@@ -115,11 +116,10 @@ Reading Session Detail.
 normal history, or the bounded non-mutating active-session lookup that proves a visible Book has
 no history. The controller retains filters, paging, stale-response rejection, and state.
 
-Remaining:
-
-- Replace `ReadingSessionDetailController.onAuthoritativeUpdate`, currently assigned and cleared
-  by `MarginaliaController`, with a constructor-injected typed sink. Reconciliation must remain at
-  the parent/list boundary.
+Authoritative metadata and close results leave Reading Session Detail through the
+constructor-injected `ReadingSessionAuthoritativeUpdateSink`. `MarginaliaController` wires that
+boundary to history reconciliation; Detail has no direct history-controller dependency or mutable
+callback lifecycle.
 
 ### Design and shared presentation
 
@@ -176,11 +176,10 @@ Remaining:
 - Direction: internal-only subsystem topology first; public packages remain a separate decision.
 - Risk: low for internal moves, provided public signatures remain unchanged.
 
-### Medium — Marginalia authoritative-update callback seam
+### Completed — Marginalia authoritative-update callback seam
 
-- Files: `ReadingSessionDetailController.kt`, `MarginaliaController.kt`.
-- Direction: replace the mutable callback assignment with a typed constructor sink.
-- Risk: low to medium; the reconciliation boundary has narrow existing tests.
+- Completed: `ReadingSessionAuthoritativeUpdateSink` is construction-injected into Detail and
+  wired by `MarginaliaController`; history reconciliation remains parent-coordinated.
 
 ### Low — Remaining naming/locality cleanup
 
@@ -286,15 +285,13 @@ focused slice; do not create a generic state framework.
 
 ## Remaining maintenance sequence
 
-1. Replace the mutable Reading Session authoritative-update callback with a typed constructor
-   sink.
-2. Replace Library/Shelves custom aggregate `StateFlow` inheritance.
-3. Move `:spl-client` implementation under internal subsystem packages and fix stale internal
+1. Replace Library/Shelves custom aggregate `StateFlow` inheritance.
+2. Move `:spl-client` implementation under internal subsystem packages and fix stale internal
    names.
-4. Move the Book Detail shelf-picker child cluster and perform remaining low-risk naming cleanup.
-5. Establish top-level navigation state-lifetime tests and then make the deliberate retention
+3. Move the Book Detail shelf-picker child cluster and perform remaining low-risk naming cleanup.
+4. Establish top-level navigation state-lifetime tests and then make the deliberate retention
    change before Reader work.
-6. Decide public SDK package/method naming before publication or another large SDK expansion.
+5. Decide public SDK package/method naming before publication or another large SDK expansion.
 
 ## Do not change without new evidence
 

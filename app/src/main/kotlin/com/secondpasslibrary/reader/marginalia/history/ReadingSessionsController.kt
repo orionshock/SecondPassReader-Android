@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
+@Suppress("TooManyFunctions") // Explicit history intents and parent reconciliation stay named.
 internal class ReadingSessionsController(
     private val clientProvider: AuthenticatedClientProvider,
     private val coroutineScope: CoroutineScope,
@@ -98,7 +99,7 @@ internal class ReadingSessionsController(
 
     fun close() = loadJob?.cancel()
 
-    val authoritativeDetailSink: (ReadingSessionDetailResult) -> Unit = { detail ->
+    fun reconcileAuthoritativeUpdate(detail: ReadingSessionDetailResult) {
         val current = state.value
         val index = current.sessions.indexOfFirst { it.session.id == detail.session.summary.id }
         if (index >= 0) {
