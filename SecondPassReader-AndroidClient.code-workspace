@@ -6,6 +6,24 @@
     }
   ],
   "settings": {
+    "files.exclude": {
+      "**/.gradle": true,
+      "**/.kotlin": true,
+      "**/.idea": true,
+      "**/build": true,
+      "**/out": true,
+      "**/captures": true,
+      "**/.externalNativeBuild": true,
+      "**/.cxx": true,
+      "**/*.iml": true,
+      "**/*.apk": true,
+      "**/*.aab": true,
+      "**/*.hprof": true,
+      "**/*.log": true,
+      "**/local.properties": true,
+      "**/Thumbs.db": true,
+      "**/.DS_Store": true
+    },
     "LineCount.showStatusBarItem": true,
     "LineCount.includes": [
       "app/src/main/**/*.kt",

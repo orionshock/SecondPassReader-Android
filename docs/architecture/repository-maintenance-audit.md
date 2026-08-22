@@ -216,7 +216,8 @@ Remaining:
 
 Large test files matter independently of production cohesion:
 
-- `LibraryBooksControllerTest.kt` is 679 lines across 19 tests and should be split by behavior.
+- The 19 Books-controller tests are grouped by initialization, paging, context, and layout, with
+  Books-owned fixture support; that verification surface now matches behavioral ownership.
 - `LibraryControllerAxisTest.kt` is 523 lines but follows one parent coordination surface; inspect
   again only if another parent responsibility is extracted.
 
@@ -245,45 +246,7 @@ This is the parent controller's stated responsibility. Extracting it would requi
 to mutate parent chrome state while knowing all three children, reproducing rather than reducing
 coupling. There is no complexity evidence for that extraction today.
 
-### Candidate 1 — Split the Books controller test suite by behavior
-
-**Files and methods**
-
-- `LibraryBooksControllerTest.kt`: 679 lines, 19 tests covering initial/entry identity, paging and
-  stale responses, failures/retry/authentication, layout persistence, scope/search, and
-  Author/Series context behavior.
-
-**Problem**
-
-The production controller is cohesive, but its verification surface is not locally navigable.
-Changing one reset or paging rule requires scanning unrelated scope and layout tests. Splitting the
-production controller would damage its invariants; splitting its tests improves change safety.
-
-**Evidence**
-
-- The test file is almost twice the 362-line production owner.
-- Its test names already form stable behavioral clusters.
-- Production `LibraryBooksController` remains below cognitive/cyclomatic thresholds despite its
-  class size; test locality is the stronger seam.
-
-**Safest boundary**
-
-Move existing tests without rewriting assertions into focused suites for:
-
-- initialization/search/ordering;
-- paging/stale responses/failures;
-- scope/tag/entity-context restoration; and
-- layout preference.
-
-Keep a Books-owned fixture file if needed; do not create generic app test support or duplicate
-fixtures across suites.
-
-**Risk and timing**
-
-- Expected behavioral risk: **low**; test topology only.
-- Recommendation: **do now**, preferably before changing Books behavior again.
-
-### Candidate 2 — Replace custom aggregate StateFlow inheritance
+### Candidate 1 — Replace custom aggregate StateFlow inheritance
 
 **Files and methods**
 
@@ -335,9 +298,8 @@ focused slice; do not create a generic state framework.
 
 ## Remaining maintenance sequence
 
-1. Split `LibraryBooksControllerTest` by behavior.
-2. Extract connection presentation from `SecondPassApp`; split the existing DI-module file.
-3. Extract `BookScopedReadingSessionHistoryLoader`.
+1. Extract connection presentation from `SecondPassApp`; split the existing DI-module file.
+2. Extract `BookScopedReadingSessionHistoryLoader`.
 5. Replace the mutable Reading Session authoritative-update callback with a typed constructor
    sink.
 6. Replace Library/Shelves custom aggregate `StateFlow` inheritance.
