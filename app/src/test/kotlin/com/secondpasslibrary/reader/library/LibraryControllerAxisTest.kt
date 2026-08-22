@@ -18,8 +18,10 @@ import com.secondpasslibrary.reader.library.books.LibraryBooksController
 import com.secondpasslibrary.reader.library.books.LibraryBooksEntry
 import com.secondpasslibrary.reader.library.books.LibraryBooksLayout
 import com.secondpasslibrary.reader.library.books.LibraryDisplayPreferenceStore
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -28,6 +30,30 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LibraryControllerAxisTest {
+    @Test
+    fun `pending tag navigation resolves only after authoritative vocabulary loads`() = runTest {
+        val requested = catalogTag("tag-1", "fiction")
+        val releaseTags = CompletableDeferred<Unit>()
+        val client = FakeLibraryAxisClient().apply {
+            tags = { _, options ->
+                releaseTags.await()
+                axisPage(options.page, listOf(requested))
+            }
+        }
+        val controller = controller(client)
+        controller.initialize(libraryProfile(), LibraryBooksEntry.Browse, false)
+        runCurrent()
+
+        controller.navigateTo(LibraryExternalNavigation.Tag(requested.id, requested.slug))
+        assertEquals(null, controller.state.value.selectedTag)
+
+        releaseTags.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(requested, controller.state.value.selectedTag)
+        assertEquals("fiction", client.bookRequests.last().tagSlug)
+    }
+
     @Test
     fun `external Book Detail metadata intent enters coordinated Library context`() = runTest {
         val tag = catalogTag("tag-1", "fiction")

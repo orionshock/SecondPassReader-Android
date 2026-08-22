@@ -12,51 +12,45 @@ import com.secondpasslibrary.reader.library.books.LibraryBooksController
 import com.secondpasslibrary.reader.library.books.LibraryBooksEntry
 import com.secondpasslibrary.reader.library.books.LibraryBooksMode
 import com.secondpasslibrary.reader.library.books.LibraryDisplayPreferenceStore
-import com.secondpasslibrary.reader.library.chrome.loadAllGroups
-import com.secondpasslibrary.reader.library.chrome.loadAllTags
-import kotlinx.coroutines.CancellationException
+import com.secondpasslibrary.reader.library.chrome.LibraryFilterVocabularyController
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 @Suppress("TooManyFunctions") // Parent facade exposes bounded cross-axis coordination intents.
 internal class LibraryController(
-    private val clientProvider: AuthenticatedClientProvider,
+    clientProvider: AuthenticatedClientProvider,
     displayPreferenceStore: LibraryDisplayPreferenceStore,
     private val scope: CoroutineScope,
     val books: LibraryBooksController =
         LibraryBooksController(clientProvider, displayPreferenceStore, scope),
     val authors: LibraryAuthorsController = LibraryAuthorsController(clientProvider, scope),
-    val series: LibrarySeriesController = LibrarySeriesController(clientProvider, scope)
+    val series: LibrarySeriesController = LibrarySeriesController(clientProvider, scope),
+    val vocabulary: LibraryFilterVocabularyController =
+        LibraryFilterVocabularyController(clientProvider, scope)
 ) {
     private val chrome = MutableStateFlow(LibraryChromeState())
     val state: StateFlow<LibraryState> =
-        LibraryStateFlow(chrome, books.state, authors.state, series.state)
+        LibraryStateFlow(chrome, vocabulary.state, books.state, authors.state, series.state)
 
-    private val connectionEventChannel = Channel<LibraryConnectionEvent>(Channel.BUFFERED)
     val connectionEvents =
         merge(
-            connectionEventChannel.receiveAsFlow(),
             books.connectionEvents,
             authors.connectionEvents,
-            series.connectionEvents
+            series.connectionEvents,
+            vocabulary.connectionEvents
         )
 
-    private var profile: ConnectionProfile? = null
     private var entryKey: LibraryBooksEntry? = null
     private var connectionIdentity: AuthenticatedConnectionIdentity? = null
     private var advancedGroupsCapability: Boolean? = null
-    private var groupsJob: Job? = null
-    private var tagsJob: Job? = null
     private var pendingTagNavigation: LibraryExternalNavigation.Tag? = null
+    private var pendingTagResolutionJob: Job? = null
 
     fun initialize(
         profile: ConnectionProfile,
@@ -66,12 +60,15 @@ internal class LibraryController(
         val nextConnectionIdentity = profile.authenticatedConnectionIdentity
         val sameConnection = hasSameConnection(nextConnectionIdentity, advancedGroupsEnabled)
         if (sameConnection && entry == entryKey) return
+        if (!sameConnection) {
+            pendingTagResolutionJob?.cancel()
+            pendingTagNavigation = null
+        }
         val previous = chrome.value
         val selectedScope =
             if (sameConnection && advancedGroupsEnabled) previous.scope else LibraryScope.Global
         val preserveTag = sameConnection && previous.scope == selectedScope
         val selectedTag = previous.selectedTag.takeIf { preserveTag }
-        this.profile = profile
         connectionIdentity = nextConnectionIdentity
         advancedGroupsCapability = advancedGroupsEnabled
         entryKey = entry
@@ -80,21 +77,7 @@ internal class LibraryController(
                 axis = LibraryAxis.BOOKS,
                 scope = selectedScope,
                 advancedGroupsEnabled = advancedGroupsEnabled,
-                groupSelector =
-                    if (sameConnection && advancedGroupsEnabled) {
-                        previous.groupSelector
-                    } else {
-                        LibraryGroupSelectorState(loading = advancedGroupsEnabled)
-                    },
-                selectedTag = selectedTag,
-                tagSelector =
-                    if (preserveTag) {
-                        previous.tagSelector
-                    } else {
-                        LibraryTagSelectorState(
-                            loading = true
-                        )
-                    }
+                selectedTag = selectedTag
             )
         when (entry) {
             LibraryBooksEntry.Browse ->
@@ -117,8 +100,7 @@ internal class LibraryController(
         }
         authors.prepare(profile, selectedScope, selectedTag?.slug)
         series.prepare(profile, selectedScope, selectedTag?.slug)
-        if (advancedGroupsEnabled && !chrome.value.groupSelector.loaded) loadGroups()
-        if (!chrome.value.tagSelector.loaded) loadTags()
+        vocabulary.prepare(profile, advancedGroupsEnabled, selectedScope)
     }
 
     private fun hasSameConnection(
@@ -130,7 +112,7 @@ internal class LibraryController(
         var current = chrome.value
         if (selected == current.scope) return
         if (selected is LibraryScope.Group &&
-            current.groupSelector.groups.none { it.id == selected.id }
+            vocabulary.state.value.groupSelector.groups.none { it.id == selected.id }
         ) {
             return
         }
@@ -138,12 +120,10 @@ internal class LibraryController(
             clearSelectedAuthorSeries()
             current = chrome.value
         }
-        tagsJob?.cancel()
         chrome.value =
             current.copy(
                 scope = selected,
-                selectedTag = null,
-                tagSelector = LibraryTagSelectorState(loading = true)
+                selectedTag = null
             )
         if (current.resultKind == LibraryResultKind.BOOKS) {
             books.selectScope(selected, tagSlug = null)
@@ -158,7 +138,7 @@ internal class LibraryController(
             tagSlug = null,
             activate = current.axis == LibraryAxis.SERIES
         )
-        loadTags()
+        vocabulary.selectScope(selected)
     }
 
     fun selectAxis(selected: LibraryAxis) {
@@ -271,12 +251,14 @@ internal class LibraryController(
         chrome.value = chrome.value.copy(resultKind = chrome.value.axis.indexResultKind)
     }
 
-    fun retryGroups() = loadGroups()
+    fun retryGroups() = vocabulary.retryGroups()
 
     fun selectTag(tag: LibraryCatalogTag?) {
         val current = chrome.value
         if (tag != null &&
-            current.tagSelector.tags.none { it.id == tag.id && it.slug == tag.slug }
+            vocabulary.state.value.tagSelector.tags.none {
+                it.id == tag.id && it.slug == tag.slug
+            }
         ) {
             return
         }
@@ -296,107 +278,48 @@ internal class LibraryController(
         )
     }
 
-    fun retryTags() = loadTags()
+    fun retryTags() {
+        vocabulary.retryTags()
+        awaitPendingTagResolution()
+    }
 
     fun close() {
-        groupsJob?.cancel()
-        tagsJob?.cancel()
+        pendingTagResolutionJob?.cancel()
+        vocabulary.close()
         books.close()
         authors.close()
         series.close()
     }
 
-    private fun loadGroups() {
-        val activeProfile = profile ?: return
-        if (!chrome.value.advancedGroupsEnabled || groupsJob?.isActive == true) return
-        chrome.value =
-            chrome.value.copy(
-                groupSelector = chrome.value.groupSelector.copy(loading = true, failure = null)
-            )
-        groupsJob = scope.launch {
-            val result = runCatching {
-                clientProvider.forProfile(activeProfile).library.loadAllGroups()
-            }
-            (result.exceptionOrNull() as? CancellationException)?.let { throw it }
-            result.fold(
-                onSuccess = { groups ->
-                    chrome.value =
-                        chrome.value.copy(
-                            groupSelector =
-                                LibraryGroupSelectorState(loaded = true, groups = groups)
-                        )
-                },
-                onFailure = { failure ->
-                    val classified = failure.toLibraryFailure()
-                    chrome.value =
-                        chrome.value.copy(
-                            groupSelector = LibraryGroupSelectorState(failure = classified)
-                        )
-                    if (classified == LibraryFailure.AUTHENTICATION_REJECTED) {
-                        connectionEventChannel.trySend(
-                            LibraryConnectionEvent.AuthenticationRejected
-                        )
-                    }
-                }
-            )
-        }
-    }
-
-    private fun loadTags() {
-        val activeProfile = profile ?: return
-        if (tagsJob?.isActive == true) return
-        val requestedScope = chrome.value.scope
-        chrome.value =
-            chrome.value.copy(
-                tagSelector = chrome.value.tagSelector.copy(loading = true, failure = null)
-            )
-        tagsJob = scope.launch {
-            val result = runCatching {
-                clientProvider.forProfile(activeProfile).library.loadAllTags(requestedScope)
-            }
-            (result.exceptionOrNull() as? CancellationException)?.let { throw it }
-            if (chrome.value.scope != requestedScope) return@launch
-            result.fold(
-                onSuccess = { tags ->
-                    chrome.value =
-                        chrome.value.copy(
-                            tagSelector = LibraryTagSelectorState(loaded = true, tags = tags)
-                        )
-                    applyPendingTagNavigation()
-                },
-                onFailure = { failure ->
-                    val classified = failure.toLibraryFailure()
-                    chrome.value =
-                        chrome.value.copy(
-                            tagSelector = LibraryTagSelectorState(failure = classified)
-                        )
-                    if (classified == LibraryFailure.AUTHENTICATION_REJECTED) {
-                        connectionEventChannel.trySend(
-                            LibraryConnectionEvent.AuthenticationRejected
-                        )
-                    }
-                }
-            )
-        }
-    }
-
     private fun navigateToTag(target: LibraryExternalNavigation.Tag) {
         if (chrome.value.axis != LibraryAxis.BOOKS) selectAxis(LibraryAxis.BOOKS)
-        val tag = chrome.value.tagSelector.tags.firstOrNull {
+        val tag = vocabulary.state.value.tagSelector.tags.firstOrNull {
             it.id == target.id && it.slug == target.slug
         }
         if (tag != null) {
+            pendingTagResolutionJob?.cancel()
             pendingTagNavigation = null
             if (chrome.value.selectedTag?.id != tag.id) selectTag(tag)
         } else {
             pendingTagNavigation = target
-            if (!chrome.value.tagSelector.loading) loadTags()
+            if (!vocabulary.state.value.tagSelector.loading) vocabulary.retryTags()
+            awaitPendingTagResolution()
+        }
+    }
+
+    private fun awaitPendingTagResolution() {
+        if (pendingTagNavigation == null) return
+        pendingTagResolutionJob?.cancel()
+        pendingTagResolutionJob = scope.launch {
+            val tagState =
+                vocabulary.state.map { it.tagSelector }.first { it.loaded || it.failure != null }
+            if (tagState.loaded) applyPendingTagNavigation()
         }
     }
 
     private fun applyPendingTagNavigation() {
         val pending = pendingTagNavigation ?: return
-        val tag = chrome.value.tagSelector.tags.firstOrNull {
+        val tag = vocabulary.state.value.tagSelector.tags.firstOrNull {
             it.id == pending.id && it.slug == pending.slug
         } ?: return
         pendingTagNavigation = null

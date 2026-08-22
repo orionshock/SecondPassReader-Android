@@ -2,13 +2,14 @@ package com.secondpasslibrary.reader.library
 
 import com.secondpasslibrary.client.AuthorOrdering
 import com.secondpasslibrary.client.LibraryCatalogTag
-import com.secondpasslibrary.client.LibraryGroupSummary
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.SeriesOrdering
 import com.secondpasslibrary.reader.library.axis.LibraryAuthorsState
 import com.secondpasslibrary.reader.library.axis.LibrarySeriesState
 import com.secondpasslibrary.reader.library.axis.PagedLibraryAxisState
 import com.secondpasslibrary.reader.library.books.LibraryBooksState
+import com.secondpasslibrary.reader.library.chrome.LibraryGroupSelectorState
+import com.secondpasslibrary.reader.library.chrome.LibraryTagSelectorState
 
 internal enum class LibraryAxis {
     BOOKS,
@@ -24,20 +25,6 @@ internal enum class LibraryResultKind {
     val supportsBookLayout: Boolean
         get() = this == BOOKS
 }
-
-internal data class LibraryGroupSelectorState(
-    val loading: Boolean = false,
-    val loaded: Boolean = false,
-    val groups: List<LibraryGroupSummary> = emptyList(),
-    val failure: LibraryFailure? = null
-)
-
-internal data class LibraryTagSelectorState(
-    val loading: Boolean = false,
-    val loaded: Boolean = false,
-    val tags: List<LibraryCatalogTag> = emptyList(),
-    val failure: LibraryFailure? = null
-)
 
 internal data class LibraryState(
     val axis: LibraryAxis = LibraryAxis.BOOKS,
