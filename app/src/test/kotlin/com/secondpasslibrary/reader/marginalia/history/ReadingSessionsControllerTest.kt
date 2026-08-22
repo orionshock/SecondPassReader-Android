@@ -24,6 +24,7 @@ import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -164,6 +165,40 @@ class ReadingSessionsControllerTest {
         assertEquals("book-1", controller.state.value.sessions.single().book.id)
         assertFalse(controller.state.value.nextPageLoading)
     }
+
+    @Test
+    fun `Book history append bypasses initial fallback and keeps later not-found as failure`() =
+        runTest {
+            val capability = RecordingMarginaliaCapability().apply {
+                bookCall = { bookId, options ->
+                    if (options.page == 1) {
+                        BookReadingSessionHistory(
+                            sessionBook(bookId),
+                            marginaliaPage(
+                                options.page,
+                                listOf(sessionSummary("session")),
+                                total = 2,
+                                hasNext = true
+                            )
+                        )
+                    } else {
+                        throw SplClientException.BookReadingSessionHistoryNotFound()
+                    }
+                }
+            }
+            val controller = ReadingSessionsController(marginaliaProvider(capability), this)
+            controller.prepare(marginaliaProfile())
+            controller.enter(MarginaliaHistoryContext.Book("book-1"))
+            advanceUntilIdle()
+
+            controller.loadNextPage()
+            advanceUntilIdle()
+
+            assertEquals(listOf(1, 2), capability.bookRequests.map { it.second.page })
+            assertTrue(capability.activeSessionRequests.isEmpty())
+            assertEquals(MarginaliaLoadPhase.NEXT_PAGE, controller.state.value.error?.phase)
+            assertEquals(listOf("session"), controller.state.value.sessions.map { it.session.id })
+        }
 
     @Test
     fun `initial authentication rejection stays distinct and is propagated`() = runTest {

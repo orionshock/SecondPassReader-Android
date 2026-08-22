@@ -1,12 +1,13 @@
 package com.secondpasslibrary.reader.marginalia.history
 
+import com.secondpasslibrary.client.BookReadingSessionHistory
 import com.secondpasslibrary.client.BookReadingSessionListOptions
 import com.secondpasslibrary.client.MarginaliaPage
+import com.secondpasslibrary.client.ReadingSessionBook
 import com.secondpasslibrary.client.ReadingSessionDetailResult
 import com.secondpasslibrary.client.ReadingSessionListItem
 import com.secondpasslibrary.client.ReadingSessionListOptions
 import com.secondpasslibrary.client.ReadingSessionStatus
-import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
@@ -26,7 +27,9 @@ import kotlinx.coroutines.launch
 
 internal class ReadingSessionsController(
     private val clientProvider: AuthenticatedClientProvider,
-    private val coroutineScope: CoroutineScope
+    private val coroutineScope: CoroutineScope,
+    private val bookHistoryLoader: BookScopedReadingSessionHistoryLoader =
+        BookScopedReadingSessionHistoryLoader()
 ) {
     private val mutableState = MutableStateFlow(ReadingSessionsState())
     val state = mutableState.asStateFlow()
@@ -154,7 +157,11 @@ internal class ReadingSessionsController(
             )
         loadJob = coroutineScope.launch {
             val result = runCatching {
-                request.load(clientProvider.forProfile(activeProfile))
+                request.load(
+                    clientProvider.forProfile(activeProfile),
+                    bookHistoryLoader,
+                    phase
+                )
             }
             (result.exceptionOrNull() as? CancellationException)?.let { throw it }
             if (activeGeneration != generation) return@launch
@@ -200,62 +207,58 @@ internal class ReadingSessionsController(
 }
 
 private data class ReadingSessionsPage(
-    val book: com.secondpasslibrary.client.ReadingSessionBook?,
+    val book: ReadingSessionBook?,
     val page: MarginaliaPage<ReadingSessionListItem>
 )
 
 private sealed interface ReadingSessionsRequest {
     suspend fun load(
-        client: com.secondpasslibrary.client.AuthenticatedSecondPassClient
+        client: com.secondpasslibrary.client.AuthenticatedSecondPassClient,
+        bookHistoryLoader: BookScopedReadingSessionHistoryLoader,
+        phase: MarginaliaLoadPhase
     ): ReadingSessionsPage
 
     data class Global(val options: ReadingSessionListOptions) : ReadingSessionsRequest {
         override suspend fun load(
-            client: com.secondpasslibrary.client.AuthenticatedSecondPassClient
+            client: com.secondpasslibrary.client.AuthenticatedSecondPassClient,
+            bookHistoryLoader: BookScopedReadingSessionHistoryLoader,
+            phase: MarginaliaLoadPhase
         ) = ReadingSessionsPage(null, client.marginalia.sessions.list(options))
     }
 
     data class Book(val bookId: String, val options: BookReadingSessionListOptions) :
         ReadingSessionsRequest {
         override suspend fun load(
-            client: com.secondpasslibrary.client.AuthenticatedSecondPassClient
+            client: com.secondpasslibrary.client.AuthenticatedSecondPassClient,
+            bookHistoryLoader: BookScopedReadingSessionHistoryLoader,
+            phase: MarginaliaLoadPhase
         ): ReadingSessionsPage {
-            val result = try {
-                client.marginalia.books.listSessions(bookId, options)
-            } catch (_: SplClientException.BookReadingSessionHistoryNotFound) {
-                if (options.page != 1) {
-                    throw SplClientException.BookReadingSessionHistoryNotFound()
-                }
-                val bootstrap = client.marginalia.books.getActiveSession(bookId)
-                if (bootstrap.activeSession != null) {
-                    throw SplClientException.ProtocolInvalid("Book reading sessions")
-                }
-                return ReadingSessionsPage(
-                    bootstrap.book,
-                    MarginaliaPage(
-                        totalCount = 0,
-                        results = emptyList(),
-                        hasNext = false,
-                        hasPrevious = false,
-                        page = options.page,
-                        pageSize = options.pageSize
+            if (phase == MarginaliaLoadPhase.INITIAL) {
+                return when (
+                    val result = bookHistoryLoader.loadInitial(
+                        client.marginalia.books,
+                        bookId,
+                        options
                     )
-                )
+                ) {
+                    is BookScopedReadingSessionHistoryLoadResult.LinkedHistory ->
+                        result.history.toReadingSessionsPage()
+
+                    is BookScopedReadingSessionHistoryLoadResult.VisibleBookWithoutHistory ->
+                        ReadingSessionsPage(
+                            result.book,
+                            MarginaliaPage(
+                                totalCount = 0,
+                                results = emptyList(),
+                                hasNext = false,
+                                hasPrevious = false,
+                                page = options.page,
+                                pageSize = options.pageSize
+                            )
+                        )
+                }
             }
-            return ReadingSessionsPage(
-                result.book,
-                MarginaliaPage(
-                    totalCount = result.sessions.totalCount,
-                    results =
-                        result.sessions.results.map {
-                            ReadingSessionListItem(it, result.book)
-                        },
-                    hasNext = result.sessions.hasNext,
-                    hasPrevious = result.sessions.hasPrevious,
-                    page = result.sessions.page,
-                    pageSize = result.sessions.pageSize
-                )
-            )
+            return client.marginalia.books.listSessions(bookId, options).toReadingSessionsPage()
         }
     }
 
@@ -276,6 +279,18 @@ private sealed interface ReadingSessionsRequest {
         }
     }
 }
+
+private fun BookReadingSessionHistory.toReadingSessionsPage() = ReadingSessionsPage(
+    book,
+    MarginaliaPage(
+        totalCount = sessions.totalCount,
+        results = sessions.results.map { ReadingSessionListItem(it, book) },
+        hasNext = sessions.hasNext,
+        hasPrevious = sessions.hasPrevious,
+        page = sessions.page,
+        pageSize = sessions.pageSize
+    )
+)
 
 private fun ReadingSessionStatusFilter.toSdkStatus(): ReadingSessionStatus? = when (this) {
     ReadingSessionStatusFilter.ALL -> null

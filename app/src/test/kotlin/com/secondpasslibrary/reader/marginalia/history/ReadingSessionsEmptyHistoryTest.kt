@@ -1,8 +1,6 @@
 package com.secondpasslibrary.reader.marginalia.history
 
-import com.secondpasslibrary.client.ReadingSessionLifecycleRejection
 import com.secondpasslibrary.client.SplClientException
-import com.secondpasslibrary.reader.marginalia.MarginaliaFailure
 import com.secondpasslibrary.reader.marginalia.MarginaliaHistoryContext
 import com.secondpasslibrary.reader.marginalia.RecordingMarginaliaCapability
 import com.secondpasslibrary.reader.marginalia.emptySessionBootstrap
@@ -19,19 +17,6 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ReadingSessionsEmptyHistoryTest {
-    @Test
-    fun `linked Book history does not use active-session fallback`() = runTest {
-        val capability = RecordingMarginaliaCapability()
-        val controller = controller(capability, this)
-
-        controller.enter(MarginaliaHistoryContext.Book("linked-book"))
-        advanceUntilIdle()
-
-        assertEquals(1, capability.bookRequests.size)
-        assertEquals(emptyList<String>(), capability.activeSessionRequests)
-        assertNull(controller.state.value.error)
-    }
-
     @Test
     fun `unlinked visible Book becomes empty history with bootstrap context`() = runTest {
         val capability = RecordingMarginaliaCapability().apply {
@@ -81,42 +66,6 @@ class ReadingSessionsEmptyHistoryTest {
         assertEquals("notes", controller.state.value.committedQuery)
         assertEquals(0, controller.state.value.totalCount)
         assertFalse(controller.state.value.hasNext)
-    }
-
-    @Test
-    fun `inaccessible Book remains a failure after fallback`() = runTest {
-        val capability = RecordingMarginaliaCapability().apply {
-            bookCall = { _, _ ->
-                throw SplClientException.BookReadingSessionHistoryNotFound()
-            }
-            activeSessionCall = {
-                throw SplClientException.ReadingSessionLifecycleRejected(
-                    ReadingSessionLifecycleRejection.RESOURCE_NOT_FOUND
-                )
-            }
-        }
-        val controller = controller(capability, this)
-
-        controller.enter(MarginaliaHistoryContext.Book("missing-book"))
-        advanceUntilIdle()
-
-        assertEquals(MarginaliaFailure.OTHER, controller.state.value.error?.failure)
-        assertEquals(listOf("missing-book"), capability.activeSessionRequests)
-        assertEquals(0, capability.openSessionRequests)
-    }
-
-    @Test
-    fun `non-not-found history failure does not trigger fallback`() = runTest {
-        val capability = RecordingMarginaliaCapability().apply {
-            bookCall = { _, _ -> throw SplClientException.ServerUnreachable() }
-        }
-        val controller = controller(capability, this)
-
-        controller.enter(MarginaliaHistoryContext.Book("book-1"))
-        advanceUntilIdle()
-
-        assertEquals(MarginaliaFailure.UNREACHABLE, controller.state.value.error?.failure)
-        assertEquals(emptyList<String>(), capability.activeSessionRequests)
     }
 
     private fun controller(

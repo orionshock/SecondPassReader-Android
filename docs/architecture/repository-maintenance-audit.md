@@ -111,11 +111,12 @@ Remaining:
 History and detail topology is clear. Annotation, metadata, and close owners remain children of
 Reading Session Detail.
 
+`BookScopedReadingSessionHistoryLoader` owns the initial scoped-history resolution workflow:
+normal history, or the bounded non-mutating active-session lookup that proves a visible Book has
+no history. The controller retains filters, paging, stale-response rejection, and state.
+
 Remaining:
 
-- Extract the contract-specific `listSessions -> bounded 404 -> getActiveSession -> empty history`
-  workflow as a `BookScopedReadingSessionHistoryLoader`. It performs I/O, so `Loader` is more
-  accurate than `Policy`; it owns no durable source arbitration, so `Repository` is inappropriate.
 - Replace `ReadingSessionDetailController.onAuthoritativeUpdate`, currently assigned and cleared
   by `MarginaliaController`, with a constructor-injected typed sink. Reconciliation must remain at
   the parent/list boundary.
@@ -175,12 +176,11 @@ Remaining:
 - Direction: internal-only subsystem topology first; public packages remain a separate decision.
 - Risk: low for internal moves, provided public signatures remain unchanged.
 
-### Medium — Marginalia workflow and callback seams
+### Medium — Marginalia authoritative-update callback seam
 
-- Files: `ReadingSessionsController.kt`, `ReadingSessionDetailController.kt`,
-  `MarginaliaController.kt`.
-- Direction: two separate behavior-preserving slices: scoped-history loader, then typed update sink.
-- Risk: low to medium; both have narrow existing tests.
+- Files: `ReadingSessionDetailController.kt`, `MarginaliaController.kt`.
+- Direction: replace the mutable callback assignment with a typed constructor sink.
+- Risk: low to medium; the reconciliation boundary has narrow existing tests.
 
 ### Low — Remaining naming/locality cleanup
 
@@ -198,6 +198,7 @@ Remaining:
 | `library/books/LibraryBooksController.kt` | 362 | Cohesive Books state machine; no responsibility split justified. |
 | `shelves/editor/ShelfContentsEditorController.kt` | 337 | Cohesive editor transaction workflow; keep intact. |
 | `library/LibraryController.kt` | 351 | Large parent facade; current cross-axis behavior remains legitimate parent coordination. |
+| `marginalia/history/ReadingSessionsController.kt` | 299 | Cohesive history state/paging owner after initial scoped resolution moved to its loader. |
 | `spl-client/LibraryModels.kt` | 298 | Structurally dense public catalog; declaration-only split is optional. |
 | `library/axis/PagedLibraryAxisController.kt` | 294 | Cohesive shared Author/Series state machine; keep intact. |
 
@@ -285,16 +286,15 @@ focused slice; do not create a generic state framework.
 
 ## Remaining maintenance sequence
 
-1. Extract `BookScopedReadingSessionHistoryLoader`.
-2. Replace the mutable Reading Session authoritative-update callback with a typed constructor
+1. Replace the mutable Reading Session authoritative-update callback with a typed constructor
    sink.
-3. Replace Library/Shelves custom aggregate `StateFlow` inheritance.
-4. Move `:spl-client` implementation under internal subsystem packages and fix stale internal
+2. Replace Library/Shelves custom aggregate `StateFlow` inheritance.
+3. Move `:spl-client` implementation under internal subsystem packages and fix stale internal
    names.
-5. Move the Book Detail shelf-picker child cluster and perform remaining low-risk naming cleanup.
-6. Establish top-level navigation state-lifetime tests and then make the deliberate retention
+4. Move the Book Detail shelf-picker child cluster and perform remaining low-risk naming cleanup.
+5. Establish top-level navigation state-lifetime tests and then make the deliberate retention
    change before Reader work.
-7. Decide public SDK package/method naming before publication or another large SDK expansion.
+6. Decide public SDK package/method naming before publication or another large SDK expansion.
 
 ## Do not change without new evidence
 

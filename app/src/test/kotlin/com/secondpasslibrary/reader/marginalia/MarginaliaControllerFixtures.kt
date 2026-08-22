@@ -7,6 +7,7 @@ import com.secondpasslibrary.client.AuthenticatedSecondPassClient
 import com.secondpasslibrary.client.BookReadingSessionHistory
 import com.secondpasslibrary.client.BookReadingSessionListOptions
 import com.secondpasslibrary.client.MarginaliaAnnotation
+import com.secondpasslibrary.client.MarginaliaIdempotencyKey
 import com.secondpasslibrary.client.MarginaliaPage
 import com.secondpasslibrary.client.ReadingSessionBook
 import com.secondpasslibrary.client.ReadingSessionBootstrap
@@ -34,6 +35,7 @@ internal class RecordingMarginaliaCapability : AuthenticatedMarginaliaClient {
     val closeRequests = mutableListOf<Pair<String, ReadingSessionFinalization>>()
     val activeSessionRequests = mutableListOf<String>()
     var openSessionRequests = 0
+    var startOverRequests = 0
 
     var globalCall:
         suspend (ReadingSessionListOptions) -> MarginaliaPage<ReadingSessionListItem> = {
@@ -76,6 +78,15 @@ internal class RecordingMarginaliaCapability : AuthenticatedMarginaliaClient {
         ): com.secondpasslibrary.client.ReadingSessionBootstrap {
             openSessionRequests += 1
             error("History browsing must not open a Reading Session.")
+        }
+
+        override suspend fun startOver(
+            bookId: String,
+            idempotencyKey: MarginaliaIdempotencyKey,
+            finalization: ReadingSessionFinalization
+        ): ReadingSessionBootstrap {
+            startOverRequests += 1
+            error("History browsing must not start over a Reading Session.")
         }
 
         override suspend fun getActiveSession(bookId: String): ReadingSessionBootstrap {
