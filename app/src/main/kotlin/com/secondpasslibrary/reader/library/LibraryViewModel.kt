@@ -39,19 +39,18 @@ constructor(
 
     fun commitSearch(query: String) = controller.commitSearch(query)
 
-    fun changeBrowseOrdering(ordering: BookOrdering) =
-        controller.books.changeBrowseOrdering(ordering)
+    fun changeBrowseOrdering(ordering: BookOrdering) = controller.changeBrowseOrdering(ordering)
 
     fun changeBroadSearchOrdering(ordering: LibrarySearchOrdering) =
-        controller.books.changeBroadSearchOrdering(ordering)
+        controller.changeBroadSearchOrdering(ordering)
 
-    fun changeAuthorOrdering(ordering: AuthorOrdering) = controller.authors.changeOrdering(ordering)
+    fun changeAuthorOrdering(ordering: AuthorOrdering) = controller.changeAuthorOrdering(ordering)
 
-    fun changeSeriesOrdering(ordering: SeriesOrdering) = controller.series.changeOrdering(ordering)
+    fun changeSeriesOrdering(ordering: SeriesOrdering) = controller.changeSeriesOrdering(ordering)
 
     fun loadNextPage() = controller.loadNextPage()
 
-    fun setLayout(layout: LibraryBooksLayout) = controller.books.setLayout(layout)
+    fun setLayout(layout: LibraryBooksLayout) = controller.setBookLayout(layout)
 
     fun selectScope(scope: LibraryScope) = controller.selectScope(scope)
 
@@ -63,7 +62,7 @@ constructor(
 
     fun retryTags() = controller.retryTags()
 
-    fun refresh() = controller.books.refresh()
+    fun refresh() = controller.refreshBooks()
 
     fun retry() = controller.retry()
 
@@ -73,9 +72,9 @@ constructor(
 
     fun clearSelectedAuthorSeries() = controller.clearSelectedAuthorSeries()
 
-    fun retryAuthorDetail() = controller.authors.retryDetail()
+    fun retryAuthorDetail() = controller.retryAuthorDetail()
 
-    fun retrySeriesDetail() = controller.series.retryDetail()
+    fun retrySeriesDetail() = controller.retrySeriesDetail()
 
     fun navigateTo(target: LibraryExternalNavigation) = controller.navigateTo(target)
 

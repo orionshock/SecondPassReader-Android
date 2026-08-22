@@ -1,7 +1,11 @@
 package com.secondpasslibrary.reader.library
 
+import com.secondpasslibrary.client.AuthorOrdering
+import com.secondpasslibrary.client.BookOrdering
 import com.secondpasslibrary.client.LibraryCatalogTag
 import com.secondpasslibrary.client.LibraryScope
+import com.secondpasslibrary.client.LibrarySearchOrdering
+import com.secondpasslibrary.client.SeriesOrdering
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
@@ -10,6 +14,7 @@ import com.secondpasslibrary.reader.library.axis.LibraryAuthorsController
 import com.secondpasslibrary.reader.library.axis.LibrarySeriesController
 import com.secondpasslibrary.reader.library.books.LibraryBooksController
 import com.secondpasslibrary.reader.library.books.LibraryBooksEntry
+import com.secondpasslibrary.reader.library.books.LibraryBooksLayout
 import com.secondpasslibrary.reader.library.books.LibraryBooksMode
 import com.secondpasslibrary.reader.library.books.LibraryDisplayPreferenceStore
 import com.secondpasslibrary.reader.library.chrome.LibraryFilterVocabularyController
@@ -27,11 +32,12 @@ internal class LibraryController(
     clientProvider: AuthenticatedClientProvider,
     displayPreferenceStore: LibraryDisplayPreferenceStore,
     private val scope: CoroutineScope,
-    val books: LibraryBooksController =
+    private val books: LibraryBooksController =
         LibraryBooksController(clientProvider, displayPreferenceStore, scope),
-    val authors: LibraryAuthorsController = LibraryAuthorsController(clientProvider, scope),
-    val series: LibrarySeriesController = LibrarySeriesController(clientProvider, scope),
-    val vocabulary: LibraryFilterVocabularyController =
+    private val authors: LibraryAuthorsController =
+        LibraryAuthorsController(clientProvider, scope),
+    private val series: LibrarySeriesController = LibrarySeriesController(clientProvider, scope),
+    private val vocabulary: LibraryFilterVocabularyController =
         LibraryFilterVocabularyController(clientProvider, scope)
 ) {
     private val chrome = MutableStateFlow(LibraryChromeState())
@@ -177,6 +183,19 @@ internal class LibraryController(
         }
     }
 
+    fun changeBrowseOrdering(ordering: BookOrdering) = books.changeBrowseOrdering(ordering)
+
+    fun changeBroadSearchOrdering(ordering: LibrarySearchOrdering) =
+        books.changeBroadSearchOrdering(ordering)
+
+    fun changeAuthorOrdering(ordering: AuthorOrdering) = authors.changeOrdering(ordering)
+
+    fun changeSeriesOrdering(ordering: SeriesOrdering) = series.changeOrdering(ordering)
+
+    fun setBookLayout(layout: LibraryBooksLayout) = books.setLayout(layout)
+
+    fun refreshBooks() = books.refresh()
+
     fun loadNextPage() {
         if (chrome.value.resultKind == LibraryResultKind.BOOKS) {
             books.loadNextPage()
@@ -200,6 +219,10 @@ internal class LibraryController(
             LibraryAxis.SERIES -> series.retry()
         }
     }
+
+    fun retryAuthorDetail() = authors.retryDetail()
+
+    fun retrySeriesDetail() = series.retryDetail()
 
     fun selectAuthor(authorId: String) {
         if (chrome.value.axis != LibraryAxis.AUTHORS) {

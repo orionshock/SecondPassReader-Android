@@ -1,8 +1,11 @@
 package com.secondpasslibrary.reader.library
 
+import com.secondpasslibrary.client.AuthorOrdering
 import com.secondpasslibrary.client.BookOrdering
 import com.secondpasslibrary.client.LibraryGroupSummary
 import com.secondpasslibrary.client.LibraryScope
+import com.secondpasslibrary.client.LibrarySearchOrdering
+import com.secondpasslibrary.client.SeriesOrdering
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.library.axis.FakeLibraryAxisClient
 import com.secondpasslibrary.reader.library.axis.FakeLibraryAxisClientProvider
@@ -17,6 +20,7 @@ import com.secondpasslibrary.reader.library.axis.series
 import com.secondpasslibrary.reader.library.books.LibraryBooksController
 import com.secondpasslibrary.reader.library.books.LibraryBooksEntry
 import com.secondpasslibrary.reader.library.books.LibraryBooksLayout
+import com.secondpasslibrary.reader.library.books.LibraryBooksOrdering
 import com.secondpasslibrary.reader.library.books.LibraryDisplayPreferenceStore
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -30,6 +34,124 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LibraryControllerAxisTest {
+    @Test
+    fun `parent delegates Books ordering and refresh through aggregate state`() = runTest {
+        val client = FakeLibraryAxisClient().apply {
+            bookList = { axisPage(it.page, listOf(axisBook("book"))) }
+        }
+        val controller = controller(client)
+        controller.initialize(libraryProfile(), LibraryBooksEntry.Browse, false)
+        advanceUntilIdle()
+
+        controller.changeBrowseOrdering(BookOrdering.AUTHOR)
+        advanceUntilIdle()
+        val requestsBeforeRefresh = client.bookRequests.size
+        controller.refreshBooks()
+        advanceUntilIdle()
+
+        assertEquals(BookOrdering.AUTHOR, client.bookRequests.last().ordering)
+        assertEquals(requestsBeforeRefresh + 1, client.bookRequests.size)
+        assertEquals(listOf("book"), controller.state.value.books.books.map { it.id })
+
+        controller.initialize(
+            libraryProfile(),
+            LibraryBooksEntry.BroadSearch("history"),
+            false
+        )
+        advanceUntilIdle()
+        controller.changeBroadSearchOrdering(LibrarySearchOrdering.AUTHOR_DESCENDING)
+        advanceUntilIdle()
+
+        assertEquals(
+            LibrarySearchOrdering.AUTHOR_DESCENDING,
+            client.searchRequests.last().second.ordering
+        )
+        assertEquals(
+            LibrarySearchOrdering.AUTHOR_DESCENDING,
+            (controller.state.value.books.ordering as LibraryBooksOrdering.BroadSearch).value
+        )
+    }
+
+    @Test
+    fun `parent delegates Author and Series ordering without changing active axis`() = runTest {
+        val client = FakeLibraryAxisClient()
+        val controller = controller(client)
+        controller.initialize(libraryProfile(), LibraryBooksEntry.Browse, false)
+        advanceUntilIdle()
+
+        controller.selectAxis(LibraryAxis.AUTHORS)
+        controller.changeAuthorOrdering(AuthorOrdering.BOOK_COUNT_DESCENDING)
+        advanceUntilIdle()
+
+        assertEquals(LibraryAxis.AUTHORS, controller.state.value.axis)
+        assertEquals(AuthorOrdering.BOOK_COUNT_DESCENDING, client.authorRequests.last().ordering)
+        assertEquals(AuthorOrdering.BOOK_COUNT_DESCENDING, controller.state.value.authors.ordering)
+
+        controller.selectAxis(LibraryAxis.SERIES)
+        controller.changeSeriesOrdering(SeriesOrdering.BOOK_COUNT_DESCENDING)
+        advanceUntilIdle()
+
+        assertEquals(LibraryAxis.SERIES, controller.state.value.axis)
+        assertEquals(SeriesOrdering.BOOK_COUNT_DESCENDING, client.seriesRequests.last().ordering)
+        assertEquals(SeriesOrdering.BOOK_COUNT_DESCENDING, controller.state.value.series.ordering)
+    }
+
+    @Test
+    fun `parent delegates Books layout persistence`() = runTest {
+        val client = FakeLibraryAxisClient()
+        val preferences = TrackingDisplayPreferenceStore()
+        val controller = controller(client, preferences)
+        controller.initialize(libraryProfile(), LibraryBooksEntry.Browse, false)
+        advanceUntilIdle()
+
+        controller.setBookLayout(LibraryBooksLayout.LIST)
+        advanceUntilIdle()
+
+        assertEquals(LibraryBooksLayout.LIST, controller.state.value.books.layout)
+        assertEquals(listOf(LibraryBooksLayout.LIST), preferences.writes)
+    }
+
+    @Test
+    fun `parent delegates Author and Series detail retry`() = runTest {
+        var authorFails = true
+        var seriesFails = true
+        val client = FakeLibraryAxisClient().apply {
+            authorDetail = {
+                if (authorFails) throw SplClientException.ProtocolInvalid("author")
+                author(it)
+            }
+            seriesDetail = {
+                if (seriesFails) throw SplClientException.ProtocolInvalid("series")
+                series(it)
+            }
+        }
+        val controller = controller(client)
+        controller.initialize(libraryProfile(), LibraryBooksEntry.Browse, false)
+        advanceUntilIdle()
+
+        controller.selectAuthor("author-1")
+        advanceUntilIdle()
+        assertEquals(
+            LibraryFailure.PROTOCOL_INVALID,
+            controller.state.value.authors.selected?.failure
+        )
+        authorFails = false
+        controller.retryAuthorDetail()
+        advanceUntilIdle()
+        assertEquals("author-1", controller.state.value.authors.selected?.detail?.id)
+
+        controller.selectSeries("series-1")
+        advanceUntilIdle()
+        assertEquals(
+            LibraryFailure.PROTOCOL_INVALID,
+            controller.state.value.series.selected?.failure
+        )
+        seriesFails = false
+        controller.retrySeriesDetail()
+        advanceUntilIdle()
+        assertEquals("series-1", controller.state.value.series.selected?.detail?.id)
+    }
+
     @Test
     fun `pending tag navigation resolves only after authoritative vocabulary loads`() = runTest {
         val requested = catalogTag("tag-1", "fiction")
@@ -380,14 +502,22 @@ class LibraryControllerAxisTest {
         assertEquals(LibraryFailure.PROTOCOL_INVALID, controller.state.value.tagSelector.failure)
     }
 
-    private fun kotlinx.coroutines.test.TestScope.controller(client: FakeLibraryAxisClient) =
-        LibraryController(
-            FakeLibraryAxisClientProvider(client),
-            object : LibraryDisplayPreferenceStore {
-                override suspend fun read() = LibraryBooksLayout.GRID
+    private fun kotlinx.coroutines.test.TestScope.controller(
+        client: FakeLibraryAxisClient,
+        preferences: LibraryDisplayPreferenceStore = TrackingDisplayPreferenceStore()
+    ) = LibraryController(
+        FakeLibraryAxisClientProvider(client),
+        preferences,
+        this
+    )
 
-                override suspend fun write(layout: LibraryBooksLayout) = Unit
-            },
-            this
-        )
+    private class TrackingDisplayPreferenceStore : LibraryDisplayPreferenceStore {
+        val writes = mutableListOf<LibraryBooksLayout>()
+
+        override suspend fun read() = LibraryBooksLayout.GRID
+
+        override suspend fun write(layout: LibraryBooksLayout) {
+            writes += layout
+        }
+    }
 }
