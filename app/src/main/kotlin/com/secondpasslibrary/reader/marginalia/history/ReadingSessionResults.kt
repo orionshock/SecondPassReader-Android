@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.marginalia
+package com.secondpasslibrary.reader.marginalia.history
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -32,6 +32,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.design.book.PublicBookCover
+import com.secondpasslibrary.reader.marginalia.MarginaliaFailure
+import com.secondpasslibrary.reader.marginalia.userMessage
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
@@ -221,11 +223,4 @@ private fun SessionLoadFailure(
             Text("Retry")
         }
     }
-}
-
-internal fun MarginaliaFailure.userMessage(): String = when (this) {
-    MarginaliaFailure.UNREACHABLE -> "The library is currently unreachable."
-    MarginaliaFailure.AUTHENTICATION_REJECTED -> "Library authentication was rejected."
-    MarginaliaFailure.PROTOCOL_INVALID -> "The library returned an invalid response."
-    MarginaliaFailure.OTHER -> "Reading sessions could not be loaded."
 }

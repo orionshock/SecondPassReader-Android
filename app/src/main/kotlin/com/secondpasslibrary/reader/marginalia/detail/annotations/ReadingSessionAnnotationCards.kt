@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.marginalia
+package com.secondpasslibrary.reader.marginalia.detail.annotations
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 import com.secondpasslibrary.reader.design.marginalia.annotationHighlightPalette
+import com.secondpasslibrary.reader.marginalia.MarginaliaFailure
+import com.secondpasslibrary.reader.marginalia.userMessage
 
 @Composable
 internal fun ReadingSessionAnnotationCard(model: ReadingSessionAnnotationPresentation) {

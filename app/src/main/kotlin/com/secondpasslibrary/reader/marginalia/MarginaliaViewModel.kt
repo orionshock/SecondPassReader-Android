@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.marginalia.detail.ReadingSessionDetailIntent
+import com.secondpasslibrary.reader.marginalia.history.ReadingSessionStatusFilter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 

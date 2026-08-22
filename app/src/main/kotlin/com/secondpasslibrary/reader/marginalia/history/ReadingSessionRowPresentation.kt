@@ -1,13 +1,12 @@
-package com.secondpasslibrary.reader.marginalia
+package com.secondpasslibrary.reader.marginalia.history
 
 import com.secondpasslibrary.client.PublicBookCoverReference
 import com.secondpasslibrary.client.ReadingSessionListItem
 import com.secondpasslibrary.client.ReadingSessionStatus
-import java.time.Instant
-import java.time.OffsetDateTime
+import com.secondpasslibrary.reader.marginalia.MarginaliaHistoryContext
+import com.secondpasslibrary.reader.marginalia.annotationCountLabel
+import com.secondpasslibrary.reader.marginalia.formatSessionTimestamp
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 import java.util.Locale
 
 internal data class ReadingSessionRowPresentation(
@@ -62,24 +61,10 @@ internal fun shouldRequestMoreSessions(lastVisibleIndex: Int, itemCount: Int): B
 internal fun sessionCountLabel(count: Int): String =
     if (count == 1) "1 session" else "$count sessions"
 
-internal fun formatSessionTimestamp(value: String, zoneId: ZoneId, locale: Locale): String {
-    val instant = runCatching { Instant.parse(value) }
-        .recoverCatching { OffsetDateTime.parse(value).toInstant() }
-        .getOrNull() ?: return value
-    return DateTimeFormatter
-        .ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
-        .withLocale(locale)
-        .withZone(zoneId)
-        .format(instant)
-}
-
 private val ReadingSessionStatus.presentationLabel: String
     get() = when (this) {
         ReadingSessionStatus.ACTIVE -> "Active"
         ReadingSessionStatus.CLOSED -> "Closed"
     }
-
-internal fun annotationCountLabel(count: Int) =
-    if (count == 1) "1 annotation" else "$count annotations"
 
 private const val SESSION_PAGING_THRESHOLD = 5

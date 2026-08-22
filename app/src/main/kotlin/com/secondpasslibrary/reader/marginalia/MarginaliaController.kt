@@ -4,6 +4,8 @@ import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.marginalia.detail.ReadingSessionDetailController
+import com.secondpasslibrary.reader.marginalia.history.ReadingSessionsController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow

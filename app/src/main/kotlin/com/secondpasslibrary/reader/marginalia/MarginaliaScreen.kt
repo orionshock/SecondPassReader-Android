@@ -18,6 +18,12 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
+import com.secondpasslibrary.reader.marginalia.detail.ReadingSessionDetailActions
+import com.secondpasslibrary.reader.marginalia.detail.ReadingSessionDetailContent
+import com.secondpasslibrary.reader.marginalia.detail.ReadingSessionDetailIntent
+import com.secondpasslibrary.reader.marginalia.detail.screenTitle as detailScreenTitle
+import com.secondpasslibrary.reader.marginalia.history.ReadingSessionsContent
+import com.secondpasslibrary.reader.marginalia.history.screenTitle as historyScreenTitle
 
 @Composable
 internal fun MarginaliaScreen(
@@ -41,7 +47,12 @@ internal fun MarginaliaScreen(
         if (detail != null) viewModel.backFromDetail() else onBackFromHistory?.invoke()
     }
     MarginaliaScaffold(
-        title = if (detail == null) sessionsState.screenTitle() else detailState.screenTitle(),
+        title =
+            if (detail == null) {
+                sessionsState.historyScreenTitle()
+            } else {
+                detailState.detailScreenTitle()
+            },
         child = detail != null || bookHistoryBack != null,
         onNavigation = when {
             detail != null -> viewModel::backFromDetail
@@ -50,7 +61,7 @@ internal fun MarginaliaScreen(
         }
     ) { modifier ->
         if (detail == null) {
-            MarginaliaHistoryContent(
+            ReadingSessionsContent(
                 state = sessionsState,
                 listState = listState,
                 onStatusSelected = viewModel::changeStatus,

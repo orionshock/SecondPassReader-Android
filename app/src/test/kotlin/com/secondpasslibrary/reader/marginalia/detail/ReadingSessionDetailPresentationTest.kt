@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.marginalia
+package com.secondpasslibrary.reader.marginalia.detail
 
 import com.secondpasslibrary.client.MarginaliaAnnotation
 import com.secondpasslibrary.client.MarginaliaAnnotationLocation
@@ -10,6 +10,10 @@ import com.secondpasslibrary.client.ReadingSessionDetailResult
 import com.secondpasslibrary.client.ReadingSessionStatus
 import com.secondpasslibrary.reader.design.marginalia.AnnotationHighlightTone
 import com.secondpasslibrary.reader.design.marginalia.toHighlightTone
+import com.secondpasslibrary.reader.marginalia.detail.annotations.ReadingSessionAnnotationPresentation
+import com.secondpasslibrary.reader.marginalia.detail.annotations.toPresentation
+import com.secondpasslibrary.reader.marginalia.sessionBook
+import com.secondpasslibrary.reader.marginalia.sessionSummary
 import java.time.ZoneId
 import java.util.Locale
 import org.junit.Assert.assertEquals

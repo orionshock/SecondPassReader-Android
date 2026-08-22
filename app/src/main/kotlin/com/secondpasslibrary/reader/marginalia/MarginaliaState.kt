@@ -1,11 +1,5 @@
 package com.secondpasslibrary.reader.marginalia
 
-import com.secondpasslibrary.client.MarginaliaAnnotation
-import com.secondpasslibrary.client.ReadingSessionBook
-import com.secondpasslibrary.client.ReadingSessionDetailResult
-import com.secondpasslibrary.client.ReadingSessionFinalization
-import com.secondpasslibrary.client.ReadingSessionListItem
-
 internal sealed interface MarginaliaHistoryContext {
     data object Global : MarginaliaHistoryContext
 
@@ -17,101 +11,6 @@ internal sealed interface MarginaliaDestination {
 
     data class SessionDetail(val sessionId: String, val returnContext: MarginaliaHistoryContext) :
         MarginaliaDestination
-}
-
-internal enum class ReadingSessionStatusFilter {
-    ALL,
-    ACTIVE,
-    CLOSED
-}
-
-internal data class ReadingSessionsState(
-    val context: MarginaliaHistoryContext = MarginaliaHistoryContext.Global,
-    val book: ReadingSessionBook? = null,
-    val statusFilter: ReadingSessionStatusFilter = ReadingSessionStatusFilter.ALL,
-    val committedQuery: String = "",
-    val sessions: List<ReadingSessionListItem> = emptyList(),
-    val totalCount: Int = 0,
-    val pageSize: Int = READING_SESSIONS_PAGE_SIZE,
-    val currentPage: Int = 0,
-    val hasNext: Boolean = false,
-    val initialLoading: Boolean = false,
-    val nextPageLoading: Boolean = false,
-    val error: MarginaliaLoadError? = null
-)
-
-internal data class ReadingSessionDetailState(
-    val sessionId: String? = null,
-    val detail: ReadingSessionDetailResult? = null,
-    val loading: Boolean = false,
-    val failure: MarginaliaFailure? = null
-)
-
-internal data class ReadingSessionAnnotationsState(
-    val sessionId: String? = null,
-    val annotations: List<MarginaliaAnnotation> = emptyList(),
-    val loading: Boolean = false,
-    val loaded: Boolean = false,
-    val failure: MarginaliaFailure? = null
-)
-
-internal data class ReadingSessionMetadataEditState(
-    val open: Boolean = false,
-    val sessionId: String? = null,
-    val name: String = "",
-    val notes: String = "",
-    val originalName: String = "",
-    val originalNotes: String = "",
-    val nameError: ReadingSessionNameError? = null,
-    val saving: Boolean = false,
-    val failure: ReadingSessionMutationFailure? = null
-) {
-    val dirty: Boolean get() = name != originalName || notes != originalNotes
-}
-
-internal data class ReadingSessionCloseState(
-    val open: Boolean = false,
-    val sessionId: String? = null,
-    val name: String = "",
-    val notes: String = "",
-    val nameError: ReadingSessionNameError? = null,
-    val closing: Boolean = false,
-    val failure: ReadingSessionMutationFailure? = null,
-    val retryFinalization: ReadingSessionFinalization? = null
-) {
-    val unnamedWarning: Boolean get() = name.isBlank()
-    val exactRetryRequired: Boolean get() = retryFinalization != null
-}
-
-internal enum class ReadingSessionNameError {
-    TOO_LONG,
-    SERVER_REJECTED
-}
-
-internal enum class ReadingSessionMutationFailure {
-    UNREACHABLE,
-    AUTHENTICATION_REJECTED,
-    SESSION_CLOSED,
-    NOT_AUTHORIZED,
-    NOT_FOUND,
-    VALIDATION,
-    PROTOCOL_INVALID,
-    OTHER
-}
-
-internal sealed interface ReadingSessionDetailIntent {
-    data object RetryDetail : ReadingSessionDetailIntent
-    data object RetryAnnotations : ReadingSessionDetailIntent
-    data object BeginEdit : ReadingSessionDetailIntent
-    data class EditName(val value: String) : ReadingSessionDetailIntent
-    data class EditNotes(val value: String) : ReadingSessionDetailIntent
-    data object SaveEdit : ReadingSessionDetailIntent
-    data object CancelEdit : ReadingSessionDetailIntent
-    data object BeginClose : ReadingSessionDetailIntent
-    data class CloseName(val value: String) : ReadingSessionDetailIntent
-    data class CloseNotes(val value: String) : ReadingSessionDetailIntent
-    data object ConfirmClose : ReadingSessionDetailIntent
-    data object CancelClose : ReadingSessionDetailIntent
 }
 
 internal data class MarginaliaState(
@@ -126,16 +25,6 @@ internal sealed interface MarginaliaExternalNavigationIntent {
         MarginaliaExternalNavigationIntent
 }
 
-internal data class MarginaliaLoadError(
-    val failure: MarginaliaFailure,
-    val phase: MarginaliaLoadPhase
-)
-
-internal enum class MarginaliaLoadPhase {
-    INITIAL,
-    NEXT_PAGE
-}
-
 internal enum class MarginaliaFailure {
     UNREACHABLE,
     AUTHENTICATION_REJECTED,
@@ -146,5 +35,3 @@ internal enum class MarginaliaFailure {
 internal sealed interface MarginaliaConnectionEvent {
     data object AuthenticationRejected : MarginaliaConnectionEvent
 }
-
-internal const val READING_SESSIONS_PAGE_SIZE = 50

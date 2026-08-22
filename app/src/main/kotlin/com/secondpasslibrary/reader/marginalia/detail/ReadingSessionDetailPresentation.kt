@@ -1,11 +1,10 @@
-package com.secondpasslibrary.reader.marginalia
+package com.secondpasslibrary.reader.marginalia.detail
 
-import com.secondpasslibrary.client.MarginaliaAnnotation
 import com.secondpasslibrary.client.PublicBookCoverReference
 import com.secondpasslibrary.client.ReadingSessionDetailResult
 import com.secondpasslibrary.client.ReadingSessionStatus
-import com.secondpasslibrary.reader.design.marginalia.AnnotationHighlightTone
-import com.secondpasslibrary.reader.design.marginalia.toHighlightTone
+import com.secondpasslibrary.reader.marginalia.annotationCountLabel
+import com.secondpasslibrary.reader.marginalia.formatSessionTimestamp
 import java.time.ZoneId
 import java.util.Locale
 
@@ -30,27 +29,6 @@ internal fun ReadingSessionDetailState.screenTitle(): String =
 internal fun ReadingSessionDetailPresentation.sessionNameOrFallback(): String =
     sessionName ?: "Unnamed reading session"
 
-internal sealed interface ReadingSessionAnnotationPresentation {
-    val label: String
-    val locationLabel: String?
-    val updatedLabel: String
-
-    data class Bookmark(
-        override val label: String = "Bookmark",
-        override val locationLabel: String?,
-        override val updatedLabel: String
-    ) : ReadingSessionAnnotationPresentation
-
-    data class Highlight(
-        override val label: String,
-        override val locationLabel: String?,
-        override val updatedLabel: String,
-        val quote: String,
-        val note: String?,
-        val tone: AnnotationHighlightTone
-    ) : ReadingSessionAnnotationPresentation
-}
-
 internal fun ReadingSessionDetailResult.toDetailPresentation(
     zoneId: ZoneId = ZoneId.systemDefault(),
     locale: Locale = Locale.getDefault()
@@ -71,26 +49,4 @@ internal fun ReadingSessionDetailResult.toDetailPresentation(
         closedLabel = summary.closedAt?.let { formatSessionTimestamp(it, zoneId, locale) },
         closedNotice = if (closed) "This reading session is closed." else null
     )
-}
-
-internal fun MarginaliaAnnotation.toPresentation(
-    zoneId: ZoneId = ZoneId.systemDefault(),
-    locale: Locale = Locale.getDefault()
-): ReadingSessionAnnotationPresentation = when (this) {
-    is MarginaliaAnnotation.Bookmark -> ReadingSessionAnnotationPresentation.Bookmark(
-        locationLabel = location.locationLabel?.takeIf(String::isNotBlank),
-        updatedLabel = formatSessionTimestamp(updatedAt, zoneId, locale)
-    )
-
-    is MarginaliaAnnotation.Highlight -> {
-        val displayedNote = body.note?.takeIf(String::isNotBlank)
-        ReadingSessionAnnotationPresentation.Highlight(
-            label = if (displayedNote == null) "Highlight" else "Commented highlight",
-            locationLabel = location.locationLabel?.takeIf(String::isNotBlank),
-            updatedLabel = formatSessionTimestamp(updatedAt, zoneId, locale),
-            quote = body.text,
-            note = displayedNote,
-            tone = body.color.toHighlightTone()
-        )
-    }
 }

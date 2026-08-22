@@ -1,9 +1,15 @@
-package com.secondpasslibrary.reader.marginalia
+package com.secondpasslibrary.reader.marginalia.detail
 
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.marginalia.MarginaliaConnectionEvent
+import com.secondpasslibrary.reader.marginalia.MarginaliaFailure
+import com.secondpasslibrary.reader.marginalia.detail.annotations.ReadingSessionAnnotationsController
+import com.secondpasslibrary.reader.marginalia.detail.close.ReadingSessionCloseController
+import com.secondpasslibrary.reader.marginalia.detail.metadata.ReadingSessionMetadataEditorController
+import com.secondpasslibrary.reader.marginalia.toMarginaliaFailure
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job

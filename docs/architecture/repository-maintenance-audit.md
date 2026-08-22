@@ -583,6 +583,11 @@ Each slice should be independently buildable and behavior-focused.
 6. **Marginalia topology and scoped-history loader.** Cluster history/detail files, then extract the
    unlinked-Book fallback loader and replace the mutable detail-update callback with explicit parent
    coordination.
+   Completed: production and tests now mirror the shallow `history` and `detail` ownership
+   clusters, with annotations, metadata editing, and close finalization nested beneath detail.
+   `MarginaliaState.kt` now retains only root navigation, aggregate, connection, and shared failure
+   state. The Book-scoped fallback and authoritative-detail callback remain deliberately unchanged
+   for separate behavior-focused maintenance slices.
 7. **State-combination cleanup.** Replace the two custom experimental `StateFlow` implementations
    with ordinary coroutine composition after package moves make their owners clear.
 8. **SDK internal topology.** Move Ktor clients/wires/mappers beneath internal subsystem packages;

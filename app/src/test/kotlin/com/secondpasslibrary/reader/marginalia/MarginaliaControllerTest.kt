@@ -1,6 +1,7 @@
 package com.secondpasslibrary.reader.marginalia
 
 import com.secondpasslibrary.client.ReadingSessionStatus
+import com.secondpasslibrary.reader.marginalia.history.ReadingSessionStatusFilter
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle

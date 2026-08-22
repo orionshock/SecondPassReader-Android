@@ -1,6 +1,12 @@
-package com.secondpasslibrary.reader.marginalia
+package com.secondpasslibrary.reader.marginalia.detail
 
 import com.secondpasslibrary.client.SplClientException
+import com.secondpasslibrary.reader.marginalia.MarginaliaConnectionEvent
+import com.secondpasslibrary.reader.marginalia.MarginaliaFailure
+import com.secondpasslibrary.reader.marginalia.RecordingMarginaliaCapability
+import com.secondpasslibrary.reader.marginalia.marginaliaProfile
+import com.secondpasslibrary.reader.marginalia.marginaliaProvider
+import com.secondpasslibrary.reader.marginalia.sessionDetail
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle

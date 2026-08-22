@@ -1,8 +1,17 @@
-package com.secondpasslibrary.reader.marginalia
+package com.secondpasslibrary.reader.marginalia.detail.metadata
 
 import com.secondpasslibrary.client.ReadingSessionLifecycleRejection
 import com.secondpasslibrary.client.ReadingSessionStatus
 import com.secondpasslibrary.client.SplClientException
+import com.secondpasslibrary.reader.marginalia.MarginaliaConnectionEvent
+import com.secondpasslibrary.reader.marginalia.RecordingMarginaliaCapability
+import com.secondpasslibrary.reader.marginalia.detail.ReadingSessionMutationFailure
+import com.secondpasslibrary.reader.marginalia.detail.ReadingSessionNameError
+import com.secondpasslibrary.reader.marginalia.marginaliaProfile
+import com.secondpasslibrary.reader.marginalia.marginaliaProvider
+import com.secondpasslibrary.reader.marginalia.sessionDetail
+import com.secondpasslibrary.reader.marginalia.sessionSummary
+import com.secondpasslibrary.reader.marginalia.withMetadata
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle

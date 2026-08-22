@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.marginalia
+package com.secondpasslibrary.reader.marginalia.detail.metadata
 
 import com.secondpasslibrary.client.ReadingSessionDetailResult
 import com.secondpasslibrary.client.ReadingSessionMetadataInput
@@ -8,6 +8,11 @@ import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.marginalia.MarginaliaConnectionEvent
+import com.secondpasslibrary.reader.marginalia.detail.MAX_READING_SESSION_NAME_LENGTH
+import com.secondpasslibrary.reader.marginalia.detail.ReadingSessionMutationFailure
+import com.secondpasslibrary.reader.marginalia.detail.ReadingSessionNameError
+import com.secondpasslibrary.reader.marginalia.detail.toReadingSessionMutationFailure
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -125,8 +130,6 @@ internal class ReadingSessionMetadataEditorController(
 
 private val com.secondpasslibrary.client.ReadingSessionStatus.isActive: Boolean
     get() = this == com.secondpasslibrary.client.ReadingSessionStatus.ACTIVE
-
-internal const val MAX_READING_SESSION_NAME_LENGTH = 255
 
 private data class MetadataEditRequest(
     val profile: ConnectionProfile,

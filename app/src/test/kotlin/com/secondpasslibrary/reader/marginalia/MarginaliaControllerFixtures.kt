@@ -23,6 +23,7 @@ import com.secondpasslibrary.reader.FakeAuthenticatedMarginaliaClient
 import com.secondpasslibrary.reader.FakeAuthenticatedShelvesClient
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.marginalia.history.READING_SESSIONS_PAGE_SIZE
 
 internal class RecordingMarginaliaCapability : AuthenticatedMarginaliaClient {
     val globalRequests = mutableListOf<ReadingSessionListOptions>()

@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.marginalia
+package com.secondpasslibrary.reader.marginalia.history
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -25,9 +25,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.secondpasslibrary.reader.marginalia.MarginaliaHistoryContext
 
 @Composable
-internal fun MarginaliaHistoryContent(
+internal fun ReadingSessionsContent(
     state: ReadingSessionsState,
     listState: LazyListState,
     onStatusSelected: (ReadingSessionStatusFilter) -> Unit,

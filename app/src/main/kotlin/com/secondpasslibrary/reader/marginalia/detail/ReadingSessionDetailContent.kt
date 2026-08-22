@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.marginalia
+package com.secondpasslibrary.reader.marginalia.detail
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -28,6 +28,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.design.book.PublicBookCover
+import com.secondpasslibrary.reader.marginalia.MarginaliaFailure
+import com.secondpasslibrary.reader.marginalia.detail.annotations.AnnotationFailure
+import com.secondpasslibrary.reader.marginalia.detail.annotations.AnnotationLoading
+import com.secondpasslibrary.reader.marginalia.detail.annotations.ReadingSessionAnnotationCard
+import com.secondpasslibrary.reader.marginalia.detail.annotations.ReadingSessionAnnotationsState
+import com.secondpasslibrary.reader.marginalia.detail.annotations.toPresentation
+import com.secondpasslibrary.reader.marginalia.detail.close.ReadingSessionCloseState
+import com.secondpasslibrary.reader.marginalia.detail.metadata.ReadingSessionMetadataEditState
+import com.secondpasslibrary.reader.marginalia.userMessage
 
 @Composable
 internal fun ReadingSessionDetailContent(

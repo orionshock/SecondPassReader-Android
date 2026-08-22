@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.marginalia
+package com.secondpasslibrary.reader.marginalia.history
 
 import com.secondpasslibrary.client.BookReadingSessionListOptions
 import com.secondpasslibrary.client.MarginaliaPage
@@ -11,6 +11,10 @@ import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.marginalia.MarginaliaConnectionEvent
+import com.secondpasslibrary.reader.marginalia.MarginaliaFailure
+import com.secondpasslibrary.reader.marginalia.MarginaliaHistoryContext
+import com.secondpasslibrary.reader.marginalia.toMarginaliaFailure
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job

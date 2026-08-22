@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.marginalia
+package com.secondpasslibrary.reader.marginalia.detail.close
 
 import com.secondpasslibrary.client.ReadingSessionDetailResult
 import com.secondpasslibrary.client.ReadingSessionFinalization
@@ -9,6 +9,11 @@ import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.marginalia.MarginaliaConnectionEvent
+import com.secondpasslibrary.reader.marginalia.detail.MAX_READING_SESSION_NAME_LENGTH
+import com.secondpasslibrary.reader.marginalia.detail.ReadingSessionMutationFailure
+import com.secondpasslibrary.reader.marginalia.detail.ReadingSessionNameError
+import com.secondpasslibrary.reader.marginalia.detail.toReadingSessionMutationFailure
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job

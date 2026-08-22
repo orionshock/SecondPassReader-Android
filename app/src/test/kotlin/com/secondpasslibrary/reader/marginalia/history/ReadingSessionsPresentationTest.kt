@@ -1,6 +1,10 @@
-package com.secondpasslibrary.reader.marginalia
+package com.secondpasslibrary.reader.marginalia.history
 
 import com.secondpasslibrary.client.ReadingSessionStatus
+import com.secondpasslibrary.reader.marginalia.MarginaliaHistoryContext
+import com.secondpasslibrary.reader.marginalia.formatSessionTimestamp
+import com.secondpasslibrary.reader.marginalia.sessionBook
+import com.secondpasslibrary.reader.marginalia.sessionItem
 import java.time.ZoneId
 import java.util.Locale
 import org.junit.Assert.assertEquals
@@ -9,7 +13,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class MarginaliaPresentationTest {
+class ReadingSessionsPresentationTest {
     @Test
     fun `status controls retain All Active Closed vocabulary`() {
         assertEquals(
