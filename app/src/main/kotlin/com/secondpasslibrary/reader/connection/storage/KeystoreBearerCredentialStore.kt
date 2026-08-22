@@ -37,43 +37,48 @@ constructor(@ApplicationContext context: Context) :
         if (encodedCiphertext == null || encodedIv == null) {
             throw CredentialStorageException("Stored credential is incomplete.")
         }
+        decryptStoredCredential(encodedCiphertext, encodedIv)
+    }
+
+    private fun decryptStoredCredential(
+        encodedCiphertext: String,
+        encodedIv: String
+    ): StoredCredential = try {
+        val cipher = Cipher.getInstance(TRANSFORMATION)
+        cipher.init(
+            Cipher.DECRYPT_MODE,
+            loadKey(),
+            GCMParameterSpec(GCM_TAG_BITS, Base64.decode(encodedIv, Base64.NO_WRAP))
+        )
+        cipher.updateAAD(ASSOCIATED_DATA)
+        val plaintext = cipher.doFinal(Base64.decode(encodedCiphertext, Base64.NO_WRAP))
         try {
-            val cipher = Cipher.getInstance(TRANSFORMATION)
-            cipher.init(
-                Cipher.DECRYPT_MODE,
-                loadKey(),
-                GCMParameterSpec(GCM_TAG_BITS, Base64.decode(encodedIv, Base64.NO_WRAP))
-            )
-            cipher.updateAAD(ASSOCIATED_DATA)
-            val plaintext = cipher.doFinal(Base64.decode(encodedCiphertext, Base64.NO_WRAP))
-            try {
-                CredentialEnvelopeCodec.decode(plaintext)
-            } finally {
-                plaintext.fill(0)
-            }
-        } catch (failure: CredentialStorageException) {
-            throw failure
-        } catch (failure: GeneralSecurityException) {
-            throw CredentialStorageException(
-                "Stored credential could not be decrypted.",
-                failure
-            )
-        } catch (failure: IOException) {
-            throw CredentialStorageException(
-                "Stored credential could not be decrypted.",
-                failure
-            )
-        } catch (failure: IllegalArgumentException) {
-            throw CredentialStorageException(
-                "Stored credential could not be decrypted.",
-                failure
-            )
-        } catch (failure: IllegalStateException) {
-            throw CredentialStorageException(
-                "Stored credential could not be decrypted.",
-                failure
-            )
+            CredentialEnvelopeCodec.decode(plaintext)
+        } finally {
+            plaintext.fill(0)
         }
+    } catch (failure: CredentialStorageException) {
+        throw failure
+    } catch (failure: GeneralSecurityException) {
+        throw CredentialStorageException(
+            "Stored credential could not be decrypted.",
+            failure
+        )
+    } catch (failure: IOException) {
+        throw CredentialStorageException(
+            "Stored credential could not be decrypted.",
+            failure
+        )
+    } catch (failure: IllegalArgumentException) {
+        throw CredentialStorageException(
+            "Stored credential could not be decrypted.",
+            failure
+        )
+    } catch (failure: IllegalStateException) {
+        throw CredentialStorageException(
+            "Stored credential could not be decrypted.",
+            failure
+        )
     }
 
     override suspend fun write(credential: BearerCredential, recoveryProfile: ConnectionProfile) {

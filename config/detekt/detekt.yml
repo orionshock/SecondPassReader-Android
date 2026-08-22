@@ -1,5 +1,9 @@
+complexity:
+  CognitiveComplexMethod:
+    active: true
+    allowedComplexity: 15
+
 naming:
   FunctionNaming:
     ignoreAnnotated:
       - Composable
-
