@@ -36,12 +36,8 @@ internal sealed interface LibraryAuthorSeriesDetailPresentation {
     data class Failure(override val id: String, val failure: LibraryFailure) :
         LibraryAuthorSeriesDetailPresentation
 
-    data class Content(
-        override val id: String,
-        val name: String,
-        val bookCountLabel: String,
-        val description: String?
-    ) : LibraryAuthorSeriesDetailPresentation
+    data class Content(override val id: String, val description: String?) :
+        LibraryAuthorSeriesDetailPresentation
 }
 
 internal data class LibraryAuthorOrderingOption(val ordering: AuthorOrdering, val label: String)
@@ -74,8 +70,6 @@ internal fun PagedLibraryAxisDetailState<LibraryAuthor>.toAuthorDetailPresentati
         detail != null ->
             LibraryAuthorSeriesDetailPresentation.Content(
                 id,
-                detail.name,
-                bookCountLabel(detail.bookCount),
                 detail.biography.takeIf(String::isNotBlank)
             )
 
@@ -92,8 +86,6 @@ internal fun PagedLibraryAxisDetailState<LibrarySeries>.toSeriesDetailPresentati
         detail != null ->
             LibraryAuthorSeriesDetailPresentation.Content(
                 id,
-                detail.name,
-                bookCountLabel(detail.bookCount),
                 detail.summary.takeIf(String::isNotBlank)
             )
 

@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
@@ -123,26 +122,16 @@ internal fun SelectedAuthorSeriesHeader(
     detail: LibraryAuthorSeriesDetailPresentation,
     onRetry: () -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        OutlinedCard(Modifier.fillMaxWidth()) {
-            when (detail) {
-                is LibraryAuthorSeriesDetailPresentation.Loading ->
-                    Row(
-                        Modifier.fillMaxWidth().padding(18.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
-                        Text("Loading details...")
-                    }
+    when (detail) {
+        is LibraryAuthorSeriesDetailPresentation.Loading -> Unit
 
-                is LibraryAuthorSeriesDetailPresentation.Failure ->
-                    EntityDetailFailure(detail.failure, onRetry)
+        is LibraryAuthorSeriesDetailPresentation.Failure -> EntityDetailFailure(
+            detail.failure,
+            onRetry
+        )
 
-                is LibraryAuthorSeriesDetailPresentation.Content -> SelectedAuthorSeriesContent(
-                    detail
-                )
-            }
+        is LibraryAuthorSeriesDetailPresentation.Content -> detail.description?.let { description ->
+            SelectedAuthorSeriesDescription(detail.id, description)
         }
     }
 }
@@ -163,30 +152,35 @@ private fun EntityDetailFailure(failure: LibraryFailure, onRetry: () -> Unit) {
 }
 
 @Composable
-private fun SelectedAuthorSeriesContent(detail: LibraryAuthorSeriesDetailPresentation.Content) {
-    var expanded by rememberSaveable(detail.id) { mutableStateOf(false) }
-    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-        Text(detail.name, style = MaterialTheme.typography.titleLarge)
-        Text(
-            detail.bookCountLabel,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelMedium
-        )
-        detail.description?.let { description ->
-            Text(
-                description,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = if (expanded) Int.MAX_VALUE else 4,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (description.length > DESCRIPTION_EXPANSION_THRESHOLD) {
+private fun SelectedAuthorSeriesDescription(id: String, description: String) {
+    var expanded by rememberSaveable(id) { mutableStateOf(false) }
+    var canExpand by rememberSaveable(id) { mutableStateOf(false) }
+    OutlinedCard(Modifier.fillMaxWidth().padding(top = 12.dp)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            CollapsibleDescriptionText(description, expanded) { canExpand = it }
+            if (canExpand) {
                 TextButton(onClick = { expanded = !expanded }) {
-                    Text(if (expanded) "Show less" else "Show more")
+                    Text(if (expanded) "Less" else "More")
                 }
             }
         }
     }
 }
 
-private const val DESCRIPTION_EXPANSION_THRESHOLD = 240
+@Composable
+private fun CollapsibleDescriptionText(
+    description: String,
+    expanded: Boolean,
+    onOverflowChanged: (Boolean) -> Unit
+) {
+    Text(
+        description,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        style = MaterialTheme.typography.bodyMedium,
+        maxLines = if (expanded) Int.MAX_VALUE else 3,
+        overflow = TextOverflow.Ellipsis,
+        onTextLayout = { result ->
+            if (!expanded) onOverflowChanged(result.hasVisualOverflow)
+        }
+    )
+}

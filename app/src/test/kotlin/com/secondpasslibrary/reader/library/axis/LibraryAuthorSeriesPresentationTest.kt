@@ -135,7 +135,6 @@ class LibraryAuthorSeriesPresentationTest {
         val presented =
             content.toAuthorDetailPresentation() as LibraryAuthorSeriesDetailPresentation.Content
         assertEquals("Biography", presented.description)
-        assertEquals("2 books", presented.bookCountLabel)
     }
 
     @Test
@@ -149,7 +148,6 @@ class LibraryAuthorSeriesPresentationTest {
         val presented =
             detail.toSeriesDetailPresentation() as LibraryAuthorSeriesDetailPresentation.Content
         assertEquals(null, presented.description)
-        assertEquals("3 books", presented.bookCountLabel)
     }
 
     @Test
