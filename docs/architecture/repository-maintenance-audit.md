@@ -42,7 +42,6 @@ Remaining:
   lifetime implicitly.
 - App-bar behavior is selected through route-type checks. This remains manageable, but Reader
   routes should not expand this into an unbounded conditional.
-- `AppDestination.kt` contains the complete route catalog; `AppRoutes.kt` would be more precise.
 
 ### Connection and application root
 
@@ -59,11 +58,8 @@ matching their declarations.
 The `HomeProjectionRepository -> Room + authenticated SDK` boundary remains sound. No repository
 or cache generalization is warranted.
 
-Remaining low-priority items:
-
-- `AuthenticatedHome` is a stale permanent-screen name; all Home content is authenticated.
-- historical unused Room shelf-owner columns should be removed only through a deliberate schema
-  migration.
+Historical unused Room shelf-owner columns should be removed only through a deliberate schema
+migration.
 
 ### Library
 
@@ -91,9 +87,9 @@ Remaining findings are detailed in **Library re-read after Maintenance 6** below
 
 ### Book Detail
 
-Shared Book Detail remains correctly app-level. The shelf picker is a focused child workflow but
-its five `BookShelfPicker*` files still sit at the Book Detail root. A shallow
-`bookdetail.shelfpicker` move would improve locality without creating another controller.
+Shared Book Detail remains correctly app-level. Its focused Add to Shelf child workflow is
+colocated under `bookdetail.shelfpicker`; Book Detail retains parent state, navigation, and hero
+presentation ownership.
 
 ### Shelves
 
@@ -165,12 +161,6 @@ Remaining public-surface decisions:
   or shell-scoped feature state before Reader resources are introduced.
 - Risk: high/product-visible. This is not a behavior-preserving refactor.
 
-### Low — Remaining naming/locality cleanup
-
-- `AuthenticatedHome` -> permanent Home naming.
-- `AppDestination.kt` -> `AppRoutes.kt`.
-- move `BookShelfPicker*` into `bookdetail.shelfpicker`.
-
 ## Approximate 300-line production file review
 
 | File | Lines | Assessment |
@@ -230,10 +220,9 @@ coupling. There is no complexity evidence for that extraction today.
 
 ## Remaining maintenance sequence
 
-1. Move the Book Detail shelf-picker child cluster and perform remaining low-risk naming cleanup.
-2. Establish top-level navigation state-lifetime tests and then make the deliberate retention
+1. Establish top-level navigation state-lifetime tests and then make the deliberate retention
    change before Reader work.
-3. Decide public SDK package/method naming before publication or another large SDK expansion.
+2. Decide public SDK package/method naming before publication or another large SDK expansion.
 
 ## Do not change without new evidence
 

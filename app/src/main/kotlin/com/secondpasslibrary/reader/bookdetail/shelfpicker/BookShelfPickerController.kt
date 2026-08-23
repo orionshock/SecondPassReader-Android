@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.bookdetail
+package com.secondpasslibrary.reader.bookdetail.shelfpicker
 
 import com.secondpasslibrary.client.AddShelfItemInput
 import com.secondpasslibrary.client.AuthenticatedSecondPassClient
@@ -9,6 +9,7 @@ import com.secondpasslibrary.client.ShelfOrdering
 import com.secondpasslibrary.client.ShelfOwner
 import com.secondpasslibrary.client.ShelfScope
 import com.secondpasslibrary.client.SplClientException
+import com.secondpasslibrary.reader.bookdetail.BookDetailConnectionEvent
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import kotlinx.coroutines.CancellationException

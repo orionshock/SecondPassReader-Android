@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.bookdetail
+package com.secondpasslibrary.reader.bookdetail.shelfpicker
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement

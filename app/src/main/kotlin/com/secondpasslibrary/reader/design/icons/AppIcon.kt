@@ -41,7 +41,7 @@ enum class AppIcon {
     GroupShelf,
     Groups,
     Help,
-    Sessions,
+    ReadingHistory,
     Home,
     Marginalia,
     MoveShelfItemDown,

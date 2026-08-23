@@ -35,7 +35,7 @@ import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 import kotlinx.coroutines.flow.collectLatest
 
 @Composable
-fun AuthenticatedHome(
+fun HomeScreen(
     profile: ConnectionProfile,
     profileId: String,
     onNavigation: (HomeNavigationIntent) -> Unit,

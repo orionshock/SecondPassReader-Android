@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.bookdetail
+package com.secondpasslibrary.reader.bookdetail.shelfpicker
 
 import com.secondpasslibrary.client.ShelfVisibility
 

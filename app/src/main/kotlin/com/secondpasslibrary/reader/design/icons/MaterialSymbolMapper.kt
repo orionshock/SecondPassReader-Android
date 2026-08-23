@@ -86,7 +86,7 @@ internal object MaterialSymbolMapper {
 
         AppIcon.Help -> symbol("help", R.drawable.ic_symbol_help)
 
-        AppIcon.Sessions -> symbol("history", R.drawable.ic_symbol_history)
+        AppIcon.ReadingHistory -> symbol("history", R.drawable.ic_symbol_history)
 
         AppIcon.Home -> symbol("home", R.drawable.ic_symbol_home)
 

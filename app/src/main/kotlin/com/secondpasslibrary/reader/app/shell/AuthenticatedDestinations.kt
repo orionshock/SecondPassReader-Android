@@ -10,8 +10,8 @@ import com.secondpasslibrary.client.AuthenticatedContext
 import com.secondpasslibrary.reader.bookdetail.BookDetailNavigationIntent
 import com.secondpasslibrary.reader.bookdetail.BookDetailStateHost
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.home.AuthenticatedHome
 import com.secondpasslibrary.reader.home.HomeNavigationIntent
+import com.secondpasslibrary.reader.home.HomeScreen
 import com.secondpasslibrary.reader.library.LibraryExternalNavigation
 import com.secondpasslibrary.reader.library.LibraryStateHost
 import com.secondpasslibrary.reader.library.books.LibraryBooksEntry
@@ -176,7 +176,7 @@ private fun HomeDestination(
     navigator: AppNavigator,
     onAuthenticationRejected: () -> Unit
 ) {
-    AuthenticatedHome(
+    HomeScreen(
         profile = profile,
         profileId = context.currentUser.profileId,
         onNavigation = navigator::handleHomeNavigation,
