@@ -61,8 +61,6 @@ internal fun ShelfDetailContent(
     onBookSelected: (String) -> Unit,
     canManage: Boolean,
     onManageContents: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier.padding(horizontal = 20.dp)) {
@@ -71,8 +69,6 @@ internal fun ShelfDetailContent(
             onRetryDetail,
             canManage,
             onManageContents,
-            onEdit,
-            onDelete,
             Modifier.padding(top = 14.dp)
         )
         ShelfItemControls(

@@ -26,6 +26,7 @@ class ShelvesPresentationTest {
         assertEquals(AppBarNavigation.BACK, presentation.navigation)
         assertEquals("Shelves", presentation.context)
         assertEquals("Shelf", presentation.title)
+        assertEquals("0 books", presentation.metadata)
     }
 
     @Test

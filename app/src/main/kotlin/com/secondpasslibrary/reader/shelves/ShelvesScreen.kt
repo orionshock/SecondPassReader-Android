@@ -108,8 +108,6 @@ private fun ShelfDetailDestination(
     },
     canManage = canManageShelf(destination.origin, state.detail.detail.shelf),
     onManageContents = viewModel::openContentsEditor,
-    onEdit = viewModel::openEdit,
-    onDelete = viewModel::openDelete,
     modifier = modifier
 )
 

@@ -9,11 +9,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -22,16 +20,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.secondpasslibrary.client.Shelf
 import com.secondpasslibrary.client.ShelfItemOrdering
+import com.secondpasslibrary.reader.design.components.BinarySegmentedIconToggle
+import com.secondpasslibrary.reader.design.components.SegmentedIconOption
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 import com.secondpasslibrary.reader.shelves.ShelfCardPresentation
 import com.secondpasslibrary.reader.shelves.label
 import com.secondpasslibrary.reader.shelves.message
+import com.secondpasslibrary.reader.shelves.ownerContextLabel
 import com.secondpasslibrary.reader.shelves.shelfItemOrderingOptions
 import com.secondpasslibrary.reader.shelves.toCardPresentation
 
@@ -41,23 +45,18 @@ internal fun ShelfDetailHeader(
     onRetry: () -> Unit,
     canManage: Boolean,
     onManageContents: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
     modifier: Modifier
 ) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        shape = MaterialTheme.shapes.medium,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-    ) {
-        when {
-            state.loading ->
+    when {
+        state.loading ->
+            ShelfDetailFeedbackSurface(modifier) {
                 Box(Modifier.fillMaxWidth().height(112.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(Modifier.size(28.dp))
                 }
+            }
 
-            state.failure != null ->
+        state.failure != null ->
+            ShelfDetailFeedbackSurface(modifier) {
                 Row(
                     Modifier.fillMaxWidth().padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -66,82 +65,92 @@ internal fun ShelfDetailHeader(
                     Text(state.failure.message(), color = MaterialTheme.colorScheme.error)
                     OutlinedButton(onClick = onRetry) { Text("Retry details") }
                 }
+            }
 
-            state.shelf != null ->
-                ShelfDetailMetadata(
-                    state.shelf.toCardPresentation(),
-                    state,
-                    canManage,
-                    onManageContents,
-                    onEdit,
-                    onDelete
-                )
+        state.shelf != null -> ShelfDetailOverview(
+            state.shelf,
+            canManage,
+            onManageContents,
+            modifier
+        )
+    }
+}
+
+@Composable
+private fun ShelfDetailFeedbackSurface(modifier: Modifier, content: @Composable () -> Unit) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = MaterialTheme.shapes.medium,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        content = content
+    )
+}
+
+@Composable
+private fun ShelfDetailOverview(
+    shelf: Shelf,
+    canManage: Boolean,
+    onManageContents: () -> Unit,
+    modifier: Modifier
+) {
+    val model = shelf.toCardPresentation()
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        ShelfDescription(shelf)
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ShelfContextLine(model)
+            if (canManage) {
+                OutlinedButton(onClick = onManageContents) {
+                    AppIconGraphic(AppIcon.SortPositional, null, Modifier.size(18.dp))
+                    Text("Manage shelf", Modifier.padding(start = 6.dp))
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun ShelfDetailMetadata(
-    model: ShelfCardPresentation,
-    state: ShelfDetailResourceState,
-    canManage: Boolean,
-    onManageContents: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
-) {
-    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                model.name,
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.titleLarge
-            )
-            if (canManage) {
-                OutlinedButton(onClick = onEdit) {
-                    AppIconGraphic(AppIcon.Edit, null, Modifier.size(18.dp))
-                    Text("Edit", Modifier.padding(start = 6.dp))
-                }
-                OutlinedButton(
-                    onClick = onDelete,
-                    colors =
-                        ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error
-                        )
-                ) {
-                    AppIconGraphic(AppIcon.Delete, null, Modifier.size(18.dp))
-                    Text("Delete", Modifier.padding(start = 6.dp))
-                }
-            }
-        }
-        state.shelf?.description?.trim()?.takeIf(String::isNotEmpty)?.let { description ->
-            Text(description, style = MaterialTheme.typography.bodyMedium)
-        }
+private fun ShelfContextLine(model: ShelfCardPresentation) {
+    val icon = when (model.ownerKind) {
+        com.secondpasslibrary.reader.shelves.ShelfOwnerKind.PERSONAL -> AppIcon.User
+        com.secondpasslibrary.reader.shelves.ShelfOwnerKind.SHARED_USER -> AppIcon.SharedShelf
+        com.secondpasslibrary.reader.shelves.ShelfOwnerKind.GROUP -> AppIcon.GroupShelf
+    }
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AppIconGraphic(icon, null, Modifier.size(18.dp))
         Text(
-            "${model.ownerLabel} / ${model.visibilityLabel} / ${model.itemCountLabel}",
+            model.ownerContextLabel,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelMedium
+            style = MaterialTheme.typography.bodyMedium
         )
-        if (model.canEdit) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "Owned by you",
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.labelSmall
-                )
-                if (canManage) {
-                    OutlinedButton(onClick = onManageContents) {
-                        AppIconGraphic(AppIcon.SortPositional, null, Modifier.size(18.dp))
-                        Text("Manage contents", Modifier.padding(start = 6.dp))
-                    }
-                }
-            }
+    }
+}
+
+@Composable
+private fun ShelfDescription(shelf: Shelf) {
+    val description = shelf.description?.trim()?.takeIf(String::isNotEmpty) ?: return
+    var expanded by rememberSaveable(shelf.id) { mutableStateOf(false) }
+    var canExpand by rememberSaveable(shelf.id) { mutableStateOf(false) }
+    Text(
+        description,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        style = MaterialTheme.typography.bodyMedium,
+        maxLines = if (expanded) Int.MAX_VALUE else 3,
+        overflow = TextOverflow.Ellipsis,
+        onTextLayout = { result ->
+            if (!expanded) canExpand = result.hasVisualOverflow
+        }
+    )
+    if (canExpand) {
+        androidx.compose.material3.TextButton(onClick = { expanded = !expanded }) {
+            Text(if (expanded) "Less" else "More")
         }
     }
 }
@@ -158,22 +167,13 @@ internal fun ShelfItemControls(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            "${state.totalCount} ${if (state.totalCount == 1) "book" else "books"}",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelMedium
-        )
         Box(Modifier.weight(1f))
         ShelfItemOrderingMenu(state.ordering, onOrderingSelected)
-        FilterChip(
-            selected = state.layout == ShelfBooksLayout.LIST,
-            onClick = { onLayoutSelected(ShelfBooksLayout.LIST) },
-            label = { Text("List") }
-        )
-        FilterChip(
-            selected = state.layout == ShelfBooksLayout.GRID,
-            onClick = { onLayoutSelected(ShelfBooksLayout.GRID) },
-            label = { Text("Grid") }
+        BinarySegmentedIconToggle(
+            state.layout,
+            SegmentedIconOption(ShelfBooksLayout.LIST, AppIcon.ListLayout, "List layout"),
+            SegmentedIconOption(ShelfBooksLayout.GRID, AppIcon.GridLayout, "Grid layout"),
+            onLayoutSelected
         )
     }
 }

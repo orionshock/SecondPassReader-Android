@@ -46,7 +46,8 @@ internal fun ShelvesState.appBarPresentation(): AppBarPresentation = when (desti
         AppBarPresentation(
             AppBarNavigation.BACK,
             context = "Shelves",
-            title = detail.detail.shelf?.name ?: "Shelf"
+            title = detail.detail.shelf?.name ?: "Shelf",
+            metadata = detail.detail.shelf?.itemCount?.bookCountLabel
         )
 
     is ShelvesDestination.ContentsEditor ->
