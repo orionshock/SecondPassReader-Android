@@ -16,10 +16,19 @@ class PreviewCoverLayoutTest {
 
     @Test
     fun `separated preview capacity reserves full touch surfaces`() {
-        assertEquals(1, separatedPreviewCapacity(260.dp, 220.dp, 48.dp, 8.dp, 24))
+        assertEquals(0, separatedPreviewCapacity(260.dp, 220.dp, 48.dp, 8.dp, 24))
         assertEquals(2, separatedPreviewCapacity(340.dp, 220.dp, 48.dp, 8.dp, 24))
         assertEquals(18, separatedPreviewCapacity(1240.dp, 220.dp, 48.dp, 8.dp, 24))
         assertEquals(6, separatedPreviewCapacity(1240.dp, 220.dp, 48.dp, 8.dp, 6))
         assertEquals(0, separatedPreviewCapacity(1240.dp, 220.dp, 48.dp, 8.dp, 0))
+    }
+
+    @Test
+    fun `separated previews yield space to wider primary content`() {
+        val shortNameCapacity = separatedPreviewCapacity(1240.dp, 220.dp, 48.dp, 8.dp, 24)
+        val longNameCapacity = separatedPreviewCapacity(1240.dp, 460.dp, 48.dp, 8.dp, 24)
+
+        assertEquals(18, shortNameCapacity)
+        assertEquals(14, longNameCapacity)
     }
 }

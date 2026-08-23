@@ -73,6 +73,8 @@ current, and focused on reusable product behavior rather than implementation his
 - Derive visible preview capacity from available layout width where returned data allows it.
 - Keep interactive preview covers separated so each retains a clear touch surface; do not stack
   them.
+- Preserve the full one-line entity name before allocating preview space. Preview count may vary by
+  row and may fall to zero rather than wrapping, truncating, or displacing the name.
 - Preserve cover proportions and minimum spacing while using the available preview region fully.
 
 ### Decorative cover stacks

@@ -23,7 +23,12 @@ internal fun separatedPreviewCapacity(
     availableCount: Int
 ): Int {
     if (availableCount <= 0) return 0
-    val previewWidth = (containerWidth - reservedContentWidth).coerceAtLeast(coverWidth)
-    val capacity = ((previewWidth + spacing) / (coverWidth + spacing)).toInt()
-    return capacity.coerceIn(1, availableCount)
+    val previewWidth = containerWidth - reservedContentWidth
+    val capacity =
+        if (previewWidth < coverWidth) {
+            0
+        } else {
+            ((previewWidth + spacing) / (coverWidth + spacing)).toInt()
+        }
+    return capacity.coerceAtMost(availableCount)
 }

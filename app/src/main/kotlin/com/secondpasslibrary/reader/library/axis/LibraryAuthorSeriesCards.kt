@@ -20,6 +20,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.design.book.PublicBookCover
@@ -34,26 +37,40 @@ internal fun LibraryAuthorSeriesCard(
 ) {
     OutlinedCard(onClick = { onSelect(model.id) }) {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val titleStyle = MaterialTheme.typography.titleMedium
+            val textMeasurer = rememberTextMeasurer()
+            val density = LocalDensity.current
+            val titleWidth =
+                with(density) {
+                    textMeasurer
+                        .measure(
+                            text = AnnotatedString(model.name),
+                            style = titleStyle,
+                            maxLines = 1,
+                            softWrap = false
+                        ).size.width
+                        .toDp()
+                }
             val previewCount = model.previews.returnedBooks.size
             val capacity =
                 separatedPreviewCapacity(
                     maxWidth,
-                    AUTHOR_SERIES_PRIMARY_CONTENT_WIDTH,
+                    titleWidth + AUTHOR_SERIES_ROW_CHROME_WIDTH,
                     AUTHOR_SERIES_COVER_WIDTH,
                     AUTHOR_SERIES_COVER_SPACING,
                     previewCount
                 )
             Row(
-                modifier = Modifier.fillMaxWidth().padding(14.dp),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier.fillMaxWidth().padding(AUTHOR_SERIES_ROW_PADDING),
+                horizontalArrangement = Arrangement.spacedBy(AUTHOR_SERIES_CONTENT_SPACING),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Text(
                         model.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        style = titleStyle,
+                        maxLines = 1,
+                        softWrap = false
                     )
                     Text(
                         model.bookCountLabel,
@@ -108,7 +125,10 @@ private fun PreviewCoverStack(
 private val LibraryAuthorSeriesPreviewBooksPresentation.returnedBooks
     get() = (this as? LibraryAuthorSeriesPreviewBooksPresentation.Returned)?.books.orEmpty()
 
-private val AUTHOR_SERIES_PRIMARY_CONTENT_WIDTH = 220.dp
+private val AUTHOR_SERIES_ROW_PADDING = 14.dp
+private val AUTHOR_SERIES_CONTENT_SPACING = 14.dp
+private val AUTHOR_SERIES_ROW_CHROME_WIDTH =
+    AUTHOR_SERIES_ROW_PADDING * 2 + AUTHOR_SERIES_CONTENT_SPACING
 private val AUTHOR_SERIES_COVER_WIDTH = 48.dp
 private val AUTHOR_SERIES_COVER_HEIGHT = 72.dp
 private val AUTHOR_SERIES_COVER_SPACING = 8.dp
