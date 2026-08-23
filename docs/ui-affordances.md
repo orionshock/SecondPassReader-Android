@@ -65,9 +65,11 @@ current, and focused on reusable product behavior rather than implementation his
 
 ## Preview imagery
 
-### Preview cover rows
+### Browse preview covers
 
-- Preview covers are lightweight navigation surfaces; an eligible cover may open Book Detail.
+- Author and Series preview covers are non-interactive supporting imagery; the containing entity
+  row owns the touch action.
+- Avoid nested preview-cover touch targets on touch-first layouts.
 - Do not add overflow menus, long-press actions, footers, Reader actions, or Session actions to
   preview art.
 - Derive visible preview capacity from available layout width where returned data allows it.
@@ -76,6 +78,13 @@ current, and focused on reusable product behavior rather than implementation his
 - Preserve the full one-line entity name before allocating preview space. Preview count may vary by
   row and may fall to zero rather than wrapping, truncating, or displacing the name.
 - Preserve cover proportions and minimum spacing while using the available preview region fully.
+
+### Selected axis context
+
+- When a Library Author or Series is selected, the active axis pill gains a subtle trailing return
+  indicator.
+- Tapping that selected axis returns to its index.
+- Do not add redundant Back rows for selected browse context.
 
 ### Decorative cover stacks
 

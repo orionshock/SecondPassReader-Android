@@ -1,7 +1,7 @@
 package com.secondpasslibrary.reader.library.axis
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,6 +21,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
@@ -32,10 +35,15 @@ import com.secondpasslibrary.reader.library.LibraryFailure
 @Composable
 internal fun LibraryAuthorSeriesCard(
     model: LibraryAuthorSeriesCardPresentation,
-    onSelect: (String) -> Unit,
-    onBookSelected: (String) -> Unit
+    entityTypeLabel: String,
+    onSelect: (String) -> Unit
 ) {
-    OutlinedCard(onClick = { onSelect(model.id) }) {
+    OutlinedCard(
+        onClick = { onSelect(model.id) },
+        modifier = Modifier.semantics(mergeDescendants = true) {
+            contentDescription = "Open $entityTypeLabel ${model.name}"
+        }
+    ) {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val titleStyle = MaterialTheme.typography.titleMedium
             val textMeasurer = rememberTextMeasurer()
@@ -78,18 +86,14 @@ internal fun LibraryAuthorSeriesCard(
                         style = MaterialTheme.typography.labelMedium
                     )
                 }
-                PreviewCoverStack(model.previews, capacity, onBookSelected)
+                PreviewCoverRow(model.previews, capacity)
             }
         }
     }
 }
 
 @Composable
-private fun PreviewCoverStack(
-    previews: LibraryAuthorSeriesPreviewBooksPresentation,
-    capacity: Int,
-    onBookSelected: (String) -> Unit
-) {
+private fun PreviewCoverRow(previews: LibraryAuthorSeriesPreviewBooksPresentation, capacity: Int) {
     when (previews) {
         LibraryAuthorSeriesPreviewBooksPresentation.Omitted -> Unit
 
@@ -104,17 +108,19 @@ private fun PreviewCoverStack(
                 val visibleBooks = previews.books.take(capacity)
                 Row(horizontalArrangement = Arrangement.spacedBy(AUTHOR_SERIES_COVER_SPACING)) {
                     visibleBooks.forEach { book ->
-                        PublicBookCover(
-                            reference = book.cover,
-                            title = book.title,
-                            modifier =
-                                Modifier
-                                    .size(
-                                        width = AUTHOR_SERIES_COVER_WIDTH,
-                                        height = AUTHOR_SERIES_COVER_HEIGHT
-                                    )
-                                    .clickable { onBookSelected(book.id) }
-                        )
+                        Box(
+                            Modifier
+                                .size(
+                                    width = AUTHOR_SERIES_COVER_WIDTH,
+                                    height = AUTHOR_SERIES_COVER_HEIGHT
+                                ).clearAndSetSemantics { }
+                        ) {
+                            PublicBookCover(
+                                reference = book.cover,
+                                title = book.title,
+                                modifier = Modifier.matchParentSize()
+                            )
+                        }
                     }
                 }
             }

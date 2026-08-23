@@ -29,6 +29,7 @@ import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 import com.secondpasslibrary.reader.library.LibraryAxis
+import com.secondpasslibrary.reader.library.LibraryResultKind
 import com.secondpasslibrary.reader.library.LibraryState
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -52,7 +53,7 @@ internal fun LibrarySelectorRow(
                 if (state.advancedGroupsEnabled) {
                     LibraryScopeMenu(state, onScopeSelected, onRetryGroups)
                 }
-                AxisChoices(state.axis, onAxisSelected)
+                AxisChoices(state.axis, state.selectedEntityAxis(), onAxisSelected)
             }
         }
         val secondary = @Composable {
@@ -165,11 +166,15 @@ private fun ScopeIcon(group: LibraryGroupSummary?) {
 }
 
 @Composable
-private fun AxisChoices(selected: LibraryAxis, onSelected: (LibraryAxis) -> Unit) {
+private fun AxisChoices(
+    selected: LibraryAxis,
+    returnContextAxis: LibraryAxis?,
+    onSelected: (LibraryAxis) -> Unit
+) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        AxisChip(LibraryAxis.BOOKS, AppIcon.Library, selected, onSelected)
-        AxisChip(LibraryAxis.AUTHORS, AppIcon.Author, selected, onSelected)
-        AxisChip(LibraryAxis.SERIES, AppIcon.Series, selected, onSelected)
+        AxisChip(LibraryAxis.BOOKS, AppIcon.Library, selected, returnContextAxis, onSelected)
+        AxisChip(LibraryAxis.AUTHORS, AppIcon.Author, selected, returnContextAxis, onSelected)
+        AxisChip(LibraryAxis.SERIES, AppIcon.Series, selected, returnContextAxis, onSelected)
     }
 }
 
@@ -178,12 +183,30 @@ private fun AxisChip(
     axis: LibraryAxis,
     icon: AppIcon,
     selected: LibraryAxis,
+    returnContextAxis: LibraryAxis?,
     onSelected: (LibraryAxis) -> Unit
 ) {
     FilterChip(
         selected = axis == selected,
         onClick = { onSelected(axis) },
         label = { Text(axis.name.lowercase().replaceFirstChar(Char::uppercase)) },
-        leadingIcon = { AppIconGraphic(icon, null) }
+        leadingIcon = { AppIconGraphic(icon, null) },
+        trailingIcon = {
+            if (axis == returnContextAxis) {
+                AppIconGraphic(
+                    AppIcon.Previous,
+                    "Return to ${axis.name.lowercase()} index",
+                    Modifier.size(16.dp),
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.72f)
+                )
+            }
+        }
     )
+}
+
+internal fun LibraryState.selectedEntityAxis(): LibraryAxis? = when {
+    resultKind != LibraryResultKind.BOOKS -> null
+    axis == LibraryAxis.AUTHORS && authors.selected != null -> LibraryAxis.AUTHORS
+    axis == LibraryAxis.SERIES && series.selected != null -> LibraryAxis.SERIES
+    else -> null
 }
