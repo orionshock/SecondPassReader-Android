@@ -14,6 +14,7 @@ internal fun MarginaliaStateHost(
     onOpenDrawer: () -> Unit,
     onBackFromHistory: (() -> Unit)? = null,
     onBackFromDetail: (() -> Unit)? = null,
+    onNavigation: (MarginaliaExternalNavigationIntent) -> Unit = {},
     onAuthenticationRejected: () -> Unit,
     viewModel: MarginaliaViewModel = viewModel()
 ) {
@@ -27,6 +28,9 @@ internal fun MarginaliaStateHost(
                 MarginaliaConnectionEvent.AuthenticationRejected -> onAuthenticationRejected()
             }
         }
+    }
+    LaunchedEffect(viewModel, onNavigation) {
+        viewModel.navigation.collect(onNavigation)
     }
     MarginaliaScreen(viewModel, onOpenDrawer, onBackFromHistory, onBackFromDetail)
 }

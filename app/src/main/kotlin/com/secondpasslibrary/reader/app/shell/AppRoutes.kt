@@ -37,6 +37,16 @@ sealed interface BookDetailReturnTarget {
     data object Home : BookDetailReturnTarget
 
     @Serializable
+    data object Marginalia : BookDetailReturnTarget
+
+    @Serializable
+    data class ReadingSessionDetail(val route: ReadingSessionDetailRoute) :
+        BookDetailReturnTarget
+
+    @Serializable
+    data class BookMarginalia(val route: BookMarginaliaRoute) : BookDetailReturnTarget
+
+    @Serializable
     data class ShelfDetail(val shelfId: String, val origin: ShelfCollectionOrigin) :
         BookDetailReturnTarget
 }
@@ -92,11 +102,7 @@ internal fun NavKey.topLevelDestination(): AppDestination = when (this) {
 
     is ShelfDetailRoute -> AppDestination.Shelves
 
-    is BookDetailRoute -> when (returnTarget) {
-        BookDetailReturnTarget.Home -> AppDestination.Home
-        BookDetailReturnTarget.Library -> AppDestination.Library
-        is BookDetailReturnTarget.ShelfDetail -> AppDestination.Shelves
-    }
+    is BookDetailRoute -> returnTarget.topLevelDestination()
 
     is BookMarginaliaRoute -> when (val target = returnTarget) {
         is MarginaliaReturnTarget.BookDetail -> target.route.topLevelDestination()
@@ -110,4 +116,13 @@ internal fun NavKey.topLevelDestination(): AppDestination = when (this) {
     is AppDestination -> this
 
     else -> AppDestination.Home
+}
+
+private fun BookDetailReturnTarget.topLevelDestination(): AppDestination = when (this) {
+    BookDetailReturnTarget.Home -> AppDestination.Home
+    BookDetailReturnTarget.Library -> AppDestination.Library
+    BookDetailReturnTarget.Marginalia -> AppDestination.Marginalia
+    is BookDetailReturnTarget.ReadingSessionDetail -> route.topLevelDestination()
+    is BookDetailReturnTarget.BookMarginalia -> route.topLevelDestination()
+    is BookDetailReturnTarget.ShelfDetail -> AppDestination.Shelves
 }

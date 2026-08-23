@@ -85,7 +85,7 @@ private fun LibraryContent(
     onOpenDrawer: () -> Unit
 ) {
     Column(Modifier.fillMaxSize()) {
-        ContextualAppBar(state.appBarPresentation(), onOpenDrawer)
+        ContextualAppBar(state.appBarPresentation(), onNavigation = onOpenDrawer)
         LibraryBrowseContent(
             state,
             onSearch,

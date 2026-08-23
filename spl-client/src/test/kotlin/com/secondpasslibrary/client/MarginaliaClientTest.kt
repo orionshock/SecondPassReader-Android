@@ -26,7 +26,9 @@ class MarginaliaClientTest {
             jsonResponse(MARGINALIA_BOOK_PAGE)
         }
 
-        val page = client.marginalia.books.list(MarginaliaBookListOptions(page = 2, pageSize = 50))
+        val page = client.marginalia.books.list(
+            MarginaliaBookListOptions(page = 2, pageSize = 50, q = "dresden")
+        )
 
         assertEquals(3, page.totalCount)
         assertTrue(page.hasNext)
@@ -44,6 +46,7 @@ class MarginaliaClientTest {
         assertEquals("/api/v1/marginalia/books/", request?.url?.encodedPath)
         assertEquals("2", request?.url?.parameters?.get("page"))
         assertEquals("50", request?.url?.parameters?.get("page_size"))
+        assertEquals("dresden", request?.url?.parameters?.get("q"))
         assertEquals("Bearer spl_secret", request?.headers?.get(HttpHeaders.Authorization))
     }
 

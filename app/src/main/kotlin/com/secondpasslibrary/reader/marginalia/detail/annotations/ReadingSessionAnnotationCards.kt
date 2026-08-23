@@ -19,7 +19,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
@@ -38,8 +37,9 @@ internal fun ReadingSessionAnnotationCard(model: ReadingSessionAnnotationPresent
 @Composable
 private fun BookmarkCard(model: ReadingSessionAnnotationPresentation.Bookmark) {
     AnnotationSurface {
-        AnnotationHeading(AppIcon.Bookmark, model.label, model.updatedLabel)
-        model.locationLabel?.let { AnnotationLocation(it) }
+        AnnotationContent(AppIcon.Bookmark, model.updatedLabel) {
+            AnnotationLocation(model.locationLabel ?: model.label)
+        }
     }
 }
 
@@ -47,17 +47,12 @@ private fun BookmarkCard(model: ReadingSessionAnnotationPresentation.Bookmark) {
 private fun HighlightCard(model: ReadingSessionAnnotationPresentation.Highlight) {
     val palette = annotationHighlightPalette(model.tone)
     AnnotationSurface {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Box(Modifier.width(3.dp).heightIn(min = 76.dp).background(palette.accent))
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(7.dp)
+            AnnotationContent(
+                if (model.note == null) AppIcon.Highlight else AppIcon.HighlightWithNote,
+                model.updatedLabel
             ) {
-                AnnotationHeading(
-                    if (model.note == null) AppIcon.Highlight else AppIcon.HighlightWithNote,
-                    model.label,
-                    model.updatedLabel
-                )
                 Text(
                     model.quote,
                     modifier = Modifier.fillMaxWidth().background(
@@ -91,19 +86,24 @@ private fun AnnotationSurface(content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun AnnotationHeading(icon: AppIcon, label: String, updatedLabel: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        AppIconGraphic(icon, null, tint = MaterialTheme.colorScheme.primary)
-        Text(
-            label,
-            modifier = Modifier.padding(start = 8.dp).weight(1f),
-            fontWeight = FontWeight.SemiBold
-        )
-        Text(
-            updatedLabel,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelSmall
-        )
+private fun AnnotationContent(
+    icon: AppIcon,
+    updatedLabel: String,
+    content: @Composable () -> Unit
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(Modifier.width(28.dp), contentAlignment = Alignment.TopCenter) {
+            AppIconGraphic(icon, null, tint = MaterialTheme.colorScheme.primary)
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            content()
+            Text(
+                updatedLabel,
+                modifier = Modifier.align(Alignment.End),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelSmall
+            )
+        }
     }
 }
 

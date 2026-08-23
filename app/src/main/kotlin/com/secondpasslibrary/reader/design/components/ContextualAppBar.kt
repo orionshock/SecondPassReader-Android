@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.design.components
 
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -44,9 +45,13 @@ internal data class AppBarPresentation(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun ContextualAppBar(presentation: AppBarPresentation, onNavigation: () -> Unit) {
+internal fun ContextualAppBar(
+    presentation: AppBarPresentation,
+    titleActions: @Composable RowScope.() -> Unit = {},
+    onNavigation: () -> Unit
+) {
     TopAppBar(
-        title = { ContextualAppBarTitle(presentation) },
+        title = { ContextualAppBarTitle(presentation, titleActions) },
         navigationIcon = {
             IconButton(onClick = onNavigation) {
                 val back = presentation.navigation == AppBarNavigation.BACK
@@ -65,7 +70,10 @@ internal fun ContextualAppBar(presentation: AppBarPresentation, onNavigation: ()
 }
 
 @Composable
-private fun ContextualAppBarTitle(presentation: AppBarPresentation) {
+private fun ContextualAppBarTitle(
+    presentation: AppBarPresentation,
+    titleActions: @Composable RowScope.() -> Unit
+) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val availableWidth = maxWidth
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -77,6 +85,7 @@ private fun ContextualAppBarTitle(presentation: AppBarPresentation) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+            titleActions()
             ContextualAppBarMetadata(presentation.metadata)
         }
     }

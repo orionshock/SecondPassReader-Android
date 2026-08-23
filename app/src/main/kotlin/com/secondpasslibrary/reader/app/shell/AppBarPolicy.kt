@@ -9,5 +9,8 @@ internal fun AppDestination.rootAppBarPresentation() =
 internal fun BookDetailReturnTarget.appBarContextLabel(): String = when (this) {
     BookDetailReturnTarget.Home -> "Home"
     BookDetailReturnTarget.Library -> "Library"
+    BookDetailReturnTarget.Marginalia -> "Marginalia"
+    is BookDetailReturnTarget.ReadingSessionDetail -> "Reading session"
+    is BookDetailReturnTarget.BookMarginalia -> "Reading sessions"
     is BookDetailReturnTarget.ShelfDetail -> "Shelves"
 }

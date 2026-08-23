@@ -51,7 +51,11 @@ internal class KtorMarginaliaBooksClient(
     override suspend fun list(
         options: MarginaliaBookListOptions
     ): MarginaliaPage<MarginaliaBookSummary> {
-        val response = requests.get("marginalia/books/", options.pageParameters())
+        val parameters = buildList {
+            options.q?.let { add("q" to it) }
+            addAll(options.pageParameters())
+        }
+        val response = requests.get("marginalia/books/", parameters)
         return json.decodeProtocolBody<MarginaliaBookPageWire>(response.body(), "marginalia books")
             .toModel(options.page, options.pageSize)
     }

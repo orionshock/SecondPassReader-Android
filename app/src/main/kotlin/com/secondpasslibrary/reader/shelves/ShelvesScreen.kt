@@ -196,7 +196,7 @@ private fun ShelvesScaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            ContextualAppBar(presentation, onNavigation)
+            ContextualAppBar(presentation, onNavigation = onNavigation)
         }
     ) { padding -> content(Modifier.fillMaxSize().padding(padding)) }
 }

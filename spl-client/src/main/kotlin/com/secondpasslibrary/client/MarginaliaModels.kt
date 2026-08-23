@@ -2,7 +2,8 @@ package com.secondpasslibrary.client
 
 data class MarginaliaBookListOptions(
     val page: Int = DEFAULT_MARGINALIA_PAGE,
-    val pageSize: Int = DEFAULT_MARGINALIA_PAGE_SIZE
+    val pageSize: Int = DEFAULT_MARGINALIA_PAGE_SIZE,
+    val q: String? = null
 ) {
     init {
         validateMarginaliaPage(page, pageSize)

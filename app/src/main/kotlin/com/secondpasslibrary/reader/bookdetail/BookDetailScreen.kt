@@ -38,7 +38,7 @@ internal fun BookDetailScreen(
     onAddToShelf: () -> Unit
 ) {
     Column(Modifier.fillMaxSize()) {
-        ContextualAppBar(state.appBarPresentation(appBarContext), onBack)
+        ContextualAppBar(state.appBarPresentation(appBarContext), onNavigation = onBack)
         when {
             state.loading -> DetailLoading()
 

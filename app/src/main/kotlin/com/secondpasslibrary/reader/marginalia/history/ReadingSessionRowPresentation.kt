@@ -45,15 +45,23 @@ internal val ReadingSessionStatusFilter.presentationLabel: String
 
 internal fun ReadingSessionsState.appBarPresentation(): AppBarPresentation = when (context) {
     MarginaliaHistoryContext.Global ->
-        AppBarPresentation(AppBarNavigation.MENU, title = "Marginalia")
+        AppBarPresentation(
+            AppBarNavigation.MENU,
+            title = "Marginalia",
+            metadata = loadedSessionCountLabel()
+        )
 
     is MarginaliaHistoryContext.Book ->
         AppBarPresentation(
             AppBarNavigation.BACK,
             context = book?.title,
-            title = "Reading sessions"
+            title = "Reading sessions",
+            metadata = loadedSessionCountLabel()
         )
 }
+
+private fun ReadingSessionsState.loadedSessionCountLabel(): String? =
+    sessionCountLabel(totalCount).takeIf { currentPage > 0 }
 
 internal fun ReadingSessionsState.emptyMessage(): String = when {
     context is MarginaliaHistoryContext.Book -> "No reading sessions for this book."

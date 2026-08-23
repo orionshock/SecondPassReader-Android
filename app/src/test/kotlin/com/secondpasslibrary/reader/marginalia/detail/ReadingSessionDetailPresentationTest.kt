@@ -73,12 +73,11 @@ class ReadingSessionDetailPresentationTest {
     }
 
     @Test
-    fun `closed detail presents closed timestamp and read only notice`() {
+    fun `closed detail presents closed timestamp without redundant notice`() {
         val detail = detail(status = ReadingSessionStatus.CLOSED).toDetailPresentation(zone, locale)
 
         assertEquals("Closed", detail.statusLabel)
         assertFalse(detail.active)
-        assertEquals("This reading session is closed.", detail.closedNotice)
         assertEquals("Aug 1, 2026, 5:00\u202FPM", detail.closedLabel)
     }
 

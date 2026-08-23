@@ -7,6 +7,8 @@ import com.secondpasslibrary.client.AuthenticatedSecondPassClient
 import com.secondpasslibrary.client.BookReadingSessionHistory
 import com.secondpasslibrary.client.BookReadingSessionListOptions
 import com.secondpasslibrary.client.MarginaliaAnnotation
+import com.secondpasslibrary.client.MarginaliaBookListOptions
+import com.secondpasslibrary.client.MarginaliaBookSummary
 import com.secondpasslibrary.client.MarginaliaIdempotencyKey
 import com.secondpasslibrary.client.MarginaliaPage
 import com.secondpasslibrary.client.ReadingSessionBook
@@ -34,11 +36,16 @@ internal class RecordingMarginaliaCapability : AuthenticatedMarginaliaClient {
     val metadataRequests = mutableListOf<Pair<String, ReadingSessionMetadataInput>>()
     val closeRequests = mutableListOf<Pair<String, ReadingSessionFinalization>>()
     val activeSessionRequests = mutableListOf<String>()
+    val marginaliaBookRequests = mutableListOf<MarginaliaBookListOptions>()
     var openSessionRequests = 0
     var startOverRequests = 0
 
     var globalCall:
         suspend (ReadingSessionListOptions) -> MarginaliaPage<ReadingSessionListItem> = {
+            marginaliaPage(it.page, emptyList())
+        }
+    var marginaliaBooksCall:
+        suspend (MarginaliaBookListOptions) -> MarginaliaPage<MarginaliaBookSummary> = {
             marginaliaPage(it.page, emptyList())
         }
     var bookCall: suspend (String, BookReadingSessionListOptions) -> BookReadingSessionHistory =
@@ -64,6 +71,13 @@ internal class RecordingMarginaliaCapability : AuthenticatedMarginaliaClient {
 
     override val books = object : AuthenticatedMarginaliaBooksClient by
     FakeAuthenticatedMarginaliaClient.books {
+        override suspend fun list(
+            options: MarginaliaBookListOptions
+        ): MarginaliaPage<MarginaliaBookSummary> {
+            marginaliaBookRequests += options
+            return marginaliaBooksCall(options)
+        }
+
         override suspend fun listSessions(
             bookId: String,
             options: BookReadingSessionListOptions
@@ -177,6 +191,18 @@ internal fun sessionSummary(
 )
 
 internal fun sessionBook(id: String) = ReadingSessionBook(id, "Book $id", null, true)
+
+internal fun marginaliaBook(id: String) = MarginaliaBookSummary(
+    id = id,
+    title = "Book $id",
+    authors = emptyList(),
+    series = null,
+    cover = null,
+    canOpen = true,
+    sessionCount = 2,
+    activeSessionCount = 1,
+    lastActivityAt = "2026-08-23T12:00:00Z"
+)
 
 internal fun sessionItem(id: String, status: ReadingSessionStatus = ReadingSessionStatus.ACTIVE) =
     ReadingSessionListItem(sessionSummary(id, status), sessionBook("book-$id"))

@@ -120,6 +120,12 @@ current, and focused on reusable product behavior rather than implementation his
 - Make the selected state visually and semantically clear.
 - Avoid adjacent independent buttons for one binary choice.
 
+## Collection mode controls
+
+- Peer browse perspectives use one compact segmented mode control.
+- Feature-specific filters may sit beside the mode control in the app bar when width allows.
+- Authoritative result counts remain muted right-side app-bar metadata.
+
 ## Entity browse context
 
 - Selected Author or Series identity may extend the Library title context.
@@ -142,6 +148,20 @@ current, and focused on reusable product behavior rather than implementation his
   actions instead of shrinking their touch targets.
 - A disabled future action may remain visible when it communicates an intended product capability.
 - Avoid large placeholder or explanation containers for unavailable actions.
+
+## Session detail actions
+
+- Keep lifecycle actions such as Edit and Close with the Session metadata they modify.
+- Related Book navigation may use a separate object-action rail.
+- Visually distinguish modifying the current record from navigating to a related object.
+
+## Read-only annotation cards
+
+- Communicate annotation type with one semantic icon in a stable leading rail rather than a
+  repetitive type heading.
+- Treat quote, note, or useful location label as the primary content.
+- Never expose raw durable location identifiers in history presentation.
+- Read-only history surfaces omit edit and delete affordances.
 
 ## Adaptive detail heroes
 

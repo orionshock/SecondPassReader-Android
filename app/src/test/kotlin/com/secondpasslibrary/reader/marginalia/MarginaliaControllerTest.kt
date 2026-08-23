@@ -13,6 +13,67 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class MarginaliaControllerTest {
     @Test
+    fun `Sessions and Books modes retain independent child state`() = runTest {
+        val capability = RecordingMarginaliaCapability().apply {
+            globalCall = { marginaliaPage(it.page, listOf(sessionItem("session-1"))) }
+            marginaliaBooksCall = { marginaliaPage(it.page, listOf(marginaliaBook("book-1"))) }
+        }
+        val controller = MarginaliaController(marginaliaProvider(capability), this)
+        controller.initialize(marginaliaProfile())
+        advanceUntilIdle()
+        controller.sessions.commitSearch("session query")
+        advanceUntilIdle()
+
+        controller.selectBrowseMode(MarginaliaBrowseMode.BOOKS)
+        advanceUntilIdle()
+        controller.books.commitSearch("book query")
+        advanceUntilIdle()
+        controller.selectBrowseMode(MarginaliaBrowseMode.SESSIONS)
+
+        assertEquals(MarginaliaBrowseMode.SESSIONS, controller.state.value.browseMode)
+        assertEquals("session query", controller.sessions.state.value.committedQuery)
+        assertEquals("book query", controller.books.state.value.committedQuery)
+        assertEquals(0, capability.openSessionRequests)
+    }
+
+    @Test
+    fun `selecting a Marginalia Book enters scoped history and returns to Books`() = runTest {
+        val capability = RecordingMarginaliaCapability()
+        val controller = MarginaliaController(marginaliaProvider(capability), this)
+        controller.initialize(marginaliaProfile())
+        advanceUntilIdle()
+        controller.selectBrowseMode(MarginaliaBrowseMode.BOOKS)
+        advanceUntilIdle()
+
+        controller.selectBook("book-1")
+        advanceUntilIdle()
+        assertEquals(
+            MarginaliaDestination.History(
+                MarginaliaHistoryContext.Book("book-1"),
+                returnToBooks = true
+            ),
+            controller.state.value.destination
+        )
+        controller.selectSession("session-1")
+        advanceUntilIdle()
+        controller.backFromDetail()
+        assertEquals(
+            MarginaliaDestination.History(
+                MarginaliaHistoryContext.Book("book-1"),
+                returnToBooks = true
+            ),
+            controller.state.value.destination
+        )
+        controller.backFromBookHistory()
+
+        assertEquals(MarginaliaBrowseMode.BOOKS, controller.state.value.browseMode)
+        assertEquals(
+            MarginaliaDestination.History(MarginaliaHistoryContext.Global),
+            controller.state.value.destination
+        )
+    }
+
+    @Test
     fun `Book entry loads scoped history without creating a Reading Session`() = runTest {
         val capability = RecordingMarginaliaCapability()
         val controller = MarginaliaController(marginaliaProvider(capability), this)

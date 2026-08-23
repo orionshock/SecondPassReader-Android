@@ -17,14 +17,28 @@ internal enum class ReadingSessionDetailEntryAction {
     CLOSE
 }
 
-internal sealed interface MarginaliaDestination {
-    data class History(val context: MarginaliaHistoryContext) : MarginaliaDestination
+internal enum class MarginaliaBrowseMode {
+    SESSIONS,
+    BOOKS
+}
 
-    data class SessionDetail(val sessionId: String, val returnContext: MarginaliaHistoryContext) :
-        MarginaliaDestination
+internal sealed interface MarginaliaDestination {
+    data class History(
+        val context: MarginaliaHistoryContext,
+        val returnToBooks: Boolean = false,
+        val returnToDetail: SessionDetail? = null
+    ) : MarginaliaDestination
+
+    data class SessionDetail(
+        val sessionId: String,
+        val returnContext: MarginaliaHistoryContext,
+        val returnToBooks: Boolean = false,
+        val returnToDetail: SessionDetail? = null
+    ) : MarginaliaDestination
 }
 
 internal data class MarginaliaState(
+    val browseMode: MarginaliaBrowseMode = MarginaliaBrowseMode.SESSIONS,
     val destination: MarginaliaDestination =
         MarginaliaDestination.History(MarginaliaHistoryContext.Global)
 )

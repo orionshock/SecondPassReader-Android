@@ -7,10 +7,12 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -25,9 +27,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.design.book.PublicBookCover
+import com.secondpasslibrary.reader.design.icons.AppIcon
+import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 import com.secondpasslibrary.reader.marginalia.MarginaliaFailure
 import com.secondpasslibrary.reader.marginalia.detail.annotations.AnnotationFailure
 import com.secondpasslibrary.reader.marginalia.detail.annotations.AnnotationLoading
@@ -79,7 +86,9 @@ internal data class ReadingSessionDetailActions(
     val closeNameChanged: (String) -> Unit,
     val closeNotesChanged: (String) -> Unit,
     val confirmClose: () -> Unit,
-    val cancelClose: () -> Unit
+    val cancelClose: () -> Unit,
+    val openBookMarginalia: () -> Unit,
+    val openBookDetail: () -> Unit
 )
 
 @Composable
@@ -94,7 +103,7 @@ private fun LoadedSessionDetail(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { SessionDetailHero(detail, actions.beginEdit, actions.beginClose) }
+        item { SessionDetailHero(detail, actions) }
         item {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Text(
@@ -128,8 +137,7 @@ private fun LoadedSessionDetail(
 @Composable
 private fun SessionDetailHero(
     detail: ReadingSessionDetailPresentation,
-    onBeginEdit: () -> Unit,
-    onBeginClose: () -> Unit
+    actions: ReadingSessionDetailActions
 ) {
     Surface(
         shape = MaterialTheme.shapes.medium,
@@ -137,18 +145,47 @@ private fun SessionDetailHero(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         BoxWithConstraints(Modifier.fillMaxWidth().padding(16.dp)) {
-            if (maxWidth >= 900.dp) {
+            if (maxWidth >= 820.dp) {
                 Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                     SessionCover(detail, Modifier.width(170.dp).height(250.dp))
-                    SessionMetadata(detail, onBeginEdit, onBeginClose, Modifier.weight(1f))
+                    SessionMetadata(
+                        detail,
+                        actions.beginEdit,
+                        actions.beginClose,
+                        Modifier.weight(1f)
+                    )
+                    SessionBookActions(
+                        detail,
+                        actions,
+                        vertical = true,
+                        modifier = Modifier.width(170.dp)
+                    )
                 }
-            } else {
+            } else if (maxWidth >= 560.dp) {
                 Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    SessionCover(detail, Modifier.width(130.dp).height(192.dp))
-                    SessionMetadata(detail, onBeginEdit, onBeginClose, Modifier.fillMaxWidth())
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        SessionCover(detail, Modifier.width(130.dp).height(192.dp))
+                        SessionMetadata(
+                            detail,
+                            actions.beginEdit,
+                            actions.beginClose,
+                            Modifier.weight(1f)
+                        )
+                    }
+                    SessionBookActions(detail, actions, vertical = false)
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    SessionCover(detail, Modifier.width(110.dp).height(162.dp))
+                    SessionMetadata(
+                        detail,
+                        actions.beginEdit,
+                        actions.beginClose,
+                        Modifier.fillMaxWidth()
+                    )
+                    SessionBookActions(detail, actions, vertical = false)
                 }
             }
         }
@@ -179,15 +216,9 @@ private fun SessionMetadata(
             style = MaterialTheme.typography.titleMedium
         )
         SessionStatusLine(detail)
-        detail.progressLocation?.let { MetadataLine("Progress", it) }
-        MetadataLine("Started", detail.startedLabel)
-        MetadataLine("Updated", detail.updatedLabel)
-        detail.closedLabel?.let { MetadataLine("Closed", it) }
-        detail.notes?.let { MetadataLine("Notes", it) }
-        detail.closedNotice?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         if (detail.active) {
             Row(
-                modifier = Modifier.padding(top = 6.dp),
+                modifier = Modifier.padding(top = 2.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedButton(onClick = onBeginEdit) { Text("Edit session") }
@@ -201,6 +232,77 @@ private fun SessionMetadata(
                     Text("Close session")
                 }
             }
+        }
+        detail.progressLocation?.let { MetadataLine("Progress", it) }
+        MetadataLine("Started", detail.startedLabel)
+        MetadataLine("Updated", detail.updatedLabel)
+        detail.closedLabel?.let { MetadataLine("Closed", it) }
+        detail.notes?.let { MetadataLine("Notes", it) }
+    }
+}
+
+@Composable
+private fun SessionBookActions(
+    detail: ReadingSessionDetailPresentation,
+    actions: ReadingSessionDetailActions,
+    vertical: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val items = listOf(
+        SessionBookAction("Read book", AppIcon.Book, false) {},
+        SessionBookAction(
+            "Book marginalia",
+            AppIcon.ReadingHistory,
+            true,
+            actions.openBookMarginalia
+        ),
+        SessionBookAction(
+            "Book details",
+            AppIcon.Library,
+            detail.canOpenBook,
+            actions.openBookDetail
+        )
+    )
+    if (vertical) {
+        Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items.forEach { SessionBookActionTile(it, Modifier.fillMaxWidth()) }
+        }
+    } else {
+        Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items.forEach { SessionBookActionTile(it, Modifier.weight(1f)) }
+        }
+    }
+}
+
+private data class SessionBookAction(
+    val label: String,
+    val icon: AppIcon,
+    val enabled: Boolean,
+    val onClick: () -> Unit
+)
+
+@Composable
+private fun SessionBookActionTile(action: SessionBookAction, modifier: Modifier) {
+    OutlinedButton(
+        onClick = action.onClick,
+        enabled = action.enabled,
+        modifier = modifier.height(82.dp).semantics {
+            if (!action.enabled) contentDescription = "${action.label}, unavailable"
+        },
+        contentPadding = PaddingValues(6.dp)
+    ) {
+        Column(
+            Modifier.fillMaxHeight(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            AppIconGraphic(action.icon, null, Modifier.size(22.dp))
+            Text(
+                action.label,
+                modifier = Modifier.padding(top = 4.dp),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }

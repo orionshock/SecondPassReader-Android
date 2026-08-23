@@ -18,6 +18,7 @@ import com.secondpasslibrary.reader.home.HomeScreen
 import com.secondpasslibrary.reader.library.LibraryExternalNavigation
 import com.secondpasslibrary.reader.library.LibraryStateHost
 import com.secondpasslibrary.reader.library.books.LibraryBooksEntry
+import com.secondpasslibrary.reader.marginalia.MarginaliaExternalNavigationIntent
 import com.secondpasslibrary.reader.marginalia.MarginaliaHistoryContext
 import com.secondpasslibrary.reader.marginalia.MarginaliaStateHost
 import com.secondpasslibrary.reader.marginalia.ReadingSessionDetailEntry
@@ -115,6 +116,12 @@ private fun EntryProviderScope<NavKey>.registerAuthenticatedTopLevelEntries(
             MarginaliaStateHost(
                 profile = bindings.profile,
                 onOpenDrawer = bindings.onOpenDrawer,
+                onNavigation = { intent ->
+                    bindings.navigator.handleMarginaliaNavigation(
+                        intent,
+                        BookDetailReturnTarget.Marginalia
+                    )
+                },
                 onAuthenticationRejected = bindings.onAuthenticationRejected
             )
         }
@@ -197,6 +204,12 @@ private fun EntryProviderScope<NavKey>.registerBookMarginaliaEntry(
                 initialContext = MarginaliaHistoryContext.Book(route.bookId),
                 onOpenDrawer = bindings.onOpenDrawer,
                 onBackFromHistory = bindings.navigator::goBack,
+                onNavigation = { intent ->
+                    bindings.navigator.handleMarginaliaNavigation(
+                        intent,
+                        BookDetailReturnTarget.BookMarginalia(route)
+                    )
+                },
                 onAuthenticationRejected = bindings.onAuthenticationRejected
             )
         }
@@ -217,9 +230,27 @@ private fun EntryProviderScope<NavKey>.registerReadingSessionDetailEntry(
                     ),
                 onOpenDrawer = bindings.onOpenDrawer,
                 onBackFromDetail = bindings.navigator::goBack,
+                onNavigation = { intent ->
+                    bindings.navigator.handleMarginaliaNavigation(
+                        intent,
+                        BookDetailReturnTarget.ReadingSessionDetail(route)
+                    )
+                },
                 onAuthenticationRejected = bindings.onAuthenticationRejected
             )
         }
+    }
+}
+
+private fun AppNavigator.handleMarginaliaNavigation(
+    intent: MarginaliaExternalNavigationIntent,
+    returnTarget: BookDetailReturnTarget
+) {
+    when (intent) {
+        is MarginaliaExternalNavigationIntent.BookDetail ->
+            openBookDetail(intent.bookId, returnTarget)
+
+        is MarginaliaExternalNavigationIntent.Reader -> Unit
     }
 }
 

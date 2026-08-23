@@ -10,6 +10,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
 @HiltViewModel
+@Suppress("TooManyFunctions") // Intent methods preserve the controller command boundary.
 internal class MarginaliaViewModel
 @Inject
 constructor(
@@ -19,11 +20,13 @@ constructor(
 
     val state = controller.state
     val sessionsState = controller.sessions.state
+    val booksState = controller.books.state
     val detailState = controller.detail.state
     val annotationState = controller.detail.annotations.state
     val metadataEditState = controller.detail.metadataEditor.state
     val closeState = controller.detail.closeFlow.state
     val connectionEvents = controller.connectionEvents
+    val navigation = controller.navigation
 
     fun initialize(
         profile: ConnectionProfile,
@@ -33,11 +36,29 @@ constructor(
 
     fun changeStatus(filter: ReadingSessionStatusFilter) = controller.sessions.changeStatus(filter)
 
+    fun selectBrowseMode(mode: MarginaliaBrowseMode) = controller.selectBrowseMode(mode)
+
     fun commitSearch(query: String) = controller.sessions.commitSearch(query)
 
     fun loadNextPage() = controller.sessions.loadNextPage()
 
     fun retrySessions() = controller.sessions.retry()
+
+    fun commitBooksSearch(query: String) = controller.books.commitSearch(query)
+
+    fun loadNextBooksPage() = controller.books.loadNextPage()
+
+    fun retryBooks() = controller.books.retry()
+
+    fun selectBook(bookId: String) = controller.selectBook(bookId)
+
+    fun backFromBookHistory() = controller.backFromBookHistory()
+
+    fun showDetailBookHistory() = controller.showDetailBookHistory()
+
+    fun openDetailBook() {
+        controller.detail.state.value.detail?.book?.id?.let(controller::openBookDetail)
+    }
 
     fun selectSession(sessionId: String) = controller.selectSession(sessionId)
 

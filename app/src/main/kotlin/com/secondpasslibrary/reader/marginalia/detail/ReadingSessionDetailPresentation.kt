@@ -22,7 +22,7 @@ internal data class ReadingSessionDetailPresentation(
     val startedLabel: String,
     val updatedLabel: String,
     val closedLabel: String?,
-    val closedNotice: String?
+    val canOpenBook: Boolean
 )
 
 internal fun ReadingSessionDetailState.appBarPresentation(): AppBarPresentation {
@@ -55,6 +55,6 @@ internal fun ReadingSessionDetailResult.toDetailPresentation(
         startedLabel = formatSessionTimestamp(summary.startedAt, zoneId, locale),
         updatedLabel = formatSessionTimestamp(summary.updatedAt, zoneId, locale),
         closedLabel = summary.closedAt?.let { formatSessionTimestamp(it, zoneId, locale) },
-        closedNotice = if (closed) "This reading session is closed." else null
+        canOpenBook = book.canOpen
     )
 }
