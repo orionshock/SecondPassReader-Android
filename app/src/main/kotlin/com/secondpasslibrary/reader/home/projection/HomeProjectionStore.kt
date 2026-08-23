@@ -53,6 +53,8 @@ internal data class HomeProjectionSnapshot<T>(val items: List<T>, val fetchedAt:
 internal interface HomeProjectionStore {
     suspend fun hasSnapshot(account: HomeAccountScopeKey): Boolean
 
+    suspend fun purgeAccount(account: HomeAccountScopeKey)
+
     suspend fun readRecentReading(
         account: HomeAccountScopeKey,
         variant: HomeRecentReadingVariant

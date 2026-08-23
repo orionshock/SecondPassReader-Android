@@ -15,6 +15,7 @@ internal constructor(
     profileStore: ConnectionProfileStore,
     credentialStore: BearerCredentialStore,
     accountContextStore: PersistedAccountContextStore,
+    accountLocalDataCleaner: AccountLocalDataCleaner,
     pollDelay: CoroutinePairingPollDelay,
     clientNameProvider: AndroidClientNameProvider
 ) : ViewModel() {
@@ -24,6 +25,7 @@ internal constructor(
             profileStore = profileStore,
             credentialStore = credentialStore,
             accountContextStore = accountContextStore,
+            accountLocalDataCleaner = accountLocalDataCleaner,
             pollDelay = pollDelay,
             defaultClientName = clientNameProvider.defaultName(),
             scope = viewModelScope
@@ -32,30 +34,27 @@ internal constructor(
     val state = coordinator.state
     internal val localAccountContext = coordinator.localAccountContext
     val onAuthenticatedRequestRejected: () -> Unit = coordinator::authenticatedRequestRejected
+    internal val screenActions =
+        ConnectionScreenActions(
+            updateServerUrl = coordinator::updateServerUrl,
+            verifyServer = coordinator::verifyServer,
+            updateClientName = coordinator::updateClientName,
+            beginPairing = coordinator::beginPairing,
+            relinkLocalAccount = coordinator::relinkLocalAccount,
+            abandonPairing = coordinator::abandonPairing,
+            retryProfilePersistence = coordinator::retryProfilePersistence,
+            retryStoredVerification = coordinator::retryStoredVerification,
+            retryRestore = coordinator::restore,
+            forgetLocalConnection = coordinator::forgetLocalConnection
+        )
 
     init {
         coordinator.restore()
     }
 
-    fun updateServerUrl(value: String) = coordinator.updateServerUrl(value)
-
-    fun verifyServer() = coordinator.verifyServer()
-
-    fun updateClientName(value: String) = coordinator.updateClientName(value)
-
-    fun beginPairing() = coordinator.beginPairing()
-
     fun pairingForegrounded() = coordinator.pairingForegrounded()
 
-    fun abandonPairing() = coordinator.abandonPairing()
-
-    fun retryProfilePersistence() = coordinator.retryProfilePersistence()
-
-    fun retryStoredVerification() = coordinator.retryStoredVerification()
-
     fun retryRestore() = coordinator.restore()
-
-    fun forgetLocalConnection() = coordinator.forgetLocalConnection()
 
     override fun onCleared() {
         coordinator.close()

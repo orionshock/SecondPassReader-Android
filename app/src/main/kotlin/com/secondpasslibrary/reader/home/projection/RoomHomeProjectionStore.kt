@@ -11,10 +11,15 @@ internal class RoomHomeProjectionStore
 @Inject
 constructor(
     private val recentReadingDao: RecentReadingProjectionDao,
-    private val shelfDao: ShelfProjectionDao
+    private val shelfDao: ShelfProjectionDao,
+    private val cleanupDao: HomeProjectionCleanupDao
 ) : HomeProjectionStore {
     override suspend fun hasSnapshot(account: HomeAccountScopeKey): Boolean =
         recentReadingDao.hasSnapshot(account.value) || shelfDao.hasSnapshot(account.value)
+
+    override suspend fun purgeAccount(account: HomeAccountScopeKey) {
+        cleanupDao.purgeAccount(account.value)
+    }
 
     override suspend fun readRecentReading(
         account: HomeAccountScopeKey,

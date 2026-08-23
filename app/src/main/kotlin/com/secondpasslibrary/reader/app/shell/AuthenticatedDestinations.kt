@@ -31,6 +31,8 @@ internal fun AccountDestinations(
     navigator: AppNavigator,
     onAuthenticationRejected: () -> Unit,
     onRetryConnection: () -> Unit,
+    onRelinkAccount: () -> Unit,
+    onForgetAccount: () -> Unit,
     onOpenDrawer: () -> Unit,
     modifier: Modifier
 ) {
@@ -45,6 +47,8 @@ internal fun AccountDestinations(
                 registerConnectionRequiredEntries(
                     session.authority,
                     onRetryConnection,
+                    onRelinkAccount,
+                    onForgetAccount,
                     onOpenDrawer
                 )
             } else {

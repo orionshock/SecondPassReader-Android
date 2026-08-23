@@ -5,6 +5,7 @@ internal data class ConnectionScreenActions(
     val verifyServer: () -> Unit,
     val updateClientName: (String) -> Unit,
     val beginPairing: () -> Unit,
+    val relinkLocalAccount: () -> Unit,
     val abandonPairing: () -> Unit,
     val retryProfilePersistence: () -> Unit,
     val retryStoredVerification: () -> Unit,

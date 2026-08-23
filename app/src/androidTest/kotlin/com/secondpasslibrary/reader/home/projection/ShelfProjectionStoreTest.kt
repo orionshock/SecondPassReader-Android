@@ -25,7 +25,8 @@ class ShelfProjectionStoreTest {
         store =
             RoomHomeProjectionStore(
                 database.recentReadingProjectionDao(),
-                database.shelfProjectionDao()
+                database.shelfProjectionDao(),
+                database.homeProjectionCleanupDao()
             )
     }
 

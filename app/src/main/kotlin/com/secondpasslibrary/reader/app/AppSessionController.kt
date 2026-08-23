@@ -32,7 +32,16 @@ internal class AppSessionController(
             is ConnectionUiState.Linked -> publishVerifiedShell(connection)
 
             ConnectionUiState.Restoring,
-            is ConnectionUiState.RestoreProblem -> resolveCachedShell(localAccount)
+            is ConnectionUiState.RestoreProblem,
+            is ConnectionUiState.AuthenticationRequired,
+            is ConnectionUiState.VerifyingServer,
+            is ConnectionUiState.ServerConfirmed,
+            is ConnectionUiState.StartingPairing,
+            is ConnectionUiState.WaitingForApproval,
+            is ConnectionUiState.CompletingPairing,
+            is ConnectionUiState.PersistenceRecovery,
+            is ConnectionUiState.StoredCredentialProblem,
+            is ConnectionUiState.TerminalPairingProblem -> resolveCachedShell(localAccount)
 
             else -> publishConnectionRequired(connection)
         }
@@ -103,6 +112,19 @@ internal class AppSessionController(
 
                 is ConnectionUiState.RestoreProblem ->
                     AppSessionAuthority.TransientFailure(currentConnection.message)
+
+                is ConnectionUiState.AuthenticationRequired ->
+                    AppSessionAuthority.AuthenticationRequired(currentConnection.message)
+
+                is ConnectionUiState.VerifyingServer,
+                is ConnectionUiState.ServerConfirmed,
+                is ConnectionUiState.StartingPairing,
+                is ConnectionUiState.WaitingForApproval,
+                is ConnectionUiState.CompletingPairing,
+                is ConnectionUiState.PersistenceRecovery,
+                is ConnectionUiState.StoredCredentialProblem,
+                is ConnectionUiState.TerminalPairingProblem ->
+                    AppSessionAuthority.Healing(currentConnection)
 
                 else -> return publishConnectionRequired(currentConnection)
             }

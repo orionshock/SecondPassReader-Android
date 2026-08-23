@@ -16,10 +16,18 @@ import com.secondpasslibrary.reader.app.AppSessionAuthority
 internal fun EntryProviderScope<NavKey>.registerConnectionRequiredEntries(
     authority: AppSessionAuthority,
     onRetryConnection: () -> Unit,
+    onRelinkAccount: () -> Unit,
+    onForgetAccount: () -> Unit,
     onOpenDrawer: () -> Unit
 ) {
     val content = @Composable {
-        ConnectionRequiredDestination(authority, onRetryConnection, onOpenDrawer)
+        ConnectionRequiredDestination(
+            authority,
+            onRetryConnection,
+            onRelinkAccount,
+            onForgetAccount,
+            onOpenDrawer
+        )
     }
     entry(key = AppDestination.Library) { content() }
     entry(key = AppDestination.Shelves) { content() }
@@ -37,6 +45,8 @@ internal fun EntryProviderScope<NavKey>.registerConnectionRequiredEntries(
 private fun ConnectionRequiredDestination(
     authority: AppSessionAuthority,
     onRetryConnection: () -> Unit,
+    onRelinkAccount: () -> Unit,
+    onForgetAccount: () -> Unit,
     onOpenDrawer: () -> Unit
 ) {
     Column(
@@ -45,15 +55,22 @@ private fun ConnectionRequiredDestination(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            if (authority is AppSessionAuthority.Restoring) {
-                "Reconnecting..."
-            } else {
-                "This section needs a connection."
+            when (authority) {
+                AppSessionAuthority.Restoring -> "Reconnecting..."
+
+                is AppSessionAuthority.AuthenticationRequired ->
+                    "Link this account again to use this section."
+
+                else -> "This section needs a connection."
             },
             style = MaterialTheme.typography.titleMedium
         )
         if (authority is AppSessionAuthority.TransientFailure) {
             Button(onClick = onRetryConnection) { Text("Retry connection") }
+        }
+        if (authority is AppSessionAuthority.AuthenticationRequired) {
+            Button(onClick = onRelinkAccount) { Text("Link again") }
+            Button(onClick = onForgetAccount) { Text("Forget") }
         }
         Button(onClick = onOpenDrawer) { Text("Open navigation") }
     }

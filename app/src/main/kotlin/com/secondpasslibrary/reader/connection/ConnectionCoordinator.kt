@@ -24,6 +24,7 @@ internal class ConnectionCoordinator(
     private val profileStore: ConnectionProfileStore,
     private val credentialStore: BearerCredentialStore,
     private val accountContextStore: PersistedAccountContextStore,
+    private val accountLocalDataCleaner: AccountLocalDataCleaner,
     private val pollDelay: PairingPollDelay,
     private val defaultClientName: String,
     private val scope: CoroutineScope
@@ -63,7 +64,7 @@ internal class ConnectionCoordinator(
         }
         if (profile == null || stored == null) {
             if (stored != null || profile != null) {
-                attempt { clearLocalConnection() }.onFailure {
+                attempt { clearConnectionPersistence() }.onFailure {
                     mutableState.value =
                         ConnectionUiState.LocalStorageProblem(ConnectionErrorPresenter.message(it))
                     return@replaceOperation
@@ -136,7 +137,35 @@ internal class ConnectionCoordinator(
 
     fun abandonPairing() {
         operation?.cancel()
-        mutableState.value = ConnectionUiState.ServerEntry()
+        mutableState.value =
+            mutableLocalAccountContext.value?.let {
+                ConnectionUiState.AuthenticationRequired(
+                    it.profile,
+                    "This account still needs to be linked again."
+                )
+            } ?: ConnectionUiState.ServerEntry()
+    }
+
+    fun relinkLocalAccount() {
+        val profile =
+            mutableLocalAccountContext.value?.profile
+                ?: (mutableState.value as? ConnectionUiState.AuthenticationRequired)?.profile
+                ?: return
+        replaceOperation {
+            mutableState.value = ConnectionUiState.VerifyingServer(profile.serverOrigin)
+            attempt { client.discoverServer(profile.serverOrigin) }
+                .onSuccess { server ->
+                    mutableState.value =
+                        ConnectionUiState.ServerConfirmed(server, profile.clientName)
+                }
+                .onFailure { failure ->
+                    mutableState.value =
+                        ConnectionUiState.AuthenticationRequired(
+                            profile,
+                            ConnectionErrorPresenter.message(failure)
+                        )
+                }
+        }
     }
 
     fun retryProfilePersistence() {
@@ -178,7 +207,7 @@ internal class ConnectionCoordinator(
     }
 
     fun forgetLocalConnection() = replaceOperation {
-        attempt { clearLocalConnection() }
+        attempt { forgetLocalAccount() }
             .onSuccess {
                 mutableState.value =
                     ConnectionUiState.ServerEntry(message = "Local connection data was removed.")
@@ -349,6 +378,23 @@ internal class ConnectionCoordinator(
                     connectionIdentity = profile.authenticatedConnectionIdentity,
                     profileId = context.currentUser.profileId
                 )
+            val previousAccount = mutableLocalAccountContext.value
+            if (previousAccount != null &&
+                previousAccount.persistedAccount.profileId != persistedAccount.profileId
+            ) {
+                val purgeResult = attempt {
+                    accountLocalDataCleaner.purge(previousAccount.localDataKey())
+                    accountContextStore.clear()
+                }
+                purgeResult.exceptionOrNull()?.let { failure ->
+                    mutableState.value =
+                        ConnectionUiState.LocalStorageProblem(
+                            ConnectionErrorPresenter.message(failure)
+                        )
+                    return
+                }
+                mutableLocalAccountContext.value = null
+            }
             attempt { accountContextStore.write(persistedAccount) }
                 .onSuccess {
                     mutableLocalAccountContext.value =
@@ -356,22 +402,12 @@ internal class ConnectionCoordinator(
                 }
             mutableState.value = ConnectionUiState.Linked(profile, context)
         } catch (_: SplClientException.AuthenticationRejected) {
-            if (restoring) {
-                attempt { clearLocalConnection() }
-                    .onSuccess {
-                        mutableState.value =
-                            ConnectionUiState.ServerEntry(
-                                message =
-                                    "The saved credential was revoked or rejected. " +
-                                        "Link this device again."
-                            )
-                    }
-                    .onFailure {
-                        mutableState.value =
-                            ConnectionUiState.LocalStorageProblem(
-                                ConnectionErrorPresenter.message(it)
-                            )
-                    }
+            if (restoring || mutableLocalAccountContext.value != null) {
+                mutableState.value =
+                    ConnectionUiState.AuthenticationRequired(
+                        profile,
+                        "The saved credential was revoked or rejected. Link this device again."
+                    )
             } else {
                 mutableState.value =
                     ConnectionUiState.StoredCredentialProblem(
@@ -392,7 +428,25 @@ internal class ConnectionCoordinator(
         }
     }
 
-    private suspend fun clearLocalConnection() {
+    private suspend fun forgetLocalAccount() {
+        val localDataKey =
+            mutableLocalAccountContext.value?.localDataKey()
+                ?: run {
+                    val profile = profileStore.read()
+                    accountContextStore.read()
+                        ?.takeIf { account -> profile != null && account.matches(profile) }
+                        ?.let { account ->
+                            AccountLocalDataKey(
+                                checkNotNull(profile).serverOrigin,
+                                account.profileId
+                            )
+                        }
+                }
+        localDataKey?.let { accountLocalDataCleaner.purge(it) }
+        clearConnectionPersistence()
+    }
+
+    private suspend fun clearConnectionPersistence() {
         mutableLocalAccountContext.value = null
         val profileResult = runCatching { profileStore.clear() }
         val credentialResult = runCatching { credentialStore.clear() }
@@ -430,10 +484,9 @@ internal class ConnectionCoordinator(
         val linked = mutableState.value as? ConnectionUiState.Linked ?: return
         operation?.cancel()
         mutableState.value =
-            ConnectionUiState.StoredCredentialProblem(
+            ConnectionUiState.AuthenticationRequired(
                 profile = linked.profile,
-                message = "The server rejected this device's stored credential.",
-                retryable = false
+                message = "The server rejected this device's stored credential. Link again."
             )
     }
 }

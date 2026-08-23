@@ -21,6 +21,10 @@ internal sealed interface AppSessionAuthority {
 
     data class TransientFailure(val message: String) : AppSessionAuthority
 
+    data class AuthenticationRequired(val message: String) : AppSessionAuthority
+
+    data class Healing(val connection: ConnectionUiState) : AppSessionAuthority
+
     data class Verified(val context: AuthenticatedContext) : AppSessionAuthority
 }
 

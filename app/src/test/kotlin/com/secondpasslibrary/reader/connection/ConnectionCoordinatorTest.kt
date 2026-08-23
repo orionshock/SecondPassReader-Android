@@ -230,7 +230,7 @@ class ConnectionCoordinatorTest {
     }
 
     @Test
-    fun `explicit local forget clears persisted account context`() = runTest {
+    fun `explicit local forget clears account context and account-scoped data`() = runTest {
         val accountContextStore = FakePersistedAccountContextStore().apply {
             stored =
                 PersistedAccountContext(
@@ -238,6 +238,7 @@ class ConnectionCoordinatorTest {
                     "profile-1"
                 )
         }
+        val cleaner = FakeAccountLocalDataCleaner()
         val coordinator =
             coordinator(
                 FakeClient(),
@@ -245,7 +246,8 @@ class ConnectionCoordinatorTest {
                 FakeCredentialStore().apply {
                     stored = StoredCredential(BearerCredential.restore("spl_secret"), null)
                 },
-                accountContextStore
+                accountContextStore,
+                cleaner = cleaner
             )
 
         coordinator.forgetLocalConnection()
@@ -254,6 +256,10 @@ class ConnectionCoordinatorTest {
         assertTrue(coordinator.state.value is ConnectionUiState.ServerEntry)
         assertTrue(accountContextStore.cleared)
         assertEquals(null, accountContextStore.stored)
+        assertEquals(
+            listOf(AccountLocalDataKey(profile().serverOrigin, "profile-1")),
+            cleaner.purged
+        )
     }
 
     @Test
@@ -374,7 +380,7 @@ class ConnectionCoordinatorTest {
     }
 
     @Test
-    fun `invalid restored credential is cleared`() = runTest {
+    fun `invalid restored credential retains same-account local state`() = runTest {
         val profile = profile()
         val profileStore = FakeProfileStore().apply { stored = profile }
         val credentialStore = FakeCredentialStore().apply {
@@ -394,11 +400,137 @@ class ConnectionCoordinatorTest {
         coordinator.restore()
         advanceUntilIdle()
 
-        assertTrue(coordinator.state.value is ConnectionUiState.ServerEntry)
-        assertTrue(profileStore.cleared)
-        assertTrue(credentialStore.cleared)
-        assertTrue(accountContextStore.cleared)
-        assertNull(coordinator.localAccountContext.value)
+        assertTrue(coordinator.state.value is ConnectionUiState.AuthenticationRequired)
+        assertFalse(profileStore.cleared)
+        assertFalse(credentialStore.cleared)
+        assertFalse(accountContextStore.cleared)
+        assertEquals(
+            LocalAccountContext(profile, accountContextStore.stored!!),
+            coordinator.localAccountContext.value
+        )
+    }
+
+    @Test
+    fun `same-account relink replaces connection identity without purging cache`() = runTest {
+        val oldProfile = profile(clientSessionId = "old-session")
+        val profileStore = FakeProfileStore().apply { stored = oldProfile }
+        val credentialStore = storedCredential()
+        val accountStore = FakePersistedAccountContextStore().apply {
+            stored =
+                PersistedAccountContext(oldProfile.authenticatedConnectionIdentity, "profile-1")
+        }
+        val cleaner = FakeAccountLocalDataCleaner()
+        val coordinator =
+            coordinator(
+                FakeClient(
+                    pollStatuses = ArrayDeque(listOf(PairingStatus.APPROVED)),
+                    authFailures = ArrayDeque(listOf(SplClientException.AuthenticationRejected())),
+                    issuedSessionId = "new-session"
+                ),
+                profileStore,
+                credentialStore,
+                accountStore,
+                cleaner
+            )
+
+        coordinator.restore()
+        advanceUntilIdle()
+        coordinator.relinkLocalAccount()
+        advanceUntilIdle()
+        coordinator.beginPairing()
+        advanceUntilIdle()
+
+        assertTrue(coordinator.state.value is ConnectionUiState.Linked)
+        assertTrue(cleaner.purged.isEmpty())
+        assertEquals("new-session", profileStore.stored?.clientSessionId)
+        assertEquals("new-session", accountStore.stored?.connectionIdentity?.clientSessionId)
+        assertEquals(
+            "profile-1",
+            coordinator.localAccountContext.value?.persistedAccount?.profileId
+        )
+    }
+
+    @Test
+    fun `different-account relink purges old account before adopting replacement`() = runTest {
+        val events = mutableListOf<String>()
+        val oldProfile = profile(clientSessionId = "old-session")
+        val accountStore = FakePersistedAccountContextStore(events).apply {
+            stored =
+                PersistedAccountContext(oldProfile.authenticatedConnectionIdentity, "profile-1")
+        }
+        val cleaner = FakeAccountLocalDataCleaner(events)
+        val coordinator =
+            coordinator(
+                FakeClient(
+                    events = events,
+                    pollStatuses = ArrayDeque(listOf(PairingStatus.APPROVED)),
+                    authFailures = ArrayDeque(listOf(SplClientException.AuthenticationRejected())),
+                    authenticatedProfileId = "profile-2",
+                    issuedSessionId = "new-session"
+                ),
+                FakeProfileStore(events).apply { stored = oldProfile },
+                storedCredential(),
+                accountStore,
+                cleaner
+            )
+
+        coordinator.restore()
+        advanceUntilIdle()
+        coordinator.relinkLocalAccount()
+        advanceUntilIdle()
+        coordinator.beginPairing()
+        advanceUntilIdle()
+
+        assertTrue(coordinator.state.value is ConnectionUiState.Linked)
+        assertEquals(
+            listOf(AccountLocalDataKey(oldProfile.serverOrigin, "profile-1")),
+            cleaner.purged
+        )
+        assertTrue(events.indexOf("purge") < events.lastIndexOf("account"))
+        assertEquals("profile-2", accountStore.stored?.profileId)
+        assertEquals(
+            "profile-2",
+            coordinator.localAccountContext.value?.persistedAccount?.profileId
+        )
+    }
+
+    @Test
+    fun `failed relink retains prior account and never purges before verification`() = runTest {
+        val oldProfile = profile()
+        val oldAccount =
+            PersistedAccountContext(oldProfile.authenticatedConnectionIdentity, "profile-1")
+        val cleaner = FakeAccountLocalDataCleaner()
+        val coordinator =
+            coordinator(
+                FakeClient(
+                    pollStatuses = ArrayDeque(listOf(PairingStatus.APPROVED)),
+                    authFailures =
+                        ArrayDeque(
+                            listOf(
+                                SplClientException.AuthenticationRejected(),
+                                SplClientException.AuthenticationRejected()
+                            )
+                        )
+                ),
+                FakeProfileStore().apply { stored = oldProfile },
+                storedCredential(),
+                FakePersistedAccountContextStore().apply { stored = oldAccount },
+                cleaner
+            )
+
+        coordinator.restore()
+        advanceUntilIdle()
+        coordinator.relinkLocalAccount()
+        advanceUntilIdle()
+        coordinator.beginPairing()
+        advanceUntilIdle()
+
+        assertTrue(coordinator.state.value is ConnectionUiState.AuthenticationRequired)
+        assertEquals(
+            oldAccount.profileId,
+            coordinator.localAccountContext.value?.persistedAccount?.profileId
+        )
+        assertTrue(cleaner.purged.isEmpty())
     }
 
     @Test
@@ -469,8 +601,7 @@ class ConnectionCoordinatorTest {
 
             coordinator.authenticatedRequestRejected()
 
-            val problem = coordinator.state.value as ConnectionUiState.StoredCredentialProblem
-            assertFalse(problem.retryable)
+            assertTrue(coordinator.state.value is ConnectionUiState.AuthenticationRequired)
             assertFalse(profileStore.cleared)
             assertFalse(credentialStore.cleared)
             assertFalse(accountContextStore.cleared)
@@ -508,12 +639,14 @@ class ConnectionCoordinatorTest {
         credentialStore: FakeCredentialStore,
         accountContextStore: FakePersistedAccountContextStore =
             FakePersistedAccountContextStore(),
+        cleaner: FakeAccountLocalDataCleaner = FakeAccountLocalDataCleaner(),
         timedDelay: Boolean = false
     ) = ConnectionCoordinator(
         client = client,
         profileStore = profileStore,
         credentialStore = credentialStore,
         accountContextStore = accountContextStore,
+        accountLocalDataCleaner = cleaner,
         pollDelay = PairingPollDelay { seconds -> if (timedDelay) delay(seconds * 1_000) },
         defaultClientName = "Second Pass Reader · Android",
         scope = this
@@ -524,8 +657,11 @@ class ConnectionCoordinatorTest {
         private val pollStatuses: ArrayDeque<PairingStatus> = ArrayDeque(),
         private val pollFailures: ArrayDeque<SplClientException> = ArrayDeque(),
         private val authFailure: Exception? = null,
+        private val authFailures: ArrayDeque<Exception> = ArrayDeque(),
         private val consumeFailure: Exception? = null,
-        private val verificationGate: CompletableDeferred<Unit>? = null
+        private val verificationGate: CompletableDeferred<Unit>? = null,
+        private val authenticatedProfileId: String = "profile-1",
+        private val issuedSessionId: String = "session-1"
     ) : SecondPassClient {
         var pollCalls = 0
         var consumeCalls = 0
@@ -550,7 +686,7 @@ class ConnectionCoordinatorTest {
             consumeFailure?.let { throw it }
             return PairingConsumption.CredentialIssued(
                 BearerCredential.restore("spl_secret"),
-                ClientSession("session-1", "Tablet", "second-pass-android-client")
+                ClientSession(issuedSessionId, "Tablet", "second-pass-android-client")
             )
         }
 
@@ -560,8 +696,9 @@ class ConnectionCoordinatorTest {
         ): AuthenticatedContext {
             events += "verify"
             verificationGate?.await()
+            authFailures.removeFirstOrNull()?.let { throw it }
             authFailure?.let { throw it }
-            return authenticatedContext()
+            return authenticatedContext(authenticatedProfileId)
         }
     }
 
@@ -637,6 +774,17 @@ class ConnectionCoordinatorTest {
         }
     }
 
+    private class FakeAccountLocalDataCleaner(
+        private val events: MutableList<String> = mutableListOf()
+    ) : AccountLocalDataCleaner {
+        val purged = mutableListOf<AccountLocalDataKey>()
+
+        override suspend fun purge(account: AccountLocalDataKey) {
+            events += "purge"
+            purged += account
+        }
+    }
+
     private companion object {
         fun server() = DiscoveredServer(
             ServerOrigin.fromUserInput("https://library.example"),
@@ -660,7 +808,7 @@ class ConnectionCoordinatorTest {
             3
         )
 
-        fun profile() = ConnectionProfile(
+        fun profile(clientSessionId: String = "session-1") = ConnectionProfile(
             "https://library.example",
             "https://library.example/",
             "https://library.example/api/v1/",
@@ -668,13 +816,13 @@ class ConnectionCoordinatorTest {
             "Books",
             "1.0",
             "2026-08-16",
-            "session-1",
+            clientSessionId,
             "Tablet",
             "second-pass-android-client"
         )
 
-        fun authenticatedContext() = AuthenticatedContext(
-            CurrentUser("reader", "", "", "", "profile-1", "reader", emptyList(), null, null, null),
+        fun authenticatedContext(profileId: String = "profile-1") = AuthenticatedContext(
+            CurrentUser("reader", "", "", "", profileId, "reader", emptyList(), null, null, null),
             AuthenticatedServerInfo("Library", "", "", false, null, "", null, "1.0", "")
         )
     }

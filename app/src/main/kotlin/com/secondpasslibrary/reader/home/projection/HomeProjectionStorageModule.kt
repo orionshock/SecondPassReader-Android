@@ -2,6 +2,8 @@ package com.secondpasslibrary.reader.home.projection
 
 import android.content.Context
 import androidx.room3.Room
+import com.secondpasslibrary.reader.connection.AccountLocalDataCleaner
+import com.secondpasslibrary.reader.home.HomeAccountLocalDataCleaner
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -16,6 +18,12 @@ internal abstract class HomeProjectionStorageModule {
     @Binds
     @Singleton
     abstract fun bindHomeProjectionStore(store: RoomHomeProjectionStore): HomeProjectionStore
+
+    @Binds
+    @Singleton
+    abstract fun bindAccountLocalDataCleaner(
+        cleaner: HomeAccountLocalDataCleaner
+    ): AccountLocalDataCleaner
 
     companion object {
         @Provides
@@ -35,5 +43,10 @@ internal abstract class HomeProjectionStorageModule {
         @Provides
         fun provideShelfProjectionDao(database: SecondPassReaderDatabase): ShelfProjectionDao =
             database.shelfProjectionDao()
+
+        @Provides
+        fun provideHomeProjectionCleanupDao(
+            database: SecondPassReaderDatabase
+        ): HomeProjectionCleanupDao = database.homeProjectionCleanupDao()
     }
 }

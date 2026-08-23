@@ -39,6 +39,9 @@ sealed interface ConnectionUiState {
     data class RestoreProblem(val profile: ConnectionProfile, val message: String) :
         ConnectionUiState
 
+    data class AuthenticationRequired(val profile: ConnectionProfile, val message: String) :
+        ConnectionUiState
+
     data class LocalStorageProblem(val message: String) : ConnectionUiState
 
     data class Linked(val profile: ConnectionProfile, val context: AuthenticatedContext) :

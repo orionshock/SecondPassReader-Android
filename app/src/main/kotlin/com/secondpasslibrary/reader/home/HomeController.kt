@@ -34,7 +34,19 @@ internal class HomeController(
     private var shelfLoad: Job? = null
 
     fun initializeCached(scope: HomeAccountScope) {
-        if (scope == cacheScope) return
+        if (scope == cacheScope) {
+            if (account != null) {
+                connectionIdentity = null
+                accountProfileId = null
+                account = null
+                authenticationRejectionReported = false
+                recentReadingLoad?.cancel()
+                shelfLoad?.cancel()
+                loadCachedRecentReading()
+                loadCachedShelves()
+            }
+            return
+        }
         cacheScope = scope
         connectionIdentity = null
         accountProfileId = null

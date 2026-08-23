@@ -85,6 +85,51 @@ class HomeControllerTest {
     }
 
     @Test
+    fun `authority removal cancels refresh and returns Home to cached-only behavior`() = runTest {
+        val account = projectionAccount()
+        val store = FakeHomeProjectionStore().apply {
+            seedRecent(account, ACTIVE_ONLY, listOf(recentItem("cached-reading")))
+            seedShelves(account, listOf(shelfItem("cached-shelf")))
+        }
+        val gate = CompletableDeferred<Unit>()
+        val provider =
+            FakeHomeAuthenticatedClientProvider(
+                FakeHomeAuthenticatedClient().apply {
+                    recentCall = {
+                        gate.await()
+                        emptyList()
+                    }
+                    shelfCall = {
+                        gate.await()
+                        emptyList()
+                    }
+                }
+            )
+        val controller = HomeController(homeRepository(store, provider), this)
+        controller.provideVerifiedAuthority(account.profile, account.profileId)
+        runCurrent()
+        val authenticatedAccesses = provider.accessCount
+
+        controller.initializeCached(account.scope)
+        advanceUntilIdle()
+        controller.retryRecentReading()
+        controller.retryShelves()
+        advanceUntilIdle()
+
+        assertEquals(authenticatedAccesses, provider.accessCount)
+        assertEquals(
+            listOf("cached-reading"),
+            controller.state.value.recentReading.content?.items?.map { it.sessionId }
+        )
+        assertEquals(HomeProjectionRefresh.Idle, controller.state.value.recentReading.refresh)
+        assertEquals(
+            listOf("cached-shelf"),
+            controller.state.value.shelves.content?.items?.map { it.id }
+        )
+        assertEquals(HomeProjectionRefresh.Idle, controller.state.value.shelves.refresh)
+    }
+
+    @Test
     fun `cached sections remain visible while independent refreshes run`() = runTest {
         val account = projectionAccount()
         val store = FakeHomeProjectionStore().apply {

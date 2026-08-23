@@ -60,6 +60,7 @@ internal fun ConnectionScreen(state: ConnectionUiState, actions: ConnectionScree
             is ConnectionUiState.PersistenceRecovery,
             is ConnectionUiState.StoredCredentialProblem,
             is ConnectionUiState.RestoreProblem,
+            is ConnectionUiState.AuthenticationRequired,
             is ConnectionUiState.LocalStorageProblem -> RecoveryContent(state, actions)
 
             is ConnectionUiState.TerminalPairingProblem ->
@@ -102,6 +103,15 @@ private fun RecoveryContent(state: ConnectionUiState, actions: ConnectionScreenA
                 state.message,
                 "Retry connection",
                 actions.retryStoredVerification,
+                actions.forgetLocalConnection
+            )
+
+        is ConnectionUiState.AuthenticationRequired ->
+            ProblemContent(
+                "Authentication required",
+                state.message,
+                "Link again",
+                actions.relinkLocalAccount,
                 actions.forgetLocalConnection
             )
 

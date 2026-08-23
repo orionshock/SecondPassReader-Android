@@ -17,4 +17,6 @@ internal abstract class SecondPassReaderDatabase : RoomDatabase() {
     abstract fun recentReadingProjectionDao(): RecentReadingProjectionDao
 
     abstract fun shelfProjectionDao(): ShelfProjectionDao
+
+    abstract fun homeProjectionCleanupDao(): HomeProjectionCleanupDao
 }

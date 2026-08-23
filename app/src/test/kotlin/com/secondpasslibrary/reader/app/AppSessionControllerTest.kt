@@ -118,6 +118,44 @@ class AppSessionControllerTest {
     }
 
     @Test
+    fun `rejected authority retains eligible cached shell and disables network features`() =
+        runTest {
+            val account = projectionAccount()
+            val store = FakeHomeProjectionStore().apply {
+                seedRecent(account, HomeRecentReadingVariant.ActiveOnly, emptyList())
+            }
+            val controller = controller(store)
+
+            controller.updateConnection(
+                ConnectionUiState.AuthenticationRequired(account.profile, "Link again"),
+                account.localContext()
+            )
+            advanceUntilIdle()
+
+            val shell = controller.state.value as AppSessionState.AccountShell
+            assertEquals(AppSessionAuthority.AuthenticationRequired("Link again"), shell.authority)
+            assertNull(shell.authenticatedFeatureContext)
+        }
+
+    @Test
+    fun `relink progress retains the same eligible account shell`() = runTest {
+        val account = projectionAccount()
+        val store = FakeHomeProjectionStore().apply {
+            seedRecent(account, HomeRecentReadingVariant.ActiveOnly, emptyList())
+        }
+        val controller = controller(store)
+        val pairing = ConnectionUiState.VerifyingServer(account.profile.serverOrigin)
+
+        controller.updateConnection(pairing, account.localContext())
+        advanceUntilIdle()
+
+        val shell = controller.state.value as AppSessionState.AccountShell
+        assertEquals(AppSessionAuthority.Healing(pairing), shell.authority)
+        assertEquals(account.profileId, shell.profileId)
+        assertNull(shell.authenticatedFeatureContext)
+    }
+
+    @Test
     fun `transient restore failure without cache remains connection owned`() = runTest {
         val account = projectionAccount()
         val problem = ConnectionUiState.RestoreProblem(account.profile, "Server unavailable")

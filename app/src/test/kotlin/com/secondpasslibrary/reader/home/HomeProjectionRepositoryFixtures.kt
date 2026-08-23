@@ -66,6 +66,11 @@ internal class FakeHomeProjectionStore : HomeProjectionStore {
                     shelves.keys.any { it.first == account.value }
                 )
 
+    override suspend fun purgeAccount(account: HomeAccountScopeKey) {
+        recent.keys.removeAll { it.first == account.value }
+        shelves.keys.removeAll { it.first == account.value }
+    }
+
     override suspend fun readRecentReading(
         account: HomeAccountScopeKey,
         variant: HomeRecentReadingVariant

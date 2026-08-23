@@ -6,6 +6,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -13,7 +14,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.secondpasslibrary.reader.app.shell.AccountAppShell
 import com.secondpasslibrary.reader.connection.ConnectionScreen
-import com.secondpasslibrary.reader.connection.ConnectionScreenActions
 import com.secondpasslibrary.reader.connection.ConnectionUiState
 import com.secondpasslibrary.reader.connection.ConnectionViewModel
 
@@ -41,34 +41,24 @@ fun SecondPassApp(
             AppSessionState.Resolving ->
                 ConnectionScreen(
                     ConnectionUiState.Restoring,
-                    connectionViewModel.actions()
+                    connectionViewModel.screenActions
                 )
 
             is AppSessionState.ConnectionRequired ->
                 ConnectionScreen(
                     currentState.connection,
-                    connectionViewModel.actions()
+                    connectionViewModel.screenActions
                 )
 
             is AppSessionState.AccountShell ->
-                AccountAppShell(
-                    session = currentState,
-                    onRetryConnection = connectionViewModel::retryRestore,
-                    onAuthenticationRejected =
-                        connectionViewModel.onAuthenticatedRequestRejected
-                )
+                key(currentState.profileId) {
+                    AccountAppShell(
+                        session = currentState,
+                        connectionActions = connectionViewModel.screenActions,
+                        onAuthenticationRejected =
+                            connectionViewModel.onAuthenticatedRequestRejected
+                    )
+                }
         }
     }
 }
-
-private fun ConnectionViewModel.actions() = ConnectionScreenActions(
-    updateServerUrl = ::updateServerUrl,
-    verifyServer = ::verifyServer,
-    updateClientName = ::updateClientName,
-    beginPairing = ::beginPairing,
-    abandonPairing = ::abandonPairing,
-    retryProfilePersistence = ::retryProfilePersistence,
-    retryStoredVerification = ::retryStoredVerification,
-    retryRestore = ::retryRestore,
-    forgetLocalConnection = ::forgetLocalConnection
-)

@@ -26,7 +26,8 @@ class RecentReadingProjectionStoreTest {
         store =
             RoomHomeProjectionStore(
                 database.recentReadingProjectionDao(),
-                database.shelfProjectionDao()
+                database.shelfProjectionDao(),
+                database.homeProjectionCleanupDao()
             )
     }
 
@@ -132,6 +133,46 @@ class RecentReadingProjectionStoreTest {
         assertEquals(
             listOf("kept"),
             store.readShelves(account, shelfVariant)?.items?.map { it.id }
+        )
+    }
+
+    @Test
+    fun accountPurgeRemovesBothHomeProjectionsWithoutTouchingAnotherAccount() = runBlocking {
+        val oldAccount = account("profile-1")
+        val replacementAccount = account("profile-2")
+        val fetchedAt = Instant.parse("2026-08-16T14:00:00Z")
+        store.replaceRecentReading(
+            oldAccount,
+            HomeRecentReadingVariant.ActiveOnly,
+            listOf(recentItem("old")),
+            fetchedAt
+        )
+        store.replaceShelves(
+            oldAccount,
+            HomeShelfVariant.FirstPageWithPreviews,
+            listOf(shelf("old", count = 1)),
+            fetchedAt
+        )
+        store.replaceRecentReading(
+            replacementAccount,
+            HomeRecentReadingVariant.ActiveOnly,
+            listOf(recentItem("replacement")),
+            fetchedAt
+        )
+
+        store.purgeAccount(oldAccount)
+
+        assertTrue(!store.hasSnapshot(oldAccount))
+        assertNull(
+            store.readRecentReading(oldAccount, HomeRecentReadingVariant.ActiveOnly)
+        )
+        assertNull(store.readShelves(oldAccount, HomeShelfVariant.FirstPageWithPreviews))
+        assertEquals(
+            listOf("replacement"),
+            store.readRecentReading(
+                replacementAccount,
+                HomeRecentReadingVariant.ActiveOnly
+            )?.items?.map { it.sessionId }
         )
     }
 

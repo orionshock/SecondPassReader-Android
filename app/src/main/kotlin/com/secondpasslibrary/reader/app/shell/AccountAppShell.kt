@@ -32,6 +32,8 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import com.secondpasslibrary.reader.app.AppSessionAuthority
 import com.secondpasslibrary.reader.app.AppSessionState
 import com.secondpasslibrary.reader.app.authenticatedFeatureContext
+import com.secondpasslibrary.reader.connection.ConnectionScreen
+import com.secondpasslibrary.reader.connection.ConnectionScreenActions
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 import kotlinx.coroutines.launch
@@ -40,7 +42,7 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun AccountAppShell(
     session: AppSessionState.AccountShell,
-    onRetryConnection: () -> Unit,
+    connectionActions: ConnectionScreenActions,
     onAuthenticationRejected: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -50,6 +52,12 @@ internal fun AccountAppShell(
     val currentRoute = backStack.lastOrNull()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
+
+    val healing = session.authority as? AppSessionAuthority.Healing
+    if (healing != null) {
+        ConnectionScreen(healing.connection, connectionActions)
+        return
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -80,13 +88,15 @@ internal fun AccountAppShell(
             }
         ) { contentPadding ->
             Column(Modifier.fillMaxSize().padding(contentPadding)) {
-                AccountAuthorityBanner(session.authority, onRetryConnection)
+                AccountAuthorityBanner(session.authority, connectionActions)
                 AccountDestinations(
                     session = session,
                     backStack = backStack,
                     navigator = navigator,
                     onAuthenticationRejected = onAuthenticationRejected,
-                    onRetryConnection = onRetryConnection,
+                    onRetryConnection = connectionActions.retryRestore,
+                    onRelinkAccount = connectionActions.relinkLocalAccount,
+                    onForgetAccount = connectionActions.forgetLocalConnection,
                     onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
                     modifier = Modifier.weight(1f)
                 )
@@ -103,7 +113,10 @@ private val AppSessionState.AccountShell.serverName: String
             ?: profile.serverName
 
 @Composable
-private fun AccountAuthorityBanner(authority: AppSessionAuthority, onRetryConnection: () -> Unit) {
+private fun AccountAuthorityBanner(
+    authority: AppSessionAuthority,
+    actions: ConnectionScreenActions
+) {
     if (authority is AppSessionAuthority.Verified) return
     Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh) {
         Row(
@@ -122,9 +135,20 @@ private fun AccountAuthorityBanner(authority: AppSessionAuthority, onRetryConnec
                         modifier = Modifier.weight(1f),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Button(onClick = onRetryConnection) { Text("Retry") }
+                    Button(onClick = actions.retryRestore) { Text("Retry") }
                 }
 
+                is AppSessionAuthority.AuthenticationRequired -> {
+                    Text(
+                        "Authentication is required. Cached Home remains available.",
+                        modifier = Modifier.weight(1f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Button(onClick = actions.relinkLocalAccount) { Text("Link again") }
+                    Button(onClick = actions.forgetLocalConnection) { Text("Forget") }
+                }
+
+                is AppSessionAuthority.Healing,
                 is AppSessionAuthority.Verified -> Unit
             }
         }
