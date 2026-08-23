@@ -1,15 +1,14 @@
 package com.secondpasslibrary.reader.home
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -17,6 +16,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
@@ -68,50 +69,59 @@ internal fun HomeSectionError(message: String, onRetry: () -> Unit) {
 }
 
 @Composable
-internal fun HomeSectionRefreshFeedback(
+internal fun HomeSectionTitle(title: String, refreshing: Boolean) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(title, style = MaterialTheme.typography.titleLarge)
+        Box(Modifier.size(16.dp)) {
+            if (refreshing) {
+                CircularProgressIndicator(
+                    modifier =
+                        Modifier
+                            .size(16.dp)
+                            .semantics { contentDescription = "$title is refreshing" },
+                    strokeWidth = 2.dp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+internal fun HomeSectionCachedFailure(
     refresh: HomeProjectionRefresh,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    when (refresh) {
-        HomeProjectionRefresh.Refreshing ->
-            LinearProgressIndicator(
-                modifier = modifier.fillMaxWidth().height(2.dp),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
-            )
-
-        is HomeProjectionRefresh.Failed ->
-            Surface(
-                modifier = modifier,
-                color = MaterialTheme.colorScheme.surfaceContainer,
-                shape = MaterialTheme.shapes.small
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (refresh.reason == HomeProjectionFailure.Unreachable) {
-                        AppIconGraphic(
-                            AppIcon.Offline,
-                            "Offline",
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Text(
-                        refresh.messageWithCache(),
-                        modifier = Modifier.weight(1f),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    TextButton(onClick = onRetry) { Text("Retry") }
-                }
+    val failure = refresh as? HomeProjectionRefresh.Failed ?: return
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = MaterialTheme.shapes.small
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (failure.reason == HomeProjectionFailure.Unreachable) {
+                AppIconGraphic(
+                    AppIcon.Offline,
+                    "Offline",
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-
-        HomeProjectionRefresh.Current,
-        HomeProjectionRefresh.Idle -> Unit
+            Text(
+                failure.messageWithCache(),
+                modifier = Modifier.weight(1f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall
+            )
+            TextButton(onClick = onRetry) { Text("Retry") }
+        }
     }
 }
 

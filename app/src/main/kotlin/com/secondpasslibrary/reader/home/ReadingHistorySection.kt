@@ -44,8 +44,13 @@ internal fun ReadingHistorySection(
     val emptyMessage =
         if (showClosed) "No reading sessions yet." else "No active reading sessions yet."
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        ReadingHistoryHeader(showClosed, onShowClosedChanged, onViewAll)
         val content = state.content
+        ReadingHistoryHeader(
+            showClosed = showClosed,
+            refreshing = content != null && state.refresh == HomeProjectionRefresh.Refreshing,
+            onShowClosedChanged = onShowClosedChanged,
+            onViewAll = onViewAll
+        )
         if (content == null) {
             when (val refresh = state.refresh) {
                 is HomeProjectionRefresh.Failed ->
@@ -62,7 +67,7 @@ internal fun ReadingHistorySection(
             }
             return@Column
         }
-        HomeSectionRefreshFeedback(
+        HomeSectionCachedFailure(
             state.refresh,
             onRetry,
             Modifier.padding(horizontal = 24.dp)
@@ -93,6 +98,7 @@ internal fun ReadingHistorySection(
 @Composable
 private fun ReadingHistoryHeader(
     showClosed: Boolean,
+    refreshing: Boolean,
     onShowClosedChanged: (Boolean) -> Unit,
     onViewAll: () -> Unit
 ) {
@@ -105,7 +111,7 @@ private fun ReadingHistoryHeader(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Reading History", style = MaterialTheme.typography.titleLarge)
+            HomeSectionTitle("Reading History", refreshing)
             TextButton(onClick = onViewAll) { Text("View all") }
         }
         Row(

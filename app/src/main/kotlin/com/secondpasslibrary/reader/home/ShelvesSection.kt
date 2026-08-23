@@ -36,15 +36,18 @@ internal fun ShelvesSection(
     modifier: Modifier = Modifier
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        val content = state.content
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Shelves", style = MaterialTheme.typography.titleLarge)
+            HomeSectionTitle(
+                title = "Shelves",
+                refreshing = content != null && state.refresh == HomeProjectionRefresh.Refreshing
+            )
             TextButton(onClick = onOpenShelves) { Text("Open shelves") }
         }
-        val content = state.content
         if (content == null) {
             when (val refresh = state.refresh) {
                 is HomeProjectionRefresh.Failed ->
@@ -56,7 +59,7 @@ internal fun ShelvesSection(
             }
             return@Column
         }
-        HomeSectionRefreshFeedback(state.refresh, onRetry)
+        HomeSectionCachedFailure(state.refresh, onRetry)
         if (content.items.isEmpty()) {
             HomeSectionEmpty(AppIcon.Shelf, "No shelves to show yet.")
         } else {
