@@ -92,6 +92,27 @@ current, and focused on reusable product behavior rather than implementation his
 - The owning card or tile provides the primary navigation action.
 - Tiny shelf previews do not receive full-card overflow controls.
 
+### Shelf collection rows
+
+- Give the Shelf name its full one-line width before allocating preview space; never wrap or
+  ellipsize it.
+- Owner/context is prominent supporting metadata and the count is quieter supporting metadata.
+- Separated, non-interactive preview covers consume only genuine leftover width.
+- Preview count may vary by row or fall to zero rather than displacing Shelf identity.
+
+### Shelf ownership and context
+
+- My Shelves may show Private or Listed because that visibility is user-controlled.
+- Shared by Others shows the authoritative owner and omits redundant visibility.
+- Group Shelves shows the group identity and omits Private or Listed because access follows group
+  membership.
+- Use semantic person, sharing, and group icons for those distinctions.
+
+### Shelf-icon previews
+
+- Reserve overlapping decorative cover stacks for shelf-icon treatments such as Home Shelf cards.
+- Decorative covers never become individual navigation targets.
+
 ## Segmented toggles
 
 - Represent mutually exclusive binary presentation modes with one segmented control.

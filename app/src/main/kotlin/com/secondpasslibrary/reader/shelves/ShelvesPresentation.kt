@@ -28,7 +28,7 @@ internal data class ShelfCardPresentation(
     val name: String,
     val ownerLabel: String,
     val ownerKind: ShelfOwnerKind,
-    val visibilityLabel: String,
+    val visibilityLabel: String?,
     val itemCountLabel: String,
     val canEdit: Boolean,
     val previews: ShelfPreviewPresentation
@@ -62,7 +62,7 @@ internal fun Shelf.toCardPresentation() = ShelfCardPresentation(
     name = name,
     ownerLabel = owner.displayLabel(canEdit),
     ownerKind = owner.kind(canEdit),
-    visibilityLabel = visibility.label,
+    visibilityLabel = visibility.label.takeIf { canEdit },
     itemCountLabel = itemCount.bookCountLabel,
     canEdit = canEdit,
     previews = previewBooks.toPreviewPresentation()
@@ -124,5 +124,8 @@ private val ShelfVisibility.label: String
         ShelfVisibility.LISTED -> "Listed"
     }
 
-private val Int.bookCountLabel: String
+internal val Int.bookCountLabel: String
     get() = "$this ${if (this == 1) "book" else "books"}"
+
+internal val ShelfCardPresentation.ownerContextLabel: String
+    get() = listOfNotNull(ownerLabel, visibilityLabel).joinToString(" \u00b7 ")

@@ -36,10 +36,13 @@ class ShelvesPresentationTest {
 
         assertEquals(ShelfOwnerKind.PERSONAL, personal.toCardPresentation().ownerKind)
         assertEquals("My shelf", personal.toCardPresentation().ownerLabel)
+        assertEquals("My shelf \u00b7 Private", personal.toCardPresentation().ownerContextLabel)
         assertEquals(ShelfOwnerKind.SHARED_USER, shared.toCardPresentation().ownerKind)
         assertEquals("Shared by @alex", shared.toCardPresentation().ownerLabel)
+        assertEquals("Shared by @alex", shared.toCardPresentation().ownerContextLabel)
         assertEquals(ShelfOwnerKind.GROUP, group.toCardPresentation().ownerKind)
         assertEquals("Common Room", group.toCardPresentation().ownerLabel)
+        assertEquals("Common Room", group.toCardPresentation().ownerContextLabel)
     }
 
     @Test
@@ -50,7 +53,7 @@ class ShelvesPresentationTest {
                 visibility = ShelfVisibility.LISTED
             ).toCardPresentation()
 
-        assertEquals("Listed", model.visibilityLabel)
+        assertEquals(null, model.visibilityLabel)
         assertEquals(ShelfOwnerKind.SHARED_USER, model.ownerKind)
         assertFalse(model.canEdit)
     }

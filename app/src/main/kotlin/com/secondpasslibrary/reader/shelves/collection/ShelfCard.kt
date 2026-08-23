@@ -1,70 +1,110 @@
 package com.secondpasslibrary.reader.shelves.collection
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import com.secondpasslibrary.reader.design.book.PublicBookCover
-import com.secondpasslibrary.reader.design.book.overlappingPreviewCapacity
+import com.secondpasslibrary.reader.design.book.separatedPreviewCapacity
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 import com.secondpasslibrary.reader.shelves.ShelfCardPresentation
 import com.secondpasslibrary.reader.shelves.ShelfOwnerKind
 import com.secondpasslibrary.reader.shelves.ShelfPreviewPresentation
+import com.secondpasslibrary.reader.shelves.ownerContextLabel
 
 @Composable
 internal fun ShelfCard(model: ShelfCardPresentation, onClick: () -> Unit) {
-    OutlinedCard(onClick = onClick) {
-        BoxWithConstraints {
+    OutlinedCard(
+        onClick = onClick,
+        modifier = Modifier.semantics(mergeDescendants = true) {
+            contentDescription = "Open shelf ${model.name}"
+        }
+    ) {
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val nameStyle = MaterialTheme.typography.titleLarge
+            val contextStyle = MaterialTheme.typography.bodyMedium
+            val countStyle = MaterialTheme.typography.labelMedium
+            val requiredTextWidth =
+                requiredShelfTextWidth(model, nameStyle, contextStyle, countStyle)
             val previewCount = model.previewBooks.size
             val capacity =
-                overlappingPreviewCapacity(
+                separatedPreviewCapacity(
                     maxWidth,
-                    SHELF_PRIMARY_CONTENT_WIDTH,
+                    requiredTextWidth + SHELF_ROW_CHROME_WIDTH,
                     SHELF_COVER_WIDTH,
-                    SHELF_COVER_STEP,
+                    SHELF_COVER_SPACING,
                     previewCount
                 )
             Row(
-                modifier = Modifier.height(142.dp).padding(14.dp),
+                modifier = Modifier.fillMaxWidth().height(
+                    SHELF_ROW_HEIGHT
+                ).padding(SHELF_ROW_PADDING),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         model.name,
                         fontWeight = FontWeight.SemiBold,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        style = nameStyle,
+                        maxLines = 1,
+                        softWrap = false
                     )
                     ShelfOwnerLine(model)
                     Text(
-                        "${model.visibilityLabel} / ${model.itemCountLabel}",
+                        model.itemCountLabel,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelMedium
+                        style = countStyle
                     )
                 }
-                ShelfPreviewStack(model, capacity)
+                ShelfPreviewRow(model, capacity)
             }
         }
+    }
+}
+
+@Composable
+private fun requiredShelfTextWidth(
+    model: ShelfCardPresentation,
+    nameStyle: TextStyle,
+    contextStyle: TextStyle,
+    countStyle: TextStyle
+): Dp {
+    val textMeasurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    fun measure(text: String, style: TextStyle) = textMeasurer.measure(
+        AnnotatedString(text),
+        style,
+        maxLines = 1,
+        softWrap = false
+    ).size.width
+    return with(density) {
+        maxOf(
+            measure(model.name, nameStyle),
+            measure(model.ownerContextLabel, contextStyle) + OWNER_ICON_AND_SPACING.roundToPx(),
+            measure(model.itemCountLabel, countStyle)
+        ).toDp()
     }
 }
 
@@ -81,39 +121,28 @@ private fun ShelfOwnerLine(model: ShelfCardPresentation) {
     ) {
         AppIconGraphic(icon, null, Modifier.size(16.dp))
         Text(
-            model.ownerLabel,
+            model.ownerContextLabel,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodySmall
+            softWrap = false,
+            style = MaterialTheme.typography.bodyMedium
         )
     }
 }
 
 @Composable
-private fun ShelfPreviewStack(model: ShelfCardPresentation, capacity: Int) {
+private fun ShelfPreviewRow(model: ShelfCardPresentation, capacity: Int) {
     val previews = model.previewBooks.take(capacity)
-    val width = SHELF_COVER_WIDTH + SHELF_COVER_STEP * (previews.size - 1).coerceAtLeast(0)
-    Box(Modifier.width(width).height(116.dp), contentAlignment = Alignment.CenterStart) {
-        if (previews.isEmpty()) {
-            AppIconGraphic(
-                AppIcon.Shelf,
-                "No preview covers for ${model.name}",
-                Modifier.align(Alignment.Center).size(44.dp),
-                MaterialTheme.colorScheme.onSurfaceVariant
+    Row(
+        modifier = Modifier.clearAndSetSemantics { },
+        horizontalArrangement = Arrangement.spacedBy(SHELF_COVER_SPACING)
+    ) {
+        previews.forEach { book ->
+            PublicBookCover(
+                book.cover,
+                book.title,
+                Modifier.size(width = SHELF_COVER_WIDTH, height = SHELF_COVER_HEIGHT)
             )
-        } else {
-            previews.forEachIndexed { index, book ->
-                PublicBookCover(
-                    book.cover,
-                    book.title,
-                    Modifier
-                        .offset(x = SHELF_COVER_STEP * index)
-                        .size(width = SHELF_COVER_WIDTH, height = 108.dp)
-                        .clip(MaterialTheme.shapes.small)
-                        .zIndex(index.toFloat())
-                )
-            }
         }
     }
 }
@@ -121,6 +150,11 @@ private fun ShelfPreviewStack(model: ShelfCardPresentation, capacity: Int) {
 private val ShelfCardPresentation.previewBooks
     get() = (previews as? ShelfPreviewPresentation.Books)?.books.orEmpty()
 
-private val SHELF_PRIMARY_CONTENT_WIDTH = 280.dp
-private val SHELF_COVER_WIDTH = 72.dp
-private val SHELF_COVER_STEP = 28.dp
+private val SHELF_ROW_HEIGHT = 142.dp
+private val SHELF_ROW_PADDING = 14.dp
+private val SHELF_CONTENT_SPACING = 14.dp
+private val OWNER_ICON_AND_SPACING = 22.dp
+private val SHELF_ROW_CHROME_WIDTH = SHELF_ROW_PADDING * 2 + SHELF_CONTENT_SPACING
+private val SHELF_COVER_WIDTH = 64.dp
+private val SHELF_COVER_HEIGHT = 112.dp
+private val SHELF_COVER_SPACING = 8.dp
