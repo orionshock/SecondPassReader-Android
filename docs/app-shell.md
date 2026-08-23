@@ -1,16 +1,16 @@
-# Authenticated application shell
+# Account application shell
 
-The authenticated UI is owned by `app.shell`. A verified `ConnectionUiState.Linked` supplies immutable connection profile and authenticated context to `AuthenticatedAppShell`; it does not transfer pairing, credential, or HTTP ownership into navigation.
+The account UI is owned by `app.shell`. `AccountAppShell` may render cached Home while authority is restoring or rejected; only verified authority supplies authenticated feature hosts. Pairing, credentials, and HTTP ownership remain outside navigation.
 
-The shell uses stable AndroidX Navigation 3 `1.1.6`, the current Compose-first navigation API. `AppDestination` is the closed, serializable set of top-level destinations and `AppNavigator` alone mutates the app-owned back stack. Selecting a drawer destination replaces the current top-level entry rather than accumulating duplicate roots.
+The shell uses AndroidX Navigation 3 `1.1.6`. `AppNavigationState` owns one saveable `NavBackStack` for each closed, serializable `AppDestination`; `AppNavigator` is its typed command facade. Drawer selection switches the active stack without clearing inactive stacks. Every stack remains decorated with Navigation 3's saveable-state holder and Lifecycle's ViewModel-store decorator, so an inactive entry retains saveable composition state and its entry-scoped feature ViewModel, while a popped entry clears both. Account origin plus profile ID keys the whole navigation lifetime: authority changes for the same account retain it, and account replacement discards it. Process recreation restores serializable stacks and saveable entry state, but recreates ViewModels and non-persisted controller data.
 
 ```text
 SecondPassApp
   unlinked -> connection flow
-  linked   -> AuthenticatedAppShell
+  cached or verified account -> AccountAppShell
                 TopAppBar
                 ModalNavigationDrawer
-                NavDisplay
+                active retained NavDisplay
                   Home      -> library search, reading history, shelf previews
                   Library   -> Books browse and broad-search presentation
                   Shelves   -> personal, shared, and group shelf browsing
@@ -19,7 +19,7 @@ SecondPassApp
                   Settings  -> connection/account diagnostics
 ```
 
-The modal drawer stays hidden until the app-bar menu button or edge gesture opens it. `NavDisplay` receives the full content area, without a tablet-only width cap or a separate compact-window navigation model. Destination content owns its own scrolling and future adaptive layout.
+The modal drawer stays hidden until the app-bar menu button or edge gesture opens it. `NavDisplay` receives only the active stack's already-decorated entries; all five stacks remain decorated while inactive so Navigation 3 does not dispose their entry owners. Destination content owns its own scrolling and future adaptive layout. Verified-only destinations show the shell's connection-required entry until real authority arrives, so their feature ViewModels are not constructed from stored local identity alone.
 
 Home owns independent recent-reading and shelf-preview state through `HomeController`, with one loading/error/empty/loaded state and retry path per section. It resolves a credential-bound SDK client through the connection boundary, requests 10 active recent sessions and the first six shelves with three previews, and never exposes the bearer credential. Changing the closed-session toggle reloads only recent reading; server order and the `active`/`closed` vocabulary remain unchanged.
 
@@ -62,7 +62,7 @@ The parent also loads the complete scoped Catalog Tag vocabulary as a bounded, n
 
 Library chrome exposes that shared filter through a compact semantic Tag control. It opens a modal sheet anchored to the right on tablets, avoiding competition with the shell's left navigation drawer. The sheet renders All tags plus the current scope's name-ordered vocabulary and visible book counts, including independent loading, empty, and retry states. Index results remain visible behind tag-vocabulary failures; no tag rail or tag search is currently present.
 
-Book Detail is one shared app destination rather than a Library child. The serializable `BookDetailRoute` carries a Book ID and typed return target for Library or Shelf Detail. The shell owns route entry, back-stack interpretation, and metadata handoff; `BookDetailController` owns only detail loading/retry and has no Library or Shelves controller dependency. The originating feature entry remains below Book Detail, preserving its live paging, filters, layout, and scroll state when either system or visible back pops the route. Author, Series, and Tag actions emit neutral Book Detail navigation intents that the shell translates into typed Library routes. Reading Sessions emits the same kind of neutral intent; the shell adds a typed Book-scoped Marginalia route above the complete originating Book Detail route, so back restores Book Detail and its Library or Shelf origin without reconstruction. Marginalia receives only its Book history context and never creates a Reading Session while browsing history. The SDK supplies validated metadata through `library.books.getBook`; endpoint and bearer details remain internal. Reader launch remains deferred.
+Book Detail is one shared app destination rather than a Library child. The serializable `BookDetailRoute` carries a Book ID and typed return target for Library or Shelf Detail. The shell owns route entry, back-stack interpretation, and metadata handoff; `BookDetailController` owns only detail loading/retry and has no Library or Shelves controller dependency. The originating feature entry remains below Book Detail, preserving its live paging, filters, layout, and scroll state when either system or visible back pops the route. Author, Series, Tag, and Manage Shelves intents are explicit top-level transfers: the source Book Detail overlay is removed before the target stack is selected/replaced, so it cannot remain hidden on an inactive stack. Reading Sessions is deliberately different; the shell adds typed Book-scoped Marginalia above the complete originating Book Detail route on that same stack, so back restores Book Detail and its Library or Shelf origin without reconstruction. Marginalia receives only its Book history context and never creates a Reading Session while browsing history. The SDK supplies validated metadata through `library.books.getBook`; endpoint and bearer details remain internal. Reader launch remains deferred.
 
 `BookShelfPickerController` is a focused Book Detail child for the cross-feature Add to Shelf workflow. It reads all personal Shelf and Book-membership pages through `authenticatedClient.shelves`, admits only editable user-owned targets, and appends without a requested position. A duplicate response becomes canonical Added state. Because add has no idempotency key, ambiguous failures trigger a membership read rather than another POST. Manage Shelves is a neutral intent interpreted by the app shell; the picker does not depend on Shelves controllers.
 

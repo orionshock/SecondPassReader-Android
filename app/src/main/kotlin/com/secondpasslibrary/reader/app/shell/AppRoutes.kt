@@ -66,7 +66,9 @@ internal fun NavKey.topLevelDestination(): AppDestination = when (this) {
         is BookDetailReturnTarget.ShelfDetail -> AppDestination.Shelves
     }
 
-    is BookMarginaliaRoute -> AppDestination.Marginalia
+    is BookMarginaliaRoute -> when (val target = returnTarget) {
+        is MarginaliaReturnTarget.BookDetail -> target.route.topLevelDestination()
+    }
 
     is AppDestination -> this
 

@@ -27,7 +27,7 @@ import com.secondpasslibrary.reader.shelves.ShelvesStateHost
 @Composable
 internal fun AccountDestinations(
     session: AppSessionState.AccountShell,
-    backStack: MutableList<NavKey>,
+    navigation: AppNavigationState,
     navigator: AppNavigator,
     onAuthenticationRejected: () -> Unit,
     onRetryConnection: () -> Unit,
@@ -37,11 +37,8 @@ internal fun AccountDestinations(
     modifier: Modifier
 ) {
     val verifiedContext = session.authenticatedFeatureContext
-    NavDisplay(
-        backStack = backStack,
-        modifier = modifier,
-        onBack = navigator::goBack,
-        entryProvider = entryProvider {
+    val entries =
+        entryProvider<NavKey> {
             registerHomeEntry(session, navigator, onAuthenticationRejected)
             if (verifiedContext == null) {
                 registerConnectionRequiredEntries(
@@ -66,6 +63,11 @@ internal fun AccountDestinations(
                 registerBookMarginaliaEntry(bindings)
             }
         }
+    val decoratedEntries = retainedActiveEntries(navigation, entries)
+    NavDisplay(
+        entries = decoratedEntries,
+        modifier = modifier,
+        onBack = { navigator.goBack() }
     )
 }
 

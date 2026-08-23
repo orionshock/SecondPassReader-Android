@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.app.shell
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,7 +29,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.navigation3.runtime.rememberNavBackStack
 import com.secondpasslibrary.reader.app.AppSessionAuthority
 import com.secondpasslibrary.reader.app.AppSessionState
 import com.secondpasslibrary.reader.app.authenticatedFeatureContext
@@ -46,61 +46,60 @@ internal fun AccountAppShell(
     onAuthenticationRejected: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val backStack = rememberNavBackStack(AppDestination.Home)
-    val navigator = remember(backStack) { AppNavigator(backStack) }
-    val currentDestination = backStack.lastOrNull()?.topLevelDestination() ?: AppDestination.Home
-    val currentRoute = backStack.lastOrNull()
+    val navigation = rememberAppNavigationState()
+    val navigator = remember(navigation) { AppNavigator(navigation) }
+    val currentDestination = navigation.selectedDestination
+    val currentRoute = navigation.currentRoute
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
 
-    val healing = session.authority as? AppSessionAuthority.Healing
-    if (healing != null) {
-        ConnectionScreen(healing.connection, connectionActions)
-        return
-    }
-
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        modifier = modifier,
-        drawerContent = {
-            AppDrawer(
-                serverName = session.serverName,
-                selected = currentDestination,
-                onSelected = { destination ->
-                    navigator.select(destination)
-                    coroutineScope.launch { drawerState.close() }
-                }
-            )
-        }
-    ) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            containerColor = MaterialTheme.colorScheme.background,
-            topBar = {
-                if (currentDestination != AppDestination.Shelves &&
-                    currentDestination != AppDestination.Marginalia &&
-                    currentRoute !is BookDetailRoute
-                ) {
-                    AppShellTopBar(currentDestination) {
-                        coroutineScope.launch { drawerState.open() }
+    Box(modifier) {
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            drawerContent = {
+                AppDrawer(
+                    serverName = session.serverName,
+                    selected = currentDestination,
+                    onSelected = { destination ->
+                        navigator.select(destination)
+                        coroutineScope.launch { drawerState.close() }
                     }
-                }
-            }
-        ) { contentPadding ->
-            Column(Modifier.fillMaxSize().padding(contentPadding)) {
-                AccountAuthorityBanner(session.authority, connectionActions)
-                AccountDestinations(
-                    session = session,
-                    backStack = backStack,
-                    navigator = navigator,
-                    onAuthenticationRejected = onAuthenticationRejected,
-                    onRetryConnection = connectionActions.retryRestore,
-                    onRelinkAccount = connectionActions.relinkLocalAccount,
-                    onForgetAccount = connectionActions.forgetLocalConnection,
-                    onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
-                    modifier = Modifier.weight(1f)
                 )
             }
+        ) {
+            Scaffold(
+                modifier = Modifier.fillMaxSize(),
+                containerColor = MaterialTheme.colorScheme.background,
+                topBar = {
+                    if (currentDestination != AppDestination.Shelves &&
+                        currentDestination != AppDestination.Marginalia &&
+                        currentRoute !is BookDetailRoute
+                    ) {
+                        AppShellTopBar(currentDestination) {
+                            coroutineScope.launch { drawerState.open() }
+                        }
+                    }
+                }
+            ) { contentPadding ->
+                Column(Modifier.fillMaxSize().padding(contentPadding)) {
+                    AccountAuthorityBanner(session.authority, connectionActions)
+                    AccountDestinations(
+                        session = session,
+                        navigation = navigation,
+                        navigator = navigator,
+                        onAuthenticationRejected = onAuthenticationRejected,
+                        onRetryConnection = connectionActions.retryRestore,
+                        onRelinkAccount = connectionActions.relinkLocalAccount,
+                        onForgetAccount = connectionActions.forgetLocalConnection,
+                        onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+        val healing = session.authority as? AppSessionAuthority.Healing
+        if (healing != null) {
+            ConnectionScreen(healing.connection, connectionActions)
         }
     }
 }

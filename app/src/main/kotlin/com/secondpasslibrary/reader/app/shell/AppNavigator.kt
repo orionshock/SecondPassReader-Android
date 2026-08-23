@@ -1,61 +1,64 @@
 package com.secondpasslibrary.reader.app.shell
 
-import androidx.navigation3.runtime.NavKey
 import com.secondpasslibrary.reader.bookdetail.BookDetailNavigationIntent
 
-internal class AppNavigator(private val backStack: MutableList<NavKey>) {
+internal class AppNavigator(private val navigation: AppNavigationState) {
     fun select(destination: AppDestination) {
-        if (backStack.lastOrNull() == destination) return
-        backStack.clear()
-        backStack.add(destination)
+        navigation.select(destination)
     }
 
     fun openLibrarySearch(query: String) {
-        backStack.clear()
-        backStack.add(LibrarySearchRoute(query))
+        navigation.replace(AppDestination.Library, LibrarySearchRoute(query))
     }
 
     fun openBookDetail(bookId: String, returnTarget: BookDetailReturnTarget) {
         require(bookId.isNotBlank()) { "Book ID must not be blank." }
         val route = BookDetailRoute(bookId, returnTarget)
-        if (backStack.lastOrNull() != route) backStack.add(route)
+        navigation.push(route)
     }
 
     fun openBookMarginalia(bookId: String, source: BookDetailRoute) {
         require(bookId.isNotBlank()) { "Book ID must not be blank." }
         require(source.bookId == bookId) { "Marginalia Book must match its Book Detail source." }
         val route = BookMarginaliaRoute(bookId, MarginaliaReturnTarget.BookDetail(source))
-        if (backStack.lastOrNull() != route) backStack.add(route)
+        navigation.push(route)
     }
 
-    fun openLibraryAuthor(authorId: String) = replaceWith(LibraryAuthorRoute(authorId))
+    fun openLibraryAuthor(authorId: String) =
+        navigation.replace(AppDestination.Library, LibraryAuthorRoute(authorId))
 
-    fun openLibrarySeries(seriesId: String) = replaceWith(LibrarySeriesRoute(seriesId))
+    fun openLibrarySeries(seriesId: String) =
+        navigation.replace(AppDestination.Library, LibrarySeriesRoute(seriesId))
 
     fun openLibraryTag(tagId: String, tagSlug: String) =
-        replaceWith(LibraryTagRoute(tagId, tagSlug))
+        navigation.replace(AppDestination.Library, LibraryTagRoute(tagId, tagSlug))
 
     fun handleBookDetailNavigation(intent: BookDetailNavigationIntent, source: BookDetailRoute) {
         when (intent) {
-            is BookDetailNavigationIntent.Author -> openLibraryAuthor(intent.id)
+            is BookDetailNavigationIntent.Author -> {
+                navigation.removeTop(source)
+                openLibraryAuthor(intent.id)
+            }
 
-            is BookDetailNavigationIntent.Series -> openLibrarySeries(intent.id)
+            is BookDetailNavigationIntent.Series -> {
+                navigation.removeTop(source)
+                openLibrarySeries(intent.id)
+            }
 
-            is BookDetailNavigationIntent.Tag -> openLibraryTag(intent.id, intent.slug)
+            is BookDetailNavigationIntent.Tag -> {
+                navigation.removeTop(source)
+                openLibraryTag(intent.id, intent.slug)
+            }
 
             is BookDetailNavigationIntent.ReadingSessions ->
                 openBookMarginalia(intent.bookId, source)
 
-            BookDetailNavigationIntent.ManageShelves -> select(AppDestination.Shelves)
+            BookDetailNavigationIntent.ManageShelves -> {
+                navigation.removeTop(source)
+                navigation.replace(AppDestination.Shelves)
+            }
         }
     }
 
-    fun goBack() {
-        if (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
-    }
-
-    private fun replaceWith(route: NavKey) {
-        backStack.clear()
-        backStack.add(route)
-    }
+    fun goBack(): Boolean = navigation.pop()
 }

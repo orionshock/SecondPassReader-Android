@@ -1,52 +1,73 @@
 package com.secondpasslibrary.reader.app.shell
 
-import androidx.navigation3.runtime.NavKey
 import com.secondpasslibrary.reader.bookdetail.BookDetailNavigationIntent
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotSame
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AppNavigatorTest {
     @Test
-    fun `top-level history destination is named Marginalia`() {
-        assertEquals("Marginalia", AppDestination.Marginalia.label)
+    fun `each top-level destination owns a distinct rooted stack`() {
+        val navigation = appNavigationStateForTest()
+        val stacks = AppDestination.entries.map(navigation::backStack)
+
+        AppDestination.entries.forEach { destination ->
+            assertEquals(listOf(destination), navigation.backStack(destination))
+        }
+        stacks.indices.forEach { index ->
+            stacks.drop(index + 1).forEach { other -> assertNotSame(stacks[index], other) }
+        }
     }
 
     @Test
-    fun `top-level selection replaces the current destination`() {
-        val backStack = mutableListOf<NavKey>(AppDestination.Home)
-        val navigator = AppNavigator(backStack)
-
-        navigator.select(AppDestination.Library)
-        navigator.select(AppDestination.Settings)
-
-        assertEquals(listOf(AppDestination.Settings), backStack)
-    }
-
-    @Test
-    fun `selecting the current destination does not duplicate it`() {
-        val backStack = mutableListOf<NavKey>(AppDestination.Home)
-        val navigator = AppNavigator(backStack)
+    fun `top-level selection retains inactive stack and restores its route`() {
+        val navigation = appNavigationStateForTest(AppDestination.Library)
+        val navigator = AppNavigator(navigation)
+        navigator.openBookDetail("book-1", BookDetailReturnTarget.Library)
+        val retainedLibraryStack = navigation.activeBackStack
 
         navigator.select(AppDestination.Home)
+        navigator.select(AppDestination.Library)
 
-        assertEquals(listOf(AppDestination.Home), backStack)
+        assertSame(retainedLibraryStack, navigation.activeBackStack)
+        assertEquals(
+            BookDetailRoute("book-1", BookDetailReturnTarget.Library),
+            navigation.currentRoute
+        )
     }
 
     @Test
-    fun `Home search carries its query into a Library route`() {
-        val backStack = mutableListOf<NavKey>(AppDestination.Home)
-        val navigator = AppNavigator(backStack)
+    fun `selecting current top-level destination does not duplicate root`() {
+        val navigation = appNavigationStateForTest()
 
-        navigator.openLibrarySearch("ursula le guin")
+        AppNavigator(navigation).select(AppDestination.Home)
 
-        assertEquals(listOf(LibrarySearchRoute("ursula le guin")), backStack)
-        assertEquals(AppDestination.Library, backStack.single().topLevelDestination())
+        assertEquals(listOf(AppDestination.Home), navigation.activeBackStack)
     }
 
     @Test
-    fun `Library Book Detail route returns to live Library entry`() {
-        val backStack = mutableListOf<NavKey>(AppDestination.Library)
-        val navigator = AppNavigator(backStack)
+    fun `Home search replaces only Library context and selects its stack`() {
+        val navigation = appNavigationStateForTest(AppDestination.Library)
+        navigation.push(BookDetailRoute("old-book", BookDetailReturnTarget.Library))
+        navigation.select(AppDestination.Home)
+
+        AppNavigator(navigation).openLibrarySearch("ursula le guin")
+
+        assertEquals(AppDestination.Library, navigation.selectedDestination)
+        assertEquals(
+            listOf(AppDestination.Library, LibrarySearchRoute("ursula le guin")),
+            navigation.activeBackStack
+        )
+        assertEquals(listOf(AppDestination.Home), navigation.backStack(AppDestination.Home))
+    }
+
+    @Test
+    fun `Library Book Detail pops to its live Library entry`() {
+        val navigation = appNavigationStateForTest(AppDestination.Library)
+        val navigator = AppNavigator(navigation)
 
         navigator.openBookDetail("book-1", BookDetailReturnTarget.Library)
         assertEquals(
@@ -54,108 +75,118 @@ class AppNavigatorTest {
                 AppDestination.Library,
                 BookDetailRoute("book-1", BookDetailReturnTarget.Library)
             ),
-            backStack
+            navigation.activeBackStack
         )
 
-        navigator.goBack()
-        assertEquals(listOf(AppDestination.Library), backStack)
+        assertTrue(navigator.goBack())
+        assertEquals(listOf(AppDestination.Library), navigation.activeBackStack)
+        assertFalse(navigator.goBack())
     }
 
     @Test
-    fun `Shelf Book Detail route retains typed Shelf return context`() {
-        val backStack = mutableListOf<NavKey>(AppDestination.Shelves)
-        val navigator = AppNavigator(backStack)
-        val target = BookDetailReturnTarget.ShelfDetail(
-            "shelf-1",
-            ShelfCollectionOrigin.GROUP
-        )
+    fun `Shelf Book Detail remains on Shelves stack with typed return context`() {
+        val navigation = appNavigationStateForTest(AppDestination.Shelves)
+        val navigator = AppNavigator(navigation)
+        val target = BookDetailReturnTarget.ShelfDetail("shelf-1", ShelfCollectionOrigin.GROUP)
 
         navigator.openBookDetail("book-1", target)
 
-        assertEquals(BookDetailRoute("book-1", target), backStack.last())
-        assertEquals(AppDestination.Shelves, backStack.last().topLevelDestination())
+        assertEquals(BookDetailRoute("book-1", target), navigation.currentRoute)
+        assertEquals(AppDestination.Shelves, navigation.currentRoute.topLevelDestination())
         navigator.goBack()
-        assertEquals(listOf(AppDestination.Shelves), backStack)
+        assertEquals(listOf(AppDestination.Shelves), navigation.activeBackStack)
     }
 
     @Test
-    fun `Book Detail metadata navigation creates typed Library routes`() {
-        val backStack = mutableListOf<NavKey>(
-            AppDestination.Shelves,
-            BookDetailRoute(
-                "book-1",
-                BookDetailReturnTarget.ShelfDetail(
-                    "shelf-1",
-                    ShelfCollectionOrigin.SHARED
-                )
-            )
-        )
-        val navigator = AppNavigator(backStack)
+    fun `Book Detail metadata navigation explicitly transfers to Library stack`() {
+        val navigation = appNavigationStateForTest(AppDestination.Shelves)
+        val navigator = AppNavigator(navigation)
+        navigation.push(shelfBookDetail())
 
-        navigator.openLibraryAuthor("author-1")
-        assertEquals(listOf(LibraryAuthorRoute("author-1")), backStack)
+        navigator.handleBookDetailNavigation(
+            BookDetailNavigationIntent.Author("author-1"),
+            shelfBookDetail()
+        )
+        assertEquals(
+            listOf(AppDestination.Library, LibraryAuthorRoute("author-1")),
+            navigation.activeBackStack
+        )
 
         navigator.openLibrarySeries("series-1")
-        assertEquals(listOf(LibrarySeriesRoute("series-1")), backStack)
+        assertEquals(
+            listOf(AppDestination.Library, LibrarySeriesRoute("series-1")),
+            navigation.activeBackStack
+        )
 
         navigator.openLibraryTag("tag-1", "fiction")
-        assertEquals(listOf(LibraryTagRoute("tag-1", "fiction")), backStack)
+        assertEquals(
+            listOf(AppDestination.Library, LibraryTagRoute("tag-1", "fiction")),
+            navigation.activeBackStack
+        )
+        assertEquals(listOf(AppDestination.Shelves), navigation.backStack(AppDestination.Shelves))
     }
 
     @Test
-    fun `Book Detail Manage Shelves intent enters Shelves as a new context`() {
-        val backStack = mutableListOf<NavKey>(
-            AppDestination.Library,
-            BookDetailRoute("book-1", BookDetailReturnTarget.Library)
-        )
-        val navigator = AppNavigator(backStack)
-
-        navigator.handleBookDetailNavigation(
-            BookDetailNavigationIntent.ManageShelves,
-            BookDetailRoute("book-1", BookDetailReturnTarget.Library)
-        )
-
-        assertEquals(listOf(AppDestination.Shelves), backStack)
-    }
-
-    @Test
-    fun `Library Book Detail opens scoped Marginalia and restores the same detail route`() {
+    fun `Manage Shelves starts Shelves root without clearing origin stack`() {
+        val navigation = appNavigationStateForTest(AppDestination.Library)
         val source = BookDetailRoute("book-1", BookDetailReturnTarget.Library)
-        val backStack = mutableListOf<NavKey>(AppDestination.Library, source)
-        val navigator = AppNavigator(backStack)
+        navigation.push(source)
 
-        navigator.handleBookDetailNavigation(
-            BookDetailNavigationIntent.ReadingSessions("book-1"),
+        AppNavigator(navigation).handleBookDetailNavigation(
+            BookDetailNavigationIntent.ManageShelves,
             source
         )
 
-        assertEquals(
-            BookMarginaliaRoute("book-1", MarginaliaReturnTarget.BookDetail(source)),
-            backStack.last()
-        )
-        assertEquals(AppDestination.Marginalia, backStack.last().topLevelDestination())
-        navigator.goBack()
-        assertEquals(source, backStack.last())
+        assertEquals(AppDestination.Shelves, navigation.selectedDestination)
+        assertEquals(listOf(AppDestination.Shelves), navigation.activeBackStack)
+        assertEquals(listOf(AppDestination.Library), navigation.backStack(AppDestination.Library))
     }
 
     @Test
-    fun `Shelf Book Detail survives scoped Marginalia round trip`() {
-        val source = BookDetailRoute(
-            "book-1",
-            BookDetailReturnTarget.ShelfDetail("shelf-1", ShelfCollectionOrigin.PERSONAL)
-        )
-        val backStack = mutableListOf<NavKey>(AppDestination.Shelves, source)
-        val navigator = AppNavigator(backStack)
+    fun `Book-scoped Marginalia stays on Library Book Detail origin stack`() {
+        val navigation = appNavigationStateForTest(AppDestination.Library)
+        val navigator = AppNavigator(navigation)
+        val source = BookDetailRoute("book-1", BookDetailReturnTarget.Library)
+        navigation.push(source)
 
         navigator.openBookMarginalia("book-1", source)
-        navigator.goBack()
 
-        assertEquals(listOf(AppDestination.Shelves, source), backStack)
+        assertEquals(AppDestination.Library, navigation.selectedDestination)
+        assertEquals(AppDestination.Library, navigation.currentRoute.topLevelDestination())
+        assertEquals(
+            BookMarginaliaRoute("book-1", MarginaliaReturnTarget.BookDetail(source)),
+            navigation.currentRoute
+        )
+        navigator.goBack()
+        assertEquals(source, navigation.currentRoute)
+    }
+
+    @Test
+    fun `Book-scoped Marginalia stays on Shelves Book Detail origin stack`() {
+        val navigation = appNavigationStateForTest(AppDestination.Shelves)
+        val navigator = AppNavigator(navigation)
+        val source = shelfBookDetail()
+        navigation.push(source)
+
+        navigator.openBookMarginalia("book-1", source)
+
+        assertEquals(AppDestination.Shelves, navigation.selectedDestination)
+        assertEquals(AppDestination.Shelves, navigation.currentRoute.topLevelDestination())
+        navigator.goBack()
+        assertEquals(source, navigation.currentRoute)
     }
 
     @Test(expected = IllegalArgumentException::class)
     fun `scoped Marginalia cannot mismatch its Book Detail source`() {
-        val source = BookDetailRoute("book-1", BookDetailReturnTarget.Library)
-        AppNavigator(mutableListOf<NavKey>(source)).openBookMarginalia("book-2", source)
+        val navigation = appNavigationStateForTest(AppDestination.Library)
+        AppNavigator(navigation).openBookMarginalia(
+            "book-2",
+            BookDetailRoute("book-1", BookDetailReturnTarget.Library)
+        )
     }
+
+    private fun shelfBookDetail() = BookDetailRoute(
+        "book-1",
+        BookDetailReturnTarget.ShelfDetail("shelf-1", ShelfCollectionOrigin.SHARED)
+    )
 }
