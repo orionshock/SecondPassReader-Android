@@ -58,6 +58,10 @@ internal class FakeHomeProjectionStore : HomeProjectionStore {
     var recentReplacements = 0
     var shelfReplacements = 0
 
+    override suspend fun hasSnapshot(account: HomeAccountScopeKey): Boolean =
+        recent.keys.any { it.first == account.value } ||
+            shelves.keys.any { it.first == account.value }
+
     override suspend fun readRecentReading(
         account: HomeAccountScopeKey,
         variant: HomeRecentReadingVariant
@@ -92,7 +96,7 @@ internal class FakeHomeProjectionStore : HomeProjectionStore {
         items: List<RecentReadingItem>,
         fetchedAt: Instant = OLD_FETCHED_AT
     ) {
-        recent[account.scopeKey.value to variant] = HomeProjectionSnapshot(items, fetchedAt)
+        recent[account.scope.storageKey.value to variant] = HomeProjectionSnapshot(items, fetchedAt)
     }
 
     fun seedShelves(
@@ -100,7 +104,7 @@ internal class FakeHomeProjectionStore : HomeProjectionStore {
         items: List<ShelfSummary>,
         fetchedAt: Instant = OLD_FETCHED_AT
     ) {
-        shelves[account.scopeKey.value to HomeShelfVariant.FirstPageWithPreviews] =
+        shelves[account.scope.storageKey.value to HomeShelfVariant.FirstPageWithPreviews] =
             HomeProjectionSnapshot(items, fetchedAt)
     }
 }
@@ -202,10 +206,23 @@ internal fun homeRepository(
     store: HomeProjectionStore,
     client: AuthenticatedSecondPassClient,
     fetchedAt: Instant = NEW_FETCHED_AT
-) = HomeProjectionRepository(store, provider(client), Clock.fixed(fetchedAt, ZoneOffset.UTC))
+) = homeRepository(store, FakeHomeAuthenticatedClientProvider(client), fetchedAt)
 
-private fun provider(client: AuthenticatedSecondPassClient) = object : AuthenticatedClientProvider {
-    override suspend fun forProfile(profile: ConnectionProfile) = client
+internal fun homeRepository(
+    store: HomeProjectionStore,
+    provider: AuthenticatedClientProvider,
+    fetchedAt: Instant = NEW_FETCHED_AT
+) = HomeProjectionRepository(store, provider, Clock.fixed(fetchedAt, ZoneOffset.UTC))
+
+internal class FakeHomeAuthenticatedClientProvider(
+    private val client: AuthenticatedSecondPassClient
+) : AuthenticatedClientProvider {
+    var accessCount = 0
+
+    override suspend fun forProfile(profile: ConnectionProfile): AuthenticatedSecondPassClient {
+        accessCount += 1
+        return client
+    }
 }
 
 internal fun projectionAccount(

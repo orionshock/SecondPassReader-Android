@@ -10,6 +10,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -125,6 +126,7 @@ class RecentReadingProjectionStoreTest {
         store.replaceRecentReading(account, recentVariant, emptyList(), emptyTime)
 
         val recent = store.readRecentReading(account, recentVariant)
+        assertTrue(store.hasSnapshot(account))
         assertEquals(emptyTime, recent?.fetchedAt)
         assertEquals(emptyList<RecentReadingItem>(), recent?.items)
         assertEquals(

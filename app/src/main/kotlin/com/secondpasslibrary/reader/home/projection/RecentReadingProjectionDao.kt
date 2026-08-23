@@ -9,6 +9,12 @@ import androidx.room3.Transaction
 @Dao
 internal abstract class RecentReadingProjectionDao {
     @Query(
+        "SELECT EXISTS(SELECT 1 FROM home_projection_snapshots " +
+            "WHERE accountKey = :accountKey AND projectionKind = 'recent_reading')"
+    )
+    abstract suspend fun hasSnapshot(accountKey: String): Boolean
+
+    @Query(
         "SELECT * FROM home_projection_snapshots " +
             "WHERE accountKey = :accountKey AND projectionKind = 'recent_reading' " +
             "AND variantKey = :variantKey"

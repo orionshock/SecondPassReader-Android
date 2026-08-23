@@ -2,7 +2,6 @@ package com.secondpasslibrary.reader.home
 
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.home.projection.HomeRecentReadingVariant
-import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -17,12 +16,16 @@ class ShelfProjectionRepositoryTest {
         val client = FakeHomeAuthenticatedClient().apply {
             shelfCall = { listOf(shelfItem("fresh-2"), shelfItem("fresh-1")) }
         }
+        val repository = homeRepository(store, client)
 
-        val states = homeRepository(store, client).shelves(account).toList()
+        val cached = repository.readCachedShelves(account.scope)
+        val refresh = repository.refreshShelves(account)
+        val fresh = repository.readCachedShelves(account.scope)
 
-        assertEquals(listOf("cached"), states.first().content?.items?.map { it.id })
-        assertEquals(listOf("fresh-2", "fresh-1"), states.last().content?.items?.map { it.id })
-        assertEquals(NEW_FETCHED_AT, states.last().content?.fetchedAt)
+        assertEquals(listOf("cached"), cached.content?.items?.map { it.id })
+        assertEquals(HomeProjectionRefresh.Current, refresh)
+        assertEquals(listOf("fresh-2", "fresh-1"), fresh.content?.items?.map { it.id })
+        assertEquals(NEW_FETCHED_AT, fresh.content?.fetchedAt)
         assertEquals(1, store.shelfReplacements)
         assertEquals(1, client.shelfRequests.single().page)
         assertEquals(6, client.shelfRequests.single().pageSize)
@@ -47,19 +50,23 @@ class ShelfProjectionRepositoryTest {
         }
         val repository = homeRepository(store, client)
 
-        val shelves = repository.shelves(account).toList().last()
-        val reading = repository.readingHistory(
-            account,
-            HomeRecentReadingVariant.ActiveOnly
-        ).toList().last()
+        val shelfRefresh = repository.refreshShelves(account)
+        val readingRefresh =
+            repository.refreshReadingHistory(account, HomeRecentReadingVariant.ActiveOnly)
+        val shelves = repository.readCachedShelves(account.scope)
+        val reading =
+            repository.readCachedReadingHistory(
+                account.scope,
+                HomeRecentReadingVariant.ActiveOnly
+            )
 
-        assertEquals(listOf("cached-shelf"), shelves.content?.items?.map { it.id })
         assertEquals(
             HomeProjectionRefresh.Failed(HomeProjectionFailure.Unreachable),
-            shelves.refresh
+            shelfRefresh
         )
+        assertEquals(HomeProjectionRefresh.Current, readingRefresh)
+        assertEquals(listOf("cached-shelf"), shelves.content?.items?.map { it.id })
         assertEquals(listOf("fresh-reading"), reading.content?.items?.map { it.sessionId })
-        assertEquals(HomeProjectionRefresh.Current, reading.refresh)
         assertEquals(0, store.shelfReplacements)
         assertEquals(1, store.recentReplacements)
     }

@@ -78,10 +78,24 @@ internal class HomeController(
             }
         recentReadingLoad?.cancel()
         recentReadingLoad = scope.launch {
-            repository.readingHistory(activeAccount, variant).collect { projection ->
-                mutableState.value = mutableState.value.copy(recentReading = projection)
-                reportAuthenticationRejection(projection.refresh)
-            }
+            val cached = repository.readCachedReadingHistory(activeAccount.scope, variant)
+            mutableState.value = mutableState.value.copy(recentReading = cached)
+            mutableState.value =
+                mutableState.value.copy(
+                    recentReading = cached.copy(refresh = HomeProjectionRefresh.Refreshing)
+                )
+            val refresh = repository.refreshReadingHistory(activeAccount, variant)
+            val content =
+                if (refresh == HomeProjectionRefresh.Current) {
+                    repository.readCachedReadingHistory(activeAccount.scope, variant).content
+                } else {
+                    cached.content
+                }
+            mutableState.value =
+                mutableState.value.copy(
+                    recentReading = HomeProjectionState(content, refresh)
+                )
+            reportAuthenticationRejection(refresh)
         }
     }
 
@@ -89,10 +103,22 @@ internal class HomeController(
         val activeAccount = account ?: return
         shelfLoad?.cancel()
         shelfLoad = scope.launch {
-            repository.shelves(activeAccount).collect { projection ->
-                mutableState.value = mutableState.value.copy(shelves = projection)
-                reportAuthenticationRejection(projection.refresh)
-            }
+            val cached = repository.readCachedShelves(activeAccount.scope)
+            mutableState.value = mutableState.value.copy(shelves = cached)
+            mutableState.value =
+                mutableState.value.copy(
+                    shelves = cached.copy(refresh = HomeProjectionRefresh.Refreshing)
+                )
+            val refresh = repository.refreshShelves(activeAccount)
+            val content =
+                if (refresh == HomeProjectionRefresh.Current) {
+                    repository.readCachedShelves(activeAccount.scope).content
+                } else {
+                    cached.content
+                }
+            mutableState.value =
+                mutableState.value.copy(shelves = HomeProjectionState(content, refresh))
+            reportAuthenticationRejection(refresh)
         }
     }
 

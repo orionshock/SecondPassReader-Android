@@ -13,6 +13,9 @@ constructor(
     private val recentReadingDao: RecentReadingProjectionDao,
     private val shelfDao: ShelfProjectionDao
 ) : HomeProjectionStore {
+    override suspend fun hasSnapshot(account: HomeAccountScopeKey): Boolean =
+        recentReadingDao.hasSnapshot(account.value) || shelfDao.hasSnapshot(account.value)
+
     override suspend fun readRecentReading(
         account: HomeAccountScopeKey,
         variant: HomeRecentReadingVariant

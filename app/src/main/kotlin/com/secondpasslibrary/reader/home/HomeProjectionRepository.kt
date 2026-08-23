@@ -18,13 +18,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 internal data class HomeProjectionAccount(val profile: ConnectionProfile, val profileId: String) {
-    internal val scopeKey = HomeAccountScopeKey.from(profile.serverOrigin, profileId)
+    internal val scope = HomeAccountScope(profile.serverOrigin, profileId)
 }
 
 @Singleton
@@ -43,38 +41,43 @@ internal class HomeProjectionRepository internal constructor(
     private val inFlight =
         mutableMapOf<ProjectionRequestKey, CompletableDeferred<HomeProjectionRefresh>>()
 
-    fun readingHistory(
+    suspend fun hasCachedProjection(scope: HomeAccountScope): Boolean =
+        store.hasSnapshot(scope.storageKey)
+
+    suspend fun readCachedReadingHistory(
+        scope: HomeAccountScope,
+        variant: HomeRecentReadingVariant
+    ): HomeProjectionState<RecentReadingItem> = HomeProjectionState(
+        content = store.readRecentReading(scope.storageKey, variant).toContent(),
+        refresh = HomeProjectionRefresh.Idle
+    )
+
+    suspend fun readCachedShelves(scope: HomeAccountScope): HomeProjectionState<ShelfSummary> =
+        HomeProjectionState(
+            content =
+                store.readShelves(
+                    scope.storageKey,
+                    HomeShelfVariant.FirstPageWithPreviews
+                ).toContent(),
+            refresh = HomeProjectionRefresh.Idle
+        )
+
+    suspend fun refreshReadingHistory(
         account: HomeProjectionAccount,
         variant: HomeRecentReadingVariant
-    ): Flow<HomeProjectionState<RecentReadingItem>> = flow {
-        val cached = store.readRecentReading(account.scopeKey, variant).toContent()
-        emit(HomeProjectionState(cached, HomeProjectionRefresh.Idle))
-        emit(HomeProjectionState(cached, HomeProjectionRefresh.Refreshing))
-
-        val refresh = refreshOnce(ProjectionRequestKey.recent(account.scopeKey, variant)) {
+    ): HomeProjectionRefresh =
+        refreshOnce(ProjectionRequestKey.recent(account.scope.storageKey, variant)) {
             val client = clientProvider.forProfile(account.profile)
             val items =
                 client.marginalia.sessions.recent(
                     RecentReadingOptions(variant.limit, variant.includeClosed)
                 )
-            store.replaceRecentReading(account.scopeKey, variant, items, clock.instant())
+            store.replaceRecentReading(account.scope.storageKey, variant, items, clock.instant())
         }
-        val content =
-            if (refresh == HomeProjectionRefresh.Current) {
-                checkNotNull(store.readRecentReading(account.scopeKey, variant)).toContent()
-            } else {
-                cached
-            }
-        emit(HomeProjectionState(content, refresh))
-    }
 
-    fun shelves(account: HomeProjectionAccount): Flow<HomeProjectionState<ShelfSummary>> = flow {
+    suspend fun refreshShelves(account: HomeProjectionAccount): HomeProjectionRefresh {
         val variant = HomeShelfVariant.FirstPageWithPreviews
-        val cached = store.readShelves(account.scopeKey, variant).toContent()
-        emit(HomeProjectionState(cached, HomeProjectionRefresh.Idle))
-        emit(HomeProjectionState(cached, HomeProjectionRefresh.Refreshing))
-
-        val refresh = refreshOnce(ProjectionRequestKey.shelves(account.scopeKey, variant)) {
+        return refreshOnce(ProjectionRequestKey.shelves(account.scope.storageKey, variant)) {
             val client = clientProvider.forProfile(account.profile)
             val items =
                 client.shelves.list(
@@ -84,15 +87,8 @@ internal class HomeProjectionRepository internal constructor(
                         previewLimit = variant.previewLimit
                     )
                 ).shelves.map { it.toSummary() }
-            store.replaceShelves(account.scopeKey, variant, items, clock.instant())
+            store.replaceShelves(account.scope.storageKey, variant, items, clock.instant())
         }
-        val content =
-            if (refresh == HomeProjectionRefresh.Current) {
-                checkNotNull(store.readShelves(account.scopeKey, variant)).toContent()
-            } else {
-                cached
-            }
-        emit(HomeProjectionState(content, refresh))
     }
 
     private suspend fun refreshOnce(

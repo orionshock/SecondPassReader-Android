@@ -51,6 +51,8 @@ internal enum class HomeShelfVariant(
 internal data class HomeProjectionSnapshot<T>(val items: List<T>, val fetchedAt: Instant)
 
 internal interface HomeProjectionStore {
+    suspend fun hasSnapshot(account: HomeAccountScopeKey): Boolean
+
     suspend fun readRecentReading(
         account: HomeAccountScopeKey,
         variant: HomeRecentReadingVariant

@@ -9,6 +9,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -104,6 +105,7 @@ class ShelfProjectionStoreTest {
         val emptyTime = Instant.parse("2026-08-16T16:00:00Z")
         store.replaceShelves(account, shelfVariant, emptyList(), emptyTime)
 
+        assertTrue(store.hasSnapshot(account))
         assertEquals(emptyTime, store.readShelves(account, shelfVariant)?.fetchedAt)
         assertEquals(emptyList<Any>(), store.readShelves(account, shelfVariant)?.items)
         assertEquals(
