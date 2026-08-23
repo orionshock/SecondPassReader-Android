@@ -12,6 +12,7 @@ import com.secondpasslibrary.client.PairingStatus
 import com.secondpasslibrary.client.SecondPassClient
 import com.secondpasslibrary.client.ServerOrigin
 import com.secondpasslibrary.client.SplClientException
+import com.secondpasslibrary.reader.connection.storage.PersistedAccountContextStore
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.TestScope
@@ -33,14 +34,124 @@ class ConnectionCoordinatorTest {
             FakeClient(events = events, pollStatuses = ArrayDeque(listOf(PairingStatus.APPROVED)))
         val profileStore = FakeProfileStore(events)
         val credentialStore = FakeCredentialStore(events)
-        val coordinator = coordinator(client, profileStore, credentialStore)
+        val accountContextStore = FakePersistedAccountContextStore(events)
+        val coordinator =
+            coordinator(client, profileStore, credentialStore, accountContextStore)
 
         startPairing(coordinator)
         advanceUntilIdle()
 
         assertTrue(coordinator.state.value is ConnectionUiState.Linked)
-        assertEquals(listOf("consume", "credential", "profile", "verify"), events.take(4))
+        assertEquals(
+            listOf("consume", "credential", "profile", "verify", "account"),
+            events.take(5)
+        )
+        assertEquals(
+            PersistedAccountContext(profile().authenticatedConnectionIdentity, "profile-1"),
+            accountContextStore.stored
+        )
         assertEquals(1, client.consumeCalls)
+    }
+
+    @Test
+    fun `failed verification does not replace persisted account context`() = runTest {
+        val original =
+            PersistedAccountContext(
+                AuthenticatedConnectionIdentity("https://old.example/api/v1/", "old-session"),
+                "old-profile"
+            )
+        val accountContextStore = FakePersistedAccountContextStore().apply { stored = original }
+        val coordinator =
+            coordinator(
+                FakeClient(authFailure = SplClientException.ServerUnreachable()),
+                FakeProfileStore().apply { stored = profile() },
+                FakeCredentialStore().apply {
+                    stored = StoredCredential(BearerCredential.restore("spl_secret"), null)
+                },
+                accountContextStore
+            )
+
+        coordinator.restore()
+        advanceUntilIdle()
+
+        assertTrue(coordinator.state.value is ConnectionUiState.RestoreProblem)
+        assertEquals(0, accountContextStore.writeCalls)
+        assertEquals(original, accountContextStore.stored)
+    }
+
+    @Test
+    fun `successful restore populates missing persisted account context`() = runTest {
+        val restoredProfile = profile()
+        val accountContextStore = FakePersistedAccountContextStore()
+        val coordinator =
+            coordinator(
+                FakeClient(),
+                FakeProfileStore().apply { stored = restoredProfile },
+                FakeCredentialStore().apply {
+                    stored = StoredCredential(BearerCredential.restore("spl_secret"), null)
+                },
+                accountContextStore
+            )
+
+        coordinator.restore()
+        advanceUntilIdle()
+
+        assertTrue(coordinator.state.value is ConnectionUiState.Linked)
+        assertEquals(
+            PersistedAccountContext(
+                restoredProfile.authenticatedConnectionIdentity,
+                "profile-1"
+            ),
+            accountContextStore.stored
+        )
+    }
+
+    @Test
+    fun `descriptor persistence failure does not invalidate verified connection`() = runTest {
+        val accountContextStore = FakePersistedAccountContextStore().apply { failWrites = true }
+        val coordinator =
+            coordinator(
+                FakeClient(),
+                FakeProfileStore().apply { stored = profile() },
+                FakeCredentialStore().apply {
+                    stored = StoredCredential(BearerCredential.restore("spl_secret"), null)
+                },
+                accountContextStore
+            )
+
+        coordinator.restore()
+        advanceUntilIdle()
+
+        assertTrue(coordinator.state.value is ConnectionUiState.Linked)
+        assertEquals(1, accountContextStore.writeCalls)
+        assertEquals(null, accountContextStore.stored)
+    }
+
+    @Test
+    fun `explicit local forget clears persisted account context`() = runTest {
+        val accountContextStore = FakePersistedAccountContextStore().apply {
+            stored =
+                PersistedAccountContext(
+                    profile().authenticatedConnectionIdentity,
+                    "profile-1"
+                )
+        }
+        val coordinator =
+            coordinator(
+                FakeClient(),
+                FakeProfileStore().apply { stored = profile() },
+                FakeCredentialStore().apply {
+                    stored = StoredCredential(BearerCredential.restore("spl_secret"), null)
+                },
+                accountContextStore
+            )
+
+        coordinator.forgetLocalConnection()
+        advanceUntilIdle()
+
+        assertTrue(coordinator.state.value is ConnectionUiState.ServerEntry)
+        assertTrue(accountContextStore.cleared)
+        assertEquals(null, accountContextStore.stored)
     }
 
     @Test
@@ -252,11 +363,14 @@ class ConnectionCoordinatorTest {
         client: FakeClient,
         profileStore: FakeProfileStore,
         credentialStore: FakeCredentialStore,
+        accountContextStore: FakePersistedAccountContextStore =
+            FakePersistedAccountContextStore(),
         timedDelay: Boolean = false
     ) = ConnectionCoordinator(
         client = client,
         profileStore = profileStore,
         credentialStore = credentialStore,
+        accountContextStore = accountContextStore,
         pollDelay = PairingPollDelay { seconds -> if (timedDelay) delay(seconds * 1_000) },
         defaultClientName = "Second Pass Reader · Android",
         scope = this
@@ -343,6 +457,29 @@ class ConnectionCoordinatorTest {
 
         override suspend fun markProfileCommitted() {
             stored = stored?.copy(recoveryProfile = null)
+        }
+
+        override suspend fun clear() {
+            cleared = true
+            stored = null
+        }
+    }
+
+    private class FakePersistedAccountContextStore(
+        private val events: MutableList<String> = mutableListOf()
+    ) : PersistedAccountContextStore {
+        var stored: PersistedAccountContext? = null
+        var writeCalls = 0
+        var cleared = false
+        var failWrites = false
+
+        override suspend fun read(): PersistedAccountContext? = stored
+
+        override suspend fun write(context: PersistedAccountContext) {
+            events += "account"
+            writeCalls += 1
+            if (failWrites) throw IllegalStateException("disk full")
+            stored = context
         }
 
         override suspend fun clear() {

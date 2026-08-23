@@ -7,6 +7,7 @@ import com.secondpasslibrary.client.PairingStatus
 import com.secondpasslibrary.client.SecondPassClient
 import com.secondpasslibrary.client.SplClient
 import com.secondpasslibrary.client.SplClientException
+import com.secondpasslibrary.reader.connection.storage.PersistedAccountContextStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -18,10 +19,11 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 @Suppress("TooManyFunctions") // One cohesive, explicit connection state machine.
-class ConnectionCoordinator(
+internal class ConnectionCoordinator(
     private val client: SecondPassClient,
     private val profileStore: ConnectionProfileStore,
     private val credentialStore: BearerCredentialStore,
+    private val accountContextStore: PersistedAccountContextStore,
     private val pollDelay: PairingPollDelay,
     private val defaultClientName: String,
     private val scope: CoroutineScope
@@ -336,6 +338,14 @@ class ConnectionCoordinator(
     ) {
         try {
             val context = client.loadAuthenticatedContext(profile.apiBaseUrl, credential)
+            attempt {
+                accountContextStore.write(
+                    PersistedAccountContext(
+                        connectionIdentity = profile.authenticatedConnectionIdentity,
+                        profileId = context.currentUser.profileId
+                    )
+                )
+            }
             mutableState.value = ConnectionUiState.Linked(profile, context)
         } catch (_: SplClientException.AuthenticationRejected) {
             if (restoring) {
@@ -377,8 +387,10 @@ class ConnectionCoordinator(
     private suspend fun clearLocalConnection() {
         val profileResult = runCatching { profileStore.clear() }
         val credentialResult = runCatching { credentialStore.clear() }
-        credentialResult.exceptionOrNull()?.let { throw it }
-        profileResult.exceptionOrNull()?.let { throw it }
+        val accountContextResult = runCatching { accountContextStore.clear() }
+        listOf(credentialResult, profileResult, accountContextResult)
+            .firstNotNullOfOrNull { it.exceptionOrNull() }
+            ?.let { throw it }
     }
 
     private fun replaceOperation(block: suspend () -> Unit) {

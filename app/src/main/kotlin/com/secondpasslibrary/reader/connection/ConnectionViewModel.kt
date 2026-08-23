@@ -3,16 +3,18 @@ package com.secondpasslibrary.reader.connection
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.secondpasslibrary.client.SecondPassClient
+import com.secondpasslibrary.reader.connection.storage.PersistedAccountContextStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
 @HiltViewModel
 class ConnectionViewModel
 @Inject
-constructor(
+internal constructor(
     client: SecondPassClient,
     profileStore: ConnectionProfileStore,
     credentialStore: BearerCredentialStore,
+    accountContextStore: PersistedAccountContextStore,
     pollDelay: CoroutinePairingPollDelay,
     clientNameProvider: AndroidClientNameProvider
 ) : ViewModel() {
@@ -21,6 +23,7 @@ constructor(
             client = client,
             profileStore = profileStore,
             credentialStore = credentialStore,
+            accountContextStore = accountContextStore,
             pollDelay = pollDelay,
             defaultClientName = clientNameProvider.defaultName(),
             scope = viewModelScope

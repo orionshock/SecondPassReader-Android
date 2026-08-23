@@ -1,7 +1,9 @@
 package com.secondpasslibrary.reader.connection
 
 import com.secondpasslibrary.reader.connection.storage.DataStoreConnectionProfileStore
+import com.secondpasslibrary.reader.connection.storage.DataStorePersistedAccountContextStore
 import com.secondpasslibrary.reader.connection.storage.KeystoreBearerCredentialStore
+import com.secondpasslibrary.reader.connection.storage.PersistedAccountContextStore
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -22,6 +24,12 @@ abstract class ConnectionStorageModule {
     abstract fun bindBearerCredentialStore(
         store: KeystoreBearerCredentialStore
     ): BearerCredentialStore
+
+    @Binds
+    @Singleton
+    internal abstract fun bindPersistedAccountContextStore(
+        store: DataStorePersistedAccountContextStore
+    ): PersistedAccountContextStore
 
     @Binds
     @Singleton
