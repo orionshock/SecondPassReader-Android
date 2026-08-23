@@ -26,12 +26,18 @@ internal enum class AppBarNavigation {
     BACK
 }
 
+internal enum class AppBarContextEmphasis {
+    MUTED,
+    TITLE
+}
+
 internal data class AppBarPresentation(
     val navigation: AppBarNavigation,
     val title: String,
     val context: String? = null,
     val contextIcon: AppIcon? = null,
     val contextDetail: String? = null,
+    val contextEmphasis: AppBarContextEmphasis = AppBarContextEmphasis.MUTED,
     val separator: String = " › ",
     val metadata: String? = null
 )
@@ -79,17 +85,27 @@ private fun ContextualAppBarTitle(presentation: AppBarPresentation) {
 @Composable
 private fun ContextualAppBarContext(presentation: AppBarPresentation, availableWidth: Dp) {
     val context = presentation.context ?: return
+    val contextColor =
+        when (presentation.contextEmphasis) {
+            AppBarContextEmphasis.MUTED -> MaterialTheme.colorScheme.onSurfaceVariant
+            AppBarContextEmphasis.TITLE -> MaterialTheme.colorScheme.onSurface
+        }
+    val contextStyle =
+        when (presentation.contextEmphasis) {
+            AppBarContextEmphasis.MUTED -> MaterialTheme.typography.bodyMedium
+            AppBarContextEmphasis.TITLE -> MaterialTheme.typography.titleLarge
+        }
     Row(
         modifier =
             Modifier.widthIn(
-                max = minOf(availableWidth * CONTEXT_WIDTH_FRACTION, 220.dp)
+                max = minOf(availableWidth * CONTEXT_WIDTH_FRACTION, 320.dp)
             ),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = context,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodyMedium,
+            color = contextColor,
+            style = contextStyle,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -97,16 +113,15 @@ private fun ContextualAppBarContext(presentation: AppBarPresentation, availableW
             AppIconGraphic(
                 icon,
                 null,
-                Modifier.size(22.dp).padding(start = 4.dp, end = 4.dp),
-                MaterialTheme.colorScheme.onSurfaceVariant
+                Modifier.padding(horizontal = 4.dp).size(24.dp),
+                contextColor
             )
         }
         presentation.contextDetail?.let { detail ->
             Text(
                 text = detail,
-                modifier = Modifier.weight(1f),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium,
+                color = contextColor,
+                style = contextStyle,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -114,8 +129,8 @@ private fun ContextualAppBarContext(presentation: AppBarPresentation, availableW
     }
     Text(
         text = presentation.separator,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        style = MaterialTheme.typography.bodyMedium,
+        color = contextColor,
+        style = contextStyle,
         maxLines = 1
     )
 }
@@ -133,4 +148,4 @@ private fun ContextualAppBarMetadata(metadata: String?) {
     )
 }
 
-private const val CONTEXT_WIDTH_FRACTION = 0.35f
+private const val CONTEXT_WIDTH_FRACTION = 0.55f

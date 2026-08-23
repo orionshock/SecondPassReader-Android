@@ -4,6 +4,7 @@ import com.secondpasslibrary.client.AuthorOrdering
 import com.secondpasslibrary.client.LibraryGroupSummary
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.SeriesOrdering
+import com.secondpasslibrary.reader.design.components.AppBarContextEmphasis
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.library.axis.PagedLibraryAxisState
 import com.secondpasslibrary.reader.library.books.LibraryBooksState
@@ -45,6 +46,7 @@ class LibraryPresentationTest {
         assertEquals("Library", books.context)
         assertEquals("Books", books.title)
         assertEquals("1 book", books.metadata)
+        assertEquals(AppBarContextEmphasis.TITLE, books.contextEmphasis)
         assertEquals("Authors", authors.title)
         assertEquals("2 authors", authors.metadata)
         assertEquals("Series", series.title)

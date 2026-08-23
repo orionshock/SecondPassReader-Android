@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.library
 
 import com.secondpasslibrary.client.LibraryGroupSummary
 import com.secondpasslibrary.client.LibraryScope
+import com.secondpasslibrary.reader.design.components.AppBarContextEmphasis
 import com.secondpasslibrary.reader.design.components.AppBarNavigation
 import com.secondpasslibrary.reader.design.components.AppBarPresentation
 import com.secondpasslibrary.reader.design.icons.AppIcon
@@ -24,6 +25,7 @@ internal fun LibraryState.appBarPresentation(): AppBarPresentation {
         context = if (group == null) "Library" else "Library:",
         contextIcon = group?.semanticIcon,
         contextDetail = group?.name,
+        contextEmphasis = AppBarContextEmphasis.TITLE,
         separator = " — ",
         title = axis.label,
         metadata = metadata
