@@ -6,6 +6,9 @@
     }
   ],
   "settings": {
+    "files.associations": {
+      "*.gradle.kts": "kotlin"
+    },
     "files.exclude": {
       "**/.gradle": true,
       "**/.kotlin": true,
