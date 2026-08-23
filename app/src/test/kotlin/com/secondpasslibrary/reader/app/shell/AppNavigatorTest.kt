@@ -1,6 +1,7 @@
 package com.secondpasslibrary.reader.app.shell
 
 import com.secondpasslibrary.reader.bookdetail.BookDetailNavigationIntent
+import com.secondpasslibrary.reader.design.book.BookCardAction
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
@@ -192,6 +193,25 @@ class AppNavigatorTest {
     }
 
     @Test
+    fun `Library Book actions use existing detail history and axis routes`() {
+        val navigation = appNavigationStateForTest(AppDestination.Library)
+        val navigator = AppNavigator(navigation)
+
+        navigator.handleLibraryBookAction(BookCardAction.ReadingSessions("book-1"))
+        assertEquals(
+            BookMarginaliaRoute("book-1", MarginaliaReturnTarget.Library),
+            navigation.currentRoute
+        )
+        navigator.goBack()
+
+        navigator.handleLibraryBookAction(BookCardAction.Author("book-1", "author-1", "Author"))
+        assertEquals(LibraryAuthorRoute("author-1"), navigation.currentRoute)
+
+        navigator.handleLibraryBookAction(BookCardAction.Series("book-1", "series-1", "Series"))
+        assertEquals(LibrarySeriesRoute("series-1"), navigation.currentRoute)
+    }
+
+    @Test
     fun `Home Reading Session actions use shared detail route on Home stack`() {
         val navigation = appNavigationStateForTest()
         val navigator = AppNavigator(navigation)
@@ -224,7 +244,7 @@ class AppNavigatorTest {
             )
 
         assertFalse(showsShellTopBar(AppDestination.Library, route))
-        assertTrue(showsShellTopBar(AppDestination.Library, AppDestination.Library))
+        assertFalse(showsShellTopBar(AppDestination.Library, AppDestination.Library))
     }
 
     @Test(expected = IllegalArgumentException::class)

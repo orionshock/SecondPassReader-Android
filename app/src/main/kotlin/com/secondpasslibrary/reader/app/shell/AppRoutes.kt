@@ -52,6 +52,9 @@ data class BookDetailRoute(val bookId: String, val returnTarget: BookDetailRetur
 sealed interface MarginaliaReturnTarget {
     @Serializable
     data class BookDetail(val route: BookDetailRoute) : MarginaliaReturnTarget
+
+    @Serializable
+    data object Library : MarginaliaReturnTarget
 }
 
 @Serializable
@@ -92,6 +95,7 @@ internal fun NavKey.topLevelDestination(): AppDestination = when (this) {
 
     is BookMarginaliaRoute -> when (val target = returnTarget) {
         is MarginaliaReturnTarget.BookDetail -> target.route.topLevelDestination()
+        MarginaliaReturnTarget.Library -> AppDestination.Library
     }
 
     is ReadingSessionDetailRoute -> when (returnTarget) {

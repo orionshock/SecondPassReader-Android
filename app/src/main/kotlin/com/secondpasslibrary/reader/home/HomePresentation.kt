@@ -5,6 +5,7 @@ import com.secondpasslibrary.client.ReadingSessionStatus
 import com.secondpasslibrary.client.RecentReadingItem
 import com.secondpasslibrary.client.ShelfOwner
 import com.secondpasslibrary.client.ShelfSummary
+import com.secondpasslibrary.reader.design.book.BookCardAction
 import com.secondpasslibrary.reader.design.icons.AppIcon
 
 internal enum class ReadingStatusIndicator {
@@ -123,7 +124,7 @@ private data class ShelfOwnerPresentation(
 
 private val RecentReadingItem.contextActions: List<HomeNavigationIntent>
     get() = buildList {
-        add(HomeNavigationIntent.OpenBookDetail(book.id))
+        add(HomeNavigationIntent.BookAction(BookCardAction.BookDetails(book.id)))
         add(HomeNavigationIntent.OpenReadingSessionDetail(sessionId))
         if (status == ReadingSessionStatus.ACTIVE) {
             add(

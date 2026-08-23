@@ -3,6 +3,7 @@ package com.secondpasslibrary.reader.home
 import com.secondpasslibrary.client.ReadingProgress
 import com.secondpasslibrary.client.RecentReadingItem
 import com.secondpasslibrary.client.ShelfSummary
+import com.secondpasslibrary.reader.design.book.BookCardAction
 
 internal data class HomeUiState(
     val showClosedSessions: Boolean = false,
@@ -13,7 +14,7 @@ internal data class HomeUiState(
 sealed interface HomeNavigationIntent {
     data class LibrarySearch(val query: String) : HomeNavigationIntent
 
-    data class OpenBookDetail(val bookId: String) : HomeNavigationIntent
+    data class BookAction(val action: BookCardAction) : HomeNavigationIntent
 
     data class OpenReadingSessionDetail(
         val sessionId: String,

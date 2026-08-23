@@ -235,9 +235,11 @@ private fun LibraryDestination(
         entry,
         bindings.context.serverInfo.advancedLibraryGroupsEnabled,
         bindings.onAuthenticationRejected,
+        bindings.onOpenDrawer,
         onBookSelected = {
             bindings.navigator.openBookDetail(it, BookDetailReturnTarget.Library)
         },
+        onBookAction = bindings.navigator::handleLibraryBookAction,
         externalNavigation
     )
 }

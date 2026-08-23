@@ -5,6 +5,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.design.book.BookCardAction
 import com.secondpasslibrary.reader.library.books.LibraryBooksEntry
 
 @Composable
@@ -13,7 +14,9 @@ internal fun LibraryStateHost(
     entry: LibraryBooksEntry,
     advancedGroupsEnabled: Boolean,
     onAuthenticationRejected: () -> Unit,
+    onOpenDrawer: () -> Unit,
     onBookSelected: (String) -> Unit,
+    onBookAction: (BookCardAction) -> Unit,
     externalNavigation: LibraryExternalNavigation? = null,
     viewModel: LibraryViewModel = viewModel()
 ) {
@@ -34,5 +37,5 @@ internal fun LibraryStateHost(
             }
         }
     }
-    LibraryScreen(viewModel, onBookSelected)
+    LibraryScreen(viewModel, onOpenDrawer, onBookSelected, onBookAction)
 }

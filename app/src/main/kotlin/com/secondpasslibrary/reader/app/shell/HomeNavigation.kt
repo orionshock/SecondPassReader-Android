@@ -8,8 +8,8 @@ internal fun AppNavigator.handleHomeNavigation(intent: HomeNavigationIntent) {
     when (intent) {
         is HomeNavigationIntent.LibrarySearch -> openLibrarySearch(intent.query)
 
-        is HomeNavigationIntent.OpenBookDetail ->
-            openBookDetail(intent.bookId, BookDetailReturnTarget.Home)
+        is HomeNavigationIntent.BookAction ->
+            handleHomeBookAction(intent.action)
 
         is HomeNavigationIntent.OpenReadingSessionDetail ->
             openReadingSessionDetail(

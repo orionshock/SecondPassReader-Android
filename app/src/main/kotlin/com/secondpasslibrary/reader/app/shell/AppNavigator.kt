@@ -24,6 +24,11 @@ internal class AppNavigator(private val navigation: AppNavigationState) {
         navigation.push(route)
     }
 
+    fun openLibraryBookMarginalia(bookId: String) {
+        require(bookId.isNotBlank()) { "Book ID must not be blank." }
+        navigation.push(BookMarginaliaRoute(bookId, MarginaliaReturnTarget.Library))
+    }
+
     fun openLibraryAuthor(authorId: String) =
         navigation.replace(AppDestination.Library, LibraryAuthorRoute(authorId))
 

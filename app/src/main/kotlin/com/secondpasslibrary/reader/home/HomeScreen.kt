@@ -6,12 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -19,19 +14,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.secondpasslibrary.client.AuthenticatedContext
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.design.icons.AppIcon
-import com.secondpasslibrary.reader.design.icons.AppIconGraphic
+import com.secondpasslibrary.reader.design.components.InlineSearchField
 import kotlinx.coroutines.flow.collectLatest
 
 @Composable
@@ -115,28 +104,12 @@ private fun HomeContent(
 @Composable
 private fun GlobalLibrarySearch(onSearch: (String) -> Unit, modifier: Modifier = Modifier) {
     var query by rememberSaveable { mutableStateOf("") }
-    val keyboard = LocalSoftwareKeyboardController.current
-    val submit = {
-        keyboard?.hide()
-        onSearch(query)
-    }
-    OutlinedTextField(
-        value = query,
-        onValueChange = { query = it },
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .semantics { contentDescription = "Global library search" },
-        placeholder = { Text("Search books, authors, series, publishers, or tags") },
-        leadingIcon = { AppIconGraphic(AppIcon.Search, null) },
-        trailingIcon = {
-            IconButton(onClick = submit) {
-                AppIconGraphic(AppIcon.Search, "Search library")
-            }
-        },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-        keyboardActions = KeyboardActions(onSearch = { submit() }),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp)
+    InlineSearchField(
+        query = query,
+        placeholder = "Search books, authors, series, publishers, or tags",
+        contentDescription = "Global library search",
+        onQueryChanged = { query = it },
+        onSubmit = { onSearch(query) },
+        modifier = modifier.fillMaxWidth()
     )
 }

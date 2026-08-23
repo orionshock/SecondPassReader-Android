@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 
 internal val DRAWER_GESTURE_EDGE_WIDTH = 24.dp
+
 // Android caps each edge's exclusion length at 200dp; request one deterministic upper segment.
 internal val DRAWER_GESTURE_EDGE_HEIGHT = 200.dp
 private val DRAWER_OPEN_THRESHOLD = 64.dp

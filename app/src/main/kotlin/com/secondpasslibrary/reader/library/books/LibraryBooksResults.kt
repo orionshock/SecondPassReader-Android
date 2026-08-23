@@ -20,6 +20,7 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.secondpasslibrary.reader.design.book.BookCardAction
 import com.secondpasslibrary.reader.design.book.CompactBookGridCard
 import com.secondpasslibrary.reader.design.book.CompactBookRow
 import com.secondpasslibrary.reader.library.presentation.LibraryBrowseLoading
@@ -34,6 +35,7 @@ internal fun LibraryBooksResults(
     onLoadNextPage: () -> Unit,
     onRetry: () -> Unit,
     onBookSelected: (String) -> Unit,
+    onBookAction: (BookCardAction) -> Unit,
     modifier: Modifier = Modifier
 ) {
     when {
@@ -56,6 +58,7 @@ internal fun LibraryBooksResults(
                                 onLoadNextPage,
                                 onRetry,
                                 onBookSelected,
+                                onBookAction,
                                 Modifier.weight(1f)
                             )
 
@@ -65,6 +68,7 @@ internal fun LibraryBooksResults(
                                 onLoadNextPage,
                                 onRetry,
                                 onBookSelected,
+                                onBookAction,
                                 Modifier.weight(1f)
                             )
                     }
@@ -79,6 +83,7 @@ private fun LibraryBooksList(
     onLoadNextPage: () -> Unit,
     onRetry: () -> Unit,
     onBookSelected: (String) -> Unit,
+    onBookAction: (BookCardAction) -> Unit,
     modifier: Modifier
 ) {
     val listState = rememberLazyListState()
@@ -89,7 +94,12 @@ private fun LibraryBooksList(
         contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)
     ) {
         items(state.books, key = { it.id }) { book ->
-            CompactBookRow(book.toLibraryCompactBookPresentation()) { onBookSelected(book.id) }
+            CompactBookRow(
+                book = book.toLibraryCompactBookPresentation(),
+                onClick = { onBookSelected(book.id) },
+                actions = book.bookCardActions(),
+                onAction = onBookAction
+            )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
         item { NextPageFooter(state, onRetry) }
@@ -102,6 +112,7 @@ private fun LibraryBooksGrid(
     onLoadNextPage: () -> Unit,
     onRetry: () -> Unit,
     onBookSelected: (String) -> Unit,
+    onBookAction: (BookCardAction) -> Unit,
     modifier: Modifier
 ) {
     val gridState = rememberLazyGridState()
@@ -115,9 +126,12 @@ private fun LibraryBooksGrid(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         items(state.books, key = { it.id }) { book ->
-            CompactBookGridCard(book.toLibraryCompactBookPresentation()) {
-                onBookSelected(book.id)
-            }
+            CompactBookGridCard(
+                book = book.toLibraryCompactBookPresentation(),
+                onClick = { onBookSelected(book.id) },
+                actions = book.bookCardActions(),
+                onAction = onBookAction
+            )
         }
         item(span = { GridItemSpan(maxLineSpan) }) { NextPageFooter(state, onRetry) }
     }

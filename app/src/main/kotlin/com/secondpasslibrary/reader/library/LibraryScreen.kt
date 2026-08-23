@@ -12,6 +12,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondpasslibrary.client.LibraryCatalogTag
 import com.secondpasslibrary.client.LibraryScope
+import com.secondpasslibrary.reader.design.book.BookCardAction
+import com.secondpasslibrary.reader.design.components.ContextualAppBar
 import com.secondpasslibrary.reader.library.axis.LibraryAuthorsResults
 import com.secondpasslibrary.reader.library.axis.LibrarySeriesResults
 import com.secondpasslibrary.reader.library.axis.SelectedAuthorSeriesHeader
@@ -23,7 +25,12 @@ import com.secondpasslibrary.reader.library.books.LibraryBooksResults
 import com.secondpasslibrary.reader.library.chrome.LibraryControls
 
 @Composable
-internal fun LibraryScreen(viewModel: LibraryViewModel, onBookSelected: (String) -> Unit) {
+internal fun LibraryScreen(
+    viewModel: LibraryViewModel,
+    onOpenDrawer: () -> Unit,
+    onBookSelected: (String) -> Unit,
+    onBookAction: (BookCardAction) -> Unit
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     LibraryContent(
         state = state,
@@ -44,7 +51,9 @@ internal fun LibraryScreen(viewModel: LibraryViewModel, onBookSelected: (String)
         onClearSelectedAuthorSeries = viewModel::clearSelectedAuthorSeries,
         onRetryAuthorDetail = viewModel::retryAuthorDetail,
         onRetrySeriesDetail = viewModel::retrySeriesDetail,
-        onBookSelected = onBookSelected
+        onBookSelected = onBookSelected,
+        onBookAction = onBookAction,
+        onOpenDrawer = onOpenDrawer
     )
 }
 
@@ -68,29 +77,35 @@ private fun LibraryContent(
     onClearSelectedAuthorSeries: () -> Unit,
     onRetryAuthorDetail: () -> Unit,
     onRetrySeriesDetail: () -> Unit,
-    onBookSelected: (String) -> Unit
+    onBookSelected: (String) -> Unit,
+    onBookAction: (BookCardAction) -> Unit,
+    onOpenDrawer: () -> Unit
 ) {
-    LibraryBrowseContent(
-        state,
-        onSearch,
-        onBookOrderingSelected,
-        onAuthorOrderingSelected,
-        onSeriesOrderingSelected,
-        onLayoutSelected,
-        onScopeSelected,
-        onAxisSelected,
-        onRetryGroups,
-        onTagSelected,
-        onRetryTags,
-        onLoadNextPage,
-        onRetry,
-        onAuthorSelected,
-        onSeriesSelected,
-        onClearSelectedAuthorSeries,
-        onRetryAuthorDetail,
-        onRetrySeriesDetail,
-        onBookSelected
-    )
+    Column(Modifier.fillMaxSize()) {
+        ContextualAppBar(state.appBarPresentation(), onOpenDrawer)
+        LibraryBrowseContent(
+            state,
+            onSearch,
+            onBookOrderingSelected,
+            onAuthorOrderingSelected,
+            onSeriesOrderingSelected,
+            onLayoutSelected,
+            onScopeSelected,
+            onAxisSelected,
+            onRetryGroups,
+            onTagSelected,
+            onRetryTags,
+            onLoadNextPage,
+            onRetry,
+            onAuthorSelected,
+            onSeriesSelected,
+            onClearSelectedAuthorSeries,
+            onRetryAuthorDetail,
+            onRetrySeriesDetail,
+            onBookSelected,
+            onBookAction
+        )
+    }
 }
 
 @Composable
@@ -114,7 +129,8 @@ private fun LibraryBrowseContent(
     onClearSelectedAuthorSeries: () -> Unit,
     onRetryAuthorDetail: () -> Unit,
     onRetrySeriesDetail: () -> Unit,
-    onBookSelected: (String) -> Unit
+    onBookSelected: (String) -> Unit,
+    onBookAction: (BookCardAction) -> Unit
 ) {
     Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
         LibraryControls(
@@ -142,6 +158,7 @@ private fun LibraryBrowseContent(
                     onRetrySeriesDetail,
                     onClearSelectedAuthorSeries,
                     onBookSelected,
+                    onBookAction,
                     Modifier.weight(1f)
                 )
 
@@ -177,6 +194,7 @@ private fun FilterableBooksResults(
     onRetrySeriesDetail: () -> Unit,
     onClearSelectedAuthorSeries: () -> Unit,
     onBookSelected: (String) -> Unit,
+    onBookAction: (BookCardAction) -> Unit,
     modifier: Modifier
 ) {
     Column(modifier) {
@@ -208,6 +226,7 @@ private fun FilterableBooksResults(
             onLoadNextPage,
             onRetry,
             onBookSelected,
+            onBookAction,
             Modifier.weight(1f)
         )
     }

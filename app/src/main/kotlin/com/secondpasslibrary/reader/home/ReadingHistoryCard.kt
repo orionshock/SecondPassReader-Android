@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -30,6 +28,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.secondpasslibrary.reader.design.book.menuLabel
+import com.secondpasslibrary.reader.design.components.AnchoredOverflowMenu
 
 private const val COVER_SCRIM_START = 0.3f
 
@@ -41,17 +41,15 @@ internal fun ReadingHistoryCard(
     var menuExpanded by remember { mutableStateOf(false) }
     Box {
         ReadingHistoryCardSurface(model) { menuExpanded = true }
-        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-            model.contextActions.forEach { action ->
-                DropdownMenuItem(
-                    text = { Text(action.menuLabel) },
-                    onClick = {
-                        menuExpanded = false
-                        onContextAction(action)
-                    }
-                )
-            }
-        }
+        AnchoredOverflowMenu(
+            items = model.contextActions,
+            expanded = menuExpanded,
+            onExpandedChange = { menuExpanded = it },
+            label = HomeNavigationIntent::menuLabel,
+            onSelected = onContextAction,
+            modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+            contentDescription = "Reading session actions"
+        )
     }
 }
 
@@ -142,7 +140,7 @@ private fun ReadingStatus(model: ReadingHistoryCardModel) {
 
 private val HomeNavigationIntent.menuLabel: String
     get() = when (this) {
-        is HomeNavigationIntent.OpenBookDetail -> "Book details"
+        is HomeNavigationIntent.BookAction -> action.menuLabel
 
         is HomeNavigationIntent.OpenReadingSessionDetail -> when (action) {
             ReadingSessionDetailAction.VIEW -> "Reading Session details"

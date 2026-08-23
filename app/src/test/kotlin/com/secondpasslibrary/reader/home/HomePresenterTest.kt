@@ -7,6 +7,7 @@ import com.secondpasslibrary.client.RecentReadingItem
 import com.secondpasslibrary.client.ShelfOwner
 import com.secondpasslibrary.client.ShelfSummary
 import com.secondpasslibrary.client.ShelfVisibility
+import com.secondpasslibrary.reader.design.book.BookCardAction
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -47,7 +48,7 @@ class HomePresenterTest {
 
         assertEquals(
             listOf(
-                HomeNavigationIntent.OpenBookDetail("book-1"),
+                HomeNavigationIntent.BookAction(BookCardAction.BookDetails("book-1")),
                 HomeNavigationIntent.OpenReadingSessionDetail("session-1"),
                 HomeNavigationIntent.OpenReadingSessionDetail(
                     "session-1",
@@ -68,7 +69,7 @@ class HomePresenterTest {
 
         assertEquals(
             listOf(
-                HomeNavigationIntent.OpenBookDetail("book-1"),
+                HomeNavigationIntent.BookAction(BookCardAction.BookDetails("book-1")),
                 HomeNavigationIntent.OpenReadingSessionDetail("session-1")
             ),
             model.contextActions

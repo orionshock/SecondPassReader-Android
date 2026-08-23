@@ -152,7 +152,8 @@ private fun AccountHealingOverlay(
 }
 
 internal fun showsShellTopBar(destination: AppDestination, route: NavKey): Boolean =
-    destination != AppDestination.Shelves &&
+    destination != AppDestination.Library &&
+        destination != AppDestination.Shelves &&
         destination != AppDestination.Marginalia &&
         route !is BookDetailRoute &&
         route !is BookMarginaliaRoute &&
