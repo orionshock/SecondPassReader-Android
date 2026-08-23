@@ -1,6 +1,7 @@
 package com.secondpasslibrary.reader.marginalia.history
 
 import com.secondpasslibrary.client.ReadingSessionStatus
+import com.secondpasslibrary.reader.design.components.AppBarNavigation
 import com.secondpasslibrary.reader.marginalia.MarginaliaHistoryContext
 import com.secondpasslibrary.reader.marginalia.formatSessionTimestamp
 import com.secondpasslibrary.reader.marginalia.sessionBook
@@ -57,15 +58,19 @@ class ReadingSessionsPresentationTest {
     }
 
     @Test
-    fun `global and Book contexts produce contextual titles and empty copy`() {
+    fun `global and Book contexts produce compact app bars and empty copy`() {
         val global = ReadingSessionsState()
         val book = ReadingSessionsState(
             context = MarginaliaHistoryContext.Book("book-1"),
             book = sessionBook("book-1")
         )
 
-        assertEquals("Marginalia", global.screenTitle())
-        assertEquals("Reading sessions for Book book-1", book.screenTitle())
+        assertEquals(AppBarNavigation.MENU, global.appBarPresentation().navigation)
+        assertEquals("Marginalia", global.appBarPresentation().title)
+        assertNull(global.appBarPresentation().context)
+        assertEquals(AppBarNavigation.BACK, book.appBarPresentation().navigation)
+        assertEquals("Book book-1", book.appBarPresentation().context)
+        assertEquals("Reading sessions", book.appBarPresentation().title)
         assertEquals("No reading sessions for this book.", book.emptyMessage())
     }
 

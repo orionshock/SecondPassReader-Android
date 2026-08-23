@@ -2,6 +2,8 @@ package com.secondpasslibrary.reader.bookdetail
 
 import com.secondpasslibrary.client.LibraryBookDetail
 import com.secondpasslibrary.client.PublicationDatePrecision
+import com.secondpasslibrary.reader.design.components.AppBarNavigation
+import com.secondpasslibrary.reader.design.components.AppBarPresentation
 import java.text.DecimalFormat
 import java.time.Month
 import java.time.format.TextStyle
@@ -18,6 +20,12 @@ internal data class BookDetailPresentation(
     val publicationLabel: String?,
     val description: String?,
     val fileLabel: String?
+)
+
+internal fun BookDetailState.appBarPresentation(context: String) = AppBarPresentation(
+    navigation = AppBarNavigation.BACK,
+    context = context,
+    title = detail?.title ?: "Book"
 )
 
 internal fun LibraryBookDetail.toPresentation() = BookDetailPresentation(

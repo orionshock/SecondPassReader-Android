@@ -3,19 +3,14 @@ package com.secondpasslibrary.reader.shelves
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.secondpasslibrary.reader.design.icons.AppIcon
-import com.secondpasslibrary.reader.design.icons.AppIconGraphic
+import com.secondpasslibrary.reader.design.components.AppBarPresentation
+import com.secondpasslibrary.reader.design.components.ContextualAppBar
 import com.secondpasslibrary.reader.shelves.collection.ShelvesRoot
 import com.secondpasslibrary.reader.shelves.detail.ShelfDetailContent
 import com.secondpasslibrary.reader.shelves.editor.RemoveShelfItemDialog
@@ -48,12 +43,7 @@ internal fun ShelvesScreen(
     )
 
     ShelvesScaffold(
-        title = when {
-            editor != null -> "${state.detail.detail.shelf?.name ?: "Shelf"} - Manage contents"
-            detail != null -> state.detail.detail.shelf?.name ?: "Shelf"
-            else -> "Shelves"
-        },
-        child = detail != null || editor != null,
+        presentation = state.appBarPresentation(),
         onNavigation = when {
             editor != null -> viewModel::backFromContentsEditor
             detail != null -> viewModel::backFromDetail
@@ -195,11 +185,9 @@ private fun ShelvesMutationDialogs(viewModel: ShelvesViewModel, createOpen: Bool
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ShelvesScaffold(
-    title: String,
-    child: Boolean,
+    presentation: AppBarPresentation,
     onNavigation: () -> Unit,
     content: @Composable (Modifier) -> Unit
 ) {
@@ -207,21 +195,7 @@ private fun ShelvesScaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = { Text(title) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigation) {
-                        AppIconGraphic(
-                            if (child) AppIcon.Back else AppIcon.NavigationMenu,
-                            if (child) "Back" else "Open navigation drawer"
-                        )
-                    }
-                },
-                colors =
-                    TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer
-                    )
-            )
+            ContextualAppBar(presentation, onNavigation)
         }
     ) { padding -> content(Modifier.fillMaxSize().padding(padding)) }
 }

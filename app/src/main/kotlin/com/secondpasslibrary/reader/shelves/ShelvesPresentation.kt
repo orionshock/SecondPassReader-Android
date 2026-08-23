@@ -6,6 +6,8 @@ import com.secondpasslibrary.client.ShelfOrdering
 import com.secondpasslibrary.client.ShelfOwner
 import com.secondpasslibrary.client.ShelfPreviewBook
 import com.secondpasslibrary.client.ShelfVisibility
+import com.secondpasslibrary.reader.design.components.AppBarNavigation
+import com.secondpasslibrary.reader.design.components.AppBarPresentation
 
 internal enum class ShelfOwnerKind {
     PERSONAL,
@@ -35,6 +37,25 @@ internal data class ShelfCardPresentation(
 internal data class ShelfOrderingOption(val value: ShelfOrdering, val label: String)
 
 internal data class ShelfItemOrderingOption(val value: ShelfItemOrdering, val label: String)
+
+internal fun ShelvesState.appBarPresentation(): AppBarPresentation = when (destination) {
+    is ShelvesDestination.Collection ->
+        AppBarPresentation(AppBarNavigation.MENU, title = "Shelves")
+
+    is ShelvesDestination.Detail ->
+        AppBarPresentation(
+            AppBarNavigation.BACK,
+            context = "Shelves",
+            title = detail.detail.shelf?.name ?: "Shelf"
+        )
+
+    is ShelvesDestination.ContentsEditor ->
+        AppBarPresentation(
+            AppBarNavigation.BACK,
+            context = detail.detail.shelf?.name ?: "Shelf",
+            title = "Manage contents"
+        )
+}
 
 internal fun Shelf.toCardPresentation() = ShelfCardPresentation(
     id = id,

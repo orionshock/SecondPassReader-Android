@@ -14,6 +14,7 @@ import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 internal fun BookDetailStateHost(
     profile: ConnectionProfile,
     bookId: String,
+    appBarContext: String,
     onBack: () -> Unit,
     onNavigation: (BookDetailNavigationIntent) -> Unit,
     onAuthenticationRejected: () -> Unit,
@@ -35,6 +36,7 @@ internal fun BookDetailStateHost(
     }
     BookDetailScreen(
         state = state,
+        appBarContext = appBarContext,
         onBack = onBack,
         onRetry = viewModel::retry,
         onAuthorSelected = { onNavigation(BookDetailNavigationIntent.Author(it)) },

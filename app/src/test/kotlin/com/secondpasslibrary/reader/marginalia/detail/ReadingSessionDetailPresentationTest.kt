@@ -8,6 +8,7 @@ import com.secondpasslibrary.client.ReadingProgress
 import com.secondpasslibrary.client.ReadingSessionDetail
 import com.secondpasslibrary.client.ReadingSessionDetailResult
 import com.secondpasslibrary.client.ReadingSessionStatus
+import com.secondpasslibrary.reader.design.components.AppBarNavigation
 import com.secondpasslibrary.reader.design.marginalia.AnnotationHighlightTone
 import com.secondpasslibrary.reader.design.marginalia.toHighlightTone
 import com.secondpasslibrary.reader.marginalia.detail.annotations.ReadingSessionAnnotationPresentation
@@ -41,11 +42,25 @@ class ReadingSessionDetailPresentationTest {
     }
 
     @Test
-    fun `detail app bar uses book identity when loaded`() {
-        val state = ReadingSessionDetailState(detail = detail())
+    fun `named detail app bar uses Book and Session identity`() {
+        val state = ReadingSessionDetailState(detail = detail(name = "Morning pass"))
 
-        assertEquals("Book book-session-1", state.screenTitle())
-        assertEquals("Reading session", ReadingSessionDetailState(loading = true).screenTitle())
+        val presentation = state.appBarPresentation()
+
+        assertEquals(AppBarNavigation.BACK, presentation.navigation)
+        assertEquals("Book book-session-1", presentation.context)
+        assertEquals("Morning pass", presentation.title)
+    }
+
+    @Test
+    fun `unnamed detail app bar uses concise fallback without an ID`() {
+        val presentation =
+            ReadingSessionDetailState(
+                detail = detail(name = "")
+            ).appBarPresentation()
+
+        assertEquals("Book book-session-1", presentation.context)
+        assertEquals("Reading session", presentation.title)
     }
 
     @Test

@@ -3,6 +3,8 @@ package com.secondpasslibrary.reader.marginalia.detail
 import com.secondpasslibrary.client.PublicBookCoverReference
 import com.secondpasslibrary.client.ReadingSessionDetailResult
 import com.secondpasslibrary.client.ReadingSessionStatus
+import com.secondpasslibrary.reader.design.components.AppBarNavigation
+import com.secondpasslibrary.reader.design.components.AppBarPresentation
 import com.secondpasslibrary.reader.marginalia.annotationCountLabel
 import com.secondpasslibrary.reader.marginalia.formatSessionTimestamp
 import java.time.ZoneId
@@ -23,8 +25,14 @@ internal data class ReadingSessionDetailPresentation(
     val closedNotice: String?
 )
 
-internal fun ReadingSessionDetailState.screenTitle(): String =
-    detail?.book?.title ?: "Reading session"
+internal fun ReadingSessionDetailState.appBarPresentation(): AppBarPresentation {
+    val result = detail
+    return AppBarPresentation(
+        navigation = AppBarNavigation.BACK,
+        context = result?.book?.title,
+        title = result?.session?.summary?.name?.takeIf(String::isNotBlank) ?: "Reading session"
+    )
+}
 
 internal fun ReadingSessionDetailPresentation.sessionNameOrFallback(): String =
     sessionName ?: "Unnamed reading session"

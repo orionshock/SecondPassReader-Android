@@ -1,12 +1,27 @@
 package com.secondpasslibrary.reader.bookdetail
 
 import com.secondpasslibrary.client.PublicationDatePrecision
+import com.secondpasslibrary.reader.design.components.AppBarNavigation
 import com.secondpasslibrary.reader.library.axis.libraryBookDetail
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
 class BookDetailPresentationTest {
+    @Test
+    fun `Book Detail app bar uses origin and authoritative Book title`() {
+        val state =
+            BookDetailState(
+                detail = libraryBookDetail("book").copy(title = "Academ's Fury")
+            )
+
+        val presentation = state.appBarPresentation("Library")
+
+        assertEquals(AppBarNavigation.BACK, presentation.navigation)
+        assertEquals("Library", presentation.context)
+        assertEquals("Academ's Fury", presentation.title)
+    }
+
     @Test
     fun `description strips markup hidden blocks and normalizes whitespace`() {
         val source = """

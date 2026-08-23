@@ -5,25 +5,20 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.secondpasslibrary.reader.design.icons.AppIcon
-import com.secondpasslibrary.reader.design.icons.AppIconGraphic
+import com.secondpasslibrary.reader.design.components.AppBarPresentation
+import com.secondpasslibrary.reader.design.components.ContextualAppBar
 import com.secondpasslibrary.reader.marginalia.detail.ReadingSessionDetailActions
 import com.secondpasslibrary.reader.marginalia.detail.ReadingSessionDetailContent
 import com.secondpasslibrary.reader.marginalia.detail.ReadingSessionDetailIntent
-import com.secondpasslibrary.reader.marginalia.detail.screenTitle as detailScreenTitle
+import com.secondpasslibrary.reader.marginalia.detail.appBarPresentation as detailAppBarPresentation
 import com.secondpasslibrary.reader.marginalia.history.ReadingSessionsContent
-import com.secondpasslibrary.reader.marginalia.history.screenTitle as historyScreenTitle
+import com.secondpasslibrary.reader.marginalia.history.appBarPresentation as historyAppBarPresentation
 
 @Composable
 internal fun MarginaliaScreen(
@@ -52,13 +47,12 @@ internal fun MarginaliaScreen(
         }
     }
     MarginaliaScaffold(
-        title =
+        presentation =
             if (detail == null) {
-                sessionsState.historyScreenTitle()
+                sessionsState.historyAppBarPresentation()
             } else {
-                detailState.detailScreenTitle()
+                detailState.detailAppBarPresentation()
             },
-        child = detail != null || bookHistoryBack != null,
         onNavigation = when {
             detail != null -> onBackFromDetail ?: viewModel::backFromDetail
             bookHistoryBack != null -> bookHistoryBack
@@ -104,11 +98,9 @@ private fun MarginaliaViewModel.detailActions() = ReadingSessionDetailActions(
     cancelClose = { onDetailIntent(ReadingSessionDetailIntent.CancelClose) }
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MarginaliaScaffold(
-    title: String,
-    child: Boolean,
+    presentation: AppBarPresentation,
     onNavigation: () -> Unit,
     content: @Composable (Modifier) -> Unit
 ) {
@@ -116,20 +108,7 @@ private fun MarginaliaScaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = { Text(title, maxLines = 1) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigation) {
-                        AppIconGraphic(
-                            if (child) AppIcon.Back else AppIcon.NavigationMenu,
-                            if (child) "Back" else "Open navigation drawer"
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer
-                )
-            )
+            ContextualAppBar(presentation, onNavigation)
         }
     ) { padding -> content(Modifier.fillMaxSize().padding(padding)) }
 }

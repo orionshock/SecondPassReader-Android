@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
@@ -20,8 +18,6 @@ import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -35,11 +31,11 @@ import com.secondpasslibrary.reader.app.AppSessionState
 import com.secondpasslibrary.reader.app.authenticatedFeatureContext
 import com.secondpasslibrary.reader.connection.ConnectionScreen
 import com.secondpasslibrary.reader.connection.ConnectionScreenActions
+import com.secondpasslibrary.reader.design.components.ContextualAppBar
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun AccountAppShell(
     session: AppSessionState.AccountShell,
@@ -73,7 +69,7 @@ internal fun AccountAppShell(
                 containerColor = MaterialTheme.colorScheme.background,
                 topBar = {
                     if (showsShellTopBar(currentDestination, currentRoute)) {
-                        AppShellTopBar(currentDestination) {
+                        ContextualAppBar(currentDestination.rootAppBarPresentation()) {
                             coroutineScope.launch { drawerState.open() }
                         }
                     }
@@ -157,24 +153,6 @@ private fun AccountAuthorityBanner(
             }
         }
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun AppShellTopBar(destination: AppDestination, onOpenDrawer: () -> Unit) {
-    TopAppBar(
-        title = { Text(destination.label) },
-        navigationIcon = {
-            IconButton(onClick = onOpenDrawer) {
-                AppIconGraphic(AppIcon.NavigationMenu, "Open navigation drawer")
-            }
-        },
-        colors =
-            TopAppBarDefaults.topAppBarColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                titleContentColor = MaterialTheme.colorScheme.onSurface
-            )
-    )
 }
 
 @Composable

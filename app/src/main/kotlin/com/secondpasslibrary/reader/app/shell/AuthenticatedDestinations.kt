@@ -150,6 +150,7 @@ private fun EntryProviderScope<NavKey>.registerSharedBookDetailEntry(
         BookDetailStateHost(
             profile = bindings.profile,
             bookId = route.bookId,
+            appBarContext = route.returnTarget.appBarContextLabel(),
             onBack = bindings.navigator::goBack,
             onNavigation = { intent ->
                 bindings.navigator.handleBookDetailNavigation(intent, route)

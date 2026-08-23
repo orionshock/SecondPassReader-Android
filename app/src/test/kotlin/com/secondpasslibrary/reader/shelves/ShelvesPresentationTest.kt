@@ -4,12 +4,30 @@ import com.secondpasslibrary.client.Shelf
 import com.secondpasslibrary.client.ShelfOwner
 import com.secondpasslibrary.client.ShelfPreviewBook
 import com.secondpasslibrary.client.ShelfVisibility
+import com.secondpasslibrary.reader.design.components.AppBarNavigation
+import com.secondpasslibrary.reader.shelves.detail.ShelfDetailResourceState
+import com.secondpasslibrary.reader.shelves.detail.ShelfDetailState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ShelvesPresentationTest {
+    @Test
+    fun `Shelf Detail app bar uses Shelves and authoritative Shelf name`() {
+        val state =
+            ShelvesState(
+                destination = ShelvesDestination.Detail("shelf", ShelvesCollection.PERSONAL),
+                detail = ShelfDetailState(detail = ShelfDetailResourceState(shelf = shelf()))
+            )
+
+        val presentation = state.appBarPresentation()
+
+        assertEquals(AppBarNavigation.BACK, presentation.navigation)
+        assertEquals("Shelves", presentation.context)
+        assertEquals("Shelf", presentation.title)
+    }
+
     @Test
     fun `personal Shared-user and Group ownership stay distinct`() {
         val personal = shelf(ShelfOwner.User("profile", "reader"), canEdit = true)

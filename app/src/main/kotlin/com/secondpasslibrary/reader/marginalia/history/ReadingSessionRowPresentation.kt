@@ -3,6 +3,8 @@ package com.secondpasslibrary.reader.marginalia.history
 import com.secondpasslibrary.client.PublicBookCoverReference
 import com.secondpasslibrary.client.ReadingSessionListItem
 import com.secondpasslibrary.client.ReadingSessionStatus
+import com.secondpasslibrary.reader.design.components.AppBarNavigation
+import com.secondpasslibrary.reader.design.components.AppBarPresentation
 import com.secondpasslibrary.reader.marginalia.MarginaliaHistoryContext
 import com.secondpasslibrary.reader.marginalia.annotationCountLabel
 import com.secondpasslibrary.reader.marginalia.formatSessionTimestamp
@@ -41,11 +43,16 @@ internal val ReadingSessionStatusFilter.presentationLabel: String
         ReadingSessionStatusFilter.CLOSED -> "Closed"
     }
 
-internal fun ReadingSessionsState.screenTitle(): String = when (context) {
-    MarginaliaHistoryContext.Global -> "Marginalia"
+internal fun ReadingSessionsState.appBarPresentation(): AppBarPresentation = when (context) {
+    MarginaliaHistoryContext.Global ->
+        AppBarPresentation(AppBarNavigation.MENU, title = "Marginalia")
 
     is MarginaliaHistoryContext.Book ->
-        book?.title?.let { "Reading sessions for $it" } ?: "Reading sessions"
+        AppBarPresentation(
+            AppBarNavigation.BACK,
+            context = book?.title,
+            title = "Reading sessions"
+        )
 }
 
 internal fun ReadingSessionsState.emptyMessage(): String = when {

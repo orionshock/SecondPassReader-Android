@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -21,12 +19,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.secondpasslibrary.reader.design.icons.AppIcon
-import com.secondpasslibrary.reader.design.icons.AppIconGraphic
+import com.secondpasslibrary.reader.design.components.ContextualAppBar
 
 @Composable
 internal fun BookDetailScreen(
     state: BookDetailState,
+    appBarContext: String,
     onBack: () -> Unit,
     onRetry: () -> Unit,
     onAuthorSelected: (String) -> Unit,
@@ -36,16 +34,7 @@ internal fun BookDetailScreen(
     onAddToShelf: () -> Unit
 ) {
     Column(Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                AppIconGraphic(AppIcon.Back, "Back")
-            }
-            Text("Book Detail", style = MaterialTheme.typography.titleMedium)
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        ContextualAppBar(state.appBarPresentation(appBarContext), onBack)
         when {
             state.loading -> DetailLoading()
 
