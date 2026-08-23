@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -48,7 +47,7 @@ internal fun ShelvesRootControls(
             ) {
                 CollectionSelectors(selected, onCollectionSelected)
                 Box(Modifier.weight(1f))
-                CollectionActions(selected, state, onOrderingSelected, onCreateShelf)
+                CollectionActions(selected, state.ordering, onOrderingSelected, onCreateShelf)
             }
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -60,7 +59,7 @@ internal fun ShelvesRootControls(
                     horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    CollectionActions(selected, state, onOrderingSelected, onCreateShelf)
+                    CollectionActions(selected, state.ordering, onOrderingSelected, onCreateShelf)
                 }
             }
         }
@@ -92,7 +91,7 @@ private fun CollectionSelectors(
 @Composable
 private fun CollectionActions(
     selected: ShelvesCollection,
-    state: ShelfCollectionState,
+    ordering: ShelfOrdering,
     onOrderingSelected: (ShelfOrdering) -> Unit,
     onCreateShelf: () -> Unit
 ) {
@@ -102,12 +101,7 @@ private fun CollectionActions(
             Text("Create shelf", Modifier.padding(start = 6.dp))
         }
     }
-    Text(
-        "${state.totalCount} ${if (state.totalCount == 1) "shelf" else "shelves"}",
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        style = MaterialTheme.typography.labelMedium
-    )
-    ShelfOrderingMenu(state.ordering, onOrderingSelected)
+    ShelfOrderingMenu(ordering, onOrderingSelected)
 }
 
 @Composable

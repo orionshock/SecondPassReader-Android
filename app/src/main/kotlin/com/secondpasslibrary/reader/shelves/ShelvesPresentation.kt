@@ -39,8 +39,18 @@ internal data class ShelfOrderingOption(val value: ShelfOrdering, val label: Str
 internal data class ShelfItemOrderingOption(val value: ShelfItemOrdering, val label: String)
 
 internal fun ShelvesState.appBarPresentation(): AppBarPresentation = when (destination) {
-    is ShelvesDestination.Collection ->
-        AppBarPresentation(AppBarNavigation.MENU, title = "Shelves")
+    is ShelvesDestination.Collection -> {
+        val collection = when (destination.collection) {
+            ShelvesCollection.PERSONAL -> personal
+            ShelvesCollection.SHARED -> shared
+            ShelvesCollection.GROUP -> group
+        }
+        AppBarPresentation(
+            AppBarNavigation.MENU,
+            title = "Shelves",
+            metadata = collection.totalCount.shelfCountLabel
+        )
+    }
 
     is ShelvesDestination.Detail ->
         AppBarPresentation(
@@ -127,6 +137,9 @@ private val ShelfVisibility.label: String
 
 internal val Int.bookCountLabel: String
     get() = "$this ${if (this == 1) "book" else "books"}"
+
+internal val Int.shelfCountLabel: String
+    get() = "$this ${if (this == 1) "shelf" else "shelves"}"
 
 internal val ShelfCardPresentation.ownerContextLabel: String
     get() = listOfNotNull(ownerLabel, visibilityLabel).joinToString(" \u00b7 ")

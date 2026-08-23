@@ -5,6 +5,7 @@ import com.secondpasslibrary.client.ShelfOwner
 import com.secondpasslibrary.client.ShelfPreviewBook
 import com.secondpasslibrary.client.ShelfVisibility
 import com.secondpasslibrary.reader.design.components.AppBarNavigation
+import com.secondpasslibrary.reader.shelves.collection.ShelfCollectionState
 import com.secondpasslibrary.reader.shelves.detail.ShelfDetailResourceState
 import com.secondpasslibrary.reader.shelves.detail.ShelfDetailState
 import org.junit.Assert.assertEquals
@@ -13,6 +14,23 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ShelvesPresentationTest {
+    @Test
+    fun `Shelf collection app bar uses authoritative selected collection count`() {
+        val state =
+            ShelvesState(
+                destination = ShelvesDestination.Collection(ShelvesCollection.SHARED),
+                personal = ShelfCollectionState(totalCount = 3),
+                shared = ShelfCollectionState(totalCount = 1),
+                group = ShelfCollectionState(totalCount = 8)
+            )
+
+        val presentation = state.appBarPresentation()
+
+        assertEquals(AppBarNavigation.MENU, presentation.navigation)
+        assertEquals("Shelves", presentation.title)
+        assertEquals("1 shelf", presentation.metadata)
+    }
+
     @Test
     fun `Shelf Detail app bar uses Shelves and authoritative Shelf name`() {
         val state =

@@ -66,16 +66,13 @@ internal fun ShelfDetailContent(
     Column(modifier.padding(horizontal = 20.dp)) {
         ShelfDetailHeader(
             state.detail,
+            state.items,
             onRetryDetail,
             canManage,
             onManageContents,
-            Modifier.padding(top = 14.dp)
-        )
-        ShelfItemControls(
-            state.items,
             onOrderingSelected,
             onLayoutSelected,
-            Modifier.padding(top = 12.dp, bottom = 8.dp)
+            Modifier.padding(top = 14.dp, bottom = 8.dp)
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         ShelfItemResults(
