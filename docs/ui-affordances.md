@@ -71,11 +71,14 @@ current, and focused on reusable product behavior rather than implementation his
 - Do not add overflow menus, long-press actions, footers, Reader actions, or Session actions to
   preview art.
 - Derive visible preview capacity from available layout width where returned data allows it.
-- Preserve cover proportions and minimum spacing without crowding primary metadata.
+- Keep interactive preview covers separated so each retains a clear touch surface; do not stack
+  them.
+- Preserve cover proportions and minimum spacing while using the available preview region fully.
 
 ### Decorative cover stacks
 
-- Decorative stacks, including Home Shelf previews, are not independently interactive.
+- Decorative shelf-icon stacks, including Home Shelf previews, may overlap and are not
+  independently interactive.
 - The owning card or tile provides the primary navigation action.
 - Tiny shelf previews do not receive full-card overflow controls.
 

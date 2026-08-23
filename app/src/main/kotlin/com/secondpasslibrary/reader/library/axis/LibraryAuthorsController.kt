@@ -34,7 +34,7 @@ internal class LibraryAuthorsController(
             detailLoader = { client, id ->
                 client.library.authors.getAuthor(
                     id,
-                    LibraryEntityDetailOptions(previewLimit = LIBRARY_AXIS_PREVIEW_LIMIT)
+                    LibraryEntityDetailOptions(previewLimit = LIBRARY_ENTITY_DETAIL_PREVIEW_LIMIT)
                 )
             }
         )

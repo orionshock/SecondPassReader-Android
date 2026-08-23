@@ -146,7 +146,7 @@ class LibrarySeriesControllerTest {
 
         assertEquals("Summary good", controller.state.value.selected?.detail?.summary)
         assertEquals(
-            LIBRARY_AXIS_PREVIEW_LIMIT,
+            LIBRARY_ENTITY_DETAIL_PREVIEW_LIMIT,
             client.seriesDetailRequests.single().second.previewLimit
         )
 

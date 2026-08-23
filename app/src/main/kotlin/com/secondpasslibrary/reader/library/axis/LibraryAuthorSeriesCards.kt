@@ -2,16 +2,12 @@ package com.secondpasslibrary.reader.library.axis
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
@@ -27,7 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.design.book.PublicBookCover
-import com.secondpasslibrary.reader.design.book.overlappingPreviewCapacity
+import com.secondpasslibrary.reader.design.book.separatedPreviewCapacity
 import com.secondpasslibrary.reader.library.LibraryFailure
 
 @Composable
@@ -40,11 +36,11 @@ internal fun LibraryAuthorSeriesCard(
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val previewCount = model.previews.returnedBooks.size
             val capacity =
-                overlappingPreviewCapacity(
+                separatedPreviewCapacity(
                     maxWidth,
                     AUTHOR_SERIES_PRIMARY_CONTENT_WIDTH,
                     AUTHOR_SERIES_COVER_WIDTH,
-                    AUTHOR_SERIES_COVER_STEP,
+                    AUTHOR_SERIES_COVER_SPACING,
                     previewCount
                 )
             Row(
@@ -89,18 +85,17 @@ private fun PreviewCoverStack(
                 )
             } else {
                 val visibleBooks = previews.books.take(capacity)
-                val width =
-                    AUTHOR_SERIES_COVER_WIDTH +
-                        AUTHOR_SERIES_COVER_STEP * (visibleBooks.size - 1)
-                Box(Modifier.width(width).height(66.dp)) {
-                    visibleBooks.forEachIndexed { index, book ->
+                Row(horizontalArrangement = Arrangement.spacedBy(AUTHOR_SERIES_COVER_SPACING)) {
+                    visibleBooks.forEach { book ->
                         PublicBookCover(
                             reference = book.cover,
                             title = book.title,
                             modifier =
                                 Modifier
-                                    .offset(x = AUTHOR_SERIES_COVER_STEP * index)
-                                    .size(width = AUTHOR_SERIES_COVER_WIDTH, height = 66.dp)
+                                    .size(
+                                        width = AUTHOR_SERIES_COVER_WIDTH,
+                                        height = AUTHOR_SERIES_COVER_HEIGHT
+                                    )
                                     .clickable { onBookSelected(book.id) }
                         )
                     }
@@ -113,9 +108,10 @@ private fun PreviewCoverStack(
 private val LibraryAuthorSeriesPreviewBooksPresentation.returnedBooks
     get() = (this as? LibraryAuthorSeriesPreviewBooksPresentation.Returned)?.books.orEmpty()
 
-private val AUTHOR_SERIES_PRIMARY_CONTENT_WIDTH = 260.dp
-private val AUTHOR_SERIES_COVER_WIDTH = 44.dp
-private val AUTHOR_SERIES_COVER_STEP = 27.dp
+private val AUTHOR_SERIES_PRIMARY_CONTENT_WIDTH = 220.dp
+private val AUTHOR_SERIES_COVER_WIDTH = 48.dp
+private val AUTHOR_SERIES_COVER_HEIGHT = 72.dp
+private val AUTHOR_SERIES_COVER_SPACING = 8.dp
 
 @Composable
 internal fun SelectedAuthorSeriesHeader(

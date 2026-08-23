@@ -147,7 +147,7 @@ class LibraryAuthorsControllerTest {
 
         assertEquals("Biography good", controller.state.value.selected?.detail?.biography)
         assertEquals(
-            LIBRARY_AXIS_PREVIEW_LIMIT,
+            LIBRARY_ENTITY_DETAIL_PREVIEW_LIMIT,
             client.authorDetailRequests.single().second.previewLimit
         )
 

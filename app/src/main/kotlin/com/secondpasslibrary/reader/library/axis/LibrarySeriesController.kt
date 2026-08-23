@@ -34,7 +34,7 @@ internal class LibrarySeriesController(
             detailLoader = { client, id ->
                 client.library.series.getSeries(
                     id,
-                    LibraryEntityDetailOptions(previewLimit = LIBRARY_AXIS_PREVIEW_LIMIT)
+                    LibraryEntityDetailOptions(previewLimit = LIBRARY_ENTITY_DETAIL_PREVIEW_LIMIT)
                 )
             }
         )
