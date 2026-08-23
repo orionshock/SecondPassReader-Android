@@ -166,6 +166,7 @@ private fun LibraryBrowseContent(
                 LibraryAuthorsResults(
                     state.authors,
                     onAuthorSelected,
+                    onBookSelected,
                     onLoadNextPage,
                     onRetry,
                     onRetryAuthorDetail,
@@ -176,6 +177,7 @@ private fun LibraryBrowseContent(
                 LibrarySeriesResults(
                     state.series,
                     onSeriesSelected,
+                    onBookSelected,
                     onLoadNextPage,
                     onRetry,
                     onRetrySeriesDetail,

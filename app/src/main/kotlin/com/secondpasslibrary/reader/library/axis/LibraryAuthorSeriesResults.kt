@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.map
 internal fun LibraryAuthorsResults(
     state: LibraryAuthorsState,
     onSelect: (String) -> Unit,
+    onBookSelected: (String) -> Unit,
     onLoadNextPage: () -> Unit,
     onRetry: () -> Unit,
     onRetryDetail: () -> Unit,
@@ -48,6 +49,7 @@ internal fun LibraryAuthorsResults(
         LibraryAuthor::toLibraryAuthorSeriesPresentation,
         { it.toAuthorDetailPresentation() },
         onSelect,
+        onBookSelected,
         onLoadNextPage,
         onRetry,
         onRetryDetail,
@@ -59,6 +61,7 @@ internal fun LibraryAuthorsResults(
 internal fun LibrarySeriesResults(
     state: LibrarySeriesState,
     onSelect: (String) -> Unit,
+    onBookSelected: (String) -> Unit,
     onLoadNextPage: () -> Unit,
     onRetry: () -> Unit,
     onRetryDetail: () -> Unit,
@@ -70,6 +73,7 @@ internal fun LibrarySeriesResults(
         LibrarySeries::toLibraryAuthorSeriesPresentation,
         { it.toSeriesDetailPresentation() },
         onSelect,
+        onBookSelected,
         onLoadNextPage,
         onRetry,
         onRetryDetail,
@@ -84,6 +88,7 @@ private fun <T, O> LibraryAuthorSeriesResults(
     present: (T) -> LibraryAuthorSeriesCardPresentation,
     presentDetail: (PagedLibraryAxisDetailState<T>) -> LibraryAuthorSeriesDetailPresentation,
     onSelect: (String) -> Unit,
+    onBookSelected: (String) -> Unit,
     onLoadNextPage: () -> Unit,
     onRetry: () -> Unit,
     onRetryDetail: () -> Unit,
@@ -134,7 +139,7 @@ private fun <T, O> LibraryAuthorSeriesResults(
                         }
                     }
                     items(state.items, key = { present(it).id }) { item ->
-                        LibraryAuthorSeriesCard(present(item), onSelect)
+                        LibraryAuthorSeriesCard(present(item), onSelect, onBookSelected)
                     }
                     item {
                         AuthorSeriesNextPageFooter(state, onRetry)

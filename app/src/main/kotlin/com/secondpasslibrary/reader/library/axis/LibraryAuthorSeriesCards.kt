@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.library.axis
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -33,7 +34,8 @@ import com.secondpasslibrary.reader.library.LibraryFailure
 @Composable
 internal fun LibraryAuthorSeriesCard(
     model: LibraryAuthorSeriesCardPresentation,
-    onSelect: (String) -> Unit
+    onSelect: (String) -> Unit,
+    onBookSelected: (String) -> Unit
 ) {
     OutlinedCard(onClick = { onSelect(model.id) }) {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
@@ -64,7 +66,7 @@ internal fun LibraryAuthorSeriesCard(
                         style = MaterialTheme.typography.labelMedium
                     )
                 }
-                PreviewCoverStack(model.previews, capacity)
+                PreviewCoverStack(model.previews, capacity, onBookSelected)
             }
         }
     }
@@ -73,7 +75,8 @@ internal fun LibraryAuthorSeriesCard(
 @Composable
 private fun PreviewCoverStack(
     previews: LibraryAuthorSeriesPreviewBooksPresentation,
-    capacity: Int
+    capacity: Int,
+    onBookSelected: (String) -> Unit
 ) {
     when (previews) {
         LibraryAuthorSeriesPreviewBooksPresentation.Omitted -> Unit
@@ -99,6 +102,7 @@ private fun PreviewCoverStack(
                                 Modifier
                                     .offset(x = AUTHOR_SERIES_COVER_STEP * index)
                                     .size(width = AUTHOR_SERIES_COVER_WIDTH, height = 66.dp)
+                                    .clickable { onBookSelected(book.id) }
                         )
                     }
                 }
