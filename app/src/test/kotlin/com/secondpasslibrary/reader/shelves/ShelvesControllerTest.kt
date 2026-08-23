@@ -224,6 +224,8 @@ class ShelvesControllerTest {
         val sharedBefore = controller.state.value.shared
         val groupBefore = controller.state.value.group
 
+        controller.openContentsEditor()
+        advanceUntilIdle()
         controller.openEdit()
         controller.edit.updateName("Renamed")
         controller.submitEdit()
@@ -237,7 +239,7 @@ class ShelvesControllerTest {
         assertEquals(sharedBefore, controller.state.value.shared)
         assertEquals(groupBefore, controller.state.value.group)
         assertEquals(
-            ShelvesDestination.Detail(original.id, ShelvesCollection.PERSONAL),
+            ShelvesDestination.ContentsEditor(original.id, ShelvesCollection.PERSONAL),
             controller.state.value.destination
         )
     }
@@ -264,6 +266,8 @@ class ShelvesControllerTest {
             val sharedBefore = controller.state.value.shared
             val groupBefore = controller.state.value.group
 
+            controller.openContentsEditor()
+            advanceUntilIdle()
             controller.openDelete()
             assertTrue(controller.delete.state.value.open)
             controller.confirmDelete()

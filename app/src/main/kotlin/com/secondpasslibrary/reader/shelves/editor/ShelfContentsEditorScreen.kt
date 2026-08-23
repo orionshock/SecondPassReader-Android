@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -20,6 +21,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.client.ShelfEditorItem
+import com.secondpasslibrary.reader.design.icons.AppIcon
+import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 import com.secondpasslibrary.reader.shelves.ShelvesFailure
 import com.secondpasslibrary.reader.shelves.ShelvesLoading
 import com.secondpasslibrary.reader.shelves.ShelvesNextPageFooter
@@ -37,6 +40,8 @@ internal fun ShelfContentsEditorContent(
     onMoveToPosition: (String) -> Unit,
     onRemove: (String) -> Unit,
     onDismissFailure: () -> Unit,
+    onEditDetails: () -> Unit,
+    onDeleteShelf: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     when {
@@ -54,6 +59,8 @@ internal fun ShelfContentsEditorContent(
             onMoveToPosition,
             onRemove,
             onDismissFailure,
+            onEditDetails,
+            onDeleteShelf,
             modifier
         )
     }
@@ -69,6 +76,8 @@ private fun EditorLoadedContent(
     onMoveToPosition: (String) -> Unit,
     onRemove: (String) -> Unit,
     onDismissFailure: () -> Unit,
+    onEditDetails: () -> Unit,
+    onDeleteShelf: () -> Unit,
     modifier: Modifier
 ) {
     val listState = rememberLazyListState()
@@ -85,7 +94,7 @@ private fun EditorLoadedContent(
         contentPadding = PaddingValues(20.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        item { EditorSummary(state, onDismissFailure) }
+        item { EditorSummary(state, onDismissFailure, onEditDetails, onDeleteShelf) }
         if (state.entries.isEmpty() && state.currentPage > 0) {
             item {
                 Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
@@ -116,13 +125,35 @@ private fun EditorLoadedContent(
 }
 
 @Composable
-private fun EditorSummary(state: ShelfContentsEditorState, onDismissFailure: () -> Unit) {
+private fun EditorSummary(
+    state: ShelfContentsEditorState,
+    onDismissFailure: () -> Unit,
+    onEditDetails: () -> Unit,
+    onDeleteShelf: () -> Unit
+) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("Manage contents", style = MaterialTheme.typography.headlineSmall)
         Text(
             shelfEditorCountsLabel(state.visibleItemCount, state.unavailableItemCount),
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        androidx.compose.foundation.layout.Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            OutlinedButton(onClick = onEditDetails) {
+                AppIconGraphic(AppIcon.Edit, null)
+                Text("Edit details", Modifier.padding(start = 6.dp))
+            }
+            OutlinedButton(
+                onClick = onDeleteShelf,
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                AppIconGraphic(AppIcon.Delete, null)
+                Text("Delete shelf", Modifier.padding(start = 6.dp))
+            }
+        }
         if (state.unavailableItemCount > 0) {
             Text(
                 "Some shelf items are currently unavailable. Exact positioning is disabled, " +

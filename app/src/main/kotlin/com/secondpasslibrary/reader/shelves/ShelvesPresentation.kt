@@ -54,7 +54,7 @@ internal fun ShelvesState.appBarPresentation(): AppBarPresentation = when (desti
         AppBarPresentation(
             AppBarNavigation.BACK,
             context = detail.detail.shelf?.name ?: "Shelf",
-            title = "Manage contents"
+            title = "Manage shelf"
         )
 }
 

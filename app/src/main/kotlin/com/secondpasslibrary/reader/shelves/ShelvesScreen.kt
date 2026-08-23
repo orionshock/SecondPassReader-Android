@@ -86,6 +86,8 @@ private fun ShelfEditorDestination(
     onMoveToPosition = viewModel::openEditorPosition,
     onRemove = viewModel::requestEditorRemoval,
     onDismissFailure = viewModel::dismissEditorMutationFailure,
+    onEditDetails = viewModel::openEdit,
+    onDeleteShelf = viewModel::openDelete,
     modifier = modifier
 )
 

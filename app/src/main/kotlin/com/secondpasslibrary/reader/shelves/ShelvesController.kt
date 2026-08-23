@@ -157,7 +157,7 @@ internal class ShelvesController(
     }
 
     fun openEdit() {
-        val destination = navigation.value.destination as? ShelvesDestination.Detail ?: return
+        val destination = currentManagedShelfDestination() ?: return
         val shelf = detail.state.value.detail.shelf
         if (!canManageShelf(destination.origin, shelf)) return
         delete.reset()
@@ -172,7 +172,7 @@ internal class ShelvesController(
     }
 
     fun openDelete() {
-        val destination = navigation.value.destination as? ShelvesDestination.Detail ?: return
+        val destination = currentManagedShelfDestination() ?: return
         val shelf = detail.state.value.detail.shelf
         if (!canManageShelf(destination.origin, shelf)) return
         edit.reset()
@@ -182,7 +182,7 @@ internal class ShelvesController(
     fun confirmDelete() {
         delete.confirm { shelfId ->
             personal.applyAuthoritativeChange(ShelfCollectionChange.Removed(shelfId))
-            backFromDetail()
+            leaveDeletedShelf()
         }
     }
 
@@ -212,9 +212,32 @@ internal class ShelvesController(
         personal.applyAuthoritativeChange(ShelfCollectionChange.Updated(shelf))
     }
 
+    private fun currentManagedShelfDestination(): ManagedShelfDestination? =
+        when (val destination = navigation.value.destination) {
+            is ShelvesDestination.Detail ->
+                ManagedShelfDestination(destination.origin)
+
+            is ShelvesDestination.ContentsEditor ->
+                ManagedShelfDestination(destination.origin)
+
+            is ShelvesDestination.Collection -> null
+        }
+
+    private fun leaveDeletedShelf() {
+        val destination = currentManagedShelfDestination() ?: return
+        edit.reset()
+        editor.clear()
+        detail.clear()
+        navigation.value =
+            ShelvesNavigationState(ShelvesDestination.Collection(destination.origin))
+        destination.origin.controller().activate()
+    }
+
     private fun ShelvesCollection.controller(): ShelfCollectionController = when (this) {
         ShelvesCollection.PERSONAL -> personal
         ShelvesCollection.SHARED -> shared
         ShelvesCollection.GROUP -> group
     }
 }
+
+private data class ManagedShelfDestination(val origin: ShelvesCollection)

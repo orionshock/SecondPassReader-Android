@@ -148,3 +148,10 @@ current, and focused on reusable product behavior rather than implementation his
 - Keep artwork prominent without crowding useful metadata or actions.
 - Tablet portrait should not default to a giant vertically stacked cover.
 - Choose detail composition from available width rather than orientation alone.
+
+## Management surfaces
+
+- Keep normal detail surfaces focused on viewing and consolidate administration behind a clear
+  Manage action.
+- Metadata editing may retain focused modal forms opened from the management surface.
+- Keep destructive actions with administration rather than competing with normal viewing actions.
