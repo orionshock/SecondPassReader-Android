@@ -72,7 +72,7 @@ class ShelvesPresentationTest {
 
         assertTrue(absent is ShelfPreviewPresentation.Absent)
         assertTrue(empty is ShelfPreviewPresentation.Empty)
-        assertEquals(3, (populated as ShelfPreviewPresentation.Books).books.size)
+        assertEquals(4, (populated as ShelfPreviewPresentation.Books).books.size)
     }
 
     @Test

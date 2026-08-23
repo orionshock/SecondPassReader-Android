@@ -34,4 +34,4 @@ internal data class PagedLibraryAxisDetailState<T>(
     val failure: LibraryFailure? = null
 )
 
-internal const val LIBRARY_AXIS_PREVIEW_LIMIT = 3
+internal const val LIBRARY_AXIS_PREVIEW_LIMIT = 6

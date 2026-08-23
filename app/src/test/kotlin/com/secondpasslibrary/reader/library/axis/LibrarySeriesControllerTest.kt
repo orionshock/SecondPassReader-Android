@@ -21,7 +21,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class LibrarySeriesControllerTest {
     @Test
-    fun `initial load uses name order page size and three previews`() = runTest {
+    fun `initial load uses name order page size and bounded previews`() = runTest {
         val client = FakeLibraryAxisClient().apply {
             seriesList = { axisPage(1, listOf(series("b"), series("a")), 8, hasNext = true) }
         }

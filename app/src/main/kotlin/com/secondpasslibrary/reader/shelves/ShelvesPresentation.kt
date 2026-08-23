@@ -71,7 +71,7 @@ internal fun Shelf.toCardPresentation() = ShelfCardPresentation(
 private fun List<ShelfPreviewBook>?.toPreviewPresentation(): ShelfPreviewPresentation = when {
     this == null -> ShelfPreviewPresentation.Absent
     isEmpty() -> ShelfPreviewPresentation.Empty
-    else -> ShelfPreviewPresentation.Books(take(SHELF_CARD_PREVIEW_LIMIT))
+    else -> ShelfPreviewPresentation.Books(this)
 }
 
 internal val shelfOrderingOptions =

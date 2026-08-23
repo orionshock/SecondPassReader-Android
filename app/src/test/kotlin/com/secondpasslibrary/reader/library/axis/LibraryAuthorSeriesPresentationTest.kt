@@ -57,7 +57,7 @@ class LibraryAuthorSeriesPresentationTest {
     }
 
     @Test
-    fun `presentation keeps no more than three preview covers`() {
+    fun `presentation preserves all preview covers returned by the bounded request`() {
         val previews = (
             authorWithPreviews(
                 (1..4).map { LibraryPreviewBook("$it", "Book $it", null) }
@@ -65,7 +65,7 @@ class LibraryAuthorSeriesPresentationTest {
                 LibraryAuthorSeriesPreviewBooksPresentation.Returned
             ).books
 
-        assertEquals(listOf("1", "2", "3"), previews.map { it.id })
+        assertEquals(listOf("1", "2", "3", "4"), previews.map { it.id })
     }
 
     @Test

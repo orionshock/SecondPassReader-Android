@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.library.axis
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.design.book.PublicBookCover
+import com.secondpasslibrary.reader.design.book.overlappingPreviewCapacity
 import com.secondpasslibrary.reader.library.LibraryFailure
 
 @Composable
@@ -34,31 +36,45 @@ internal fun LibraryAuthorSeriesCard(
     onSelect: (String) -> Unit
 ) {
     OutlinedCard(onClick = { onSelect(model.id) }) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(14.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(
-                    model.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val previewCount = model.previews.returnedBooks.size
+            val capacity =
+                overlappingPreviewCapacity(
+                    maxWidth,
+                    AUTHOR_SERIES_PRIMARY_CONTENT_WIDTH,
+                    AUTHOR_SERIES_COVER_WIDTH,
+                    AUTHOR_SERIES_COVER_STEP,
+                    previewCount
                 )
-                Text(
-                    model.bookCountLabel,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelMedium
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(14.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text(
+                        model.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        model.bookCountLabel,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+                PreviewCoverStack(model.previews, capacity)
             }
-            PreviewCoverStack(model.previews)
         }
     }
 }
 
 @Composable
-private fun PreviewCoverStack(previews: LibraryAuthorSeriesPreviewBooksPresentation) {
+private fun PreviewCoverStack(
+    previews: LibraryAuthorSeriesPreviewBooksPresentation,
+    capacity: Int
+) {
     when (previews) {
         LibraryAuthorSeriesPreviewBooksPresentation.Omitted -> Unit
 
@@ -70,16 +86,19 @@ private fun PreviewCoverStack(previews: LibraryAuthorSeriesPreviewBooksPresentat
                     style = MaterialTheme.typography.labelSmall
                 )
             } else {
-                val width = 44.dp + 27.dp * (previews.books.size - 1)
+                val visibleBooks = previews.books.take(capacity)
+                val width =
+                    AUTHOR_SERIES_COVER_WIDTH +
+                        AUTHOR_SERIES_COVER_STEP * (visibleBooks.size - 1)
                 Box(Modifier.width(width).height(66.dp)) {
-                    previews.books.forEachIndexed { index, book ->
+                    visibleBooks.forEachIndexed { index, book ->
                         PublicBookCover(
                             reference = book.cover,
                             title = book.title,
                             modifier =
                                 Modifier
-                                    .offset(x = 27.dp * index)
-                                    .size(width = 44.dp, height = 66.dp)
+                                    .offset(x = AUTHOR_SERIES_COVER_STEP * index)
+                                    .size(width = AUTHOR_SERIES_COVER_WIDTH, height = 66.dp)
                         )
                     }
                 }
@@ -87,6 +106,13 @@ private fun PreviewCoverStack(previews: LibraryAuthorSeriesPreviewBooksPresentat
         }
     }
 }
+
+private val LibraryAuthorSeriesPreviewBooksPresentation.returnedBooks
+    get() = (this as? LibraryAuthorSeriesPreviewBooksPresentation.Returned)?.books.orEmpty()
+
+private val AUTHOR_SERIES_PRIMARY_CONTENT_WIDTH = 260.dp
+private val AUTHOR_SERIES_COVER_WIDTH = 44.dp
+private val AUTHOR_SERIES_COVER_STEP = 27.dp
 
 @Composable
 internal fun SelectedAuthorSeriesHeader(

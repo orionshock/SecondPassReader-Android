@@ -124,7 +124,7 @@ private fun List<LibraryPreviewBook>?.toPresentation():
     LibraryAuthorSeriesPreviewBooksPresentation =
     this?.let { previews ->
         LibraryAuthorSeriesPreviewBooksPresentation.Returned(
-            previews.take(LIBRARY_AXIS_PREVIEW_LIMIT).map { it.toPresentation() }
+            previews.map { it.toPresentation() }
         )
     } ?: LibraryAuthorSeriesPreviewBooksPresentation.Omitted
 

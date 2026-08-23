@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.shelves.collection
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
@@ -21,6 +22,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.secondpasslibrary.reader.design.book.PublicBookCover
+import com.secondpasslibrary.reader.design.book.overlappingPreviewCapacity
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 import com.secondpasslibrary.reader.shelves.ShelfCardPresentation
@@ -30,27 +32,38 @@ import com.secondpasslibrary.reader.shelves.ShelfPreviewPresentation
 @Composable
 internal fun ShelfCard(model: ShelfCardPresentation, onClick: () -> Unit) {
     OutlinedCard(onClick = onClick) {
-        Row(
-            modifier = Modifier.height(142.dp).padding(14.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(
-                    model.name,
-                    fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+        BoxWithConstraints {
+            val previewCount = model.previewBooks.size
+            val capacity =
+                overlappingPreviewCapacity(
+                    maxWidth,
+                    SHELF_PRIMARY_CONTENT_WIDTH,
+                    SHELF_COVER_WIDTH,
+                    SHELF_COVER_STEP,
+                    previewCount
                 )
-                ShelfOwnerLine(model)
-                Text(
-                    "${model.visibilityLabel} / ${model.itemCountLabel}",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelMedium
-                )
+            Row(
+                modifier = Modifier.height(142.dp).padding(14.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text(
+                        model.name,
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    ShelfOwnerLine(model)
+                    Text(
+                        "${model.visibilityLabel} / ${model.itemCountLabel}",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+                ShelfPreviewStack(model, capacity)
             }
-            ShelfPreviewStack(model)
         }
     }
 }
@@ -78,9 +91,10 @@ private fun ShelfOwnerLine(model: ShelfCardPresentation) {
 }
 
 @Composable
-private fun ShelfPreviewStack(model: ShelfCardPresentation) {
-    val previews = (model.previews as? ShelfPreviewPresentation.Books)?.books.orEmpty()
-    Box(Modifier.width(134.dp).height(116.dp), contentAlignment = Alignment.CenterStart) {
+private fun ShelfPreviewStack(model: ShelfCardPresentation, capacity: Int) {
+    val previews = model.previewBooks.take(capacity)
+    val width = SHELF_COVER_WIDTH + SHELF_COVER_STEP * (previews.size - 1).coerceAtLeast(0)
+    Box(Modifier.width(width).height(116.dp), contentAlignment = Alignment.CenterStart) {
         if (previews.isEmpty()) {
             AppIconGraphic(
                 AppIcon.Shelf,
@@ -94,8 +108,8 @@ private fun ShelfPreviewStack(model: ShelfCardPresentation) {
                     book.cover,
                     book.title,
                     Modifier
-                        .offset(x = (index * 28).dp)
-                        .size(width = 72.dp, height = 108.dp)
+                        .offset(x = SHELF_COVER_STEP * index)
+                        .size(width = SHELF_COVER_WIDTH, height = 108.dp)
                         .clip(MaterialTheme.shapes.small)
                         .zIndex(index.toFloat())
                 )
@@ -103,3 +117,10 @@ private fun ShelfPreviewStack(model: ShelfCardPresentation) {
         }
     }
 }
+
+private val ShelfCardPresentation.previewBooks
+    get() = (previews as? ShelfPreviewPresentation.Books)?.books.orEmpty()
+
+private val SHELF_PRIMARY_CONTENT_WIDTH = 280.dp
+private val SHELF_COVER_WIDTH = 72.dp
+private val SHELF_COVER_STEP = 28.dp

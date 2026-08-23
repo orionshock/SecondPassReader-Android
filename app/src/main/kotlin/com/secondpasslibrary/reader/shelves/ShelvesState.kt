@@ -61,4 +61,4 @@ internal sealed interface ShelvesConnectionEvent {
 }
 
 internal const val SHELVES_PAGE_SIZE = 50
-internal const val SHELF_CARD_PREVIEW_LIMIT = 3
+internal const val SHELF_CARD_PREVIEW_LIMIT = 6
