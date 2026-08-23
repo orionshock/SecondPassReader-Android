@@ -1,5 +1,8 @@
 package com.secondpasslibrary.client
 
+import com.secondpasslibrary.client.internal.transport.absoluteHttpUrlOrNull
+import com.secondpasslibrary.client.internal.transport.invalidProtocol
+
 @JvmInline
 value class PublicBookCoverReference private constructor(val url: String) {
     companion object {

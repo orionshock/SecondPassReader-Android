@@ -147,8 +147,8 @@ class ShelfMutationsClientTest {
 
     @Test
     fun `direct-position restriction and invalid move are distinct structured errors`() {
-        val position = mutationFailure(BAD_POSITION, ShelfMutationOperation.SET_POSITION)
-        val move = mutationFailure(BAD_MOVE, ShelfMutationOperation.MOVE_ITEM)
+        val position = mutationFailure(BAD_POSITION, directPosition = true)
+        val move = mutationFailure(BAD_MOVE, directPosition = false)
 
         assertEquals(ShelfMutationRejection.DIRECT_POSITION_UNAVAILABLE, position.reason)
         assertEquals(setOf(ShelfMutationField.POSITION), position.fields)
@@ -208,14 +208,14 @@ class ShelfMutationsClientTest {
 
     private fun mutationFailure(
         responseBody: String,
-        operation: ShelfMutationOperation
+        directPosition: Boolean
     ): SplClientException.ShelfMutationRejected =
         assertThrows(SplClientException.ShelfMutationRejected::class.java) {
             runBlocking {
                 val shelves = authenticatedClient {
                     jsonResponse(responseBody, HttpStatusCode.BadRequest)
                 }.shelves
-                if (operation == ShelfMutationOperation.SET_POSITION) {
+                if (directPosition) {
                     shelves.setItemPosition("shelf-1", "item-1", 2)
                 } else {
                     shelves.moveItem("shelf-1", "item-1", ShelfItemMove.UP)

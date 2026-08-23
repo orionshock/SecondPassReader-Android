@@ -1,5 +1,8 @@
 package com.secondpasslibrary.client
 
+import com.secondpasslibrary.client.internal.transport.invalidProtocol
+import com.secondpasslibrary.client.internal.transport.requireAbsoluteHttpUrl
+
 sealed interface LibraryScope {
     data object Global : LibraryScope
 

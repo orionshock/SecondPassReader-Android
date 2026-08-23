@@ -1,6 +1,6 @@
 # Repository maintenance audit
 
-Date: 2026-08-21
+Date: 2026-08-22
 
 This is the current-state maintenance record. Completed maintenance evaluations have been
 removed; Git history records those changes. The approximate 300-line threshold remains an
@@ -22,9 +22,9 @@ lifetime. `AppNavigator.select`, `openLibrarySearch`, and `replaceWith` clear th
 Feature state survives a pushed detail round trip only while its origin entry remains below that
 route; drawer navigation discards it.
 
-The strongest remaining topology problem is in `:spl-client`: public interfaces/models and
-internal Ktor clients/mappers still share `com.secondpasslibrary.client`. The strongest remaining
-app architecture risk is the top-level destination state lifetime described above.
+The strongest remaining architecture risk is the top-level destination state lifetime described
+above. The SDK now separates its public contract from subsystem-owned internal transport, wire,
+mapping, and response interpretation code.
 
 ## Current topology and responsibility findings
 
@@ -136,12 +136,20 @@ AuthenticatedSecondPassClient
 `- marginalia -> books/sessions
 ```
 
-Remaining:
+Implementation ownership now mirrors the public hierarchy beneath shallow
+`com.secondpasslibrary.client.internal` packages:
 
-- Move internal Ktor clients, wire models, mappers, and response interpretation beneath internal
-  subsystem packages without changing the public API.
-- Rename `LibraryWireDecoder.decodeLibrary`; it decodes Library, Shelves, and Marginalia bodies.
-- Rename Recent Reading-only `AuthenticatedRead*` files to their actual subject.
+- shared request execution, protocol decoding/checks, and wire URL support live in
+  `internal.transport`;
+- Library, Shelves, and Marginalia Ktor clients, wire DTOs, mappings, and response interpretation
+  live with their respective internal subsystem;
+- `KtorSecondPassClient` deliberately remains at the public root because it is the existing public
+  construction facade; it exposes no internal types; and
+- Recent Reading and protocol-body implementation names now describe their actual cross-feature
+  responsibilities.
+
+Remaining public-surface decisions:
+
 - `LibraryModels.kt` is structurally dense at 298 lines. A same-package declaration split may
   improve discovery, but its public domain model remains cohesive.
 - Normalize receiver-qualified SDK method names only as one deliberate source migration before
@@ -157,24 +165,10 @@ Remaining:
   or shell-scoped feature state before Reader resources are introduced.
 - Risk: high/product-visible. This is not a behavior-preserving refactor.
 
-### Medium — SDK implementation and public API share one package
-
-- Files: `Ktor*Client`, `*Mapping`, `*Response`, `AuthenticatedRequestExecutor`, public models and
-  interfaces.
-- Direction: internal-only subsystem topology first; public packages remain a separate decision.
-- Risk: low for internal moves, provided public signatures remain unchanged.
-
-### Completed — Marginalia authoritative-update callback seam
-
-- Completed: `ReadingSessionAuthoritativeUpdateSink` is construction-injected into Detail and
-  wired by `MarginaliaController`; history reconciliation remains parent-coordinated.
-
 ### Low — Remaining naming/locality cleanup
 
 - `AuthenticatedHome` -> permanent Home naming.
 - `AppDestination.kt` -> `AppRoutes.kt`.
-- `LibraryWireDecoder` -> protocol-body naming.
-- `AuthenticatedRead*` -> Recent Reading naming.
 - move `BookShelfPicker*` into `bookdetail.shelfpicker`.
 
 ## Approximate 300-line production file review
@@ -236,12 +230,10 @@ coupling. There is no complexity evidence for that extraction today.
 
 ## Remaining maintenance sequence
 
-1. Move `:spl-client` implementation under internal subsystem packages and fix stale internal
-   names.
-2. Move the Book Detail shelf-picker child cluster and perform remaining low-risk naming cleanup.
-3. Establish top-level navigation state-lifetime tests and then make the deliberate retention
+1. Move the Book Detail shelf-picker child cluster and perform remaining low-risk naming cleanup.
+2. Establish top-level navigation state-lifetime tests and then make the deliberate retention
    change before Reader work.
-4. Decide public SDK package/method naming before publication or another large SDK expansion.
+3. Decide public SDK package/method naming before publication or another large SDK expansion.
 
 ## Do not change without new evidence
 
