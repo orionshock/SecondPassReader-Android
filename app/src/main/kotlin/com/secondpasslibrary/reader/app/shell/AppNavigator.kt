@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.app.shell
 
 import com.secondpasslibrary.reader.bookdetail.BookDetailNavigationIntent
 
+@Suppress("TooManyFunctions") // Typed shell navigation commands remain explicit by destination.
 internal class AppNavigator(private val navigation: AppNavigationState) {
     fun select(destination: AppDestination) {
         navigation.select(destination)
@@ -37,6 +38,12 @@ internal class AppNavigator(private val navigation: AppNavigationState) {
 
     fun openLibraryTag(tagId: String, tagSlug: String) =
         navigation.replace(AppDestination.Library, LibraryTagRoute(tagId, tagSlug))
+
+    fun openShelfDetail(shelfId: String, origin: ShelfCollectionOrigin) {
+        require(shelfId.isNotBlank()) { "Shelf ID must not be blank." }
+        navigation.select(AppDestination.Shelves)
+        navigation.push(ShelfDetailRoute(shelfId, origin))
+    }
 
     fun handleBookDetailNavigation(intent: BookDetailNavigationIntent, source: BookDetailRoute) {
         when (intent) {

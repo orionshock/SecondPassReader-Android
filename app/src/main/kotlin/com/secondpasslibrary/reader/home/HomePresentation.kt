@@ -33,6 +33,8 @@ internal data class ReadingHistoryCardModel(
 )
 
 internal data class ShelfCardModel(
+    val id: String,
+    val origin: HomeShelfOrigin,
     val name: String,
     val ownerLabel: String,
     val ownerIcon: AppIcon,
@@ -60,6 +62,8 @@ internal object HomePresenter {
     fun shelf(shelf: ShelfSummary): ShelfCardModel {
         val owner = shelf.owner.toPresentation(shelf.canEdit)
         return ShelfCardModel(
+            id = shelf.id,
+            origin = shelf.owner.toHomeShelfOrigin(shelf.canEdit),
             name = shelf.name,
             ownerLabel = owner.label,
             ownerIcon = owner.icon,
@@ -110,6 +114,11 @@ internal object HomePresenter {
                 )
             }
         }
+    }
+
+    private fun ShelfOwner.toHomeShelfOrigin(canEdit: Boolean): HomeShelfOrigin = when (this) {
+        is ShelfOwner.Group -> HomeShelfOrigin.GROUP
+        is ShelfOwner.User -> if (canEdit) HomeShelfOrigin.PERSONAL else HomeShelfOrigin.SHARED
     }
 
     private val Int.bookCountLabel: String

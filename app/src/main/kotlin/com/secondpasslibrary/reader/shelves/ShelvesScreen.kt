@@ -26,7 +26,8 @@ import com.secondpasslibrary.reader.shelves.management.canManageShelf
 internal fun ShelvesScreen(
     viewModel: ShelvesViewModel,
     onOpenDrawer: () -> Unit,
-    onBookSelected: (ShelfBookNavigationRequest) -> Unit
+    onBookSelected: (ShelfBookNavigationRequest) -> Unit,
+    onExitInitialDetail: (() -> Unit)? = null
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val detail = state.destination as? ShelvesDestination.Detail
@@ -38,7 +39,7 @@ internal fun ShelvesScreen(
         ) {
             viewModel::backFromContentsEditor
         } else {
-            viewModel::backFromDetail
+            onExitInitialDetail ?: viewModel::backFromDetail
         }
     )
 
@@ -46,7 +47,7 @@ internal fun ShelvesScreen(
         presentation = state.appBarPresentation(),
         onNavigation = when {
             editor != null -> viewModel::backFromContentsEditor
-            detail != null -> viewModel::backFromDetail
+            detail != null -> onExitInitialDetail ?: viewModel::backFromDetail
             else -> onOpenDrawer
         }
     ) { modifier -> ShelvesDestinationContent(state, viewModel, onBookSelected, modifier) }

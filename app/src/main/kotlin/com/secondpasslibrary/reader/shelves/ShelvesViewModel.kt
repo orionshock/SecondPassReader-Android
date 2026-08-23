@@ -33,6 +33,8 @@ constructor(clientProvider: AuthenticatedClientProvider) :
 
     fun selectShelf(shelfId: String) = controller.selectShelf(shelfId)
 
+    fun openShelf(entry: ShelfDetailEntry) = controller.openShelf(entry)
+
     fun backFromDetail() = controller.backFromDetail()
 
     fun changeCollectionOrdering(ordering: ShelfOrdering) =

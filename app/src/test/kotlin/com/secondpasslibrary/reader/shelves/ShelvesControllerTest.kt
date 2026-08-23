@@ -67,6 +67,22 @@ class ShelvesControllerTest {
     }
 
     @Test
+    fun `typed entry opens existing Shelf Detail without collection selection`() = runTest {
+        val capability = RecordingShelvesCapability()
+        val controller = controller(capability, this)
+        controller.initialize(shelvesProfile())
+
+        controller.openShelf(ShelfDetailEntry("shared-1", ShelvesCollection.SHARED))
+        advanceUntilIdle()
+
+        assertEquals(
+            ShelvesDestination.Detail("shared-1", ShelvesCollection.SHARED),
+            controller.state.value.destination
+        )
+        assertEquals("shared-1", controller.state.value.detail.shelfId)
+    }
+
+    @Test
     fun `Shared navigation leaves Personal child untouched`() = runTest {
         val capability = RecordingShelvesCapability().apply {
             listCall = { options -> shelfPage(options.page, listOf(shelf(options.scope.name))) }

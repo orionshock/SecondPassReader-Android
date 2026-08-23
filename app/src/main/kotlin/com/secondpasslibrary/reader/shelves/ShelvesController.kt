@@ -98,6 +98,14 @@ internal class ShelvesController(
             ShelvesNavigationState(ShelvesDestination.Detail(shelfId, current.collection))
     }
 
+    fun openShelf(entry: ShelfDetailEntry) {
+        edit.reset()
+        delete.reset()
+        detail.select(entry.shelfId)
+        navigation.value =
+            ShelvesNavigationState(ShelvesDestination.Detail(entry.shelfId, entry.origin))
+    }
+
     fun backFromDetail() {
         val current = navigation.value.destination as? ShelvesDestination.Detail ?: return
         edit.reset()

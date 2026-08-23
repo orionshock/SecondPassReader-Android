@@ -12,10 +12,15 @@ internal fun ShelvesStateHost(
     onOpenDrawer: () -> Unit,
     onBookSelected: (ShelfBookNavigationRequest) -> Unit,
     onAuthenticationRejected: () -> Unit,
+    initialDetail: ShelfDetailEntry? = null,
+    onExitInitialDetail: (() -> Unit)? = null,
     viewModel: ShelvesViewModel = viewModel()
 ) {
     val connectionIdentity = profile.authenticatedConnectionIdentity
-    LaunchedEffect(connectionIdentity) { viewModel.initialize(profile) }
+    LaunchedEffect(connectionIdentity, initialDetail) {
+        viewModel.initialize(profile)
+        initialDetail?.let(viewModel::openShelf)
+    }
     LaunchedEffect(viewModel, onAuthenticationRejected) {
         viewModel.connectionEvents.collect { event ->
             when (event) {
@@ -23,5 +28,5 @@ internal fun ShelvesStateHost(
             }
         }
     }
-    ShelvesScreen(viewModel, onOpenDrawer, onBookSelected)
+    ShelvesScreen(viewModel, onOpenDrawer, onBookSelected, onExitInitialDetail)
 }

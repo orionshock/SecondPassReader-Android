@@ -85,6 +85,8 @@ class HomePresenterTest {
         assertEquals("reader", model.ownerLabel)
         assertEquals(AppIcon.User, model.ownerIcon)
         assertEquals("3 books", model.itemCountLabel)
+        assertEquals("shelf-1", model.id)
+        assertEquals(HomeShelfOrigin.PERSONAL, model.origin)
     }
 
     @Test
@@ -115,8 +117,10 @@ class HomePresenterTest {
 
         assertEquals("Readers", group.ownerLabel)
         assertEquals(AppIcon.GroupShelf, group.ownerIcon)
+        assertEquals(HomeShelfOrigin.GROUP, group.origin)
         assertEquals("other-reader", shared.ownerLabel)
         assertEquals(AppIcon.SharedShelf, shared.ownerIcon)
+        assertEquals(HomeShelfOrigin.SHARED, shared.origin)
     }
 
     private fun recent(status: ReadingSessionStatus) = RecentReadingItem(

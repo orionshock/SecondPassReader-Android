@@ -26,6 +26,9 @@ data class LibrarySeriesRoute(val seriesId: String) : NavKey
 data class LibraryTagRoute(val tagId: String, val tagSlug: String) : NavKey
 
 @Serializable
+data class ShelfDetailRoute(val shelfId: String, val origin: ShelfCollectionOrigin) : NavKey
+
+@Serializable
 sealed interface BookDetailReturnTarget {
     @Serializable
     data object Library : BookDetailReturnTarget
@@ -86,6 +89,8 @@ internal fun NavKey.topLevelDestination(): AppDestination = when (this) {
     is LibraryAuthorRoute,
     is LibrarySeriesRoute,
     is LibraryTagRoute -> AppDestination.Library
+
+    is ShelfDetailRoute -> AppDestination.Shelves
 
     is BookDetailRoute -> when (returnTarget) {
         BookDetailReturnTarget.Home -> AppDestination.Home

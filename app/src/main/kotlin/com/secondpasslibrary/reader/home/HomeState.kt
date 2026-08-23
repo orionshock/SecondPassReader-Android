@@ -24,6 +24,15 @@ sealed interface HomeNavigationIntent {
     data object ViewAllSessions : HomeNavigationIntent
 
     data object OpenShelves : HomeNavigationIntent
+
+    data class OpenShelfDetail(val shelfId: String, val origin: HomeShelfOrigin) :
+        HomeNavigationIntent
+}
+
+enum class HomeShelfOrigin {
+    PERSONAL,
+    SHARED,
+    GROUP
 }
 
 enum class ReadingSessionDetailAction {

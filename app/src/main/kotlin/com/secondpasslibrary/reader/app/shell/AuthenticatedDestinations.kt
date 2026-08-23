@@ -22,8 +22,6 @@ import com.secondpasslibrary.reader.marginalia.MarginaliaHistoryContext
 import com.secondpasslibrary.reader.marginalia.MarginaliaStateHost
 import com.secondpasslibrary.reader.marginalia.ReadingSessionDetailEntry
 import com.secondpasslibrary.reader.settings.LinkedSettings
-import com.secondpasslibrary.reader.shelves.ShelfBookNavigationRequest
-import com.secondpasslibrary.reader.shelves.ShelvesCollection
 import com.secondpasslibrary.reader.shelves.ShelvesStateHost
 
 @Composable
@@ -54,6 +52,7 @@ internal fun AccountDestinations(
         entryProvider<NavKey> {
             registerHomeEntry(environment)
             registerAuthenticatedTopLevelEntries(environment)
+            registerShelfDetailEntry(environment)
             registerLibraryRouteEntries(environment)
             registerSharedBookDetailEntry(environment)
             registerBookMarginaliaEntry(environment)
@@ -257,17 +256,4 @@ private fun HomeDestination(
         onNavigation = navigator::handleHomeNavigation,
         onAuthenticationRejected = onAuthenticationRejected
     )
-}
-
-private fun AppNavigator.openShelfBook(request: ShelfBookNavigationRequest) {
-    openBookDetail(
-        request.bookId,
-        BookDetailReturnTarget.ShelfDetail(request.shelfId, request.origin.toRouteOrigin())
-    )
-}
-
-private fun ShelvesCollection.toRouteOrigin(): ShelfCollectionOrigin = when (this) {
-    ShelvesCollection.PERSONAL -> ShelfCollectionOrigin.PERSONAL
-    ShelvesCollection.SHARED -> ShelfCollectionOrigin.SHARED
-    ShelvesCollection.GROUP -> ShelfCollectionOrigin.GROUP
 }

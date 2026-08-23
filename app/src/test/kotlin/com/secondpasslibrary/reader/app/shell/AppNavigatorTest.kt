@@ -2,6 +2,8 @@ package com.secondpasslibrary.reader.app.shell
 
 import com.secondpasslibrary.reader.bookdetail.BookDetailNavigationIntent
 import com.secondpasslibrary.reader.design.book.BookCardAction
+import com.secondpasslibrary.reader.home.HomeNavigationIntent
+import com.secondpasslibrary.reader.home.HomeShelfOrigin
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
@@ -10,6 +12,25 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AppNavigatorTest {
+    @Test
+    fun `Home Shelf navigation targets typed Shelf Detail on Shelves stack`() {
+        val navigation = appNavigationStateForTest(AppDestination.Home)
+
+        AppNavigator(navigation).handleHomeNavigation(
+            HomeNavigationIntent.OpenShelfDetail("shelf-1", HomeShelfOrigin.GROUP)
+        )
+
+        assertEquals(AppDestination.Shelves, navigation.selectedDestination)
+        assertEquals(
+            listOf(
+                AppDestination.Shelves,
+                ShelfDetailRoute("shelf-1", ShelfCollectionOrigin.GROUP)
+            ),
+            navigation.activeBackStack
+        )
+        assertEquals(listOf(AppDestination.Home), navigation.backStack(AppDestination.Home))
+    }
+
     @Test
     fun `each top-level destination owns a distinct rooted stack`() {
         val navigation = appNavigationStateForTest()

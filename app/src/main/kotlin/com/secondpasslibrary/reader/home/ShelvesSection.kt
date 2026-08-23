@@ -34,6 +34,7 @@ internal fun ShelvesSection(
     state: HomeProjectionState<ShelfSummary>,
     onRetry: () -> Unit,
     onOpenShelves: () -> Unit,
+    onShelfSelected: (HomeNavigationIntent.OpenShelfDetail) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -64,13 +65,16 @@ internal fun ShelvesSection(
         if (content.items.isEmpty()) {
             HomeSectionEmpty(AppIcon.Shelf, "No shelves to show yet.")
         } else {
-            ShelfGrid(content.items.map(HomePresenter::shelf))
+            ShelfGrid(content.items.map(HomePresenter::shelf), onShelfSelected)
         }
     }
 }
 
 @Composable
-private fun ShelfGrid(shelves: List<ShelfCardModel>) {
+private fun ShelfGrid(
+    shelves: List<ShelfCardModel>,
+    onShelfSelected: (HomeNavigationIntent.OpenShelfDetail) -> Unit
+) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val columns = when {
             maxWidth >= 1_000.dp -> 3
@@ -83,7 +87,17 @@ private fun ShelfGrid(shelves: List<ShelfCardModel>) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    rowShelves.forEach { shelf -> ShelfCard(shelf, Modifier.weight(1f)) }
+                    rowShelves.forEach { shelf ->
+                        ShelfCard(
+                            shelf,
+                            {
+                                onShelfSelected(
+                                    HomeNavigationIntent.OpenShelfDetail(shelf.id, shelf.origin)
+                                )
+                            },
+                            Modifier.weight(1f)
+                        )
+                    }
                     repeat(columns - rowShelves.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
@@ -92,8 +106,9 @@ private fun ShelfGrid(shelves: List<ShelfCardModel>) {
 }
 
 @Composable
-private fun ShelfCard(model: ShelfCardModel, modifier: Modifier = Modifier) {
+private fun ShelfCard(model: ShelfCardModel, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
+        onClick = onClick,
         modifier = modifier.height(154.dp),
         color = MaterialTheme.colorScheme.surfaceContainer,
         shape = MaterialTheme.shapes.medium,

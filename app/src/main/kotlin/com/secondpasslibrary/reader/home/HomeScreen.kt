@@ -60,7 +60,8 @@ internal fun HomeScreen(
         onSearch = viewModel::searchLibrary,
         onReadingHistoryAction = viewModel::navigate,
         onViewAllSessions = viewModel::viewAllSessions,
-        onOpenShelves = viewModel::openShelves
+        onOpenShelves = viewModel::openShelves,
+        onShelfSelected = viewModel::navigate
     )
 }
 
@@ -73,7 +74,8 @@ private fun HomeContent(
     onSearch: (String) -> Unit,
     onReadingHistoryAction: (HomeNavigationIntent) -> Unit,
     onViewAllSessions: () -> Unit,
-    onOpenShelves: () -> Unit
+    onOpenShelves: () -> Unit,
+    onShelfSelected: (HomeNavigationIntent.OpenShelfDetail) -> Unit
 ) {
     Column(
         modifier =
@@ -96,6 +98,7 @@ private fun HomeContent(
             state = state.shelves,
             onRetry = onRetryShelves,
             onOpenShelves = onOpenShelves,
+            onShelfSelected = onShelfSelected,
             modifier = Modifier.padding(horizontal = 24.dp)
         )
     }
