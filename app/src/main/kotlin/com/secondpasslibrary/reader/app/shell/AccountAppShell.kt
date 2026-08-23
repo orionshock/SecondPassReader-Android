@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.app.shell
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
@@ -20,10 +22,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavKey
 import com.secondpasslibrary.reader.app.AppSessionAuthority
@@ -45,21 +51,26 @@ internal fun AccountAppShell(
 ) {
     val navigation = rememberAppNavigationState()
     val navigator = remember(navigation) { AppNavigator(navigation) }
-    val currentDestination = navigation.selectedDestination
     val currentRoute = navigation.currentRoute
-    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val drawer = rememberAccountDrawerState()
     val coroutineScope = rememberCoroutineScope()
+    val drawerGestureModifier =
+        Modifier.accountDrawerGestureModifier(currentRoute) {
+            coroutineScope.launch { drawer.state.open() }
+        }
 
     Box(modifier) {
         ModalNavigationDrawer(
-            drawerState = drawerState,
+            modifier = drawerGestureModifier,
+            drawerState = drawer.state,
+            gesturesEnabled = drawer.gesturesEnabled,
             drawerContent = {
                 AppDrawer(
                     serverName = session.serverName,
-                    selected = currentDestination,
+                    selected = navigation.selectedDestination,
                     onSelected = { destination ->
                         navigator.select(destination)
-                        coroutineScope.launch { drawerState.close() }
+                        coroutineScope.launch { drawer.state.close() }
                     }
                 )
             }
@@ -68,9 +79,9 @@ internal fun AccountAppShell(
                 modifier = Modifier.fillMaxSize(),
                 containerColor = MaterialTheme.colorScheme.background,
                 topBar = {
-                    if (showsShellTopBar(currentDestination, currentRoute)) {
-                        ContextualAppBar(currentDestination.rootAppBarPresentation()) {
-                            coroutineScope.launch { drawerState.open() }
+                    if (showsShellTopBar(navigation.selectedDestination, currentRoute)) {
+                        ContextualAppBar(navigation.selectedDestination.rootAppBarPresentation()) {
+                            coroutineScope.launch { drawer.state.open() }
                         }
                     }
                 }
@@ -85,17 +96,59 @@ internal fun AccountAppShell(
                         onRetryConnection = connectionActions.retryRestore,
                         onRelinkAccount = connectionActions.relinkLocalAccount,
                         onForgetAccount = connectionActions.forgetLocalConnection,
-                        onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
+                        onOpenDrawer = { coroutineScope.launch { drawer.state.open() } },
                         modifier = Modifier.weight(1f)
                     )
                 }
             }
         }
-        val healing = session.authority as? AppSessionAuthority.Healing
-        if (healing != null) {
-            ConnectionScreen(healing.connection, connectionActions)
-        }
+        AccountHealingOverlay(session.authority, connectionActions)
     }
+    DrawerDismissBackHandler(
+        enabled = drawer.gesturesEnabled,
+        onDismiss = { coroutineScope.launch { drawer.state.close() } }
+    )
+}
+
+private data class AccountDrawerState(val state: DrawerState, val gesturesEnabled: Boolean)
+
+@Composable
+private fun rememberAccountDrawerState(): AccountDrawerState {
+    var gesturesEnabled by remember { mutableStateOf(false) }
+    val state =
+        rememberDrawerState(DrawerValue.Closed) { target ->
+            gesturesEnabled = target == DrawerValue.Open
+            true
+        }
+    return AccountDrawerState(state, gesturesEnabled)
+}
+
+@Composable
+private fun DrawerDismissBackHandler(enabled: Boolean, onDismiss: () -> Unit) {
+    BackHandler(enabled = enabled, onBack = onDismiss)
+}
+
+@Composable
+private fun Modifier.accountDrawerGestureModifier(
+    route: NavKey,
+    onOpenDrawer: () -> Unit
+): Modifier {
+    val density = LocalDensity.current
+    return edgeDrawerGesture(
+        enabled = route.drawerGestureEnabled,
+        edgeWidth = with(density) { DRAWER_GESTURE_EDGE_WIDTH.toPx() },
+        edgeHeight = with(density) { DRAWER_GESTURE_EDGE_HEIGHT.toPx() },
+        onOpenDrawer = onOpenDrawer
+    )
+}
+
+@Composable
+private fun AccountHealingOverlay(
+    authority: AppSessionAuthority,
+    connectionActions: ConnectionScreenActions
+) {
+    val healing = authority as? AppSessionAuthority.Healing ?: return
+    ConnectionScreen(healing.connection, connectionActions)
 }
 
 internal fun showsShellTopBar(destination: AppDestination, route: NavKey): Boolean =
