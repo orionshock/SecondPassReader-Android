@@ -5,6 +5,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -20,7 +21,9 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -89,6 +92,85 @@ class AppNavigationEntryLifecycleTest {
 
         assertTrue(detailViewModel.cleared)
         assertFalse(libraryViewModel.cleared)
+    }
+
+    @Test
+    fun unavailableEntryDoesNotCreateViewModelAndVerifiedTransitionKeepsRoute() {
+        lateinit var navigation: AppNavigationState
+        var verified by mutableStateOf(false)
+        var libraryViewModel: TrackingViewModel? = null
+        compose.setContent {
+            navigation = rememberAppNavigationState()
+            val provider =
+                entryProvider<NavKey> {
+                    entry(key = AppDestination.Home) { Text("Home") }
+                    entry(key = AppDestination.Library) {
+                        if (verified) {
+                            val owner = viewModel<TrackingViewModel> { TrackingViewModel() }
+                            SideEffect { libraryViewModel = owner }
+                            Text("Library")
+                        } else {
+                            Text("Connection required")
+                        }
+                    }
+                    entry(key = AppDestination.Shelves) { Text("Shelves") }
+                    entry(key = AppDestination.Marginalia) { Text("Marginalia") }
+                    entry(key = AppDestination.Settings) { Text("Settings") }
+                }
+            NavDisplay(
+                entries = retainedActiveEntries(navigation, provider),
+                onBack = { navigation.pop() }
+            )
+        }
+
+        compose.runOnUiThread { navigation.select(AppDestination.Library) }
+        compose.waitForIdle()
+        assertTrue(libraryViewModel == null)
+        assertTrue(navigation.activeBackStack.single() == AppDestination.Library)
+
+        compose.runOnUiThread { verified = true }
+        compose.waitForIdle()
+        assertTrue(libraryViewModel != null)
+        assertTrue(navigation.activeBackStack.single() == AppDestination.Library)
+    }
+
+    @Test
+    fun authorityChangeRetainsNavigationWhileAccountChangeReplacesIt() {
+        lateinit var navigation: AppNavigationState
+        var account by mutableStateOf("account-a")
+        var authority by mutableStateOf("restoring")
+        compose.setContent {
+            key(account) {
+                navigation = rememberAppNavigationState()
+                Text(authority)
+            }
+        }
+
+        compose.runOnUiThread {
+            navigation.select(AppDestination.Library)
+            navigation.push(LibrarySearchRoute("retained query"))
+        }
+        compose.waitForIdle()
+        val originalNavigation = navigation
+
+        compose.runOnUiThread { authority = "verified" }
+        compose.runOnIdle {
+            assertSame(originalNavigation, navigation)
+            assertTrue(navigation.currentRoute == LibrarySearchRoute("retained query"))
+        }
+
+        compose.runOnUiThread { account = "account-b" }
+        compose.runOnIdle {
+            assertNotSame(originalNavigation, navigation)
+            assertTrue(navigation.selectedDestination == AppDestination.Home)
+            AppDestination.entries.forEach { destination ->
+                assertEquals(
+                    "Unexpected retained route in $destination stack",
+                    listOf(destination),
+                    navigation.backStack(destination)
+                )
+            }
+        }
     }
 }
 

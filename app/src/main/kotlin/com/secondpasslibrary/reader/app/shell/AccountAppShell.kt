@@ -29,6 +29,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.navigation3.runtime.NavKey
 import com.secondpasslibrary.reader.app.AppSessionAuthority
 import com.secondpasslibrary.reader.app.AppSessionState
 import com.secondpasslibrary.reader.app.authenticatedFeatureContext
@@ -71,10 +72,7 @@ internal fun AccountAppShell(
                 modifier = Modifier.fillMaxSize(),
                 containerColor = MaterialTheme.colorScheme.background,
                 topBar = {
-                    if (currentDestination != AppDestination.Shelves &&
-                        currentDestination != AppDestination.Marginalia &&
-                        currentRoute !is BookDetailRoute
-                    ) {
+                    if (showsShellTopBar(currentDestination, currentRoute)) {
                         AppShellTopBar(currentDestination) {
                             coroutineScope.launch { drawerState.open() }
                         }
@@ -103,6 +101,12 @@ internal fun AccountAppShell(
         }
     }
 }
+
+internal fun showsShellTopBar(destination: AppDestination, route: NavKey): Boolean =
+    destination != AppDestination.Shelves &&
+        destination != AppDestination.Marginalia &&
+        route !is BookDetailRoute &&
+        route !is BookMarginaliaRoute
 
 private val AppSessionState.AccountShell.serverName: String
     get() =

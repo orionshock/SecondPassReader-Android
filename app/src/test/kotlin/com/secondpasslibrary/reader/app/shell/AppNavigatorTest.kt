@@ -176,6 +176,19 @@ class AppNavigatorTest {
         assertEquals(source, navigation.currentRoute)
     }
 
+    @Test
+    fun `Book-scoped Marginalia suppresses origin stack shell top bar`() {
+        val librarySource = BookDetailRoute("book-1", BookDetailReturnTarget.Library)
+        val route =
+            BookMarginaliaRoute(
+                "book-1",
+                MarginaliaReturnTarget.BookDetail(librarySource)
+            )
+
+        assertFalse(showsShellTopBar(AppDestination.Library, route))
+        assertTrue(showsShellTopBar(AppDestination.Library, AppDestination.Library))
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun `scoped Marginalia cannot mismatch its Book Detail source`() {
         val navigation = appNavigationStateForTest(AppDestination.Library)
