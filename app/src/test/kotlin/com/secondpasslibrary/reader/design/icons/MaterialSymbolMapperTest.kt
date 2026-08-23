@@ -24,6 +24,8 @@ class MaterialSymbolMapperTest {
             MaterialSymbolMapper.resolve(AppIcon.Book).token
         )
         assertEquals("cloud_off", MaterialSymbolMapper.resolve(AppIcon.Offline).token)
+        assertEquals("view_list", MaterialSymbolMapper.resolve(AppIcon.ListLayout).token)
+        assertEquals("grid_view", MaterialSymbolMapper.resolve(AppIcon.GridLayout).token)
     }
 
     @Test

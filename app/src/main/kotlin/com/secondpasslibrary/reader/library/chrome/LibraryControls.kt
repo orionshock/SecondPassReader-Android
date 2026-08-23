@@ -3,11 +3,9 @@ package com.secondpasslibrary.reader.library.chrome
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -23,7 +21,9 @@ import com.secondpasslibrary.client.AuthorOrdering
 import com.secondpasslibrary.client.LibraryCatalogTag
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.SeriesOrdering
+import com.secondpasslibrary.reader.design.components.BinarySegmentedIconToggle
 import com.secondpasslibrary.reader.design.components.InlineSearchField
+import com.secondpasslibrary.reader.design.components.SegmentedIconOption
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 import com.secondpasslibrary.reader.library.LibraryAxis
@@ -160,18 +160,12 @@ private fun OrderingItem(label: String, selected: Boolean, onClick: () -> Unit) 
 
 @Composable
 private fun LayoutChoices(selected: LibraryBooksLayout, onSelected: (LibraryBooksLayout) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FilterChip(
-            selected = selected == LibraryBooksLayout.LIST,
-            onClick = { onSelected(LibraryBooksLayout.LIST) },
-            label = { Text("List") }
-        )
-        FilterChip(
-            selected = selected == LibraryBooksLayout.GRID,
-            onClick = { onSelected(LibraryBooksLayout.GRID) },
-            label = { Text("Grid") }
-        )
-    }
+    BinarySegmentedIconToggle(
+        selected,
+        SegmentedIconOption(LibraryBooksLayout.LIST, AppIcon.ListLayout, "List layout"),
+        SegmentedIconOption(LibraryBooksLayout.GRID, AppIcon.GridLayout, "Grid layout"),
+        onSelected
+    )
 }
 
 internal val LibraryAxis.label: String

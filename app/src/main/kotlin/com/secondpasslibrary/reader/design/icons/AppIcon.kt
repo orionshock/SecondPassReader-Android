@@ -47,6 +47,8 @@ enum class AppIcon {
     MoveShelfItemDown,
     MoveShelfItemUp,
     LibraryScope,
+    ListLayout,
+    GridLayout,
     Link,
     ConnectedLibrary,
     Locked,

@@ -100,6 +100,10 @@ internal object MaterialSymbolMapper {
 
         AppIcon.LibraryScope -> symbol("library_books", R.drawable.ic_symbol_library_books)
 
+        AppIcon.ListLayout -> symbol("view_list", R.drawable.ic_symbol_view_list)
+
+        AppIcon.GridLayout -> symbol("grid_view", R.drawable.ic_symbol_grid_view)
+
         AppIcon.Link -> symbol("link", R.drawable.ic_symbol_link)
 
         AppIcon.ConnectedLibrary ->
