@@ -131,7 +131,8 @@ private fun marginaliaAppBar(
                 if (books.totalCount == 1) "1 book" else "${books.totalCount} books"
             } else {
                 null
-            }
+            },
+            metadataSlotWidth = MARGINALIA_COUNT_SLOT_WIDTH
         )
 
     else -> sessions.historyAppBarPresentation()
@@ -210,26 +211,47 @@ private fun MarginaliaChromeControls(
         modifier = Modifier.padding(horizontal = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        if (!bookScoped) {
-            CompactSegmentedTextControl(
-                selected = browseMode,
-                options = listOf(
-                    SegmentedTextOption(MarginaliaBrowseMode.SESSIONS, "Sessions"),
-                    SegmentedTextOption(MarginaliaBrowseMode.BOOKS, "Books")
-                ),
-                onSelected = onBrowseModeSelected
-            )
-        }
-        if (bookScoped || browseMode == MarginaliaBrowseMode.SESSIONS) {
-            CompactSegmentedTextControl(
-                selected = status,
-                options = ReadingSessionStatusFilter.entries.map {
-                    SegmentedTextOption(it, it.name.lowercase().replaceFirstChar(Char::uppercase))
-                },
-                onSelected = onStatusSelected
-            )
+        marginaliaChromeControlOrder(browseMode, bookScoped).forEach { control ->
+            when (control) {
+                MarginaliaChromeControl.STATUS -> CompactSegmentedTextControl(
+                    selected = status,
+                    options = ReadingSessionStatusFilter.entries.map {
+                        SegmentedTextOption(
+                            it,
+                            it.name.lowercase().replaceFirstChar(Char::uppercase)
+                        )
+                    },
+                    onSelected = onStatusSelected
+                )
+
+                MarginaliaChromeControl.BROWSE_MODE -> CompactSegmentedTextControl(
+                    selected = browseMode,
+                    options = listOf(
+                        SegmentedTextOption(MarginaliaBrowseMode.SESSIONS, "Sessions"),
+                        SegmentedTextOption(MarginaliaBrowseMode.BOOKS, "Books")
+                    ),
+                    onSelected = onBrowseModeSelected
+                )
+            }
         }
     }
+}
+
+internal enum class MarginaliaChromeControl {
+    STATUS,
+    BROWSE_MODE
+}
+
+internal fun marginaliaChromeControlOrder(
+    browseMode: MarginaliaBrowseMode,
+    bookScoped: Boolean
+): List<MarginaliaChromeControl> = buildList {
+    if (bookScoped ||
+        browseMode == MarginaliaBrowseMode.SESSIONS
+    ) {
+        add(MarginaliaChromeControl.STATUS)
+    }
+    if (!bookScoped) add(MarginaliaChromeControl.BROWSE_MODE)
 }
 
 private fun MarginaliaViewModel.detailActions() = ReadingSessionDetailActions(
@@ -248,6 +270,8 @@ private fun MarginaliaViewModel.detailActions() = ReadingSessionDetailActions(
     openBookMarginalia = ::showDetailBookHistory,
     openBookDetail = ::openDetailBook
 )
+
+private val MARGINALIA_COUNT_SLOT_WIDTH = 84.dp
 
 @Composable
 private fun MarginaliaScaffold(

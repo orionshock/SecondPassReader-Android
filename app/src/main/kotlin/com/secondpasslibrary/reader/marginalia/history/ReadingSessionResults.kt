@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -28,6 +29,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -91,39 +93,69 @@ private fun ReadingSessionRow(model: ReadingSessionRowPresentation, onClick: () 
         color = MaterialTheme.colorScheme.surfaceContainer,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        Row(
-            modifier = Modifier.padding(10.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            PublicBookCover(
-                reference = model.cover,
-                title = model.bookTitle,
-                modifier = Modifier.width(56.dp).height(80.dp)
-            )
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+        BoxWithConstraints {
+            val availableWidth = maxWidth
+            val note = model.noteExcerpt
+            Row(
+                modifier = Modifier.padding(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    model.bookTitle,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.titleMedium
+                PublicBookCover(
+                    reference = model.cover,
+                    title = model.bookTitle,
+                    modifier = Modifier.width(56.dp).height(80.dp)
                 )
-                model.sessionName?.let { name ->
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     Text(
-                        name,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
+                        model.bookTitle,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    model.sessionName?.let { name ->
+                        Text(
+                            name,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                    SessionMetadata(model)
+                }
+                if (note != null && availableWidth >= SESSION_NOTE_MIN_ROW_WIDTH) {
+                    SessionNoteExcerpt(
+                        note,
+                        Modifier.width(minOf(280.dp, availableWidth * SESSION_NOTE_WIDTH_FRACTION))
                     )
                 }
-                SessionMetadata(model)
             }
         }
+    }
+}
+
+@Composable
+private fun SessionNoteExcerpt(note: String, modifier: Modifier = Modifier) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(
+            Modifier
+                .width(2.dp)
+                .height(56.dp)
+                .background(MaterialTheme.colorScheme.outline)
+        )
+        Text(
+            text = note,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontStyle = FontStyle.Italic,
+            maxLines = SESSION_NOTE_MAX_LINES,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.bodySmall
+        )
     }
 }
 
@@ -224,3 +256,6 @@ private fun SessionLoadFailure(
         }
     }
 }
+
+private val SESSION_NOTE_MIN_ROW_WIDTH = 720.dp
+private const val SESSION_NOTE_WIDTH_FRACTION = 0.28f

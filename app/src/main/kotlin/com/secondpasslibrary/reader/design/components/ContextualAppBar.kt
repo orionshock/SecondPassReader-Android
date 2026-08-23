@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
@@ -40,7 +41,8 @@ internal data class AppBarPresentation(
     val contextDetail: String? = null,
     val contextEmphasis: AppBarContextEmphasis = AppBarContextEmphasis.MUTED,
     val separator: String = " › ",
-    val metadata: String? = null
+    val metadata: String? = null,
+    val metadataSlotWidth: Dp? = null
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -86,7 +88,7 @@ private fun ContextualAppBarTitle(
                 overflow = TextOverflow.Ellipsis
             )
             titleActions()
-            ContextualAppBarMetadata(presentation.metadata)
+            ContextualAppBarMetadata(presentation.metadata, presentation.metadataSlotWidth)
         }
     }
 }
@@ -145,11 +147,25 @@ private fun ContextualAppBarContext(presentation: AppBarPresentation, availableW
 }
 
 @Composable
-private fun ContextualAppBarMetadata(metadata: String?) {
-    metadata ?: return
+private fun ContextualAppBarMetadata(metadata: String?, slotWidth: Dp?) {
+    if (slotWidth == null) {
+        metadata ?: return
+        AppBarMetadataText(metadata, Modifier.padding(start = 10.dp, end = 8.dp))
+        return
+    }
+    androidx.compose.foundation.layout.Box(
+        modifier = Modifier.width(slotWidth).padding(end = 8.dp),
+        contentAlignment = Alignment.CenterEnd
+    ) {
+        metadata?.let { AppBarMetadataText(it) }
+    }
+}
+
+@Composable
+private fun AppBarMetadataText(metadata: String, modifier: Modifier = Modifier) {
     Text(
         text = metadata,
-        modifier = Modifier.padding(start = 10.dp, end = 8.dp),
+        modifier = modifier,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         style = MaterialTheme.typography.labelMedium,
         maxLines = 1,

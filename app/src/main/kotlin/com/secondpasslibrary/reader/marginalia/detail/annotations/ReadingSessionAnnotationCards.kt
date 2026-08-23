@@ -47,23 +47,23 @@ private fun BookmarkCard(model: ReadingSessionAnnotationPresentation.Bookmark) {
 private fun HighlightCard(model: ReadingSessionAnnotationPresentation.Highlight) {
     val palette = annotationHighlightPalette(model.tone)
     AnnotationSurface {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.width(3.dp).heightIn(min = 76.dp).background(palette.accent))
-            AnnotationContent(
-                if (model.note == null) AppIcon.Highlight else AppIcon.HighlightWithNote,
-                model.updatedLabel
-            ) {
-                Text(
-                    model.quote,
-                    modifier = Modifier.fillMaxWidth().background(
-                        palette.background
-                    ).padding(10.dp),
-                    fontStyle = FontStyle.Italic,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                model.note?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
-                model.locationLabel?.let { AnnotationLocation(it) }
+        AnnotationContent(
+            if (model.note == null) AppIcon.Highlight else AppIcon.HighlightWithNote,
+            model.updatedLabel,
+            colorRail = {
+                Box(Modifier.width(3.dp).heightIn(min = 76.dp).background(palette.accent))
             }
+        ) {
+            Text(
+                model.quote,
+                modifier = Modifier.fillMaxWidth().background(
+                    palette.background
+                ).padding(10.dp),
+                fontStyle = FontStyle.Italic,
+                style = MaterialTheme.typography.bodyMedium
+            )
+            model.note?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+            model.locationLabel?.let { AnnotationLocation(it) }
         }
     }
 }
@@ -89,12 +89,14 @@ private fun AnnotationSurface(content: @Composable () -> Unit) {
 private fun AnnotationContent(
     icon: AppIcon,
     updatedLabel: String,
+    colorRail: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Box(Modifier.width(28.dp), contentAlignment = Alignment.TopCenter) {
             AppIconGraphic(icon, null, tint = MaterialTheme.colorScheme.primary)
         }
+        colorRail?.invoke()
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             content()
             Text(

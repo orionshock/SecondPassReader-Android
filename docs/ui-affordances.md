@@ -124,7 +124,14 @@ current, and focused on reusable product behavior rather than implementation his
 
 - Peer browse perspectives use one compact segmented mode control.
 - Feature-specific filters may sit beside the mode control in the app bar when width allows.
+- Keep the root mode control in one stable position when mode-specific filters appear or disappear.
 - Authoritative result counts remain muted right-side app-bar metadata.
+
+## Collection-row notes
+
+- Show nonblank secondary record notes as bounded, muted quote-style excerpts where width allows.
+- Protect the primary record identity before allocating horizontal space to a note excerpt.
+- Omit excerpts in compact layouts rather than making collection rows excessively tall.
 
 ## Entity browse context
 

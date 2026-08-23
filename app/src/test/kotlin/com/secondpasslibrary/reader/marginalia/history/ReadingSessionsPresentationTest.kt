@@ -36,6 +36,26 @@ class ReadingSessionsPresentationTest {
     }
 
     @Test
+    fun `blank Session notes are suppressed`() {
+        val item = sessionItem("session-1").let {
+            it.copy(session = it.session.copy(notes = "  \n "))
+        }
+
+        assertNull(item.toRowPresentation().noteExcerpt)
+    }
+
+    @Test
+    fun `Session notes become a trimmed bounded row excerpt`() {
+        val longNote = "  " + "A useful Session note. ".repeat(20) + "  "
+        val item = sessionItem("session-1").let {
+            it.copy(session = it.session.copy(notes = longNote))
+        }
+
+        assertEquals(longNote.trim(), item.toRowPresentation().noteExcerpt)
+        assertEquals(3, SESSION_NOTE_MAX_LINES)
+    }
+
+    @Test
     fun `active and closed presentation remain distinct`() {
         val active = sessionItem("active").toRowPresentation()
         val closed = sessionItem("closed", ReadingSessionStatus.CLOSED).toRowPresentation()

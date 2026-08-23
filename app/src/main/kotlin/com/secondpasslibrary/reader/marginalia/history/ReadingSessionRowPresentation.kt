@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.marginalia.history
 
+import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.client.PublicBookCoverReference
 import com.secondpasslibrary.client.ReadingSessionListItem
 import com.secondpasslibrary.client.ReadingSessionStatus
@@ -19,7 +20,8 @@ internal data class ReadingSessionRowPresentation(
     val statusLabel: String,
     val active: Boolean,
     val annotationCountLabel: String,
-    val lastActivityLabel: String
+    val lastActivityLabel: String,
+    val noteExcerpt: String?
 )
 
 internal fun ReadingSessionListItem.toRowPresentation(
@@ -33,7 +35,8 @@ internal fun ReadingSessionListItem.toRowPresentation(
     statusLabel = session.status.presentationLabel,
     active = session.status == ReadingSessionStatus.ACTIVE,
     annotationCountLabel = annotationCountLabel(session.annotationCount),
-    lastActivityLabel = formatSessionTimestamp(session.lastActivityAt, zoneId, locale)
+    lastActivityLabel = formatSessionTimestamp(session.lastActivityAt, zoneId, locale),
+    noteExcerpt = session.notes.trim().takeIf(String::isNotEmpty)
 )
 
 internal val ReadingSessionStatusFilter.presentationLabel: String
@@ -48,7 +51,8 @@ internal fun ReadingSessionsState.appBarPresentation(): AppBarPresentation = whe
         AppBarPresentation(
             AppBarNavigation.MENU,
             title = "Marginalia",
-            metadata = loadedSessionCountLabel()
+            metadata = loadedSessionCountLabel(),
+            metadataSlotWidth = MARGINALIA_COUNT_SLOT_WIDTH
         )
 
     is MarginaliaHistoryContext.Book ->
@@ -83,3 +87,5 @@ private val ReadingSessionStatus.presentationLabel: String
     }
 
 private const val SESSION_PAGING_THRESHOLD = 5
+internal const val SESSION_NOTE_MAX_LINES = 3
+private val MARGINALIA_COUNT_SLOT_WIDTH = 84.dp
