@@ -30,6 +30,7 @@ internal constructor(
         )
 
     val state = coordinator.state
+    internal val localAccountContext = coordinator.localAccountContext
     val onAuthenticatedRequestRejected: () -> Unit = coordinator::authenticatedRequestRejected
 
     init {

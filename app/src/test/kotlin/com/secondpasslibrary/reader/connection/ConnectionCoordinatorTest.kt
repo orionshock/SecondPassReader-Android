@@ -13,6 +13,7 @@ import com.secondpasslibrary.client.SecondPassClient
 import com.secondpasslibrary.client.ServerOrigin
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.storage.PersistedAccountContextStore
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.TestScope
@@ -22,11 +23,112 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ConnectionCoordinatorTest {
+    @Test
+    fun `matching persisted account is published before verification completes`() = runTest {
+        val restoredProfile = profile()
+        val persistedAccount =
+            PersistedAccountContext(restoredProfile.authenticatedConnectionIdentity, "profile-1")
+        val verificationGate = CompletableDeferred<Unit>()
+        val coordinator =
+            coordinator(
+                FakeClient(verificationGate = verificationGate),
+                FakeProfileStore().apply { stored = restoredProfile },
+                storedCredential(),
+                FakePersistedAccountContextStore().apply { stored = persistedAccount }
+            )
+
+        coordinator.restore()
+        runCurrent()
+
+        assertEquals(
+            LocalAccountContext(restoredProfile, persistedAccount),
+            coordinator.localAccountContext.value
+        )
+        assertTrue(coordinator.state.value is ConnectionUiState.Restoring)
+
+        verificationGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertTrue(coordinator.state.value is ConnectionUiState.Linked)
+    }
+
+    @Test
+    fun `missing persisted account is not published and successful restore populates it`() =
+        runTest {
+            val restoredProfile = profile()
+            val verificationGate = CompletableDeferred<Unit>()
+            val accountStore = FakePersistedAccountContextStore()
+            val coordinator =
+                coordinator(
+                    FakeClient(verificationGate = verificationGate),
+                    FakeProfileStore().apply { stored = restoredProfile },
+                    storedCredential(),
+                    accountStore
+                )
+
+            coordinator.restore()
+            runCurrent()
+
+            assertNull(coordinator.localAccountContext.value)
+            assertTrue(coordinator.state.value is ConnectionUiState.Restoring)
+
+            verificationGate.complete(Unit)
+            advanceUntilIdle()
+
+            val repaired =
+                PersistedAccountContext(
+                    restoredProfile.authenticatedConnectionIdentity,
+                    "profile-1"
+                )
+            assertEquals(repaired, accountStore.stored)
+            assertEquals(
+                LocalAccountContext(restoredProfile, repaired),
+                coordinator.localAccountContext.value
+            )
+            assertTrue(coordinator.state.value is ConnectionUiState.Linked)
+        }
+
+    @Test
+    fun `mismatched persisted account is not published and verification repairs it`() = runTest {
+        val restoredProfile = profile()
+        val stale =
+            PersistedAccountContext(
+                AuthenticatedConnectionIdentity("https://old.example/api/v1/", "old-session"),
+                "old-profile"
+            )
+        val verificationGate = CompletableDeferred<Unit>()
+        val accountStore = FakePersistedAccountContextStore().apply { stored = stale }
+        val coordinator =
+            coordinator(
+                FakeClient(verificationGate = verificationGate),
+                FakeProfileStore().apply { stored = restoredProfile },
+                storedCredential(),
+                accountStore
+            )
+
+        coordinator.restore()
+        runCurrent()
+
+        assertNull(coordinator.localAccountContext.value)
+
+        verificationGate.complete(Unit)
+        advanceUntilIdle()
+
+        val repaired =
+            PersistedAccountContext(restoredProfile.authenticatedConnectionIdentity, "profile-1")
+        assertEquals(repaired, accountStore.stored)
+        assertEquals(
+            LocalAccountContext(restoredProfile, repaired),
+            coordinator.localAccountContext.value
+        )
+    }
+
     @Test
     fun `approved pairing stores credential then profile before verification`() = runTest {
         val events = mutableListOf<String>()
@@ -278,11 +380,15 @@ class ConnectionCoordinatorTest {
         val credentialStore = FakeCredentialStore().apply {
             stored = StoredCredential(BearerCredential.restore("spl_secret"), null)
         }
+        val accountContextStore = FakePersistedAccountContextStore().apply {
+            stored = PersistedAccountContext(profile.authenticatedConnectionIdentity, "profile-1")
+        }
         val coordinator =
             coordinator(
                 FakeClient(authFailure = SplClientException.AuthenticationRejected()),
                 profileStore,
-                credentialStore
+                credentialStore,
+                accountContextStore
             )
 
         coordinator.restore()
@@ -291,27 +397,59 @@ class ConnectionCoordinatorTest {
         assertTrue(coordinator.state.value is ConnectionUiState.ServerEntry)
         assertTrue(profileStore.cleared)
         assertTrue(credentialStore.cleared)
+        assertTrue(accountContextStore.cleared)
+        assertNull(coordinator.localAccountContext.value)
     }
 
     @Test
     fun `transient restore failure preserves credential and profile`() = runTest {
-        val profileStore = FakeProfileStore().apply { stored = profile() }
+        val restoredProfile = profile()
+        val profileStore = FakeProfileStore().apply { stored = restoredProfile }
         val credentialStore = FakeCredentialStore().apply {
             stored = StoredCredential(BearerCredential.restore("spl_secret"), null)
         }
+        val persistedAccount =
+            PersistedAccountContext(restoredProfile.authenticatedConnectionIdentity, "profile-1")
         val coordinator =
             coordinator(
                 FakeClient(authFailure = SplClientException.ServerUnreachable()),
                 profileStore,
-                credentialStore
+                credentialStore,
+                FakePersistedAccountContextStore().apply { stored = persistedAccount }
             )
 
         coordinator.restore()
         advanceUntilIdle()
 
         assertTrue(coordinator.state.value is ConnectionUiState.RestoreProblem)
+        assertEquals(
+            LocalAccountContext(restoredProfile, persistedAccount),
+            coordinator.localAccountContext.value
+        )
         assertFalse(profileStore.cleared)
         assertFalse(credentialStore.cleared)
+    }
+
+    @Test
+    fun `first pairing publishes no prior local account before verification`() = runTest {
+        val verificationGate = CompletableDeferred<Unit>()
+        val client =
+            FakeClient(
+                pollStatuses = ArrayDeque(listOf(PairingStatus.APPROVED)),
+                verificationGate = verificationGate
+            )
+        val coordinator = coordinator(client, FakeProfileStore(), FakeCredentialStore())
+
+        startPairing(coordinator)
+        runCurrent()
+
+        assertNull(coordinator.localAccountContext.value)
+        assertTrue(coordinator.state.value is ConnectionUiState.CompletingPairing)
+
+        verificationGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertTrue(coordinator.state.value is ConnectionUiState.Linked)
     }
 
     @Test
@@ -321,10 +459,13 @@ class ConnectionCoordinatorTest {
             val credentialStore = FakeCredentialStore().apply {
                 stored = StoredCredential(BearerCredential.restore("spl_secret"), null)
             }
-            val coordinator = coordinator(FakeClient(), profileStore, credentialStore)
+            val accountContextStore = FakePersistedAccountContextStore()
+            val coordinator =
+                coordinator(FakeClient(), profileStore, credentialStore, accountContextStore)
             coordinator.restore()
             advanceUntilIdle()
             assertTrue(coordinator.state.value is ConnectionUiState.Linked)
+            val resolvedLocalAccount = coordinator.localAccountContext.value
 
             coordinator.authenticatedRequestRejected()
 
@@ -332,6 +473,8 @@ class ConnectionCoordinatorTest {
             assertFalse(problem.retryable)
             assertFalse(profileStore.cleared)
             assertFalse(credentialStore.cleared)
+            assertFalse(accountContextStore.cleared)
+            assertEquals(resolvedLocalAccount, coordinator.localAccountContext.value)
         }
 
     @Test
@@ -381,7 +524,8 @@ class ConnectionCoordinatorTest {
         private val pollStatuses: ArrayDeque<PairingStatus> = ArrayDeque(),
         private val pollFailures: ArrayDeque<SplClientException> = ArrayDeque(),
         private val authFailure: Exception? = null,
-        private val consumeFailure: Exception? = null
+        private val consumeFailure: Exception? = null,
+        private val verificationGate: CompletableDeferred<Unit>? = null
     ) : SecondPassClient {
         var pollCalls = 0
         var consumeCalls = 0
@@ -415,6 +559,7 @@ class ConnectionCoordinatorTest {
             credential: BearerCredential
         ): AuthenticatedContext {
             events += "verify"
+            verificationGate?.await()
             authFailure?.let { throw it }
             return authenticatedContext()
         }
@@ -463,6 +608,10 @@ class ConnectionCoordinatorTest {
             cleared = true
             stored = null
         }
+    }
+
+    private fun storedCredential() = FakeCredentialStore().apply {
+        stored = StoredCredential(BearerCredential.restore("spl_secret"), null)
     }
 
     private class FakePersistedAccountContextStore(

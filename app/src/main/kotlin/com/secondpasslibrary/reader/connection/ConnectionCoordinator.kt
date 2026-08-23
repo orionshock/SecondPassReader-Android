@@ -30,16 +30,21 @@ internal class ConnectionCoordinator(
 ) {
     private val mutableState = MutableStateFlow<ConnectionUiState>(ConnectionUiState.Restoring)
     val state: StateFlow<ConnectionUiState> = mutableState.asStateFlow()
+    private val mutableLocalAccountContext = MutableStateFlow<LocalAccountContext?>(null)
+    val localAccountContext: StateFlow<LocalAccountContext?> =
+        mutableLocalAccountContext.asStateFlow()
 
     private var operation: Job? = null
 
     fun restore() = replaceOperation {
         val stored = attempt { credentialStore.read() }.getOrElse {
+            mutableLocalAccountContext.value = null
             mutableState.value =
                 ConnectionUiState.LocalStorageProblem(ConnectionErrorPresenter.message(it))
             return@replaceOperation
         }
         var profile = attempt { profileStore.read() }.getOrElse {
+            mutableLocalAccountContext.value = null
             mutableState.value =
                 ConnectionUiState.LocalStorageProblem(ConnectionErrorPresenter.message(it))
             return@replaceOperation
@@ -68,6 +73,7 @@ internal class ConnectionCoordinator(
             return@replaceOperation
         }
         attempt { credentialStore.markProfileCommitted() }
+        resolveLocalAccountContext(profile)
         verifyStored(profile, stored.credential, restoring = true)
     }
 
@@ -338,14 +344,16 @@ internal class ConnectionCoordinator(
     ) {
         try {
             val context = client.loadAuthenticatedContext(profile.apiBaseUrl, credential)
-            attempt {
-                accountContextStore.write(
-                    PersistedAccountContext(
-                        connectionIdentity = profile.authenticatedConnectionIdentity,
-                        profileId = context.currentUser.profileId
-                    )
+            val persistedAccount =
+                PersistedAccountContext(
+                    connectionIdentity = profile.authenticatedConnectionIdentity,
+                    profileId = context.currentUser.profileId
                 )
-            }
+            attempt { accountContextStore.write(persistedAccount) }
+                .onSuccess {
+                    mutableLocalAccountContext.value =
+                        LocalAccountContext(profile, persistedAccount)
+                }
             mutableState.value = ConnectionUiState.Linked(profile, context)
         } catch (_: SplClientException.AuthenticationRejected) {
             if (restoring) {
@@ -385,12 +393,21 @@ internal class ConnectionCoordinator(
     }
 
     private suspend fun clearLocalConnection() {
+        mutableLocalAccountContext.value = null
         val profileResult = runCatching { profileStore.clear() }
         val credentialResult = runCatching { credentialStore.clear() }
         val accountContextResult = runCatching { accountContextStore.clear() }
         listOf(credentialResult, profileResult, accountContextResult)
             .firstNotNullOfOrNull { it.exceptionOrNull() }
             ?.let { throw it }
+    }
+
+    private suspend fun resolveLocalAccountContext(profile: ConnectionProfile) {
+        mutableLocalAccountContext.value =
+            attempt { accountContextStore.read() }
+                .getOrNull()
+                ?.takeIf { it.matches(profile) }
+                ?.let { LocalAccountContext(profile, it) }
     }
 
     private fun replaceOperation(block: suspend () -> Unit) {
