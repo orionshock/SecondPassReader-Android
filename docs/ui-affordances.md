@@ -65,5 +65,30 @@ current, and focused on reusable product behavior rather than implementation his
 
 ## Preview imagery
 
-- Preview cover stacks and images are passive unless explicitly designed otherwise.
+### Preview cover rows
+
+- Preview covers are lightweight navigation surfaces; an eligible cover may open Book Detail.
+- Do not add overflow menus, long-press actions, footers, Reader actions, or Session actions to
+  preview art.
+- Derive visible preview capacity from available layout width where returned data allows it.
+- Preserve cover proportions and minimum spacing without crowding primary metadata.
+
+### Decorative cover stacks
+
+- Decorative stacks, including Home Shelf previews, are not independently interactive.
+- The owning card or tile provides the primary navigation action.
 - Tiny shelf previews do not receive full-card overflow controls.
+
+## Segmented toggles
+
+- Represent mutually exclusive binary presentation modes with one segmented control.
+- Use semantic icons and accessible labels for each segment.
+- Make the selected state visually and semantically clear.
+- Avoid adjacent independent buttons for one binary choice.
+
+## Entity browse context
+
+- Selected Author or Series identity may extend the Library title context.
+- Do not repeat entity name or result count in content when the title already owns them.
+- Render optional descriptions only when meaningful, collapsed by default with More and Less
+  affordances when the text actually overflows.
