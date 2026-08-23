@@ -1,15 +1,21 @@
 package com.secondpasslibrary.reader.bookdetail
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -17,17 +23,23 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.client.LibraryBookDetail
 import com.secondpasslibrary.reader.design.book.PublicBookCover
+import com.secondpasslibrary.reader.design.icons.AppIcon
+import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 
 private const val BOOK_COVER_ASPECT_RATIO = 2f / 3f
 private const val COLLAPSED_DESCRIPTION_LINES = 8
 private const val EXPANDABLE_DESCRIPTION_LENGTH = 500
-private const val METADATA_SEPARATOR = " \u00b7 "
 
 @Composable
 internal fun BookDetailCover(book: LibraryBookDetail, modifier: Modifier = Modifier) {
@@ -44,13 +56,10 @@ internal fun BookDetailMetadata(
     book: LibraryBookDetail,
     onAuthorSelected: (String) -> Unit,
     onSeriesSelected: (String) -> Unit,
-    onTagSelected: (String, String) -> Unit,
-    onReadingSessions: () -> Unit,
-    onAddToShelf: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val presentation = book.toPresentation()
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(presentation.title, style = MaterialTheme.typography.headlineLarge)
         presentation.subtitle?.let {
             Text(
@@ -59,47 +68,85 @@ internal fun BookDetailMetadata(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        book.series?.let { series ->
-            TextButton(onClick = { onSeriesSelected(series.id) }) {
-                Text(requireNotNull(presentation.seriesLabel))
-            }
+        presentation.seriesLabel?.let { value ->
+            MetadataField(
+                "Series",
+                value,
+                presentation.seriesNavigationId?.let { id -> { onSeriesSelected(id) } }
+            )
         }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            book.authors.forEach { author ->
-                TextButton(onClick = { onAuthorSelected(author.id) }) { Text(author.name) }
-            }
+        presentation.authorsLabel?.let { value ->
+            MetadataField(
+                "Author",
+                value,
+                presentation.authorNavigationId?.let { id -> { onAuthorSelected(id) } }
+            )
         }
-        SupportingMetadata(book, presentation)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            book.catalogTags.forEach { tag ->
-                AssistChip(
-                    onClick = { onTagSelected(tag.id, tag.slug) },
-                    label = { Text(tag.name) }
-                )
-            }
-        }
-        Description(presentation.description)
-        BookActions(book.file != null, onReadingSessions, onAddToShelf)
-        GroupMemberships(book)
+        book.publisher?.takeIf(String::isNotBlank)?.let { MetadataField("Publisher", it) }
+        book.language?.takeIf(String::isNotBlank)?.let { MetadataField("Language", it) }
+        presentation.publicationLabel?.let { MetadataField("Published", it) }
+        presentation.fileLabel?.let { MetadataField("Format", it) }
     }
 }
 
 @Composable
-private fun SupportingMetadata(book: LibraryBookDetail, presentation: BookDetailPresentation) {
-    val values = listOfNotNull(book.publisher, book.language, presentation.publicationLabel)
-        .filter(String::isNotBlank)
-    if (values.isNotEmpty()) {
+private fun MetadataField(label: String, value: String, onClick: (() -> Unit)? = null) {
+    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
         Text(
-            values.joinToString(METADATA_SEPARATOR),
+            label,
+            style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            value,
+            modifier = Modifier
+                .defaultMinSize(minHeight = 32.dp)
+                .then(
+                    if (onClick == null) {
+                        Modifier
+                    } else {
+                        Modifier.clickable(
+                            role = Role.Button,
+                            onClickLabel = "Open $label",
+                            onClick = onClick
+                        )
+                    }
+                )
+                .padding(vertical = 4.dp),
+            style = MaterialTheme.typography.bodyLarge.copy(
+                textDecoration = if (onClick == null) {
+                    TextDecoration.None
+                } else {
+                    TextDecoration.Underline
+                }
+            ),
+            color = if (onClick == null) {
+                MaterialTheme.colorScheme.onSurface
+            } else {
+                MaterialTheme.colorScheme.primary
+            }
         )
     }
-    presentation.fileLabel?.let {
-        Text(
-            it,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+}
+
+@Composable
+internal fun BookDetailSupportingContent(
+    book: LibraryBookDetail,
+    onTagSelected: (String, String) -> Unit
+) {
+    val presentation = book.toPresentation()
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (book.catalogTags.isNotEmpty()) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                book.catalogTags.forEach { tag ->
+                    AssistChip(
+                        onClick = { onTagSelected(tag.id, tag.slug) },
+                        label = { Text(tag.name) }
+                    )
+                }
+            }
+        }
+        Description(presentation.description)
     }
 }
 
@@ -121,32 +168,95 @@ private fun Description(description: String?) {
     }
 }
 
+internal enum class BookDetailActionLayout { VERTICAL, HORIZONTAL }
+
+internal enum class BookDetailActionKind { READ_BOOK, READING_SESSIONS, ADD_TO_SHELF }
+
+internal data class BookDetailActionPresentation(
+    val kind: BookDetailActionKind,
+    val label: String,
+    val icon: AppIcon,
+    val enabled: Boolean
+)
+
+internal fun bookDetailActionPresentations() = listOf(
+    BookDetailActionPresentation(BookDetailActionKind.READ_BOOK, "Read book", AppIcon.Book, false),
+    BookDetailActionPresentation(
+        BookDetailActionKind.READING_SESSIONS,
+        "Reading sessions",
+        AppIcon.ReadingHistory,
+        true
+    ),
+    BookDetailActionPresentation(
+        BookDetailActionKind.ADD_TO_SHELF,
+        "Add to shelf",
+        AppIcon.Shelf,
+        true
+    )
+)
+
 @Composable
-private fun BookActions(hasFile: Boolean, onReadingSessions: () -> Unit, onAddToShelf: () -> Unit) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = MaterialTheme.shapes.small
-    ) {
-        Column(
-            Modifier.fillMaxWidth().padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(if (hasFile) "Reader actions are not available yet." else "EPUB unavailable")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = {}, enabled = false) { Text("Open reader") }
-                OutlinedButton(onClick = onReadingSessions) { Text("Reading sessions") }
-                OutlinedButton(onClick = onAddToShelf) { Text("Add to shelf") }
+internal fun BookDetailActions(
+    onReadingSessions: () -> Unit,
+    onAddToShelf: () -> Unit,
+    layout: BookDetailActionLayout,
+    modifier: Modifier = Modifier
+) {
+    val callbacks = mapOf(
+        BookDetailActionKind.READ_BOOK to {},
+        BookDetailActionKind.READING_SESSIONS to onReadingSessions,
+        BookDetailActionKind.ADD_TO_SHELF to onAddToShelf
+    )
+    val actions = bookDetailActionPresentations()
+    if (layout == BookDetailActionLayout.VERTICAL) {
+        Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            actions.forEach { action ->
+                BookDetailActionTile(
+                    action,
+                    requireNotNull(callbacks[action.kind]),
+                    Modifier.fillMaxWidth()
+                )
+            }
+        }
+    } else {
+        Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            actions.forEach { action ->
+                BookDetailActionTile(
+                    action,
+                    requireNotNull(callbacks[action.kind]),
+                    Modifier.weight(1f)
+                )
             }
         }
     }
 }
 
 @Composable
-private fun GroupMemberships(book: LibraryBookDetail) {
-    if (book.groups.isEmpty()) return
-    Text("Available in", style = MaterialTheme.typography.titleMedium)
-    Text(
-        book.groups.joinToString(METADATA_SEPARATOR) { it.name },
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
+private fun BookDetailActionTile(
+    action: BookDetailActionPresentation,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    OutlinedButton(
+        onClick = onClick,
+        enabled = action.enabled,
+        modifier = modifier.height(88.dp).semantics {
+            if (!action.enabled) contentDescription = "${action.label}, unavailable"
+        },
+        contentPadding = PaddingValues(8.dp)
+    ) {
+        Column(
+            Modifier.fillMaxHeight(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            AppIconGraphic(action.icon, null, Modifier.size(24.dp))
+            Text(
+                action.label,
+                modifier = Modifier.padding(top = 4.dp),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
 }

@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,8 +19,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.design.components.ContextualAppBar
+
+private const val MEDIUM_COVER_WIDTH_FRACTION = 0.38f
 
 @Composable
 internal fun BookDetailScreen(
@@ -87,41 +91,123 @@ private fun BookDetailHero(
     onAddToShelf: () -> Unit
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val wide = maxWidth >= 720.dp && maxWidth > maxHeight
+        val layout = bookDetailLayoutForWidth(maxWidth)
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp)
+            contentPadding = PaddingValues(20.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             item {
-                if (wide) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
-                        BookDetailCover(book, Modifier.width(300.dp))
-                        BookDetailMetadata(
-                            book,
-                            onAuthorSelected,
-                            onSeriesSelected,
-                            onTagSelected,
-                            onReadingSessions,
-                            onAddToShelf,
-                            Modifier.weight(1f)
-                        )
-                    }
-                } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            BookDetailCover(book, Modifier.widthIn(max = 360.dp))
-                        }
-                        BookDetailMetadata(
-                            book,
-                            onAuthorSelected,
-                            onSeriesSelected,
-                            onTagSelected,
-                            onReadingSessions,
-                            onAddToShelf
-                        )
-                    }
+                when (layout) {
+                    BookDetailLayout.WIDE -> BookDetailWideHero(
+                        book,
+                        onAuthorSelected,
+                        onSeriesSelected,
+                        onReadingSessions,
+                        onAddToShelf
+                    )
+
+                    BookDetailLayout.MEDIUM -> BookDetailMediumHero(
+                        book,
+                        onAuthorSelected,
+                        onSeriesSelected,
+                        onReadingSessions,
+                        onAddToShelf
+                    )
+
+                    BookDetailLayout.NARROW -> BookDetailNarrowHero(
+                        book,
+                        onAuthorSelected,
+                        onSeriesSelected,
+                        onReadingSessions,
+                        onAddToShelf
+                    )
                 }
             }
+            item { BookDetailSupportingContent(book, onTagSelected) }
         }
+    }
+}
+
+internal enum class BookDetailLayout { WIDE, MEDIUM, NARROW }
+
+internal fun bookDetailLayoutForWidth(width: Dp): BookDetailLayout = when {
+    width >= 900.dp -> BookDetailLayout.WIDE
+    width >= 600.dp -> BookDetailLayout.MEDIUM
+    else -> BookDetailLayout.NARROW
+}
+
+@Composable
+private fun BookDetailWideHero(
+    book: com.secondpasslibrary.client.LibraryBookDetail,
+    onAuthorSelected: (String) -> Unit,
+    onSeriesSelected: (String) -> Unit,
+    onReadingSessions: () -> Unit,
+    onAddToShelf: () -> Unit
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+        BookDetailCover(book, Modifier.width(280.dp))
+        BookDetailMetadata(
+            book,
+            onAuthorSelected,
+            onSeriesSelected,
+            Modifier.weight(1f)
+        )
+        BookDetailActions(
+            onReadingSessions,
+            onAddToShelf,
+            BookDetailActionLayout.VERTICAL,
+            Modifier.width(184.dp)
+        )
+    }
+}
+
+@Composable
+private fun BookDetailMediumHero(
+    book: com.secondpasslibrary.client.LibraryBookDetail,
+    onAuthorSelected: (String) -> Unit,
+    onSeriesSelected: (String) -> Unit,
+    onReadingSessions: () -> Unit,
+    onAddToShelf: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+            BookDetailCover(
+                book,
+                Modifier.fillMaxWidth(MEDIUM_COVER_WIDTH_FRACTION).widthIn(max = 280.dp)
+            )
+            BookDetailMetadata(
+                book,
+                onAuthorSelected,
+                onSeriesSelected,
+                Modifier.weight(1f)
+            )
+        }
+        BookDetailActions(
+            onReadingSessions,
+            onAddToShelf,
+            BookDetailActionLayout.HORIZONTAL
+        )
+    }
+}
+
+@Composable
+private fun BookDetailNarrowHero(
+    book: com.secondpasslibrary.client.LibraryBookDetail,
+    onAuthorSelected: (String) -> Unit,
+    onSeriesSelected: (String) -> Unit,
+    onReadingSessions: () -> Unit,
+    onAddToShelf: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            BookDetailCover(book, Modifier.widthIn(max = 220.dp))
+        }
+        BookDetailMetadata(book, onAuthorSelected, onSeriesSelected)
+        BookDetailActions(
+            onReadingSessions,
+            onAddToShelf,
+            BookDetailActionLayout.HORIZONTAL
+        )
     }
 }

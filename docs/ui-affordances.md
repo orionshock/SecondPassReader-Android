@@ -73,8 +73,7 @@ current, and focused on reusable product behavior rather than implementation his
 - Do not add overflow menus, long-press actions, footers, Reader actions, or Session actions to
   preview art.
 - Derive visible preview capacity from available layout width where returned data allows it.
-- Keep interactive preview covers separated so each retains a clear touch surface; do not stack
-  them.
+- Keep browse preview covers separated; do not stack them.
 - Preserve the full one-line entity name before allocating preview space. Preview count may vary by
   row and may fall to zero rather than wrapping, truncating, or displacing the name.
 - Preserve cover proportions and minimum spacing while using the available preview region fully.
@@ -106,3 +105,25 @@ current, and focused on reusable product behavior rather than implementation his
 - Do not repeat entity name or result count in content when the title already owns them.
 - Render optional descriptions only when meaningful, collapsed by default with More and Less
   affordances when the text actually overflows.
+
+## Metadata fields
+
+- Use a muted compact field label with a stronger readable value.
+- Interactive values use the established accent and underline treatment with a sensible touch
+  target; non-interactive values must not imitate links.
+- Omit missing fields instead of rendering empty placeholders.
+
+## Object action tiles
+
+- Important object-level actions may use bordered icon-above-label buttons.
+- Keep actions in the same group equal in size.
+- Wide layouts may use a vertical action rail; medium and narrow layouts reposition the same
+  actions instead of shrinking their touch targets.
+- A disabled future action may remain visible when it communicates an intended product capability.
+- Avoid large placeholder or explanation containers for unavailable actions.
+
+## Adaptive detail heroes
+
+- Keep artwork prominent without crowding useful metadata or actions.
+- Tablet portrait should not default to a giant vertically stacked cover.
+- Choose detail composition from available width rather than orientation alone.

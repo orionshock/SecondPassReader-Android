@@ -16,7 +16,9 @@ internal data class BookDetailPresentation(
     val title: String,
     val subtitle: String?,
     val seriesLabel: String?,
+    val seriesNavigationId: String?,
     val authorsLabel: String?,
+    val authorNavigationId: String?,
     val publicationLabel: String?,
     val description: String?,
     val fileLabel: String?
@@ -34,7 +36,9 @@ internal fun LibraryBookDetail.toPresentation() = BookDetailPresentation(
     seriesLabel = series?.let { value ->
         value.seriesIndex?.let { "${value.name} \u00b7 ${it.value}" } ?: value.name
     },
+    seriesNavigationId = series?.id,
     authorsLabel = authors.joinToString(", ") { it.name }.takeIf(String::isNotBlank),
+    authorNavigationId = authors.singleOrNull()?.id,
     publicationLabel = publicationLabel(),
     description = BookDescriptionPresenter.present(description),
     fileLabel = file?.let {
