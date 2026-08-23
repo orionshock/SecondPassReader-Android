@@ -31,6 +31,8 @@ internal constructor(repository: HomeProjectionRepository) :
     fun searchLibrary(query: String) =
         controller.navigate(HomeNavigationIntent.LibrarySearch(query))
 
+    fun navigate(intent: HomeNavigationIntent) = controller.navigate(intent)
+
     fun viewAllSessions() = controller.navigate(HomeNavigationIntent.ViewAllSessions)
 
     fun openShelves() = controller.navigate(HomeNavigationIntent.OpenShelves)

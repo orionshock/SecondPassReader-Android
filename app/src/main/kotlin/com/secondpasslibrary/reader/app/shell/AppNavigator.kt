@@ -60,5 +60,14 @@ internal class AppNavigator(private val navigation: AppNavigationState) {
         }
     }
 
+    fun openReadingSessionDetail(
+        sessionId: String,
+        returnTarget: ReadingSessionDetailReturnTarget,
+        action: ReadingSessionDetailRouteAction = ReadingSessionDetailRouteAction.VIEW
+    ) {
+        require(sessionId.isNotBlank()) { "Reading Session ID must not be blank." }
+        navigation.push(ReadingSessionDetailRoute(sessionId, returnTarget, action))
+    }
+
     fun goBack(): Boolean = navigation.pop()
 }

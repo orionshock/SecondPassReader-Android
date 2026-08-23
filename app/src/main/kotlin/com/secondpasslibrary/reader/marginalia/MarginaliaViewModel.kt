@@ -27,8 +27,9 @@ constructor(
 
     fun initialize(
         profile: ConnectionProfile,
-        initialContext: MarginaliaHistoryContext = MarginaliaHistoryContext.Global
-    ) = controller.initialize(profile, initialContext)
+        initialContext: MarginaliaHistoryContext = MarginaliaHistoryContext.Global,
+        detailEntry: ReadingSessionDetailEntry? = null
+    ) = controller.initialize(profile, initialContext, detailEntry)
 
     fun changeStatus(filter: ReadingSessionStatusFilter) = controller.sessions.changeStatus(filter)
 

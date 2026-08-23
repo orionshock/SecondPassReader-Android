@@ -106,7 +106,8 @@ internal fun showsShellTopBar(destination: AppDestination, route: NavKey): Boole
     destination != AppDestination.Shelves &&
         destination != AppDestination.Marginalia &&
         route !is BookDetailRoute &&
-        route !is BookMarginaliaRoute
+        route !is BookMarginaliaRoute &&
+        route !is ReadingSessionDetailRoute
 
 private val AppSessionState.AccountShell.serverName: String
     get() =

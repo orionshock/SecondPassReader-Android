@@ -12,13 +12,13 @@ import com.secondpasslibrary.reader.app.authenticatedFeatureContext
 import com.secondpasslibrary.reader.bookdetail.BookDetailNavigationIntent
 import com.secondpasslibrary.reader.bookdetail.BookDetailStateHost
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.home.HomeNavigationIntent
 import com.secondpasslibrary.reader.home.HomeScreen
 import com.secondpasslibrary.reader.library.LibraryExternalNavigation
 import com.secondpasslibrary.reader.library.LibraryStateHost
 import com.secondpasslibrary.reader.library.books.LibraryBooksEntry
 import com.secondpasslibrary.reader.marginalia.MarginaliaHistoryContext
 import com.secondpasslibrary.reader.marginalia.MarginaliaStateHost
+import com.secondpasslibrary.reader.marginalia.ReadingSessionDetailEntry
 import com.secondpasslibrary.reader.settings.LinkedSettings
 import com.secondpasslibrary.reader.shelves.ShelfBookNavigationRequest
 import com.secondpasslibrary.reader.shelves.ShelvesCollection
@@ -61,6 +61,7 @@ internal fun AccountDestinations(
                 registerLibraryRouteEntries(bindings)
                 registerSharedBookDetailEntry(bindings)
                 registerBookMarginaliaEntry(bindings)
+                registerReadingSessionDetailEntry(bindings)
             }
         }
     val decoratedEntries = retainedActiveEntries(navigation, entries)
@@ -172,6 +173,24 @@ private fun EntryProviderScope<NavKey>.registerBookMarginaliaEntry(
     }
 }
 
+private fun EntryProviderScope<NavKey>.registerReadingSessionDetailEntry(
+    bindings: AuthenticatedDestinationBindings
+) {
+    entry<ReadingSessionDetailRoute> { route ->
+        MarginaliaStateHost(
+            profile = bindings.profile,
+            detailEntry =
+                ReadingSessionDetailEntry(
+                    route.sessionId,
+                    route.action.toMarginaliaEntryAction()
+                ),
+            onOpenDrawer = bindings.onOpenDrawer,
+            onBackFromDetail = bindings.navigator::goBack,
+            onAuthenticationRejected = bindings.onAuthenticationRejected
+        )
+    }
+}
+
 @Composable
 private fun LibraryDestination(
     bindings: AuthenticatedDestinationBindings,
@@ -203,14 +222,6 @@ private fun HomeDestination(
         onNavigation = navigator::handleHomeNavigation,
         onAuthenticationRejected = onAuthenticationRejected
     )
-}
-
-private fun AppNavigator.handleHomeNavigation(intent: HomeNavigationIntent) {
-    when (intent) {
-        is HomeNavigationIntent.LibrarySearch -> openLibrarySearch(intent.query)
-        HomeNavigationIntent.OpenShelves -> select(AppDestination.Shelves)
-        HomeNavigationIntent.ViewAllSessions -> select(AppDestination.Marginalia)
-    }
 }
 
 private fun AppNavigator.openShelfBook(request: ShelfBookNavigationRequest) {

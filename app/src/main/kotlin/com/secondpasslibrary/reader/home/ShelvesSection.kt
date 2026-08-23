@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.secondpasslibrary.client.ShelfSummary
 import com.secondpasslibrary.reader.design.icons.AppIcon
+import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 
 @Composable
 internal fun ShelvesSection(
@@ -114,13 +115,24 @@ private fun ShelfCard(model: ShelfCardModel, modifier: Modifier = Modifier) {
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.titleMedium
                 )
-                Text(
-                    model.ownerLabel,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AppIconGraphic(
+                        model.ownerIcon,
+                        model.ownerIconDescription,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        model.ownerLabel,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
                 Text(
                     model.itemCountLabel,
                     color = MaterialTheme.colorScheme.primary,

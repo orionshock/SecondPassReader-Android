@@ -2,7 +2,6 @@ package com.secondpasslibrary.reader.home
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -10,8 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,6 +22,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -69,6 +69,7 @@ internal fun HomeScreen(
         onRetryRecentReading = viewModel::retryRecentReading,
         onRetryShelves = viewModel::retryShelves,
         onSearch = viewModel::searchLibrary,
+        onReadingHistoryAction = viewModel::navigate,
         onViewAllSessions = viewModel::viewAllSessions,
         onOpenShelves = viewModel::openShelves
     )
@@ -81,6 +82,7 @@ private fun HomeContent(
     onRetryRecentReading: () -> Unit,
     onRetryShelves: () -> Unit,
     onSearch: (String) -> Unit,
+    onReadingHistoryAction: (HomeNavigationIntent) -> Unit,
     onViewAllSessions: () -> Unit,
     onOpenShelves: () -> Unit
 ) {
@@ -98,6 +100,7 @@ private fun HomeContent(
             showClosed = state.showClosedSessions,
             onShowClosedChanged = onShowClosedChanged,
             onRetry = onRetryRecentReading,
+            onContextAction = onReadingHistoryAction,
             onViewAll = onViewAllSessions
         )
         ShelvesSection(
@@ -117,32 +120,23 @@ private fun GlobalLibrarySearch(onSearch: (String) -> Unit, modifier: Modifier =
         keyboard?.hide()
         onSearch(query)
     }
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("Global Library Search", style = MaterialTheme.typography.titleLarge)
-        Text(
-            "Search books, authors, series, publishers, and tags across this library.",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodyMedium
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Title, author, series, publisher, or tag") },
-                leadingIcon = { AppIconGraphic(AppIcon.Search, null) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { submit() })
-            )
-            Button(onClick = submit) {
-                AppIconGraphic(AppIcon.Search, null)
-                Text("Search", modifier = Modifier.padding(start = 8.dp))
+    OutlinedTextField(
+        value = query,
+        onValueChange = { query = it },
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .semantics { contentDescription = "Global library search" },
+        placeholder = { Text("Search books, authors, series, publishers, or tags") },
+        leadingIcon = { AppIconGraphic(AppIcon.Search, null) },
+        trailingIcon = {
+            IconButton(onClick = submit) {
+                AppIconGraphic(AppIcon.Search, "Search library")
             }
-        }
-    }
+        },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(onSearch = { submit() }),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp)
+    )
 }

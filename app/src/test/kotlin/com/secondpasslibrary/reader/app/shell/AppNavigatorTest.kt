@@ -177,6 +177,44 @@ class AppNavigatorTest {
     }
 
     @Test
+    fun `Home details stay on Home stack with typed return context`() {
+        val navigation = appNavigationStateForTest()
+        val navigator = AppNavigator(navigation)
+
+        navigator.openBookDetail("book-1", BookDetailReturnTarget.Home)
+        assertEquals(
+            BookDetailRoute("book-1", BookDetailReturnTarget.Home),
+            navigation.currentRoute
+        )
+        assertEquals(AppDestination.Home, navigation.currentRoute.topLevelDestination())
+        navigator.goBack()
+        assertEquals(listOf(AppDestination.Home), navigation.activeBackStack)
+    }
+
+    @Test
+    fun `Home Reading Session actions use shared detail route on Home stack`() {
+        val navigation = appNavigationStateForTest()
+        val navigator = AppNavigator(navigation)
+
+        navigator.openReadingSessionDetail(
+            "session-1",
+            ReadingSessionDetailReturnTarget.Home,
+            ReadingSessionDetailRouteAction.EDIT
+        )
+
+        assertEquals(
+            ReadingSessionDetailRoute(
+                "session-1",
+                ReadingSessionDetailReturnTarget.Home,
+                ReadingSessionDetailRouteAction.EDIT
+            ),
+            navigation.currentRoute
+        )
+        assertEquals(AppDestination.Home, navigation.currentRoute.topLevelDestination())
+        assertFalse(showsShellTopBar(AppDestination.Home, navigation.currentRoute))
+    }
+
+    @Test
     fun `Book-scoped Marginalia suppresses origin stack shell top bar`() {
         val librarySource = BookDetailRoute("book-1", BookDetailReturnTarget.Library)
         val route =

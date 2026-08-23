@@ -39,6 +39,7 @@ internal fun EntryProviderScope<NavKey>.registerConnectionRequiredEntries(
     entry<LibraryTagRoute> { content() }
     entry<BookDetailRoute> { content() }
     entry<BookMarginaliaRoute> { content() }
+    entry<ReadingSessionDetailRoute> { content() }
 }
 
 @Composable

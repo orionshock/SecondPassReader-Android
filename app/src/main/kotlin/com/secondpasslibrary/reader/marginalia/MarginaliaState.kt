@@ -6,6 +6,17 @@ internal sealed interface MarginaliaHistoryContext {
     data class Book(val bookId: String) : MarginaliaHistoryContext
 }
 
+internal data class ReadingSessionDetailEntry(
+    val sessionId: String,
+    val action: ReadingSessionDetailEntryAction = ReadingSessionDetailEntryAction.VIEW
+)
+
+internal enum class ReadingSessionDetailEntryAction {
+    VIEW,
+    EDIT,
+    CLOSE
+}
+
 internal sealed interface MarginaliaDestination {
     data class History(val context: MarginaliaHistoryContext) : MarginaliaDestination
 

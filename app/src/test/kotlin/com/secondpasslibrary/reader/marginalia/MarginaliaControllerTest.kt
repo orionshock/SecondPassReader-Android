@@ -91,6 +91,46 @@ class MarginaliaControllerTest {
     }
 
     @Test
+    fun `direct edit entry opens existing metadata workflow after detail loads`() = runTest {
+        val capability = RecordingMarginaliaCapability()
+        val controller = MarginaliaController(marginaliaProvider(capability), this)
+
+        controller.initialize(
+            marginaliaProfile(),
+            detailEntry =
+                ReadingSessionDetailEntry(
+                    "session-1",
+                    ReadingSessionDetailEntryAction.EDIT
+                )
+        )
+        advanceUntilIdle()
+
+        assertEquals(listOf("session-1"), capability.detailRequests)
+        assertTrue(controller.detail.metadataEditor.state.value.open)
+        assertTrue(controller.state.value.destination is MarginaliaDestination.SessionDetail)
+    }
+
+    @Test
+    fun `direct close entry opens existing finalization workflow after detail loads`() = runTest {
+        val capability = RecordingMarginaliaCapability()
+        val controller = MarginaliaController(marginaliaProvider(capability), this)
+
+        controller.initialize(
+            marginaliaProfile(),
+            detailEntry =
+                ReadingSessionDetailEntry(
+                    "session-1",
+                    ReadingSessionDetailEntryAction.CLOSE
+                )
+        )
+        advanceUntilIdle()
+
+        assertEquals(listOf("session-1"), capability.detailRequests)
+        assertTrue(controller.detail.closeFlow.state.value.open)
+        assertTrue(controller.detail.metadataEditor.state.value.open.not())
+    }
+
+    @Test
     fun `parent exposes typed Book Detail and Reader navigation`() = runTest {
         val controller = MarginaliaController(
             marginaliaProvider(RecordingMarginaliaCapability()),

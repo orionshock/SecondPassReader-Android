@@ -10,14 +10,16 @@ import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 internal fun MarginaliaStateHost(
     profile: ConnectionProfile,
     initialContext: MarginaliaHistoryContext = MarginaliaHistoryContext.Global,
+    detailEntry: ReadingSessionDetailEntry? = null,
     onOpenDrawer: () -> Unit,
     onBackFromHistory: (() -> Unit)? = null,
+    onBackFromDetail: (() -> Unit)? = null,
     onAuthenticationRejected: () -> Unit,
     viewModel: MarginaliaViewModel = viewModel()
 ) {
     val connectionIdentity = profile.authenticatedConnectionIdentity
-    LaunchedEffect(connectionIdentity, initialContext) {
-        viewModel.initialize(profile, initialContext)
+    LaunchedEffect(connectionIdentity, initialContext, detailEntry) {
+        viewModel.initialize(profile, initialContext, detailEntry)
     }
     LaunchedEffect(viewModel, onAuthenticationRejected) {
         viewModel.connectionEvents.collect { event ->
@@ -26,5 +28,5 @@ internal fun MarginaliaStateHost(
             }
         }
     }
-    MarginaliaScreen(viewModel, onOpenDrawer, onBackFromHistory)
+    MarginaliaScreen(viewModel, onOpenDrawer, onBackFromHistory, onBackFromDetail)
 }

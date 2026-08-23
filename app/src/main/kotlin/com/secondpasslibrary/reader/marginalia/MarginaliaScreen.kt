@@ -29,7 +29,8 @@ import com.secondpasslibrary.reader.marginalia.history.screenTitle as historyScr
 internal fun MarginaliaScreen(
     viewModel: MarginaliaViewModel,
     onOpenDrawer: () -> Unit,
-    onBackFromHistory: (() -> Unit)? = null
+    onBackFromHistory: (() -> Unit)? = null,
+    onBackFromDetail: (() -> Unit)? = null
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sessionsState by viewModel.sessionsState.collectAsStateWithLifecycle()
@@ -44,7 +45,11 @@ internal fun MarginaliaScreen(
     val listState = rememberLazyListState()
 
     BackHandler(enabled = detail != null || bookHistoryBack != null) {
-        if (detail != null) viewModel.backFromDetail() else onBackFromHistory?.invoke()
+        if (detail != null) {
+            onBackFromDetail?.invoke() ?: viewModel.backFromDetail()
+        } else {
+            onBackFromHistory?.invoke()
+        }
     }
     MarginaliaScaffold(
         title =
@@ -55,7 +60,7 @@ internal fun MarginaliaScreen(
             },
         child = detail != null || bookHistoryBack != null,
         onNavigation = when {
-            detail != null -> viewModel::backFromDetail
+            detail != null -> onBackFromDetail ?: viewModel::backFromDetail
             bookHistoryBack != null -> bookHistoryBack
             else -> onOpenDrawer
         }

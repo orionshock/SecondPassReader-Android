@@ -7,6 +7,7 @@ import com.secondpasslibrary.client.RecentReadingItem
 import com.secondpasslibrary.client.ShelfOwner
 import com.secondpasslibrary.client.ShelfSummary
 import com.secondpasslibrary.client.ShelfVisibility
+import com.secondpasslibrary.reader.design.icons.AppIcon
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -30,6 +31,48 @@ class HomePresenterTest {
 
         assertEquals("Chapter 4", model.locationLabel)
         assertNull(model.sessionName)
+        assertEquals(
+            OpenReaderIntent(
+                "book-1",
+                "session-1",
+                ReadingProgress("epubcfi(/6/4)", "Chapter 4", "2026-08-16T12:00:00Z")
+            ),
+            model.primaryIntent
+        )
+    }
+
+    @Test
+    fun `active reading history exposes detail edit and close context actions`() {
+        val model = HomePresenter.readingHistory(recent(ReadingSessionStatus.ACTIVE))
+
+        assertEquals(
+            listOf(
+                HomeNavigationIntent.OpenBookDetail("book-1"),
+                HomeNavigationIntent.OpenReadingSessionDetail("session-1"),
+                HomeNavigationIntent.OpenReadingSessionDetail(
+                    "session-1",
+                    ReadingSessionDetailAction.EDIT
+                ),
+                HomeNavigationIntent.OpenReadingSessionDetail(
+                    "session-1",
+                    ReadingSessionDetailAction.CLOSE
+                )
+            ),
+            model.contextActions
+        )
+    }
+
+    @Test
+    fun `closed reading history exposes read-only context actions`() {
+        val model = HomePresenter.readingHistory(recent(ReadingSessionStatus.CLOSED))
+
+        assertEquals(
+            listOf(
+                HomeNavigationIntent.OpenBookDetail("book-1"),
+                HomeNavigationIntent.OpenReadingSessionDetail("session-1")
+            ),
+            model.contextActions
+        )
     }
 
     @Test
@@ -39,6 +82,7 @@ class HomePresenterTest {
         val model = HomePresenter.shelf(shelf)
 
         assertEquals("reader", model.ownerLabel)
+        assertEquals(AppIcon.User, model.ownerIcon)
         assertEquals("3 books", model.itemCountLabel)
     }
 
@@ -61,6 +105,19 @@ class HomePresenterTest {
         assertNull(shelf.previewBooks)
     }
 
+    @Test
+    fun `group and shared shelf owners retain distinct semantic icons`() {
+        val group =
+            HomePresenter.shelf(shelf(ShelfOwner.Group("g1", "Readers", true), 0))
+        val shared =
+            HomePresenter.shelf(shelf(ShelfOwner.User("p2", "other-reader"), 2, false))
+
+        assertEquals("Readers", group.ownerLabel)
+        assertEquals(AppIcon.GroupShelf, group.ownerIcon)
+        assertEquals("other-reader", shared.ownerLabel)
+        assertEquals(AppIcon.SharedShelf, shared.ownerIcon)
+    }
+
     private fun recent(status: ReadingSessionStatus) = RecentReadingItem(
         sessionId = "session-1",
         sessionName = "The Dispossessed",
@@ -70,14 +127,14 @@ class HomePresenterTest {
         progress = ReadingProgress("epubcfi(/6/4)", "Chapter 4", "2026-08-16T12:00:00Z")
     )
 
-    private fun shelf(owner: ShelfOwner, count: Int) = ShelfSummary(
+    private fun shelf(owner: ShelfOwner, count: Int, canEdit: Boolean = true) = ShelfSummary(
         id = "shelf-1",
         name = "Favorites",
         description = null,
         owner = owner,
         visibility = ShelfVisibility.PRIVATE,
         itemCount = count,
-        canEdit = true,
+        canEdit = canEdit,
         previewBooks = null
     )
 }
