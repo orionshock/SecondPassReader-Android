@@ -2,6 +2,9 @@ package com.secondpasslibrary.reader.shelves.collection
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -36,11 +39,40 @@ internal fun ShelvesRootControls(
     onCreateShelf: () -> Unit,
     modifier: Modifier
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        if (maxWidth >= 900.dp) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CollectionSelectors(selected, onCollectionSelected)
+                Box(Modifier.weight(1f))
+                CollectionActions(selected, state, onOrderingSelected, onCreateShelf)
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    CollectionSelectors(selected, onCollectionSelected)
+                }
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    CollectionActions(selected, state, onOrderingSelected, onCreateShelf)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CollectionSelectors(
+    selected: ShelvesCollection,
+    onCollectionSelected: (ShelvesCollection) -> Unit
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         CollectionChip("My Shelves", AppIcon.Shelf, selected == ShelvesCollection.PERSONAL) {
             onCollectionSelected(ShelvesCollection.PERSONAL)
         }
@@ -54,20 +86,28 @@ internal fun ShelvesRootControls(
             AppIcon.GroupShelf,
             selected == ShelvesCollection.GROUP
         ) { onCollectionSelected(ShelvesCollection.GROUP) }
-        Box(Modifier.weight(1f))
-        if (selected == ShelvesCollection.PERSONAL) {
-            OutlinedButton(onClick = onCreateShelf) {
-                AppIconGraphic(AppIcon.Add, null, Modifier.size(18.dp))
-                Text("Create shelf", Modifier.padding(start = 6.dp))
-            }
-        }
-        Text(
-            "${state.totalCount} ${if (state.totalCount == 1) "shelf" else "shelves"}",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelMedium
-        )
-        ShelfOrderingMenu(state.ordering, onOrderingSelected)
     }
+}
+
+@Composable
+private fun CollectionActions(
+    selected: ShelvesCollection,
+    state: ShelfCollectionState,
+    onOrderingSelected: (ShelfOrdering) -> Unit,
+    onCreateShelf: () -> Unit
+) {
+    if (selected == ShelvesCollection.PERSONAL) {
+        OutlinedButton(onClick = onCreateShelf) {
+            AppIconGraphic(AppIcon.Add, null, Modifier.size(18.dp))
+            Text("Create shelf", Modifier.padding(start = 6.dp))
+        }
+    }
+    Text(
+        "${state.totalCount} ${if (state.totalCount == 1) "shelf" else "shelves"}",
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        style = MaterialTheme.typography.labelMedium
+    )
+    ShelfOrderingMenu(state.ordering, onOrderingSelected)
 }
 
 @Composable
