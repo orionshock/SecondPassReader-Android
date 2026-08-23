@@ -7,13 +7,16 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -21,6 +24,12 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.secondpasslibrary.client.AuthenticatedContext
+import com.secondpasslibrary.client.AuthenticatedServerInfo
+import com.secondpasslibrary.client.CurrentUser
+import com.secondpasslibrary.reader.app.AppSessionAuthority
+import com.secondpasslibrary.reader.app.AppSessionState
+import com.secondpasslibrary.reader.connection.ConnectionProfile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
@@ -97,25 +106,43 @@ class AppNavigationEntryLifecycleTest {
     @Test
     fun unavailableEntryDoesNotCreateViewModelAndVerifiedTransitionKeepsRoute() {
         lateinit var navigation: AppNavigationState
-        var verified by mutableStateOf(false)
+        var session by mutableStateOf(accountShell(AppSessionAuthority.Restoring))
         var libraryViewModel: TrackingViewModel? = null
         compose.setContent {
             navigation = rememberAppNavigationState()
+            val environment =
+                rememberUpdatedState(
+                    AccountDestinationEnvironment(
+                        session = session,
+                        navigator = AppNavigator(navigation),
+                        onAuthenticationRejected = {},
+                        onRetryConnection = {},
+                        onRelinkAccount = {},
+                        onForgetAccount = {},
+                        onOpenDrawer = {}
+                    )
+                )
             val provider =
                 entryProvider<NavKey> {
                     entry(key = AppDestination.Home) { Text("Home") }
                     entry(key = AppDestination.Library) {
-                        if (verified) {
+                        AuthenticatedDestination(environment) {
                             val owner = viewModel<TrackingViewModel> { TrackingViewModel() }
                             SideEffect { libraryViewModel = owner }
-                            Text("Library")
-                        } else {
-                            Text("Connection required")
+                            Text("Verified Library")
                         }
                     }
-                    entry(key = AppDestination.Shelves) { Text("Shelves") }
-                    entry(key = AppDestination.Marginalia) { Text("Marginalia") }
-                    entry(key = AppDestination.Settings) { Text("Settings") }
+                    listOf(
+                        AppDestination.Shelves,
+                        AppDestination.Marginalia,
+                        AppDestination.Settings
+                    ).forEach { destination ->
+                        entry(key = destination) {
+                            AuthenticatedDestination(environment) {
+                                Text("Verified ${destination.label}")
+                            }
+                        }
+                    }
                 }
             NavDisplay(
                 entries = retainedActiveEntries(navigation, provider),
@@ -124,14 +151,46 @@ class AppNavigationEntryLifecycleTest {
         }
 
         compose.runOnUiThread { navigation.select(AppDestination.Library) }
-        compose.waitForIdle()
+        compose.onNodeWithText("Reconnecting...").assertIsDisplayed()
         assertTrue(libraryViewModel == null)
         assertTrue(navigation.activeBackStack.single() == AppDestination.Library)
+        val retainedStack = navigation.activeBackStack
 
-        compose.runOnUiThread { verified = true }
-        compose.waitForIdle()
-        assertTrue(libraryViewModel != null)
-        assertTrue(navigation.activeBackStack.single() == AppDestination.Library)
+        compose.runOnUiThread {
+            session = accountShell(AppSessionAuthority.Verified(authenticatedContext()))
+        }
+        compose.onNodeWithText("Verified Library").assertIsDisplayed()
+        val verifiedViewModel = checkNotNull(libraryViewModel)
+        assertSame(retainedStack, navigation.activeBackStack)
+        assertEquals(listOf(AppDestination.Library), navigation.activeBackStack)
+
+        listOf(AppDestination.Shelves, AppDestination.Marginalia, AppDestination.Settings)
+            .forEach { destination ->
+                compose.runOnUiThread { navigation.select(destination) }
+                compose.onNodeWithText("Verified ${destination.label}").assertIsDisplayed()
+                assertEquals(listOf(destination), navigation.activeBackStack)
+            }
+        compose.runOnUiThread { navigation.select(AppDestination.Library) }
+        compose.onNodeWithText("Verified Library").assertIsDisplayed()
+
+        compose.runOnUiThread {
+            session = accountShell(AppSessionAuthority.TransientFailure("Offline"))
+        }
+        compose.onNodeWithText("This section needs a connection.").assertIsDisplayed()
+        assertFalse(verifiedViewModel.cleared)
+
+        compose.runOnUiThread {
+            session = accountShell(AppSessionAuthority.Verified(authenticatedContext()))
+        }
+        compose.onNodeWithText("Verified Library").assertIsDisplayed()
+        assertSame(verifiedViewModel, libraryViewModel)
+        assertSame(retainedStack, navigation.activeBackStack)
+
+        compose.runOnUiThread { navigation.select(AppDestination.Home) }
+        compose.onNodeWithText("Home").assertIsDisplayed()
+        compose.runOnUiThread { navigation.select(AppDestination.Library) }
+        compose.onNodeWithText("Verified Library").assertIsDisplayed()
+        assertSame(verifiedViewModel, libraryViewModel)
     }
 
     @Test
@@ -173,6 +232,27 @@ class AppNavigationEntryLifecycleTest {
         }
     }
 }
+
+private fun accountShell(authority: AppSessionAuthority) =
+    AppSessionState.AccountShell(connectionProfile(), "profile-1", authority)
+
+private fun connectionProfile() = ConnectionProfile(
+    serverOrigin = "https://library.example",
+    serverBaseUrl = "https://library.example/",
+    apiBaseUrl = "https://library.example/api/v1/",
+    serverName = "Library",
+    serverDescription = "",
+    serverVersion = "1.0",
+    serverReleaseDate = "2026-08-23",
+    clientSessionId = "client-session-1",
+    clientName = "Reader",
+    clientType = "android"
+)
+
+private fun authenticatedContext() = AuthenticatedContext(
+    CurrentUser("reader", "", "", "", "profile-1", "reader", emptyList(), null, null, null),
+    AuthenticatedServerInfo("Library", "", "", false, null, "", null, "1.0", "")
+)
 
 private class TrackingViewModel : ViewModel() {
     var cleared = false

@@ -9,41 +9,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.navigation3.runtime.EntryProviderScope
-import androidx.navigation3.runtime.NavKey
 import com.secondpasslibrary.reader.app.AppSessionAuthority
 
-internal fun EntryProviderScope<NavKey>.registerConnectionRequiredEntries(
-    authority: AppSessionAuthority,
-    onRetryConnection: () -> Unit,
-    onRelinkAccount: () -> Unit,
-    onForgetAccount: () -> Unit,
-    onOpenDrawer: () -> Unit
-) {
-    val content = @Composable {
-        ConnectionRequiredDestination(
-            authority,
-            onRetryConnection,
-            onRelinkAccount,
-            onForgetAccount,
-            onOpenDrawer
-        )
-    }
-    entry(key = AppDestination.Library) { content() }
-    entry(key = AppDestination.Shelves) { content() }
-    entry(key = AppDestination.Marginalia) { content() }
-    entry(key = AppDestination.Settings) { content() }
-    entry<LibrarySearchRoute> { content() }
-    entry<LibraryAuthorRoute> { content() }
-    entry<LibrarySeriesRoute> { content() }
-    entry<LibraryTagRoute> { content() }
-    entry<BookDetailRoute> { content() }
-    entry<BookMarginaliaRoute> { content() }
-    entry<ReadingSessionDetailRoute> { content() }
-}
-
 @Composable
-private fun ConnectionRequiredDestination(
+internal fun ConnectionRequiredDestination(
     authority: AppSessionAuthority,
     onRetryConnection: () -> Unit,
     onRelinkAccount: () -> Unit,

@@ -1,6 +1,8 @@
 package com.secondpasslibrary.reader.app.shell
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
@@ -36,33 +38,26 @@ internal fun AccountDestinations(
     onOpenDrawer: () -> Unit,
     modifier: Modifier
 ) {
-    val verifiedContext = session.authenticatedFeatureContext
+    val environment =
+        rememberUpdatedState(
+            AccountDestinationEnvironment(
+                session,
+                navigator,
+                onAuthenticationRejected,
+                onRetryConnection,
+                onRelinkAccount,
+                onForgetAccount,
+                onOpenDrawer
+            )
+        )
     val entries =
         entryProvider<NavKey> {
-            registerHomeEntry(session, navigator, onAuthenticationRejected)
-            if (verifiedContext == null) {
-                registerConnectionRequiredEntries(
-                    session.authority,
-                    onRetryConnection,
-                    onRelinkAccount,
-                    onForgetAccount,
-                    onOpenDrawer
-                )
-            } else {
-                val bindings =
-                    AuthenticatedDestinationBindings(
-                        session.profile,
-                        verifiedContext,
-                        navigator,
-                        onAuthenticationRejected,
-                        onOpenDrawer
-                    )
-                registerAuthenticatedTopLevelEntries(bindings)
-                registerLibraryRouteEntries(bindings)
-                registerSharedBookDetailEntry(bindings)
-                registerBookMarginaliaEntry(bindings)
-                registerReadingSessionDetailEntry(bindings)
-            }
+            registerHomeEntry(environment)
+            registerAuthenticatedTopLevelEntries(environment)
+            registerLibraryRouteEntries(environment)
+            registerSharedBookDetailEntry(environment)
+            registerBookMarginaliaEntry(environment)
+            registerReadingSessionDetailEntry(environment)
         }
     val decoratedEntries = retainedActiveEntries(navigation, entries)
     NavDisplay(
@@ -72,7 +67,17 @@ internal fun AccountDestinations(
     )
 }
 
-private data class AuthenticatedDestinationBindings(
+internal data class AccountDestinationEnvironment(
+    val session: AppSessionState.AccountShell,
+    val navigator: AppNavigator,
+    val onAuthenticationRejected: () -> Unit,
+    val onRetryConnection: () -> Unit,
+    val onRelinkAccount: () -> Unit,
+    val onForgetAccount: () -> Unit,
+    val onOpenDrawer: () -> Unit
+)
+
+internal data class AuthenticatedDestinationBindings(
     val profile: ConnectionProfile,
     val context: AuthenticatedContext,
     val navigator: AppNavigator,
@@ -81,114 +86,141 @@ private data class AuthenticatedDestinationBindings(
 )
 
 private fun EntryProviderScope<NavKey>.registerHomeEntry(
-    session: AppSessionState.AccountShell,
-    navigator: AppNavigator,
-    onAuthenticationRejected: () -> Unit
+    environment: State<AccountDestinationEnvironment>
 ) {
     entry(key = AppDestination.Home) {
-        HomeDestination(session, navigator, onAuthenticationRejected)
+        val current = environment.value
+        HomeDestination(
+            current.session,
+            current.navigator,
+            current.onAuthenticationRejected
+        )
     }
 }
 
 private fun EntryProviderScope<NavKey>.registerAuthenticatedTopLevelEntries(
-    bindings: AuthenticatedDestinationBindings
+    environment: State<AccountDestinationEnvironment>
 ) {
     entry(key = AppDestination.Shelves) {
-        ShelvesStateHost(
-            bindings.profile,
-            bindings.onOpenDrawer,
-            onBookSelected = { bindings.navigator.openShelfBook(it) },
-            onAuthenticationRejected = bindings.onAuthenticationRejected
-        )
+        AuthenticatedDestination(environment) { bindings ->
+            ShelvesStateHost(
+                bindings.profile,
+                bindings.onOpenDrawer,
+                onBookSelected = { bindings.navigator.openShelfBook(it) },
+                onAuthenticationRejected = bindings.onAuthenticationRejected
+            )
+        }
     }
     entry(key = AppDestination.Marginalia) {
-        MarginaliaStateHost(
-            profile = bindings.profile,
-            onOpenDrawer = bindings.onOpenDrawer,
-            onAuthenticationRejected = bindings.onAuthenticationRejected
-        )
+        AuthenticatedDestination(environment) { bindings ->
+            MarginaliaStateHost(
+                profile = bindings.profile,
+                onOpenDrawer = bindings.onOpenDrawer,
+                onAuthenticationRejected = bindings.onAuthenticationRejected
+            )
+        }
     }
-    entry(key = AppDestination.Settings) { LinkedSettings(bindings.profile, bindings.context) }
+    entry(key = AppDestination.Settings) {
+        AuthenticatedDestination(environment) { bindings ->
+            LinkedSettings(bindings.profile, bindings.context)
+        }
+    }
 }
 
 private fun EntryProviderScope<NavKey>.registerLibraryRouteEntries(
-    bindings: AuthenticatedDestinationBindings
+    environment: State<AccountDestinationEnvironment>
 ) {
     entry(key = AppDestination.Library) {
-        LibraryDestination(bindings, LibraryBooksEntry.Browse)
+        AuthenticatedDestination(environment) { bindings ->
+            LibraryDestination(bindings, LibraryBooksEntry.Browse)
+        }
     }
     entry<LibrarySearchRoute> { route ->
-        LibraryDestination(bindings, LibraryBooksEntry.BroadSearch(route.query))
+        AuthenticatedDestination(environment) { bindings ->
+            LibraryDestination(bindings, LibraryBooksEntry.BroadSearch(route.query))
+        }
     }
     entry<LibraryAuthorRoute> { route ->
-        LibraryDestination(
-            bindings,
-            LibraryBooksEntry.Browse,
-            LibraryExternalNavigation.Author(route.authorId)
-        )
+        AuthenticatedDestination(environment) { bindings ->
+            LibraryDestination(
+                bindings,
+                LibraryBooksEntry.Browse,
+                LibraryExternalNavigation.Author(route.authorId)
+            )
+        }
     }
     entry<LibrarySeriesRoute> { route ->
-        LibraryDestination(
-            bindings,
-            LibraryBooksEntry.Browse,
-            LibraryExternalNavigation.Series(route.seriesId)
-        )
+        AuthenticatedDestination(environment) { bindings ->
+            LibraryDestination(
+                bindings,
+                LibraryBooksEntry.Browse,
+                LibraryExternalNavigation.Series(route.seriesId)
+            )
+        }
     }
     entry<LibraryTagRoute> { route ->
-        LibraryDestination(
-            bindings,
-            LibraryBooksEntry.Browse,
-            LibraryExternalNavigation.Tag(route.tagId, route.tagSlug)
-        )
+        AuthenticatedDestination(environment) { bindings ->
+            LibraryDestination(
+                bindings,
+                LibraryBooksEntry.Browse,
+                LibraryExternalNavigation.Tag(route.tagId, route.tagSlug)
+            )
+        }
     }
 }
 
 private fun EntryProviderScope<NavKey>.registerSharedBookDetailEntry(
-    bindings: AuthenticatedDestinationBindings
+    environment: State<AccountDestinationEnvironment>
 ) {
     entry<BookDetailRoute> { route ->
-        BookDetailStateHost(
-            profile = bindings.profile,
-            bookId = route.bookId,
-            appBarContext = route.returnTarget.appBarContextLabel(),
-            onBack = bindings.navigator::goBack,
-            onNavigation = { intent ->
-                bindings.navigator.handleBookDetailNavigation(intent, route)
-            },
-            onAuthenticationRejected = bindings.onAuthenticationRejected
-        )
+        AuthenticatedDestination(environment) { bindings ->
+            BookDetailStateHost(
+                profile = bindings.profile,
+                bookId = route.bookId,
+                appBarContext = route.returnTarget.appBarContextLabel(),
+                onBack = bindings.navigator::goBack,
+                onNavigation = { intent ->
+                    bindings.navigator.handleBookDetailNavigation(intent, route)
+                },
+                onAuthenticationRejected = bindings.onAuthenticationRejected
+            )
+        }
     }
 }
 
 private fun EntryProviderScope<NavKey>.registerBookMarginaliaEntry(
-    bindings: AuthenticatedDestinationBindings
+    environment: State<AccountDestinationEnvironment>
 ) {
     entry<BookMarginaliaRoute> { route ->
-        MarginaliaStateHost(
-            profile = bindings.profile,
-            initialContext = MarginaliaHistoryContext.Book(route.bookId),
-            onOpenDrawer = bindings.onOpenDrawer,
-            onBackFromHistory = bindings.navigator::goBack,
-            onAuthenticationRejected = bindings.onAuthenticationRejected
-        )
+        AuthenticatedDestination(environment) { bindings ->
+            MarginaliaStateHost(
+                profile = bindings.profile,
+                initialContext = MarginaliaHistoryContext.Book(route.bookId),
+                onOpenDrawer = bindings.onOpenDrawer,
+                onBackFromHistory = bindings.navigator::goBack,
+                onAuthenticationRejected = bindings.onAuthenticationRejected
+            )
+        }
     }
 }
 
 private fun EntryProviderScope<NavKey>.registerReadingSessionDetailEntry(
-    bindings: AuthenticatedDestinationBindings
+    environment: State<AccountDestinationEnvironment>
 ) {
     entry<ReadingSessionDetailRoute> { route ->
-        MarginaliaStateHost(
-            profile = bindings.profile,
-            detailEntry =
-                ReadingSessionDetailEntry(
-                    route.sessionId,
-                    route.action.toMarginaliaEntryAction()
-                ),
-            onOpenDrawer = bindings.onOpenDrawer,
-            onBackFromDetail = bindings.navigator::goBack,
-            onAuthenticationRejected = bindings.onAuthenticationRejected
-        )
+        AuthenticatedDestination(environment) { bindings ->
+            MarginaliaStateHost(
+                profile = bindings.profile,
+                detailEntry =
+                    ReadingSessionDetailEntry(
+                        route.sessionId,
+                        route.action.toMarginaliaEntryAction()
+                    ),
+                onOpenDrawer = bindings.onOpenDrawer,
+                onBackFromDetail = bindings.navigator::goBack,
+                onAuthenticationRejected = bindings.onAuthenticationRejected
+            )
+        }
     }
 }
 
