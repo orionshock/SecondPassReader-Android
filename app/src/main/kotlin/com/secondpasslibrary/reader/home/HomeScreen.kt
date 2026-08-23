@@ -28,26 +28,30 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.secondpasslibrary.client.AuthenticatedContext
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 import kotlinx.coroutines.flow.collectLatest
 
 @Composable
-fun HomeScreen(
+internal fun HomeScreen(
     profile: ConnectionProfile,
     profileId: String,
+    verifiedContext: AuthenticatedContext?,
     onNavigation: (HomeNavigationIntent) -> Unit,
     onAuthenticationRejected: () -> Unit,
     viewModel: HomeViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val connectionIdentity = profile.authenticatedConnectionIdentity
+    val accountScope = HomeAccountScope(profile.serverOrigin, profileId)
     val currentOnNavigation by rememberUpdatedState(onNavigation)
     val currentOnAuthenticationRejected by rememberUpdatedState(onAuthenticationRejected)
-    LaunchedEffect(connectionIdentity, profileId) {
-        viewModel.initialize(profile, profileId)
+    LaunchedEffect(accountScope, verifiedContext) {
+        viewModel.initializeCached(accountScope)
+        if (verifiedContext != null) {
+            viewModel.provideVerifiedAuthority(profile, profileId)
+        }
     }
     LaunchedEffect(viewModel) {
         viewModel.navigation.collectLatest { currentOnNavigation(it) }

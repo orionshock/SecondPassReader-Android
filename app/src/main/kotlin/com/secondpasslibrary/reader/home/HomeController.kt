@@ -27,48 +27,73 @@ internal class HomeController(
 
     private var connectionIdentity: AuthenticatedConnectionIdentity? = null
     private var accountProfileId: String? = null
+    private var cacheScope: HomeAccountScope? = null
     private var account: HomeProjectionAccount? = null
     private var authenticationRejectionReported = false
     private var recentReadingLoad: Job? = null
     private var shelfLoad: Job? = null
 
-    fun initialize(profile: ConnectionProfile, profileId: String) {
+    fun initializeCached(scope: HomeAccountScope) {
+        if (scope == cacheScope) return
+        cacheScope = scope
+        connectionIdentity = null
+        accountProfileId = null
+        account = null
+        authenticationRejectionReported = false
+        recentReadingLoad?.cancel()
+        shelfLoad?.cancel()
+        mutableState.value = HomeUiState()
+        loadCachedRecentReading()
+        loadCachedShelves()
+    }
+
+    fun provideVerifiedAuthority(profile: ConnectionProfile, profileId: String) {
+        val nextScope = HomeAccountScope(profile.serverOrigin, profileId)
+        if (nextScope != cacheScope) initializeCached(nextScope)
         val nextConnectionIdentity = profile.authenticatedConnectionIdentity
         if (nextConnectionIdentity == connectionIdentity && profileId == accountProfileId) return
         connectionIdentity = nextConnectionIdentity
         accountProfileId = profileId
         account = HomeProjectionAccount(profile, profileId)
         authenticationRejectionReported = false
-        recentReadingLoad?.cancel()
-        shelfLoad?.cancel()
-        mutableState.value = HomeUiState()
-        loadRecentReading()
-        loadShelves()
+        refreshRecentReading()
+        refreshShelves()
     }
 
     fun setShowClosedSessions(showClosed: Boolean) {
         if (mutableState.value.showClosedSessions == showClosed) return
         mutableState.value = mutableState.value.copy(showClosedSessions = showClosed)
-        loadRecentReading()
+        if (account == null) loadCachedRecentReading() else refreshRecentReading()
     }
 
-    fun retryRecentReading() = loadRecentReading()
-
-    fun retryShelves() = loadShelves()
-
-    fun searchLibrary(query: String) {
-        navigationChannel.trySend(HomeNavigationIntent.LibrarySearch(query))
+    fun retryRecentReading() {
+        if (account == null) loadCachedRecentReading() else refreshRecentReading()
     }
 
-    fun viewAllSessions() {
-        navigationChannel.trySend(HomeNavigationIntent.ViewAllSessions)
+    fun retryShelves() {
+        if (account == null) loadCachedShelves() else refreshShelves()
     }
 
-    fun openShelves() {
-        navigationChannel.trySend(HomeNavigationIntent.OpenShelves)
+    fun navigate(intent: HomeNavigationIntent) {
+        navigationChannel.trySend(intent)
     }
 
-    private fun loadRecentReading() {
+    private fun loadCachedRecentReading() {
+        val activeScope = cacheScope ?: return
+        val variant =
+            if (mutableState.value.showClosedSessions) {
+                HomeRecentReadingVariant.IncludingClosed
+            } else {
+                HomeRecentReadingVariant.ActiveOnly
+            }
+        recentReadingLoad?.cancel()
+        recentReadingLoad = scope.launch {
+            val cached = repository.readCachedReadingHistory(activeScope, variant)
+            mutableState.value = mutableState.value.copy(recentReading = cached)
+        }
+    }
+
+    private fun refreshRecentReading() {
         val activeAccount = account ?: return
         val variant =
             if (mutableState.value.showClosedSessions) {
@@ -99,7 +124,16 @@ internal class HomeController(
         }
     }
 
-    private fun loadShelves() {
+    private fun loadCachedShelves() {
+        val activeScope = cacheScope ?: return
+        shelfLoad?.cancel()
+        shelfLoad = scope.launch {
+            val cached = repository.readCachedShelves(activeScope)
+            mutableState.value = mutableState.value.copy(shelves = cached)
+        }
+    }
+
+    private fun refreshShelves() {
         val activeAccount = account ?: return
         shelfLoad?.cancel()
         shelfLoad = scope.launch {

@@ -57,10 +57,14 @@ internal class FakeHomeProjectionStore : HomeProjectionStore {
         mutableMapOf<Pair<String, HomeShelfVariant>, HomeProjectionSnapshot<ShelfSummary>>()
     var recentReplacements = 0
     var shelfReplacements = 0
+    var hasSnapshotCall: (suspend (HomeAccountScopeKey) -> Boolean)? = null
 
     override suspend fun hasSnapshot(account: HomeAccountScopeKey): Boolean =
-        recent.keys.any { it.first == account.value } ||
-            shelves.keys.any { it.first == account.value }
+        hasSnapshotCall?.invoke(account)
+            ?: (
+                recent.keys.any { it.first == account.value } ||
+                    shelves.keys.any { it.first == account.value }
+                )
 
     override suspend fun readRecentReading(
         account: HomeAccountScopeKey,

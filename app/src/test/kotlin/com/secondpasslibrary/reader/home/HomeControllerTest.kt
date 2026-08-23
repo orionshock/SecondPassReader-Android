@@ -18,6 +18,73 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeControllerTest {
     @Test
+    fun `cached-only initialization reads sections without authenticated client access`() =
+        runTest {
+            val account = projectionAccount()
+            val store = FakeHomeProjectionStore().apply {
+                seedRecent(account, ACTIVE_ONLY, listOf(recentItem("cached-reading")))
+                seedShelves(account, listOf(shelfItem("cached-shelf")))
+            }
+            val provider = FakeHomeAuthenticatedClientProvider(FakeHomeAuthenticatedClient())
+            val controller = HomeController(homeRepository(store, provider), this)
+
+            controller.initializeCached(account.scope)
+            advanceUntilIdle()
+
+            assertEquals(0, provider.accessCount)
+            assertEquals(
+                listOf("cached-reading"),
+                controller.state.value.recentReading.content?.items?.map { it.sessionId }
+            )
+            assertEquals(HomeProjectionRefresh.Idle, controller.state.value.recentReading.refresh)
+            assertEquals(
+                listOf("cached-shelf"),
+                controller.state.value.shelves.content?.items?.map { it.id }
+            )
+        }
+
+    @Test
+    fun `verified authority refreshes the existing cached state without resetting it`() = runTest {
+        val account = projectionAccount()
+        val store = FakeHomeProjectionStore().apply {
+            seedRecent(account, ACTIVE_ONLY, listOf(recentItem("cached-reading")))
+            seedShelves(account, listOf(shelfItem("cached-shelf")))
+        }
+        val recentGate = CompletableDeferred<Unit>()
+        val shelfGate = CompletableDeferred<Unit>()
+        val client = FakeHomeAuthenticatedClient().apply {
+            recentCall = {
+                recentGate.await()
+                listOf(recentItem("fresh-reading"))
+            }
+            shelfCall = {
+                shelfGate.await()
+                listOf(shelfItem("fresh-shelf"))
+            }
+        }
+        val controller = controller(store, client)
+        controller.initializeCached(account.scope)
+        advanceUntilIdle()
+
+        controller.provideVerifiedAuthority(account.profile, account.profileId)
+        runCurrent()
+
+        assertEquals(
+            listOf("cached-reading"),
+            controller.state.value.recentReading.content?.items?.map { it.sessionId }
+        )
+        assertEquals(HomeProjectionRefresh.Refreshing, controller.state.value.recentReading.refresh)
+        assertEquals(
+            listOf("cached-shelf"),
+            controller.state.value.shelves.content?.items?.map { it.id }
+        )
+
+        recentGate.complete(Unit)
+        shelfGate.complete(Unit)
+        advanceUntilIdle()
+    }
+
+    @Test
     fun `cached sections remain visible while independent refreshes run`() = runTest {
         val account = projectionAccount()
         val store = FakeHomeProjectionStore().apply {
@@ -38,7 +105,7 @@ class HomeControllerTest {
         }
         val controller = controller(store, client)
 
-        controller.initialize(account.profile, account.profileId)
+        controller.provideVerifiedAuthority(account.profile, account.profileId)
         runCurrent()
 
         assertEquals(
@@ -82,7 +149,7 @@ class HomeControllerTest {
         }
         val controller = controller(store, client)
 
-        controller.initialize(account.profile, account.profileId)
+        controller.provideVerifiedAuthority(account.profile, account.profileId)
         advanceUntilIdle()
 
         assertEquals(
@@ -115,7 +182,7 @@ class HomeControllerTest {
         val account = projectionAccount()
         val controller = controller(FakeHomeProjectionStore(), client)
 
-        controller.initialize(account.profile, account.profileId)
+        controller.provideVerifiedAuthority(account.profile, account.profileId)
         runCurrent()
         assertNull(controller.state.value.recentReading.content)
         assertEquals(
@@ -137,7 +204,7 @@ class HomeControllerTest {
         val account = projectionAccount()
         val controller = controller(FakeHomeProjectionStore(), FakeHomeAuthenticatedClient())
 
-        controller.initialize(account.profile, account.profileId)
+        controller.provideVerifiedAuthority(account.profile, account.profileId)
         advanceUntilIdle()
 
         assertEquals(emptyList<Any>(), controller.state.value.recentReading.content?.items)
@@ -159,7 +226,7 @@ class HomeControllerTest {
             }
         }
         val controller = controller(store, client)
-        controller.initialize(account.profile, account.profileId)
+        controller.provideVerifiedAuthority(account.profile, account.profileId)
         advanceUntilIdle()
 
         controller.setShowClosedSessions(true)
@@ -181,10 +248,10 @@ class HomeControllerTest {
         val account = projectionAccount()
         val client = FakeHomeAuthenticatedClient()
         val controller = controller(FakeHomeProjectionStore(), client)
-        controller.initialize(account.profile, account.profileId)
+        controller.provideVerifiedAuthority(account.profile, account.profileId)
         advanceUntilIdle()
 
-        controller.initialize(account.profile, account.profileId)
+        controller.provideVerifiedAuthority(account.profile, account.profileId)
         controller.retryRecentReading()
         advanceUntilIdle()
 
@@ -201,10 +268,10 @@ class HomeControllerTest {
         val account = projectionAccount()
         val client = FakeHomeAuthenticatedClient()
         val controller = controller(FakeHomeProjectionStore(), client)
-        controller.initialize(account.profile, account.profileId)
+        controller.provideVerifiedAuthority(account.profile, account.profileId)
         advanceUntilIdle()
 
-        controller.initialize(account.profile, "profile-2")
+        controller.provideVerifiedAuthority(account.profile, "profile-2")
         advanceUntilIdle()
 
         assertEquals(2, client.recentRequests.size)
@@ -222,7 +289,7 @@ class HomeControllerTest {
         val event = async { controller.connectionEvents.first() }
         runCurrent()
 
-        controller.initialize(account.profile, account.profileId)
+        controller.provideVerifiedAuthority(account.profile, account.profileId)
         advanceUntilIdle()
 
         assertEquals(HomeConnectionEvent.AuthenticationRejected, event.await())
@@ -242,7 +309,7 @@ class HomeControllerTest {
         val intent = async { controller.navigation.first() }
         runCurrent()
 
-        controller.searchLibrary("octavia butler")
+        controller.navigate(HomeNavigationIntent.LibrarySearch("octavia butler"))
 
         assertEquals(HomeNavigationIntent.LibrarySearch("octavia butler"), intent.await())
     }

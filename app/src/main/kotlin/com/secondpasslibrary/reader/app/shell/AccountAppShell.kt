@@ -1,8 +1,13 @@
 package com.secondpasslibrary.reader.app.shell
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
@@ -12,6 +17,7 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -19,20 +25,22 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.rememberNavBackStack
-import com.secondpasslibrary.client.AuthenticatedContext
-import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.app.AppSessionAuthority
+import com.secondpasslibrary.reader.app.AppSessionState
+import com.secondpasslibrary.reader.app.authenticatedFeatureContext
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun AuthenticatedAppShell(
-    profile: ConnectionProfile,
-    context: AuthenticatedContext,
+internal fun AccountAppShell(
+    session: AppSessionState.AccountShell,
+    onRetryConnection: () -> Unit,
     onAuthenticationRejected: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -48,7 +56,7 @@ internal fun AuthenticatedAppShell(
         modifier = modifier,
         drawerContent = {
             AppDrawer(
-                serverName = context.serverInfo.name.ifBlank { profile.serverName },
+                serverName = session.serverName,
                 selected = currentDestination,
                 onSelected = { destination ->
                     navigator.select(destination)
@@ -71,15 +79,54 @@ internal fun AuthenticatedAppShell(
                 }
             }
         ) { contentPadding ->
-            AuthenticatedDestinations(
-                profile,
-                context,
-                backStack,
-                navigator,
-                onAuthenticationRejected,
-                onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
-                modifier = Modifier.fillMaxSize().padding(contentPadding)
-            )
+            Column(Modifier.fillMaxSize().padding(contentPadding)) {
+                AccountAuthorityBanner(session.authority, onRetryConnection)
+                AccountDestinations(
+                    session = session,
+                    backStack = backStack,
+                    navigator = navigator,
+                    onAuthenticationRejected = onAuthenticationRejected,
+                    onRetryConnection = onRetryConnection,
+                    onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+private val AppSessionState.AccountShell.serverName: String
+    get() =
+        authenticatedFeatureContext
+            ?.serverInfo?.name
+            ?.ifBlank { profile.serverName }
+            ?: profile.serverName
+
+@Composable
+private fun AccountAuthorityBanner(authority: AppSessionAuthority, onRetryConnection: () -> Unit) {
+    if (authority is AppSessionAuthority.Verified) return
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            when (authority) {
+                AppSessionAuthority.Restoring -> {
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Text("Reconnecting…", Modifier.padding(start = 10.dp))
+                }
+
+                is AppSessionAuthority.TransientFailure -> {
+                    Text(
+                        "Offline — cached Home remains available.",
+                        modifier = Modifier.weight(1f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Button(onClick = onRetryConnection) { Text("Retry") }
+                }
+
+                is AppSessionAuthority.Verified -> Unit
+            }
         }
     }
 }

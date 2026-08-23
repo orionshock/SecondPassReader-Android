@@ -7,6 +7,8 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.secondpasslibrary.client.AuthenticatedContext
+import com.secondpasslibrary.reader.app.AppSessionState
+import com.secondpasslibrary.reader.app.authenticatedFeatureContext
 import com.secondpasslibrary.reader.bookdetail.BookDetailNavigationIntent
 import com.secondpasslibrary.reader.bookdetail.BookDetailStateHost
 import com.secondpasslibrary.reader.connection.ConnectionProfile
@@ -23,31 +25,42 @@ import com.secondpasslibrary.reader.shelves.ShelvesCollection
 import com.secondpasslibrary.reader.shelves.ShelvesStateHost
 
 @Composable
-internal fun AuthenticatedDestinations(
-    profile: ConnectionProfile,
-    context: AuthenticatedContext,
+internal fun AccountDestinations(
+    session: AppSessionState.AccountShell,
     backStack: MutableList<NavKey>,
     navigator: AppNavigator,
     onAuthenticationRejected: () -> Unit,
+    onRetryConnection: () -> Unit,
     onOpenDrawer: () -> Unit,
     modifier: Modifier
 ) {
-    val bindings = AuthenticatedDestinationBindings(
-        profile,
-        context,
-        navigator,
-        onAuthenticationRejected,
-        onOpenDrawer
-    )
+    val verifiedContext = session.authenticatedFeatureContext
     NavDisplay(
         backStack = backStack,
         modifier = modifier,
         onBack = navigator::goBack,
         entryProvider = entryProvider {
-            registerTopLevelEntries(bindings)
-            registerLibraryRouteEntries(bindings)
-            registerSharedBookDetailEntry(bindings)
-            registerBookMarginaliaEntry(bindings)
+            registerHomeEntry(session, navigator, onAuthenticationRejected)
+            if (verifiedContext == null) {
+                registerConnectionRequiredEntries(
+                    session.authority,
+                    onRetryConnection,
+                    onOpenDrawer
+                )
+            } else {
+                val bindings =
+                    AuthenticatedDestinationBindings(
+                        session.profile,
+                        verifiedContext,
+                        navigator,
+                        onAuthenticationRejected,
+                        onOpenDrawer
+                    )
+                registerAuthenticatedTopLevelEntries(bindings)
+                registerLibraryRouteEntries(bindings)
+                registerSharedBookDetailEntry(bindings)
+                registerBookMarginaliaEntry(bindings)
+            }
         }
     )
 }
@@ -60,17 +73,19 @@ private data class AuthenticatedDestinationBindings(
     val onOpenDrawer: () -> Unit
 )
 
-private fun EntryProviderScope<NavKey>.registerTopLevelEntries(
-    bindings: AuthenticatedDestinationBindings
+private fun EntryProviderScope<NavKey>.registerHomeEntry(
+    session: AppSessionState.AccountShell,
+    navigator: AppNavigator,
+    onAuthenticationRejected: () -> Unit
 ) {
     entry(key = AppDestination.Home) {
-        HomeDestination(
-            bindings.profile,
-            bindings.context,
-            bindings.navigator,
-            bindings.onAuthenticationRejected
-        )
+        HomeDestination(session, navigator, onAuthenticationRejected)
     }
+}
+
+private fun EntryProviderScope<NavKey>.registerAuthenticatedTopLevelEntries(
+    bindings: AuthenticatedDestinationBindings
+) {
     entry(key = AppDestination.Shelves) {
         ShelvesStateHost(
             bindings.profile,
@@ -171,14 +186,14 @@ private fun LibraryDestination(
 
 @Composable
 private fun HomeDestination(
-    profile: ConnectionProfile,
-    context: AuthenticatedContext,
+    session: AppSessionState.AccountShell,
     navigator: AppNavigator,
     onAuthenticationRejected: () -> Unit
 ) {
     HomeScreen(
-        profile = profile,
-        profileId = context.currentUser.profileId,
+        profile = session.profile,
+        profileId = session.profileId,
+        verifiedContext = session.authenticatedFeatureContext,
         onNavigation = navigator::handleHomeNavigation,
         onAuthenticationRejected = onAuthenticationRejected
     )

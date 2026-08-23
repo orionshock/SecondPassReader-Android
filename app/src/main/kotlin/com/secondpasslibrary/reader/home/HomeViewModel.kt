@@ -17,8 +17,10 @@ internal constructor(repository: HomeProjectionRepository) :
     val navigation = controller.navigation
     internal val connectionEvents = controller.connectionEvents
 
-    fun initialize(profile: ConnectionProfile, profileId: String) =
-        controller.initialize(profile, profileId)
+    internal fun initializeCached(scope: HomeAccountScope) = controller.initializeCached(scope)
+
+    internal fun provideVerifiedAuthority(profile: ConnectionProfile, profileId: String) =
+        controller.provideVerifiedAuthority(profile, profileId)
 
     fun setShowClosedSessions(showClosed: Boolean) = controller.setShowClosedSessions(showClosed)
 
@@ -26,9 +28,10 @@ internal constructor(repository: HomeProjectionRepository) :
 
     fun retryShelves() = controller.retryShelves()
 
-    fun searchLibrary(query: String) = controller.searchLibrary(query)
+    fun searchLibrary(query: String) =
+        controller.navigate(HomeNavigationIntent.LibrarySearch(query))
 
-    fun viewAllSessions() = controller.viewAllSessions()
+    fun viewAllSessions() = controller.navigate(HomeNavigationIntent.ViewAllSessions)
 
-    fun openShelves() = controller.openShelves()
+    fun openShelves() = controller.navigate(HomeNavigationIntent.OpenShelves)
 }
