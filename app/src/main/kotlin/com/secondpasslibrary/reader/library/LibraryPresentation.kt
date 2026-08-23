@@ -13,6 +13,7 @@ import com.secondpasslibrary.reader.library.chrome.resultCount
 
 internal fun LibraryState.appBarPresentation(): AppBarPresentation {
     val group = selectedGroup()
+    val selectedEntity = selectedEntityName()
     val count = resultCount()?.let { "$it ${countLabel(it)}" }
     val metadata =
         if (axis == LibraryAxis.BOOKS && books.mode == LibraryBooksMode.BROAD_SEARCH) {
@@ -27,9 +28,23 @@ internal fun LibraryState.appBarPresentation(): AppBarPresentation {
         contextDetail = group?.name,
         contextEmphasis = AppBarContextEmphasis.TITLE,
         separator = " — ",
-        title = axis.label,
+        title = listOfNotNull(axis.label, selectedEntity).joinToString(" › "),
         metadata = metadata
     )
+}
+
+private fun LibraryState.selectedEntityName(): String? = when (axis) {
+    LibraryAxis.BOOKS -> null
+
+    LibraryAxis.AUTHORS ->
+        authors.selected?.let { selected ->
+            selected.detail?.name ?: authors.items.firstOrNull { it.id == selected.id }?.name
+        }
+
+    LibraryAxis.SERIES ->
+        series.selected?.let { selected ->
+            selected.detail?.name ?: series.items.firstOrNull { it.id == selected.id }?.name
+        }
 }
 
 private fun LibraryState.selectedGroup(): LibraryGroupSummary? {
