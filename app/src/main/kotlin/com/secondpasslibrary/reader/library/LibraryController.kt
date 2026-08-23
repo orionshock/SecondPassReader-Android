@@ -156,7 +156,10 @@ internal class LibraryController(
 
     fun selectAxis(selected: LibraryAxis) {
         var current = chrome.value
-        if (selected == current.axis) return
+        if (selected == current.axis) {
+            if (current.isSelectedAuthorSeriesBooks) clearSelectedAuthorSeries()
+            return
+        }
         if (current.isSelectedAuthorSeriesBooks) {
             clearSelectedAuthorSeries()
             current = chrome.value

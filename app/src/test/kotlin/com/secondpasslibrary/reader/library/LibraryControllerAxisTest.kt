@@ -330,6 +330,26 @@ class LibraryControllerAxisTest {
     }
 
     @Test
+    fun `selecting the active entity axis returns to its preserved index`() = runTest {
+        val client = FakeLibraryAxisClient().apply {
+            authorList = { axisPage(it.page, listOf(author("author-1"))) }
+            bookList = { axisPage(it.page, listOf(axisBook("filtered"))) }
+        }
+        val controller = controller(client)
+        controller.initialize(libraryProfile(), LibraryBooksEntry.Browse, false)
+        controller.selectAxis(LibraryAxis.AUTHORS)
+        advanceUntilIdle()
+        controller.selectAuthor("author-1")
+        advanceUntilIdle()
+
+        controller.selectAxis(LibraryAxis.AUTHORS)
+
+        assertEquals(LibraryResultKind.AUTHOR_INDEX, controller.state.value.resultKind)
+        assertEquals(null, controller.state.value.authors.selected)
+        assertEquals(listOf("author-1"), controller.state.value.authors.items.map { it.id })
+    }
+
+    @Test
     fun `selected entity search remains inside filtered Books`() = runTest {
         val client = FakeLibraryAxisClient()
         val controller = controller(client)

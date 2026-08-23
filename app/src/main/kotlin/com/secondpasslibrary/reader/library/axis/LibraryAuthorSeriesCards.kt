@@ -121,14 +121,9 @@ private val AUTHOR_SERIES_COVER_STEP = 27.dp
 @Composable
 internal fun SelectedAuthorSeriesHeader(
     detail: LibraryAuthorSeriesDetailPresentation,
-    onRetry: () -> Unit,
-    returnLabel: String? = null,
-    onReturn: (() -> Unit)? = null
+    onRetry: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (returnLabel != null && onReturn != null) {
-            TextButton(onClick = onReturn) { Text(returnLabel) }
-        }
         OutlinedCard(Modifier.fillMaxWidth()) {
             when (detail) {
                 is LibraryAuthorSeriesDetailPresentation.Loading ->

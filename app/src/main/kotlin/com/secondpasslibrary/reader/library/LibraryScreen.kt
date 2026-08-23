@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.library
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -32,6 +33,10 @@ internal fun LibraryScreen(
     onBookAction: (BookCardAction) -> Unit
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    BackHandler(
+        enabled = state.resultKind == LibraryResultKind.BOOKS && state.axis != LibraryAxis.BOOKS,
+        onBack = viewModel::clearSelectedAuthorSeries
+    )
     LibraryContent(
         state = state,
         onSearch = viewModel::commitSearch,
@@ -48,7 +53,6 @@ internal fun LibraryScreen(
         onRetry = viewModel::retry,
         onAuthorSelected = viewModel::selectAuthor,
         onSeriesSelected = viewModel::selectSeries,
-        onClearSelectedAuthorSeries = viewModel::clearSelectedAuthorSeries,
         onRetryAuthorDetail = viewModel::retryAuthorDetail,
         onRetrySeriesDetail = viewModel::retrySeriesDetail,
         onBookSelected = onBookSelected,
@@ -74,7 +78,6 @@ private fun LibraryContent(
     onRetry: () -> Unit,
     onAuthorSelected: (String) -> Unit,
     onSeriesSelected: (String) -> Unit,
-    onClearSelectedAuthorSeries: () -> Unit,
     onRetryAuthorDetail: () -> Unit,
     onRetrySeriesDetail: () -> Unit,
     onBookSelected: (String) -> Unit,
@@ -99,7 +102,6 @@ private fun LibraryContent(
             onRetry,
             onAuthorSelected,
             onSeriesSelected,
-            onClearSelectedAuthorSeries,
             onRetryAuthorDetail,
             onRetrySeriesDetail,
             onBookSelected,
@@ -126,7 +128,6 @@ private fun LibraryBrowseContent(
     onRetry: () -> Unit,
     onAuthorSelected: (String) -> Unit,
     onSeriesSelected: (String) -> Unit,
-    onClearSelectedAuthorSeries: () -> Unit,
     onRetryAuthorDetail: () -> Unit,
     onRetrySeriesDetail: () -> Unit,
     onBookSelected: (String) -> Unit,
@@ -156,7 +157,6 @@ private fun LibraryBrowseContent(
                     onRetry,
                     onRetryAuthorDetail,
                     onRetrySeriesDetail,
-                    onClearSelectedAuthorSeries,
                     onBookSelected,
                     onBookAction,
                     Modifier.weight(1f)
@@ -194,7 +194,6 @@ private fun FilterableBooksResults(
     onRetry: () -> Unit,
     onRetryAuthorDetail: () -> Unit,
     onRetrySeriesDetail: () -> Unit,
-    onClearSelectedAuthorSeries: () -> Unit,
     onBookSelected: (String) -> Unit,
     onBookAction: (BookCardAction) -> Unit,
     modifier: Modifier
@@ -207,9 +206,7 @@ private fun FilterableBooksResults(
                 state.authors.selected?.let { selected ->
                     SelectedAuthorSeriesHeader(
                         selected.toAuthorDetailPresentation(),
-                        onRetryAuthorDetail,
-                        "Back to authors",
-                        onClearSelectedAuthorSeries
+                        onRetryAuthorDetail
                     )
                 }
 
@@ -217,9 +214,7 @@ private fun FilterableBooksResults(
                 state.series.selected?.let { selected ->
                     SelectedAuthorSeriesHeader(
                         selected.toSeriesDetailPresentation(),
-                        onRetrySeriesDetail,
-                        "Back to series",
-                        onClearSelectedAuthorSeries
+                        onRetrySeriesDetail
                     )
                 }
         }
