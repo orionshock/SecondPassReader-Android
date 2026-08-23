@@ -8,6 +8,7 @@ import io.ktor.client.engine.mock.respondError
 import io.ktor.client.request.HttpRequestData
 import io.ktor.client.request.HttpResponseData
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
@@ -161,6 +162,60 @@ class KtorSecondPassClientTest {
                     "https://library.example/api/v1/",
                     BearerCredential.restore("spl_secret")
                 )
+            }
+        }
+    }
+
+    @Test
+    fun `client bearer logout revokes its exact session without a request body`() = runBlocking {
+        var captured: HttpRequestData? = null
+        val client = client { request ->
+            captured = request
+            respond("", HttpStatusCode.NoContent)
+        }
+
+        client.revokeCurrentClientSession(
+            "https://library.example/api/v1/",
+            BearerCredential.restore("spl_secret"),
+            "session-1"
+        )
+
+        assertEquals(HttpMethod.Delete, captured?.method)
+        assertEquals(
+            "/api/v1/accounts/me/client-sessions/session-1/",
+            captured?.url?.encodedPath
+        )
+        assertEquals("Bearer spl_secret", captured?.headers?.get(HttpHeaders.Authorization))
+        assertTrue(captured?.body is OutgoingContent.NoContent)
+    }
+
+    @Test
+    fun `client bearer logout preserves not-found as revoke rejection`() {
+        val client = client { respondError(HttpStatusCode.NotFound) }
+
+        assertThrows(SplClientException.ClientSessionRevocationRejected::class.java) {
+            runBlocking {
+                client.revokeCurrentClientSession(
+                    "https://library.example/api/v1/",
+                    BearerCredential.restore("spl_secret"),
+                    "another-session"
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `client bearer logout treats rejected authority as terminally invalid`() {
+        listOf(HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden).forEach { status ->
+            val client = client { respondError(status) }
+            assertThrows(SplClientException.AuthenticationRejected::class.java) {
+                runBlocking {
+                    client.revokeCurrentClientSession(
+                        "https://library.example/api/v1/",
+                        BearerCredential.restore("spl_secret"),
+                        "session-1"
+                    )
+                }
             }
         }
     }

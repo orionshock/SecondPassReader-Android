@@ -9,10 +9,13 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.secondpasslibrary.client.AuthenticatedContext
+import com.secondpasslibrary.reader.app.AppSessionAuthority
 import com.secondpasslibrary.reader.app.AppSessionState
 import com.secondpasslibrary.reader.app.authenticatedFeatureContext
 import com.secondpasslibrary.reader.bookdetail.BookDetailNavigationIntent
 import com.secondpasslibrary.reader.bookdetail.BookDetailStateHost
+import com.secondpasslibrary.reader.connection.ConnectionLifecycleActionState
+import com.secondpasslibrary.reader.connection.ConnectionLifecycleActions
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.home.HomeScreen
 import com.secondpasslibrary.reader.library.LibraryExternalNavigation
@@ -23,11 +26,14 @@ import com.secondpasslibrary.reader.marginalia.MarginaliaHistoryContext
 import com.secondpasslibrary.reader.marginalia.MarginaliaStateHost
 import com.secondpasslibrary.reader.marginalia.ReadingSessionDetailEntry
 import com.secondpasslibrary.reader.settings.LinkedSettings
+import com.secondpasslibrary.reader.settings.SettingsConnectionStatus
 import com.secondpasslibrary.reader.shelves.ShelvesStateHost
 
 @Composable
 internal fun AccountDestinations(
     session: AppSessionState.AccountShell,
+    lifecycleActionState: ConnectionLifecycleActionState,
+    lifecycleActions: ConnectionLifecycleActions,
     navigation: AppNavigationState,
     navigator: AppNavigator,
     onAuthenticationRejected: () -> Unit,
@@ -41,6 +47,8 @@ internal fun AccountDestinations(
         rememberUpdatedState(
             AccountDestinationEnvironment(
                 session,
+                lifecycleActionState,
+                lifecycleActions,
                 navigator,
                 onAuthenticationRejected,
                 onRetryConnection,
@@ -69,6 +77,8 @@ internal fun AccountDestinations(
 
 internal data class AccountDestinationEnvironment(
     val session: AppSessionState.AccountShell,
+    val lifecycleActionState: ConnectionLifecycleActionState,
+    val lifecycleActions: ConnectionLifecycleActions,
     val navigator: AppNavigator,
     val onAuthenticationRejected: () -> Unit,
     val onRetryConnection: () -> Unit,
@@ -127,9 +137,14 @@ private fun EntryProviderScope<NavKey>.registerAuthenticatedTopLevelEntries(
         }
     }
     entry(key = AppDestination.Settings) {
-        AuthenticatedDestination(environment) { bindings ->
-            LinkedSettings(bindings.profile, bindings.context)
-        }
+        val current = environment.value
+        LinkedSettings(
+            profile = current.session.profile,
+            context = current.session.authenticatedFeatureContext,
+            status = current.session.authority.toSettingsConnectionStatus(),
+            lifecycleActionState = current.lifecycleActionState,
+            lifecycleActions = current.lifecycleActions
+        )
     }
 }
 
@@ -288,3 +303,16 @@ private fun HomeDestination(
         onAuthenticationRejected = onAuthenticationRejected
     )
 }
+
+private fun AppSessionAuthority.toSettingsConnectionStatus(): SettingsConnectionStatus =
+    when (this) {
+        AppSessionAuthority.Restoring,
+        is AppSessionAuthority.Healing -> SettingsConnectionStatus.RECONNECTING
+
+        is AppSessionAuthority.TransientFailure -> SettingsConnectionStatus.OFFLINE
+
+        is AppSessionAuthority.AuthenticationRequired ->
+            SettingsConnectionStatus.AUTHENTICATION_REQUIRED
+
+        is AppSessionAuthority.Verified -> SettingsConnectionStatus.CONNECTED
+    }

@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.connection
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.secondpasslibrary.client.ClientSessionRevocationClient
 import com.secondpasslibrary.client.SecondPassClient
 import com.secondpasslibrary.reader.connection.storage.PersistedAccountContextStore
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -12,6 +13,7 @@ class ConnectionViewModel
 @Inject
 internal constructor(
     client: SecondPassClient,
+    clientSessionRevocationClient: ClientSessionRevocationClient,
     profileStore: ConnectionProfileStore,
     credentialStore: BearerCredentialStore,
     accountContextStore: PersistedAccountContextStore,
@@ -22,6 +24,7 @@ internal constructor(
     private val coordinator =
         ConnectionCoordinator(
             client = client,
+            clientSessionRevocationClient = clientSessionRevocationClient,
             profileStore = profileStore,
             credentialStore = credentialStore,
             accountContextStore = accountContextStore,
@@ -33,6 +36,7 @@ internal constructor(
 
     val state = coordinator.state
     internal val localAccountContext = coordinator.localAccountContext
+    internal val lifecycleActionState = coordinator.lifecycleActionState
     val onAuthenticatedRequestRejected: () -> Unit = coordinator::authenticatedRequestRejected
     internal val screenActions =
         ConnectionScreenActions(
@@ -46,6 +50,13 @@ internal constructor(
             retryStoredVerification = coordinator::retryStoredVerification,
             retryRestore = coordinator::restore,
             forgetLocalConnection = coordinator::forgetLocalConnection
+        )
+    internal val lifecycleActions =
+        ConnectionLifecycleActions(
+            reconnect = coordinator::relinkLocalAccount,
+            retryConnection = coordinator::restore,
+            logout = coordinator::logout,
+            forget = coordinator::forgetLocalConnection
         )
 
     init {

@@ -50,7 +50,7 @@ Feature and shell code use `AppIcon` semantic keys and `AppIconGraphic`; raw Mat
 | `Link` | `link` | Begin client linking | Connection flow |
 | `ConnectedLibrary` | `local_library` | Connected server-library or library root | Home status, breadcrumbs |
 | `Locked` | `lock` | Inaccessible shelf item | Access state |
-| `Logout` | `logout` | Revoke/logout account context | Deferred until coherent revocation exists |
+| `Logout` | `logout` | Cooperatively revoke the current client session | Settings connection actions |
 | `ManagedUsers` | `manage_accounts` | Managed users administration | Server-side reference only |
 | `NavigationMenu`, `TableOfContents` | `menu` | Open app drawer or reader TOC | Shell menu; future reader TOC |
 | `Book` | `menu_book` | One specific book or book-oriented view | Book detail/reader context |

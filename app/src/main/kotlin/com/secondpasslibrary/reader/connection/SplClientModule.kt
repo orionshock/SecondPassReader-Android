@@ -1,6 +1,7 @@
 package com.secondpasslibrary.reader.connection
 
 import com.secondpasslibrary.client.AuthenticatedSecondPassClientFactory
+import com.secondpasslibrary.client.ClientSessionRevocationClient
 import com.secondpasslibrary.client.KtorSecondPassClient
 import com.secondpasslibrary.client.SecondPassClient
 import dagger.Module
@@ -18,6 +19,11 @@ object SplClientModule {
 
     @Provides
     fun provideSecondPassClient(client: KtorSecondPassClient): SecondPassClient = client
+
+    @Provides
+    fun provideClientSessionRevocationClient(
+        client: KtorSecondPassClient
+    ): ClientSessionRevocationClient = client
 
     @Provides
     fun provideAuthenticatedClientFactory(

@@ -4,6 +4,7 @@ import com.secondpasslibrary.client.AuthenticatedContext
 import com.secondpasslibrary.client.AuthenticatedServerInfo
 import com.secondpasslibrary.client.BearerCredential
 import com.secondpasslibrary.client.ClientSession
+import com.secondpasslibrary.client.ClientSessionRevocationClient
 import com.secondpasslibrary.client.CurrentUser
 import com.secondpasslibrary.client.DiscoveredServer
 import com.secondpasslibrary.client.PairingConsumption
@@ -28,6 +29,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@Suppress("LargeClass") // One fixture protects ordering across connection transitions.
 class ConnectionCoordinatorTest {
     @Test
     fun `matching persisted account is published before verification completes`() = runTest {
@@ -239,6 +241,7 @@ class ConnectionCoordinatorTest {
                 )
         }
         val cleaner = FakeAccountLocalDataCleaner()
+        val revocation = FakeClientSessionRevocationClient()
         val coordinator =
             coordinator(
                 FakeClient(),
@@ -247,7 +250,8 @@ class ConnectionCoordinatorTest {
                     stored = StoredCredential(BearerCredential.restore("spl_secret"), null)
                 },
                 accountContextStore,
-                cleaner = cleaner
+                cleaner = cleaner,
+                revocationClient = revocation
             )
 
         coordinator.forgetLocalConnection()
@@ -260,6 +264,111 @@ class ConnectionCoordinatorTest {
             listOf(AccountLocalDataKey(profile().serverOrigin, "profile-1")),
             cleaner.purged
         )
+        assertTrue(revocation.sessionIds.isEmpty())
+    }
+
+    @Test
+    fun `logout revokes exact session before destructive local reset`() = runTest {
+        val events = mutableListOf<String>()
+        val revocation = FakeClientSessionRevocationClient(events)
+        val profileStore = FakeProfileStore(events).apply { stored = profile() }
+        val credentialStore = storedCredential()
+        val accountStore = FakePersistedAccountContextStore(events).apply {
+            stored = PersistedAccountContext(profile().authenticatedConnectionIdentity, "profile-1")
+        }
+        val cleaner = FakeAccountLocalDataCleaner(events)
+        val coordinator =
+            coordinator(
+                FakeClient(events),
+                profileStore,
+                credentialStore,
+                accountStore,
+                cleaner,
+                revocationClient = revocation
+            )
+        coordinator.restore()
+        advanceUntilIdle()
+
+        coordinator.logout()
+        advanceUntilIdle()
+
+        assertEquals(listOf("session-1"), revocation.sessionIds)
+        assertTrue(events.indexOf("revoke") < events.indexOf("purge"))
+        assertTrue(profileStore.cleared)
+        assertTrue(credentialStore.cleared)
+        assertTrue(accountStore.cleared)
+        assertTrue(coordinator.state.value is ConnectionUiState.ServerEntry)
+    }
+
+    @Test
+    fun `ambiguous logout failure retains local account state`() = runTest {
+        val revocation =
+            FakeClientSessionRevocationClient(
+                failure = SplClientException.ServerUnreachable()
+            )
+        val profileStore = FakeProfileStore().apply { stored = profile() }
+        val credentialStore = storedCredential()
+        val accountStore = FakePersistedAccountContextStore().apply {
+            stored = PersistedAccountContext(profile().authenticatedConnectionIdentity, "profile-1")
+        }
+        val cleaner = FakeAccountLocalDataCleaner()
+        val coordinator =
+            coordinator(
+                FakeClient(),
+                profileStore,
+                credentialStore,
+                accountStore,
+                cleaner,
+                revocationClient = revocation
+            )
+        coordinator.restore()
+        advanceUntilIdle()
+
+        coordinator.logout()
+        advanceUntilIdle()
+
+        assertTrue(coordinator.state.value is ConnectionUiState.Linked)
+        assertTrue(
+            coordinator.lifecycleActionState.value is ConnectionLifecycleActionState.LogoutFailed
+        )
+        assertFalse(profileStore.cleared)
+        assertFalse(credentialStore.cleared)
+        assertFalse(accountStore.cleared)
+        assertTrue(cleaner.purged.isEmpty())
+    }
+
+    @Test
+    fun `logout treats an already unusable bearer as terminal and resets locally`() = runTest {
+        val revocation =
+            FakeClientSessionRevocationClient(
+                failure = SplClientException.AuthenticationRejected()
+            )
+        val profileStore = FakeProfileStore().apply { stored = profile() }
+        val credentialStore = storedCredential()
+        val accountStore = FakePersistedAccountContextStore().apply {
+            stored = PersistedAccountContext(profile().authenticatedConnectionIdentity, "profile-1")
+        }
+        val cleaner = FakeAccountLocalDataCleaner()
+        val coordinator =
+            coordinator(
+                FakeClient(),
+                profileStore,
+                credentialStore,
+                accountStore,
+                cleaner,
+                revocationClient = revocation
+            )
+        coordinator.restore()
+        advanceUntilIdle()
+
+        coordinator.logout()
+        advanceUntilIdle()
+
+        assertTrue(profileStore.cleared)
+        assertTrue(credentialStore.cleared)
+        assertTrue(accountStore.cleared)
+        assertEquals(1, cleaner.purged.size)
+        assertTrue(coordinator.state.value is ConnectionUiState.ServerEntry)
     }
 
     @Test
@@ -640,9 +749,12 @@ class ConnectionCoordinatorTest {
         accountContextStore: FakePersistedAccountContextStore =
             FakePersistedAccountContextStore(),
         cleaner: FakeAccountLocalDataCleaner = FakeAccountLocalDataCleaner(),
-        timedDelay: Boolean = false
+        timedDelay: Boolean = false,
+        revocationClient: FakeClientSessionRevocationClient =
+            FakeClientSessionRevocationClient()
     ) = ConnectionCoordinator(
         client = client,
+        clientSessionRevocationClient = revocationClient,
         profileStore = profileStore,
         credentialStore = credentialStore,
         accountContextStore = accountContextStore,
@@ -782,6 +894,23 @@ class ConnectionCoordinatorTest {
         override suspend fun purge(account: AccountLocalDataKey) {
             events += "purge"
             purged += account
+        }
+    }
+
+    private class FakeClientSessionRevocationClient(
+        private val events: MutableList<String> = mutableListOf(),
+        private val failure: Exception? = null
+    ) : ClientSessionRevocationClient {
+        val sessionIds = mutableListOf<String>()
+
+        override suspend fun revokeCurrentClientSession(
+            apiBaseUrl: String,
+            credential: BearerCredential,
+            clientSessionId: String
+        ) {
+            events += "revoke"
+            sessionIds += clientSessionId
+            failure?.let { throw it }
         }
     }
 

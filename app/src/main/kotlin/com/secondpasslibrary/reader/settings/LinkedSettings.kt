@@ -1,98 +1,271 @@
 package com.secondpasslibrary.reader.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.client.AuthenticatedContext
+import com.secondpasslibrary.reader.connection.ConnectionLifecycleActionState
+import com.secondpasslibrary.reader.connection.ConnectionLifecycleActions
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.design.components.InformationCard
 import com.secondpasslibrary.reader.design.components.InformationDetail
 import com.secondpasslibrary.reader.design.icons.AppIcon
+import com.secondpasslibrary.reader.design.icons.AppIconGraphic
+
+private enum class SettingsConfirmation { LOGOUT, FORGET }
 
 @Composable
-fun LinkedSettings(profile: ConnectionProfile, context: AuthenticatedContext) {
+internal fun LinkedSettings(
+    profile: ConnectionProfile,
+    context: AuthenticatedContext?,
+    status: SettingsConnectionStatus,
+    lifecycleActionState: ConnectionLifecycleActionState,
+    lifecycleActions: ConnectionLifecycleActions
+) {
+    val presentation = settingsPresentation(profile, context, status)
+    var technicalDetailsExpanded by rememberSaveable { mutableStateOf(false) }
+    var confirmation by rememberSaveable { mutableStateOf<SettingsConfirmation?>(null) }
+
     Column(
         modifier =
             Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(
-            "Connection and account",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.SemiBold
+        IdentitySections(presentation)
+        TechnicalDetailsSection(
+            presentation.technicalDetails,
+            technicalDetailsExpanded,
+            onToggle = { technicalDetailsExpanded = !technicalDetailsExpanded }
         )
-        Text(
-            "Verified library, profile, and device details for this client.",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodyLarge
+        ConnectionActionsSection(
+            presentation.status,
+            lifecycleActionState,
+            lifecycleActions,
+            onConfirmLogout = { confirmation = SettingsConfirmation.LOGOUT },
+            onConfirmForget = { confirmation = SettingsConfirmation.FORGET }
         )
-        context.serverInfo.bannerMessage.takeIf(String::isNotBlank)?.let { banner ->
-            InformationCard("Server banner") { Text(banner) }
+    }
+
+    confirmation?.let { requested ->
+        ConnectionConfirmationDialog(
+            requested,
+            onConfirm = {
+                confirmation = null
+                when (requested) {
+                    SettingsConfirmation.LOGOUT -> lifecycleActions.logout()
+                    SettingsConfirmation.FORGET -> lifecycleActions.forget()
+                }
+            },
+            onDismiss = { confirmation = null }
+        )
+    }
+}
+
+@Composable
+private fun IdentitySections(presentation: SettingsPresentation) {
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        if (maxWidth >= 900.dp) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                ConnectedLibrarySection(presentation, Modifier.weight(1f))
+                AccountSection(presentation, Modifier.weight(1f))
+                DeviceSection(presentation, Modifier.weight(1f))
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                ConnectedLibrarySection(presentation)
+                AccountSection(presentation)
+                DeviceSection(presentation)
+            }
         }
-        LibraryStatus(profile, context)
-        AccountStatus(context)
-        DeviceStatus(profile)
     }
 }
 
 @Composable
-private fun LibraryStatus(profile: ConnectionProfile, context: AuthenticatedContext) {
-    InformationCard("Connected library", icon = AppIcon.ConnectedLibrary) {
-        InformationDetail("Name", context.serverInfo.name.ifBlank { profile.serverName })
-        InformationDetail("Description", context.serverInfo.description.ifBlank { "—" })
-        InformationDetail(
-            "Version",
-            listOf(context.serverInfo.version, context.serverInfo.releaseDate)
-                .filter(String::isNotBlank)
-                .joinToString(" · ")
-                .ifBlank { "—" }
-        )
-        InformationDetail("Server", profile.serverBaseUrl)
-        InformationDetail("Public group", context.serverInfo.publicGroup?.name ?: "—")
-        InformationDetail(
-            "Advanced groups",
-            if (context.serverInfo.advancedLibraryGroupsEnabled) "Enabled" else "Disabled"
-        )
+private fun ConnectedLibrarySection(
+    presentation: SettingsPresentation,
+    modifier: Modifier = Modifier
+) {
+    InformationCard("Connected library", modifier, AppIcon.ConnectedLibrary) {
+        InformationDetail("Library", presentation.libraryName)
+        InformationDetail("Server", presentation.serverHost)
+        InformationDetail("Status", presentation.status.label)
     }
 }
 
 @Composable
-private fun AccountStatus(context: AuthenticatedContext) {
-    InformationCard("Signed in", icon = AppIcon.Profile) {
-        InformationDetail("Name", context.currentUser.displayName)
-        InformationDetail("Username", context.currentUser.username)
-        InformationDetail("Email", context.currentUser.email.ifBlank { "—" })
-        InformationDetail("Profile ID", context.currentUser.profileId.ifBlank { "—" })
-        InformationDetail("Role", context.currentUser.role.ifBlank { "—" })
-        context.currentUser.isOwner?.let { InformationDetail("Owner", if (it) "Yes" else "No") }
-        InformationDetail(
-            "Groups",
-            context.currentUser.groups
-                .joinToString { group ->
-                    group.name + if (group.isCurator == true) " (curator)" else ""
-                }.ifBlank { "—" }
-        )
+private fun AccountSection(presentation: SettingsPresentation, modifier: Modifier = Modifier) {
+    InformationCard("You", modifier, AppIcon.Profile) {
+        val user = presentation.user
+        if (user == null) {
+            Text(
+                "Sign in to view current account details.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            InformationDetail("Name", user.displayName)
+            InformationDetail("Username", user.username)
+            InformationDetail("Role", user.role)
+            user.email?.let { InformationDetail("Email", it) }
+        }
     }
 }
 
 @Composable
-private fun DeviceStatus(profile: ConnectionProfile) {
-    InformationCard("This device", icon = AppIcon.Success) {
-        InformationDetail("Client name", profile.clientName)
-        InformationDetail("Client type", profile.clientType)
-        InformationDetail("Session ID", profile.clientSessionId)
-        InformationDetail("Connection status", "Verified")
+private fun DeviceSection(presentation: SettingsPresentation, modifier: Modifier = Modifier) {
+    InformationCard("This device", modifier, AppIcon.Success) {
+        InformationDetail("App", "Second Pass Reader")
+        InformationDetail("Device", presentation.clientName)
+        InformationDetail("Status", presentation.status.label)
     }
+}
+
+@Composable
+private fun TechnicalDetailsSection(
+    details: List<SettingsTechnicalDetail>,
+    expanded: Boolean,
+    onToggle: () -> Unit
+) {
+    InformationCard("Technical details", icon = AppIcon.Help) {
+        TextButton(onClick = onToggle) {
+            AppIconGraphic(if (expanded) AppIcon.Collapse else AppIcon.Expand, null)
+            Text(if (expanded) "Hide technical details" else "Show technical details")
+        }
+        if (expanded) {
+            details.forEach { detail ->
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        detail.label,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                    Text(
+                        detail.value,
+                        fontFamily = FontFamily.Monospace,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConnectionActionsSection(
+    status: SettingsConnectionStatus,
+    actionState: ConnectionLifecycleActionState,
+    actions: ConnectionLifecycleActions,
+    onConfirmLogout: () -> Unit,
+    onConfirmForget: () -> Unit
+) {
+    val availability = status.actionAvailability()
+    InformationCard("Connection actions", icon = AppIcon.Link) {
+        if (availability.reconnect) {
+            Text(
+                "Sign back in to restore this connection. Local data is kept when you sign in " +
+                    "as the same account.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Button(onClick = actions.reconnect) {
+                AppIconGraphic(AppIcon.Link, null)
+                Text("Sign back in", Modifier.padding(start = 8.dp))
+            }
+        }
+        if (availability.retry) {
+            OutlinedButton(onClick = actions.retryConnection) {
+                AppIconGraphic(AppIcon.Offline, null)
+                Text("Retry connection", Modifier.padding(start = 8.dp))
+            }
+        }
+        if (availability.logout) {
+            OutlinedButton(
+                onClick = onConfirmLogout,
+                enabled = actionState !is ConnectionLifecycleActionState.LoggingOut
+            ) {
+                if (actionState is ConnectionLifecycleActionState.LoggingOut) {
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Text("Logging out…", Modifier.padding(start = 8.dp))
+                } else {
+                    AppIconGraphic(AppIcon.Logout, null)
+                    Text("Log out", Modifier.padding(start = 8.dp))
+                }
+            }
+        }
+        if (actionState is ConnectionLifecycleActionState.LogoutFailed) {
+            Text(
+                actionState.message,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium
+            )
+            OutlinedButton(onClick = actions.logout) { Text("Retry log out") }
+        }
+        if (availability.forget) {
+            TextButton(onClick = onConfirmForget) {
+                AppIconGraphic(AppIcon.Delete, null, tint = MaterialTheme.colorScheme.error)
+                Text(
+                    "Forget this library",
+                    Modifier.padding(start = 8.dp),
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConnectionConfirmationDialog(
+    confirmation: SettingsConfirmation,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val logout = confirmation == SettingsConfirmation.LOGOUT
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (logout) "Log out?" else "Forget this library?") },
+        text = {
+            Text(
+                if (logout) {
+                    "This will revoke this device's server session and remove its local account " +
+                        "data from this device."
+                } else {
+                    "This removes this account/library connection and deletes locally stored " +
+                        "data for it from this device. It does not delete your books, shelves, " +
+                        "reading sessions, or annotations from the server."
+                }
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(if (logout) "Log out" else "Forget")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }

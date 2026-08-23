@@ -25,6 +25,8 @@ fun SecondPassApp(
 ) {
     val connectionState by connectionViewModel.state.collectAsStateWithLifecycle()
     val localAccount by connectionViewModel.localAccountContext.collectAsStateWithLifecycle()
+    val lifecycleActionState by
+        connectionViewModel.lifecycleActionState.collectAsStateWithLifecycle()
     val appSessionState by appSessionViewModel.state.collectAsStateWithLifecycle()
     LaunchedEffect(connectionState, localAccount) {
         appSessionViewModel.updateConnection(connectionState, localAccount)
@@ -55,6 +57,8 @@ fun SecondPassApp(
                     AccountAppShell(
                         session = currentState,
                         connectionActions = connectionViewModel.screenActions,
+                        lifecycleActionState = lifecycleActionState,
+                        lifecycleActions = connectionViewModel.lifecycleActions,
                         onAuthenticationRejected =
                             connectionViewModel.onAuthenticatedRequestRejected
                     )

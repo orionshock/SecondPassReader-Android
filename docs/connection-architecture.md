@@ -49,7 +49,7 @@ If secure storage fails, the UI reports that a one-time credential was issued bu
 
 The encrypted credential envelope temporarily includes a recovery copy of the non-secret profile. This is a transaction journal: it allows restart recovery if DataStore fails after one-time consumption. Once the Preferences DataStore profile commits, the envelope is rewritten without the recovery profile. DataStore separately owns the normal non-secret server/client-session connection record.
 
-On startup, matching profile and credential state is verified through `/accounts/me/` and `/server/info/`. A rejected/revoked credential clears local connection state. A transient server/network failure preserves both stores and exposes retry. An interrupted profile commit is repaired from the encrypted transaction journal.
+On startup, matching profile and credential state is verified through `/accounts/me/` and `/server/info/`. A rejected/revoked credential preserves the known account and enters the re-link flow; a transient server/network failure preserves both stores and exposes retry. An interrupted profile commit is repaired from the encrypted transaction journal.
 
 ## Authenticated context
 
@@ -104,7 +104,7 @@ Catalog Tags are a shared scoped Library filter. Their slug composes with Books 
 
 ## Logout and deferred work
 
-Remote session listing/revocation is not implemented because the audited summary does not define their response bodies and the reference SDK does not yet expose them. The UI therefore does not claim to log out. Error recovery offers an explicitly local “Forget locally” action where appropriate; it does not pretend to revoke the server session.
+Reader logout revokes the exact bearer-owned client session with `DELETE /accounts/me/client-sessions/{client_session_id}/`. Confirmed revocation, or authentication rejection proving the bearer is already unusable, is followed by the standard local-account reset. Ambiguous remote failure retains local state for retry. Explicit Forget skips remote cooperation and invokes that same destructive local reset immediately.
 
 Also deferred: mDNS discovery, known-server presets, remaining Library capabilities and UI, general offline Library behavior, nested feature navigation, and all reader features.
 

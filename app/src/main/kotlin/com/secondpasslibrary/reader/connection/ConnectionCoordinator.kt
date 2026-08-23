@@ -1,6 +1,7 @@
 package com.secondpasslibrary.reader.connection
 
 import com.secondpasslibrary.client.BearerCredential
+import com.secondpasslibrary.client.ClientSessionRevocationClient
 import com.secondpasslibrary.client.PairingConsumption
 import com.secondpasslibrary.client.PairingRequest
 import com.secondpasslibrary.client.PairingStatus
@@ -21,6 +22,7 @@ import kotlinx.coroutines.launch
 @Suppress("TooManyFunctions") // One cohesive, explicit connection state machine.
 internal class ConnectionCoordinator(
     private val client: SecondPassClient,
+    private val clientSessionRevocationClient: ClientSessionRevocationClient,
     private val profileStore: ConnectionProfileStore,
     private val credentialStore: BearerCredentialStore,
     private val accountContextStore: PersistedAccountContextStore,
@@ -34,6 +36,10 @@ internal class ConnectionCoordinator(
     private val mutableLocalAccountContext = MutableStateFlow<LocalAccountContext?>(null)
     val localAccountContext: StateFlow<LocalAccountContext?> =
         mutableLocalAccountContext.asStateFlow()
+    private val mutableLifecycleActionState =
+        MutableStateFlow<ConnectionLifecycleActionState>(ConnectionLifecycleActionState.Idle)
+    val lifecycleActionState: StateFlow<ConnectionLifecycleActionState> =
+        mutableLifecycleActionState.asStateFlow()
 
     private var operation: Job? = null
 
@@ -207,7 +213,8 @@ internal class ConnectionCoordinator(
     }
 
     fun forgetLocalConnection() = replaceOperation {
-        attempt { forgetLocalAccount() }
+        mutableLifecycleActionState.value = ConnectionLifecycleActionState.Idle
+        attempt { resetLocalAccount() }
             .onSuccess {
                 mutableState.value =
                     ConnectionUiState.ServerEntry(message = "Local connection data was removed.")
@@ -216,6 +223,54 @@ internal class ConnectionCoordinator(
                 mutableState.value =
                     ConnectionUiState.LocalStorageProblem(ConnectionErrorPresenter.message(it))
             }
+    }
+
+    fun logout() {
+        val linked = mutableState.value as? ConnectionUiState.Linked ?: return
+        replaceOperation {
+            mutableLifecycleActionState.value = ConnectionLifecycleActionState.LoggingOut
+            val stored =
+                attempt { credentialStore.read() }.getOrElse { failure ->
+                    reportLogoutFailure(failure)
+                    return@replaceOperation
+                }
+            if (stored == null) {
+                reportLogoutFailure(IllegalStateException("The stored credential is missing."))
+                return@replaceOperation
+            }
+            val revokeFailure =
+                attempt {
+                    clientSessionRevocationClient.revokeCurrentClientSession(
+                        linked.profile.apiBaseUrl,
+                        stored.credential,
+                        linked.profile.clientSessionId
+                    )
+                }.exceptionOrNull()
+            if (revokeFailure != null &&
+                revokeFailure !is SplClientException.AuthenticationRejected
+            ) {
+                reportLogoutFailure(revokeFailure)
+                return@replaceOperation
+            }
+            attempt { resetLocalAccount() }
+                .onSuccess {
+                    mutableLifecycleActionState.value = ConnectionLifecycleActionState.Idle
+                    mutableState.value =
+                        ConnectionUiState.ServerEntry(message = "This device was logged out.")
+                }
+                .onFailure { failure ->
+                    mutableLifecycleActionState.value = ConnectionLifecycleActionState.Idle
+                    mutableState.value =
+                        ConnectionUiState.LocalStorageProblem(
+                            ConnectionErrorPresenter.message(failure)
+                        )
+                }
+        }
+    }
+
+    private fun reportLogoutFailure(failure: Throwable) {
+        mutableLifecycleActionState.value =
+            ConnectionLifecycleActionState.LogoutFailed(ConnectionErrorPresenter.message(failure))
     }
 
     fun close() {
@@ -428,7 +483,7 @@ internal class ConnectionCoordinator(
         }
     }
 
-    private suspend fun forgetLocalAccount() {
+    private suspend fun resetLocalAccount() {
         val localDataKey =
             mutableLocalAccountContext.value?.localDataKey()
                 ?: run {

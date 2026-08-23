@@ -71,6 +71,18 @@ internal fun requireAuthenticatedSuccess(response: HttpResponse) {
     }
 }
 
+internal fun requireClientSessionRevocationSuccess(response: HttpResponse): Unit =
+    throw when (response.status) {
+        HttpStatusCode.NoContent -> return
+
+        HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden ->
+            SplClientException.AuthenticationRejected()
+
+        HttpStatusCode.NotFound -> SplClientException.ClientSessionRevocationRejected()
+
+        else -> SplClientException.ClientSessionRevocationFailed()
+    }
+
 internal inline fun <T> discoveryValue(block: () -> T): T = try {
     block()
 } catch (_: SplClientException.ProtocolInvalid) {

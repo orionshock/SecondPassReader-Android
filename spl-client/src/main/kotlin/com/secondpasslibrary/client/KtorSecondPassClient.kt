@@ -1,6 +1,7 @@
 package com.secondpasslibrary.client
 
 import com.secondpasslibrary.client.internal.KtorAuthenticatedSecondPassClient
+import com.secondpasslibrary.client.internal.transport.AuthenticatedRequestExecutor
 import com.secondpasslibrary.client.internal.transport.CurrentUserWire
 import com.secondpasslibrary.client.internal.transport.PairingConsumeWire
 import com.secondpasslibrary.client.internal.transport.PairingCreateWire
@@ -13,6 +14,7 @@ import com.secondpasslibrary.client.internal.transport.discoveryValue
 import com.secondpasslibrary.client.internal.transport.invalidResponse
 import com.secondpasslibrary.client.internal.transport.requireAbsoluteHttpUrl
 import com.secondpasslibrary.client.internal.transport.requireAuthenticatedSuccess
+import com.secondpasslibrary.client.internal.transport.requireClientSessionRevocationSuccess
 import com.secondpasslibrary.client.internal.transport.requireConsumeSuccess
 import com.secondpasslibrary.client.internal.transport.requireDiscoveryBearer
 import com.secondpasslibrary.client.internal.transport.requireDiscoverySuccess
@@ -38,6 +40,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
+import io.ktor.http.encodeURLPathPart
 import java.io.IOException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -48,6 +51,7 @@ import kotlinx.serialization.json.Json
 @OptIn(ExperimentalSerializationApi::class)
 class KtorSecondPassClient internal constructor(private val httpClient: HttpClient) :
     SecondPassClient,
+    ClientSessionRevocationClient,
     AuthenticatedSecondPassClientFactory {
     constructor() : this(defaultHttpClient())
 
@@ -170,6 +174,19 @@ class KtorSecondPassClient internal constructor(private val httpClient: HttpClie
         credential: BearerCredential
     ): AuthenticatedSecondPassClient =
         KtorAuthenticatedSecondPassClient(httpClient, apiBaseUrl, credential)
+
+    override suspend fun revokeCurrentClientSession(
+        apiBaseUrl: String,
+        credential: BearerCredential,
+        clientSessionId: String
+    ) {
+        val requests = AuthenticatedRequestExecutor(httpClient, apiBaseUrl, credential)
+        val response =
+            requests.delete(
+                "accounts/me/client-sessions/${clientSessionId.encodeURLPathPart()}/"
+            )
+        requireClientSessionRevocationSuccess(response)
+    }
 
     private suspend inline fun <reified T> authenticatedGet(
         apiBaseUrl: String,

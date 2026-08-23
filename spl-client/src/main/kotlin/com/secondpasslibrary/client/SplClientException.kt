@@ -42,6 +42,12 @@ sealed class SplClientException(message: String, cause: Throwable? = null) :
     class AuthenticatedRequestFailed(cause: Throwable? = null) :
         SplClientException("Authenticated server context could not be loaded.", cause)
 
+    class ClientSessionRevocationRejected :
+        SplClientException("The server could not revoke this client session.")
+
+    class ClientSessionRevocationFailed :
+        SplClientException("The client session revoke request failed.")
+
     class BookReadingSessionHistoryNotFound :
         SplClientException("The Book has no readable Reading Session history.")
 

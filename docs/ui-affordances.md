@@ -182,3 +182,13 @@ current, and focused on reusable product behavior rather than implementation his
   Manage action.
 - Metadata editing may retain focused modal forms opened from the management surface.
 - Keep destructive actions with administration rather than competing with normal viewing actions.
+
+## Settings
+
+- Default Settings surfaces useful library, account, device, and authority state rather than
+  protocol diagnostics.
+- Put support-oriented identifiers behind collapsed Technical details and never expose secrets.
+- Reconnect, Log out, and Forget are distinct lifecycle actions: reconnect preserves local data
+  until verified identity is known, logout cooperatively revokes then resets locally, and Forget
+  resets locally without requiring server contact.
+- Confirm destructive account-local cleanup explicitly.

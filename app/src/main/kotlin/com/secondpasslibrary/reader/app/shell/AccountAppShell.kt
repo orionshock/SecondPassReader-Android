@@ -35,6 +35,8 @@ import androidx.navigation3.runtime.NavKey
 import com.secondpasslibrary.reader.app.AppSessionAuthority
 import com.secondpasslibrary.reader.app.AppSessionState
 import com.secondpasslibrary.reader.app.authenticatedFeatureContext
+import com.secondpasslibrary.reader.connection.ConnectionLifecycleActionState
+import com.secondpasslibrary.reader.connection.ConnectionLifecycleActions
 import com.secondpasslibrary.reader.connection.ConnectionScreen
 import com.secondpasslibrary.reader.connection.ConnectionScreenActions
 import com.secondpasslibrary.reader.design.components.ContextualAppBar
@@ -46,6 +48,8 @@ import kotlinx.coroutines.launch
 internal fun AccountAppShell(
     session: AppSessionState.AccountShell,
     connectionActions: ConnectionScreenActions,
+    lifecycleActionState: ConnectionLifecycleActionState,
+    lifecycleActions: ConnectionLifecycleActions,
     onAuthenticationRejected: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -75,32 +79,16 @@ internal fun AccountAppShell(
                 )
             }
         ) {
-            Scaffold(
-                modifier = Modifier.fillMaxSize(),
-                containerColor = MaterialTheme.colorScheme.background,
-                topBar = {
-                    if (showsShellTopBar(navigation.selectedDestination, currentRoute)) {
-                        ContextualAppBar(navigation.selectedDestination.rootAppBarPresentation()) {
-                            coroutineScope.launch { drawer.state.open() }
-                        }
-                    }
-                }
-            ) { contentPadding ->
-                Column(Modifier.fillMaxSize().padding(contentPadding)) {
-                    AccountAuthorityBanner(session.authority, connectionActions)
-                    AccountDestinations(
-                        session = session,
-                        navigation = navigation,
-                        navigator = navigator,
-                        onAuthenticationRejected = onAuthenticationRejected,
-                        onRetryConnection = connectionActions.retryRestore,
-                        onRelinkAccount = connectionActions.relinkLocalAccount,
-                        onForgetAccount = connectionActions.forgetLocalConnection,
-                        onOpenDrawer = { coroutineScope.launch { drawer.state.open() } },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
+            AccountShellScaffold(
+                session,
+                connectionActions,
+                lifecycleActionState,
+                lifecycleActions,
+                navigation,
+                navigator,
+                onAuthenticationRejected,
+                onOpenDrawer = { coroutineScope.launch { drawer.state.open() } }
+            )
         }
         AccountHealingOverlay(session.authority, connectionActions)
     }
@@ -108,6 +96,48 @@ internal fun AccountAppShell(
         enabled = drawer.gesturesEnabled,
         onDismiss = { coroutineScope.launch { drawer.state.close() } }
     )
+}
+
+@Composable
+private fun AccountShellScaffold(
+    session: AppSessionState.AccountShell,
+    connectionActions: ConnectionScreenActions,
+    lifecycleActionState: ConnectionLifecycleActionState,
+    lifecycleActions: ConnectionLifecycleActions,
+    navigation: AppNavigationState,
+    navigator: AppNavigator,
+    onAuthenticationRejected: () -> Unit,
+    onOpenDrawer: () -> Unit
+) {
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            if (showsShellTopBar(navigation.selectedDestination, navigation.currentRoute)) {
+                ContextualAppBar(
+                    navigation.selectedDestination.rootAppBarPresentation(),
+                    onNavigation = onOpenDrawer
+                )
+            }
+        }
+    ) { contentPadding ->
+        Column(Modifier.fillMaxSize().padding(contentPadding)) {
+            AccountAuthorityBanner(session.authority, connectionActions)
+            AccountDestinations(
+                session = session,
+                lifecycleActionState = lifecycleActionState,
+                lifecycleActions = lifecycleActions,
+                navigation = navigation,
+                navigator = navigator,
+                onAuthenticationRejected = onAuthenticationRejected,
+                onRetryConnection = connectionActions.retryRestore,
+                onRelinkAccount = connectionActions.relinkLocalAccount,
+                onForgetAccount = connectionActions.forgetLocalConnection,
+                onOpenDrawer = onOpenDrawer,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
 }
 
 private data class AccountDrawerState(val state: DrawerState, val gesturesEnabled: Boolean)
