@@ -13,3 +13,4 @@ captures/
 *.hprof
 Thumbs.db
 .DS_Store
+gitlog.txt
