@@ -22,7 +22,19 @@ internal class ReadiumEpubCfiNavigator(
 
     override suspend fun goTo(cfi: EpubCfi): EpubCfiOutcome<Unit> = withRuntime()
 
-    override suspend fun currentPosition(): EpubCfiOutcome<EpubCfi> = withRuntime()
+    override suspend fun currentPosition(): EpubCfiOutcome<EpubCfi> {
+        val captured = binding.withNavigator { navigator, runtime ->
+            navigator.currentLocator.value.href.toString() to
+                runtime.generateVisiblePosition(navigator)
+        } ?: return EpubCfiOutcome.Failure(EpubCfiFailure.NAVIGATOR_UNAVAILABLE)
+        return when (val contentCfi = captured.second) {
+            is ReadiumCfiJavascriptResult.Failure ->
+                EpubCfiOutcome.Failure(contentCfi.reason)
+
+            is ReadiumCfiJavascriptResult.Success ->
+                packageCfiMapper.compose(captured.first, contentCfi.value)
+        }
+    }
 
     override suspend fun currentSelection(): EpubCfiOutcome<EpubCfiSelection?> {
         val captured = binding.withNavigator { navigator, runtime ->

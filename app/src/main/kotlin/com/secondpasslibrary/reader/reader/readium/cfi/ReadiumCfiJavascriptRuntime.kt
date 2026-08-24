@@ -9,7 +9,7 @@ import org.json.JSONObject
 import org.json.JSONTokener
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 
-private const val RUNTIME_VERSION = "1.5.0"
+private const val RUNTIME_VERSION = "1.6.0"
 private const val COLIBRIO_ASSET = "reader/cfi/colibrio-epubcfi-1.1.0.min.js"
 private const val RUNTIME_ASSET = "reader/cfi/secondpass-epub-cfi-runtime.js"
 
@@ -97,6 +97,14 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
             suffix = selection.nullableString("suffix")
         )
     }
+
+    suspend fun generateVisiblePosition(
+        navigator: EpubNavigatorFragment
+    ): ReadiumCfiJavascriptResult<EpubCfi> = invoke(
+        navigator = navigator,
+        method = "generateVisiblePositionContentCfi",
+        arguments = emptyList()
+    ).mapValue { value -> EpubCfi(value as String) }
 
     private suspend fun installedVersion(navigator: EpubNavigatorFragment): String? =
         navigator.evaluateJavascript(
@@ -219,11 +227,17 @@ private fun String.toCfiFailure(): EpubCfiFailure = when (this) {
 
     "UNSUPPORTED_FIXED_LAYOUT" -> EpubCfiFailure.UNSUPPORTED_FIXED_LAYOUT
 
+    "UNSUPPORTED_SCROLL_MODE" -> EpubCfiFailure.UNSUPPORTED_SCROLL_MODE
+
+    "UNSUPPORTED_WRITING_MODE" -> EpubCfiFailure.UNSUPPORTED_WRITING_MODE
+
     "DOM_TARGET_NOT_FOUND" -> EpubCfiFailure.DOM_TARGET_NOT_FOUND
 
     "INVALID_RANGE" -> EpubCfiFailure.INVALID_RANGE
 
     "SELECTION_UNAVAILABLE" -> EpubCfiFailure.SELECTION_UNAVAILABLE
+
+    "VISIBLE_POSITION_UNAVAILABLE" -> EpubCfiFailure.VISIBLE_POSITION_UNAVAILABLE
 
     else -> EpubCfiFailure.JAVASCRIPT_RUNTIME_UNAVAILABLE
 }

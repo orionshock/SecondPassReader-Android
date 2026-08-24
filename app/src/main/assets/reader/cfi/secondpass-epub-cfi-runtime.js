@@ -1,7 +1,7 @@
 (function installSecondPassEpubCfiRuntime(global) {
     "use strict";
 
-    const RUNTIME_VERSION = "1.5.0";
+    const RUNTIME_VERSION = "1.6.0";
     const CONTEXT_LENGTH = 64;
     const existing = global.__secondPassEpubCfi;
     if (existing && existing.runtimeVersion() === RUNTIME_VERSION) {
@@ -42,6 +42,8 @@
             case "SELECTION_UNAVAILABLE":
             case "VISIBLE_POSITION_UNAVAILABLE":
             case "UNSUPPORTED_FIXED_LAYOUT":
+            case "UNSUPPORTED_SCROLL_MODE":
+            case "UNSUPPORTED_WRITING_MODE":
                 return code;
             default:
                 return "CFI_RUNTIME_FAILURE";
@@ -557,6 +559,220 @@
         };
     }
 
+    /*
+     * A progress CFI is captured only when explicitly requested. It denotes
+     * the first durable nonblank character in DOM order which has a positive
+     * intersection with the current horizontal page viewport. DOM order is
+     * also the logical reading order for RTL content; screen-space sorting
+     * would incorrectly reverse RTL columns in a two-page spread.
+     */
+    function generateVisiblePositionContentCfi() {
+        const mode = visiblePositionMode();
+        const boundary = firstVisibleTextBoundary(document, mode.direction);
+        if (!boundary) {
+            throw new Error("VISIBLE_POSITION_UNAVAILABLE");
+        }
+
+        const liveRange = document.createRange();
+        liveRange.setStart(boundary.container, boundary.offset);
+        liveRange.collapse(true);
+        const snapshot = createPublicationSnapshot(document);
+        const snapshotRange = snapshot.toSnapshotRange(liveRange);
+        if (!snapshotRange.collapsed ||
+            !isTextPosition(snapshotRange.startContainer, snapshotRange.startOffset)) {
+            throw new Error("VISIBLE_POSITION_UNAVAILABLE");
+        }
+        validateTextBoundary(snapshotRange.startContainer, snapshotRange.startOffset);
+
+        const builder = new cfi.EpubCfiBuilder();
+        builder.setTextAssertionOptions({
+            preLength: CONTEXT_LENGTH,
+            postLength: CONTEXT_LENGTH,
+            snapToWordBoundaries: false
+        });
+        builder.appendTerminalDomPosition(
+            snapshotRange.startContainer,
+            snapshotRange.startOffset
+        );
+        const contentCfi = builder.toString();
+        const parsed = parseCfi(contentCfi);
+        if (targetKind(parsed) !== "point") {
+            throw new Error("VISIBLE_POSITION_UNAVAILABLE");
+        }
+        return contentCfi;
+    }
+
+    function visiblePositionMode() {
+        if (!global.readium || global.readium.isFixedLayout === true ||
+            global.readium.isReflowable !== true) {
+            throw new Error("UNSUPPORTED_FIXED_LAYOUT");
+        }
+        const root = document.documentElement;
+        const style = root.style;
+        if (style.getPropertyValue("--USER__view").trim() === "readium-scroll-on" ||
+            style.getPropertyValue("--USER__scroll").trim() === "readium-scroll-on") {
+            throw new Error("UNSUPPORTED_SCROLL_MODE");
+        }
+        const rootStyle = global.getComputedStyle(root);
+        const writingMode = rootStyle.getPropertyValue("writing-mode").trim();
+        if (writingMode !== "horizontal-tb") {
+            throw new Error("UNSUPPORTED_WRITING_MODE");
+        }
+        const bodyDirection = global.getComputedStyle(document.body)
+            .getPropertyValue("direction")
+            .trim()
+            .toLowerCase();
+        if (bodyDirection !== "ltr" && bodyDirection !== "rtl") {
+            throw new Error("UNSUPPORTED_WRITING_MODE");
+        }
+        return { direction: bodyDirection };
+    }
+
+    function firstVisibleTextBoundary(liveDocument, direction) {
+        const body = liveDocument.body;
+        if (!body || global.innerWidth <= 0 || global.innerHeight <= 0) {
+            return null;
+        }
+        const walker = liveDocument.createTreeWalker(
+            body,
+            NodeFilter.SHOW_TEXT,
+            null
+        );
+        let textNode = walker.nextNode();
+        while (textNode) {
+            if (!isInsideOwnedRuntimeNode(textNode, liveDocument) &&
+                nodeIntersectsViewport(textNode, liveDocument, direction)) {
+                const offset = firstVisibleCharacterOffset(
+                    textNode,
+                    liveDocument,
+                    direction
+                );
+                if (offset !== null) {
+                    return { container: textNode, offset: offset };
+                }
+            }
+            textNode = walker.nextNode();
+        }
+        return null;
+    }
+
+    function isInsideOwnedRuntimeNode(node, liveDocument) {
+        let ancestor = node.parentNode;
+        while (ancestor && ancestor !== liveDocument.body) {
+            if (isOwnedRuntimeNode(ancestor, liveDocument)) {
+                return true;
+            }
+            ancestor = ancestor.parentNode;
+        }
+        return false;
+    }
+
+    function nodeIntersectsViewport(textNode, liveDocument, direction) {
+        if (!textNode.data || !containsDurableText(textNode.data) ||
+            !isRenderedTextNode(textNode)) {
+            return false;
+        }
+        const range = liveDocument.createRange();
+        range.selectNodeContents(textNode);
+        return Array.from(range.getClientRects()).some(function (rect) {
+            return hasPositiveViewportIntersection(rect, direction);
+        });
+    }
+
+    function firstVisibleCharacterOffset(textNode, liveDocument, direction) {
+        let low = 1;
+        let high = textNode.length;
+        let firstIntersectingEnd = null;
+        while (low <= high) {
+            const end = Math.floor((low + high) / 2);
+            const prefix = liveDocument.createRange();
+            prefix.setStart(textNode, 0);
+            prefix.setEnd(textNode, end);
+            const intersects = Array.from(prefix.getClientRects()).some(function (rect) {
+                return hasPositiveViewportIntersection(rect, direction);
+            });
+            if (intersects) {
+                firstIntersectingEnd = end;
+                high = end - 1;
+            } else {
+                low = end + 1;
+            }
+        }
+        if (firstIntersectingEnd === null) {
+            return null;
+        }
+        let offset = codePointStart(textNode.data, firstIntersectingEnd - 1);
+        while (offset < textNode.length) {
+            const codePoint = textNode.data.codePointAt(offset);
+            const characterLength = codePoint > 0xffff ? 2 : 1;
+            const character = textNode.data.slice(offset, offset + characterLength);
+            if (containsDurableText(character)) {
+                const range = liveDocument.createRange();
+                range.setStart(textNode, offset);
+                range.setEnd(textNode, offset + characterLength);
+                const isVisible = Array.from(range.getClientRects()).some(function (rect) {
+                    return hasPositiveViewportIntersection(rect, direction);
+                });
+                if (isVisible) {
+                    return offset;
+                }
+            }
+            offset += characterLength;
+        }
+        return null;
+    }
+
+    function codePointStart(value, offset) {
+        return offset > 0 && isLowSurrogate(value.charCodeAt(offset)) &&
+            isHighSurrogate(value.charCodeAt(offset - 1))
+            ? offset - 1
+            : offset;
+    }
+
+    function isRenderedTextNode(textNode) {
+        let element = textNode.parentElement;
+        while (element) {
+            const style = global.getComputedStyle(element);
+            if (element.hidden || style.display === "none" ||
+                style.visibility === "hidden" || style.visibility === "collapse" ||
+                style.opacity === "0" || style.contentVisibility === "hidden") {
+                return false;
+            }
+            if (element === document.body) {
+                break;
+            }
+            element = element.parentElement;
+        }
+        return true;
+    }
+
+    function containsDurableText(value) {
+        return /[^\s\u200b\u200c\u200d\ufeff]/u.test(value);
+    }
+
+    function hasPositiveViewportIntersection(rect, direction) {
+        const blockStart = Math.max(0, rect.top);
+        const blockEnd = Math.min(global.innerHeight, rect.bottom);
+        const inlineStart = direction === "rtl"
+            ? Math.min(global.innerWidth, rect.right)
+            : Math.max(0, rect.left);
+        const inlineEnd = direction === "rtl"
+            ? Math.max(0, rect.left)
+            : Math.min(global.innerWidth, rect.right);
+        const inlineExtent = direction === "rtl"
+            ? inlineStart - inlineEnd
+            : inlineEnd - inlineStart;
+        return blockEnd > blockStart && inlineExtent > 0 && rect.width > 0 && rect.height > 0;
+    }
+
+    function isTextPosition(container, offset) {
+        return (container.nodeType === Node.TEXT_NODE ||
+            container.nodeType === Node.CDATA_SECTION_NODE) &&
+            Number.isInteger(offset) &&
+            offset >= 0 &&
+            offset <= container.length;
+    }
+
     global.__secondPassEpubCfi = Object.freeze({
         runtimeVersion: function runtimeVersion() {
             return RUNTIME_VERSION;
@@ -612,8 +828,8 @@
             return safely(generateSelectionContentCfi);
         },
 
-        generateVisiblePositionContentCfi: function generateVisiblePositionContentCfi() {
-            return failure("UNSUPPORTED_CFI_FEATURE");
+        generateVisiblePositionContentCfi: function generateVisiblePosition() {
+            return safely(generateVisiblePositionContentCfi);
         },
 
         composeFullCfi: function composeFullCfi(packageCfi, contentCfi) {
