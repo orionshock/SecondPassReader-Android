@@ -8,6 +8,7 @@ import com.secondpasslibrary.reader.reader.asset.ResolvedReaderBook
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiNavigator
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
+import com.secondpasslibrary.reader.reader.cfi.EpubCfiReadiness
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiResolution
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiSelection
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
@@ -16,6 +17,7 @@ import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
 import com.secondpasslibrary.reader.reader.domain.ReaderViewport
 import java.nio.file.Files
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -157,6 +159,10 @@ class ReaderControllerTest {
         var closed = false
         override val viewport = ReaderViewport { }
         override val cfiNavigator = object : EpubCfiNavigator {
+            override val readiness = MutableStateFlow<EpubCfiReadiness>(
+                EpubCfiReadiness.Available
+            )
+
             override suspend fun goTo(cfi: EpubCfi): EpubCfiOutcome<Unit> =
                 error("CFI navigation is not used by ReaderController tests.")
 

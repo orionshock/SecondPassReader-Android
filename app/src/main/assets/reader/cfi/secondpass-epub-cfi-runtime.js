@@ -1,9 +1,12 @@
 (function installSecondPassEpubCfiRuntime(global) {
     "use strict";
 
-    const RUNTIME_VERSION = "1.11.1";
+    const RUNTIME_VERSION = "1.12.5";
     const CONTEXT_LENGTH = 64;
     const MOVEMENT_QUOTE_LENGTH = 128;
+    const MAX_SELECTED_TEXT_LENGTH = 64 * 1024;
+    const MIN_VISIBLE_EXTENT_PIXELS = 0.5;
+    let lastResolvedContentTarget = null;
     const existing = global.__secondPassEpubCfi;
     if (existing && existing.runtimeVersion() === RUNTIME_VERSION) {
         return;
@@ -46,6 +49,7 @@
             case "UNSUPPORTED_FIXED_LAYOUT":
             case "UNSUPPORTED_SCROLL_MODE":
             case "UNSUPPORTED_WRITING_MODE":
+            case "RESULT_TOO_LARGE":
                 return code;
             default:
                 return "CFI_RUNTIME_FAILURE";
@@ -95,11 +99,42 @@
                 !isCharacterOffset(root.rangeEndPath.offset))) {
             throw new Error("UNSUPPORTED_CFI_FEATURE");
         }
+        if (hasSideBias(root.parentPath) ||
+            hasSideBias(root.rangeStartPath) ||
+            hasSideBias(root.rangeEndPath)) {
+            throw new Error("UNSUPPORTED_CFI_FEATURE");
+        }
         return root;
     }
 
     function isCharacterOffset(offset) {
         return offset && offset.type === "CHARACTER";
+    }
+
+    /*
+     * Readium text-quote navigation has no side-bias equivalent. Accepting a
+     * CFI with ;s=b or ;s=a and silently dropping the assertion would claim a
+     * precision the adapter cannot preserve, so the supported subset rejects
+     * it before package or DOM resolution.
+     */
+    function hasSideBias(path) {
+        if (!path) {
+            return false;
+        }
+        if (assertionHasSideBias(path.offset && path.offset.assertion)) {
+            return true;
+        }
+        return path.localPaths.some(function (localPath) {
+            return localPath.steps.some(function (step) {
+                return assertionHasSideBias(step.assertion);
+            });
+        });
+    }
+
+    function assertionHasSideBias(assertion) {
+        return assertion && assertion.parameters.some(function (parameter) {
+            return parameter.name === "s";
+        });
     }
 
     function parsePackageDocument(packageDocumentXml) {
@@ -538,17 +573,104 @@
             !body.contains(range.endContainer)) {
             throw new Error("DOM_TARGET_NOT_FOUND");
         }
-        const before = publicationDocument.createRange();
-        before.selectNodeContents(body);
-        before.setEnd(range.startContainer, range.startOffset);
-        const after = publicationDocument.createRange();
-        after.selectNodeContents(body);
-        after.setStart(range.endContainer, range.endOffset);
+        const selectedText = range.collapsed ? null : range.toString();
+        if (selectedText && selectedText.length > MAX_SELECTED_TEXT_LENGTH) {
+            throw new Error("RESULT_TOO_LARGE");
+        }
         return {
-            selectedText: range.collapsed ? null : range.toString(),
-            prefix: takeLastCodeUnitSafe(before.toString(), CONTEXT_LENGTH),
-            suffix: takeFirstCodeUnitSafe(after.toString(), CONTEXT_LENGTH)
+            selectedText: selectedText,
+            prefix: textBeforePosition(
+                range.startContainer,
+                range.startOffset,
+                body,
+                publicationDocument,
+                CONTEXT_LENGTH
+            ),
+            suffix: textAfterPosition(
+                range.endContainer,
+                range.endOffset,
+                body,
+                publicationDocument,
+                CONTEXT_LENGTH
+            )
         };
+    }
+
+    function textBeforePosition(container, offset, body, publicationDocument, limit) {
+        const walker = publicationDocument.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+        let result = "";
+        let anchor = container;
+        if (isCharacterData(container)) {
+            result = takeLastCodeUnitSafe(container.data.slice(0, offset), limit) || "";
+        } else if (offset > 0) {
+            anchor = container.childNodes[offset - 1];
+            const text = lastTextDescendant(anchor, publicationDocument);
+            if (text) {
+                anchor = text;
+                result = takeLastCodeUnitSafe(text.data, limit) || "";
+            }
+        }
+        walker.currentNode = anchor;
+        let node = walker.previousNode();
+        while (node && result.length < limit) {
+            const remaining = limit - result.length;
+            result = (takeLastCodeUnitSafe(node.data, remaining) || "") + result;
+            node = walker.previousNode();
+        }
+        return result || null;
+    }
+
+    function textAfterPosition(container, offset, body, publicationDocument, limit) {
+        const walker = publicationDocument.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+        let result = "";
+        let anchor = container;
+        if (isCharacterData(container)) {
+            result = takeFirstCodeUnitSafe(container.data.slice(offset), limit) || "";
+        } else if (offset < container.childNodes.length) {
+            anchor = container.childNodes[offset];
+            const text = firstTextDescendant(anchor, publicationDocument);
+            if (text) {
+                anchor = text;
+                result = takeFirstCodeUnitSafe(text.data, limit) || "";
+            }
+        } else if (offset > 0) {
+            anchor = container.childNodes[offset - 1];
+            const text = lastTextDescendant(anchor, publicationDocument);
+            if (text) {
+                anchor = text;
+            }
+        }
+        walker.currentNode = anchor;
+        let node = walker.nextNode();
+        while (node && result.length < limit) {
+            const remaining = limit - result.length;
+            result += takeFirstCodeUnitSafe(node.data, remaining) || "";
+            node = walker.nextNode();
+        }
+        return result || null;
+    }
+
+    function firstTextDescendant(root, publicationDocument) {
+        if (isCharacterData(root)) {
+            return root;
+        }
+        return publicationDocument
+            .createTreeWalker(root, NodeFilter.SHOW_TEXT)
+            .nextNode();
+    }
+
+    function lastTextDescendant(root, publicationDocument) {
+        if (isCharacterData(root)) {
+            return root;
+        }
+        const walker = publicationDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        let last = null;
+        let node = walker.nextNode();
+        while (node) {
+            last = node;
+            node = walker.nextNode();
+        }
+        return last;
     }
 
     function resolveContentTargetDetails(
@@ -638,16 +760,41 @@
     }
 
     function resolveContentTarget() {
-        return resolveContentTargetDetails.apply(null, arguments).resolution;
+        const details = resolveContentTargetDetails.apply(null, arguments);
+        rememberResolvedContentTarget(arguments, details);
+        return details.resolution;
+    }
+
+    function rememberResolvedContentTarget(argumentsValue, details) {
+        lastResolvedContentTarget = {
+            fullCfi: argumentsValue[0],
+            packagePath: argumentsValue[2],
+            spineIndex: argumentsValue[3],
+            idref: argumentsValue[4],
+            itemrefId: argumentsValue[5],
+            resourceHref: argumentsValue[6],
+            details: details
+        };
+    }
+
+    function resolvedContentTargetForVerification(fullCfi, expectedResourceHref) {
+        const cached = lastResolvedContentTarget;
+        if (cached && cached.fullCfi === fullCfi &&
+            cached.resourceHref === expectedResourceHref &&
+            rangeBelongsToDocument(cached.details.liveRange, document)) {
+            return cached.details;
+        }
+        throw new Error("DOM_TARGET_NOT_FOUND");
+    }
+
+    function rangeBelongsToDocument(range, publicationDocument) {
+        const body = publicationBody(publicationDocument);
+        return body && body.contains(range.startContainer) &&
+            body.contains(range.endContainer);
     }
 
     function verifyContentTarget(
         fullCfi,
-        packageDocumentXml,
-        packagePath,
-        expectedSpineIndex,
-        expectedIdref,
-        expectedItemrefId,
         expectedResourceHref,
         expectedKind,
         expectedSelectedText,
@@ -657,13 +804,8 @@
         expectedBefore,
         expectedAfter
     ) {
-        const details = resolveContentTargetDetails(
+        const details = resolvedContentTargetForVerification(
             fullCfi,
-            packageDocumentXml,
-            packagePath,
-            expectedSpineIndex,
-            expectedIdref,
-            expectedItemrefId,
             expectedResourceHref
         );
         const resolution = details.resolution;
@@ -682,8 +824,8 @@
 
     function isTargetRangeVisible(range, publicationDocument) {
         const probe = visibilityProbeRange(range, publicationDocument);
-        const viewportWidth = global.innerWidth || publicationDocument.documentElement.clientWidth;
-        const viewportHeight = global.innerHeight || publicationDocument.documentElement.clientHeight;
+        const viewportWidth = publicationViewportWidth(publicationDocument);
+        const viewportHeight = publicationViewportHeight(publicationDocument);
         return Array.from(probe.getClientRects()).some(function (rectangle) {
             const visibleWidth = Math.min(rectangle.right, viewportWidth) -
                 Math.max(rectangle.left, 0);
@@ -758,16 +900,24 @@
 
     function createMovementAnchor(range, publicationDocument, context) {
         const exactSource = range.collapsed
-            ? textFollowingRange(range, publicationDocument)
-            : range.toString();
+            ? textFollowingRange(
+                range,
+                publicationDocument,
+                MOVEMENT_QUOTE_LENGTH + CONTEXT_LENGTH
+            )
+            : context.selectedText;
         const exact = takeFirstCodeUnitSafe(exactSource, MOVEMENT_QUOTE_LENGTH);
         if (!exact || !containsDurableText(exact)) {
-            throw new Error("MOVEMENT_ANCHOR_UNAVAILABLE");
+            throw new Error(
+                range.collapsed
+                    ? "UNSUPPORTED_CFI_FEATURE"
+                    : "MOVEMENT_ANCHOR_UNAVAILABLE"
+            );
         }
         const trailingText = range.collapsed
             ? exactSource.slice(exact.length)
-            : range.toString().slice(exact.length) +
-                textFollowingRange(range, publicationDocument);
+            : context.selectedText.slice(exact.length) +
+                textFollowingRange(range, publicationDocument, CONTEXT_LENGTH);
         return {
             exact: exact,
             before: context.prefix,
@@ -775,15 +925,18 @@
         };
     }
 
-    function textFollowingRange(range, publicationDocument) {
+    function textFollowingRange(range, publicationDocument, limit) {
         const body = publicationBody(publicationDocument);
         if (!body) {
             throw new Error("DOM_TARGET_NOT_FOUND");
         }
-        const following = publicationDocument.createRange();
-        following.selectNodeContents(body);
-        following.setStart(range.endContainer, range.endOffset);
-        return following.toString();
+        return textAfterPosition(
+            range.endContainer,
+            range.endOffset,
+            body,
+            publicationDocument,
+            limit
+        ) || "";
     }
 
     function publicationBody(publicationDocument) {
@@ -818,7 +971,7 @@
         if (selection.rangeCount !== 1) {
             throw new Error("INVALID_RANGE");
         }
-        const liveRange = selection.getRangeAt(0);
+        const liveRange = rangeWithTextBoundaries(selection.getRangeAt(0), document);
         if (liveRange.collapsed) {
             return null;
         }
@@ -832,11 +985,13 @@
             throw new Error("SELECTION_UNAVAILABLE");
         }
         const builder = new cfi.EpubCfiBuilder();
-        builder.setTextAssertionOptions({
-            preLength: CONTEXT_LENGTH,
-            postLength: CONTEXT_LENGTH,
-            snapToWordBoundaries: false
-        });
+        if (context.prefix !== null && context.suffix !== null) {
+            builder.setTextAssertionOptions({
+                preLength: CONTEXT_LENGTH,
+                postLength: CONTEXT_LENGTH,
+                snapToWordBoundaries: false
+            });
+        }
         builder.appendTerminalDomRange(rangeForCfiBuilder(snapshotRange));
         const contentCfi = builder.toString();
         parseCfi(contentCfi);
@@ -846,6 +1001,89 @@
             prefix: context.prefix,
             suffix: context.suffix
         };
+    }
+
+    function rangeWithTextBoundaries(range, publicationDocument) {
+        const body = publicationBody(publicationDocument);
+        if (!body) {
+            throw new Error("SELECTION_UNAVAILABLE");
+        }
+        const start = textBoundaryAtOrAfter(
+            range.startContainer,
+            range.startOffset,
+            body
+        );
+        const end = textBoundaryAtOrBefore(
+            range.endContainer,
+            range.endOffset,
+            body
+        );
+        if (!start || !end) {
+            throw new Error("SELECTION_UNAVAILABLE");
+        }
+        const normalized = publicationDocument.createRange();
+        try {
+            normalized.setStart(start.container, start.offset);
+            normalized.setEnd(end.container, end.offset);
+        } catch (error) {
+            throw new Error("SELECTION_UNAVAILABLE");
+        }
+        if (normalized.collapsed || normalized.toString() !== range.toString()) {
+            throw new Error("SELECTION_UNAVAILABLE");
+        }
+        return normalized;
+    }
+
+    function textBoundaryAtOrAfter(container, offset, root) {
+        if (isCharacterData(container)) {
+            return { container: container, offset: offset };
+        }
+        let candidate = container.childNodes[offset] || nodeAfter(container, root);
+        while (candidate) {
+            if (isCharacterData(candidate)) {
+                return { container: candidate, offset: 0 };
+            }
+            candidate = candidate.firstChild || nodeAfter(candidate, root);
+        }
+        return null;
+    }
+
+    function textBoundaryAtOrBefore(container, offset, root) {
+        if (isCharacterData(container)) {
+            return { container: container, offset: offset };
+        }
+        let candidate = offset > 0
+            ? container.childNodes[offset - 1]
+            : nodeBefore(container, root);
+        while (candidate) {
+            if (isCharacterData(candidate)) {
+                return { container: candidate, offset: candidate.length };
+            }
+            candidate = candidate.lastChild || nodeBefore(candidate, root);
+        }
+        return null;
+    }
+
+    function nodeAfter(node, root) {
+        let candidate = node;
+        while (candidate && candidate !== root) {
+            if (candidate.nextSibling) {
+                return candidate.nextSibling;
+            }
+            candidate = candidate.parentNode;
+        }
+        return null;
+    }
+
+    function nodeBefore(node, root) {
+        let candidate = node;
+        while (candidate && candidate !== root) {
+            if (candidate.previousSibling) {
+                return candidate.previousSibling;
+            }
+            candidate = candidate.parentNode;
+        }
+        return null;
     }
 
     /*
@@ -949,7 +1187,8 @@
 
     function firstVisibleTextBoundary(liveDocument, direction) {
         const body = liveDocument.body;
-        if (!body || global.innerWidth <= 0 || global.innerHeight <= 0) {
+        if (!body || publicationViewportWidth(liveDocument) <= 0 ||
+            publicationViewportHeight(liveDocument) <= 0) {
             return null;
         }
         const walker = liveDocument.createTreeWalker(
@@ -1070,18 +1309,31 @@
     }
 
     function hasPositiveViewportIntersection(rect, direction) {
+        const viewportWidth = publicationViewportWidth(document);
+        const viewportHeight = publicationViewportHeight(document);
         const blockStart = Math.max(0, rect.top);
-        const blockEnd = Math.min(global.innerHeight, rect.bottom);
+        const blockEnd = Math.min(viewportHeight, rect.bottom);
         const inlineStart = direction === "rtl"
-            ? Math.min(global.innerWidth, rect.right)
+            ? Math.min(viewportWidth, rect.right)
             : Math.max(0, rect.left);
         const inlineEnd = direction === "rtl"
             ? Math.max(0, rect.left)
-            : Math.min(global.innerWidth, rect.right);
+            : Math.min(viewportWidth, rect.right);
         const inlineExtent = direction === "rtl"
             ? inlineStart - inlineEnd
             : inlineEnd - inlineStart;
-        return blockEnd > blockStart && inlineExtent > 0 && rect.width > 0 && rect.height > 0;
+        return blockEnd - blockStart > MIN_VISIBLE_EXTENT_PIXELS &&
+            inlineExtent > MIN_VISIBLE_EXTENT_PIXELS &&
+            rect.width > MIN_VISIBLE_EXTENT_PIXELS &&
+            rect.height > MIN_VISIBLE_EXTENT_PIXELS;
+    }
+
+    function publicationViewportWidth(publicationDocument) {
+        return publicationDocument.documentElement.clientWidth || global.innerWidth;
+    }
+
+    function publicationViewportHeight(publicationDocument) {
+        return publicationDocument.documentElement.clientHeight || global.innerHeight;
     }
 
     function isTextPosition(container, offset) {
@@ -1093,6 +1345,20 @@
     }
 
     global.__secondPassEpubCfi = Object.freeze({
+        isDocumentReady: function isDocumentReady() {
+            return safely(function () {
+                if (global.readium && global.readium.isFixedLayout === true) {
+                    throw new Error("UNSUPPORTED_FIXED_LAYOUT");
+                }
+                return document.readyState !== "loading" &&
+                    document.documentElement !== null &&
+                    publicationBody(document) !== null &&
+                    Boolean(global.readium) &&
+                    global.readium.isReflowable === true &&
+                    global.readium.isFixedLayout !== true;
+            });
+        },
+
         runtimeVersion: function runtimeVersion() {
             return RUNTIME_VERSION;
         },
@@ -1163,11 +1429,6 @@
 
         verifyContentTarget: function verifyResolvedContentTarget(
             fullCfi,
-            packageDocumentXml,
-            packagePath,
-            expectedSpineIndex,
-            expectedIdref,
-            expectedItemrefId,
             expectedResourceHref,
             expectedKind,
             expectedSelectedText,
@@ -1180,11 +1441,6 @@
             return safely(function () {
                 return verifyContentTarget(
                     fullCfi,
-                    packageDocumentXml,
-                    packagePath,
-                    expectedSpineIndex,
-                    expectedIdref,
-                    expectedItemrefId,
                     expectedResourceHref,
                     expectedKind,
                     expectedSelectedText,

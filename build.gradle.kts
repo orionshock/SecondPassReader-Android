@@ -50,7 +50,7 @@ tasks.register<StaticHygieneTask>("staticHygiene") {
 val readerBoundaryCheck =
     tasks.register<ReaderBoundaryCheckTask>("readerBoundaryCheck") {
         group = LifecycleBasePlugin.VERIFICATION_GROUP
-        description = "Checks Reader engine isolation and forbidden mutation/movement seams."
+        description = "Checks Reader engine isolation and forbidden renderer movement seams."
         productionSources.from(
             fileTree("app/src/main/kotlin") { include("**/*.kt") },
             fileTree("app/src/debug/kotlin") { include("**/*.kt") },
@@ -61,8 +61,30 @@ val readerBoundaryCheck =
         )
     }
 
+val colibrioBundleCheck =
+    tasks.register<ColibrioBundleCheckTask>("colibrioBundleCheck") {
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        description = "Verifies the pinned Colibrio bundle and packaged MIT license offline."
+        browserBundle.set(
+            layout.projectDirectory.file(
+                "app/src/main/assets/reader/cfi/colibrio-epubcfi-1.1.0.min.js"
+            )
+        )
+        canonicalLicense.set(
+            layout.projectDirectory.file("third_party/colibrio-web-epubcfi/LICENSE")
+        )
+        packagedLicense.set(
+            layout.projectDirectory.file(
+                "app/src/main/assets/reader/cfi/licenses/colibrio-web-epubcfi-MIT.txt"
+            )
+        )
+        expectedSha256.set(
+            "661515025940C5D1AD2F2238FE03455D4616A3B00BD58978EC59823D818B24E0"
+        )
+    }
+
 tasks.named("staticHygiene") {
-    dependsOn(readerBoundaryCheck)
+    dependsOn(readerBoundaryCheck, colibrioBundleCheck)
 }
 
 tasks.register("detekt") {

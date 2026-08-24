@@ -1,6 +1,29 @@
 package com.secondpasslibrary.reader.reader.cfi
 
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
+
 internal interface EpubCfiNavigator {
+    val readiness: StateFlow<EpubCfiReadiness>
+
+    /** Waits for a live renderer viewport without making renderer attachment route identity. */
+    suspend fun awaitNavigationAvailable(): EpubCfiOutcome<Unit> = when (
+        val state = readiness.first {
+            it == EpubCfiReadiness.Available ||
+                it is EpubCfiReadiness.Failed ||
+                it == EpubCfiReadiness.Closed
+        }
+    ) {
+        EpubCfiReadiness.Available -> EpubCfiOutcome.Success(Unit)
+
+        is EpubCfiReadiness.Failed -> EpubCfiOutcome.Failure(state.reason)
+
+        EpubCfiReadiness.Closed,
+        EpubCfiReadiness.PreparingDocument,
+        EpubCfiReadiness.AwaitingViewport ->
+            EpubCfiOutcome.Failure(EpubCfiFailure.NAVIGATOR_UNAVAILABLE)
+    }
+
     suspend fun goTo(cfi: EpubCfi): EpubCfiOutcome<Unit>
 
     suspend fun currentPosition(): EpubCfiOutcome<EpubCfi>
@@ -8,6 +31,19 @@ internal interface EpubCfiNavigator {
     suspend fun currentSelection(): EpubCfiOutcome<EpubCfiSelection?>
 
     suspend fun resolve(cfi: EpubCfi): EpubCfiOutcome<EpubCfiResolution>
+}
+
+/** Renderer-neutral availability of the live publication viewport used for CFI operations. */
+internal sealed interface EpubCfiReadiness {
+    data object AwaitingViewport : EpubCfiReadiness
+
+    data object PreparingDocument : EpubCfiReadiness
+
+    data object Available : EpubCfiReadiness
+
+    data class Failed(val reason: EpubCfiFailure) : EpubCfiReadiness
+
+    data object Closed : EpubCfiReadiness
 }
 
 internal sealed interface EpubCfiOutcome<out T> {
@@ -49,11 +85,14 @@ internal enum class EpubCfiFailure {
     RESOURCE_NOT_IN_READING_ORDER,
     NAVIGATOR_UNAVAILABLE,
     JAVASCRIPT_RUNTIME_UNAVAILABLE,
+    JAVASCRIPT_RUNTIME_TIMEOUT,
+    JAVASCRIPT_RESULT_TOO_LARGE,
     DOM_TARGET_NOT_FOUND,
     INVALID_RANGE,
     SELECTION_UNAVAILABLE,
     VISIBLE_POSITION_UNAVAILABLE,
     MOVEMENT_ANCHOR_UNAVAILABLE,
+    RESOURCE_CHANGED_DURING_OPERATION,
     NAVIGATION_TIMEOUT,
     NAVIGATION_FAILED,
     CFI_RUNTIME_FAILURE

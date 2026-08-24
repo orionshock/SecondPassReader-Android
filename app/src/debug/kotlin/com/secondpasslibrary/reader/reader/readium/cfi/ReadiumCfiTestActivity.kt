@@ -40,6 +40,7 @@ internal class ReadiumCfiTestActivity : FragmentActivity() {
         )
     }
     private val mutableNavigatorGeneration = MutableStateFlow(0)
+    private val mutableViewportAttached = MutableStateFlow(false)
     val hostState get() = model.state
     val navigatorGeneration = mutableNavigatorGeneration.asStateFlow()
 
@@ -54,11 +55,13 @@ internal class ReadiumCfiTestActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installReaderEngineRestorationFactory()
         super.onCreate(savedInstanceState)
+        mutableViewportAttached.value = !intent.getBooleanExtra(EXTRA_DEFER_VIEWPORT, false)
         discardRestoredReaderViewport()
         supportFragmentManager.registerFragmentLifecycleCallbacks(fragmentLifecycle, false)
         setContent {
             SecondPassTheme {
                 val state by model.state.collectAsStateWithLifecycle()
+                val viewportAttached by mutableViewportAttached.collectAsStateWithLifecycle()
                 when (val current = state) {
                     ReadiumCfiTestHostState.Loading -> Box(
                         contentAlignment = Alignment.Center,
@@ -67,9 +70,9 @@ internal class ReadiumCfiTestActivity : FragmentActivity() {
                         CircularProgressIndicator()
                     }
 
-                    is ReadiumCfiTestHostState.Ready -> current.engine.viewport.Content(
-                        Modifier.fillMaxSize()
-                    )
+                    is ReadiumCfiTestHostState.Ready -> if (viewportAttached) {
+                        current.engine.viewport.Content(Modifier.fillMaxSize())
+                    }
 
                     is ReadiumCfiTestHostState.Failed -> Unit
                 }
@@ -85,8 +88,13 @@ internal class ReadiumCfiTestActivity : FragmentActivity() {
     fun currentNavigator(): EpubNavigatorFragment? =
         supportFragmentManager.fragments.filterIsInstance<EpubNavigatorFragment>().singleOrNull()
 
+    fun attachViewport() {
+        mutableViewportAttached.value = true
+    }
+
     internal companion object {
         const val EXTRA_EPUB_PATH = "reader.cfi.test.EPUB_PATH"
+        const val EXTRA_DEFER_VIEWPORT = "reader.cfi.test.DEFER_VIEWPORT"
     }
 }
 

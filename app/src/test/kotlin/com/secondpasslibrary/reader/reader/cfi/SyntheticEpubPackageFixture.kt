@@ -51,13 +51,29 @@ internal fun writeSyntheticEpub(
     packagePath: String = "OPS/package.opf",
     containerXml: String = syntheticContainerXml(packagePath),
     additionalEntries: Map<String, String> = emptyMap()
+) = writeSyntheticEpub(
+    packageBytes = packageXml.toByteArray(StandardCharsets.UTF_8),
+    packagePath = packagePath,
+    containerBytes = containerXml.toByteArray(StandardCharsets.UTF_8),
+    additionalEntries = additionalEntries.mapValues { (_, contents) ->
+        contents.toByteArray(StandardCharsets.UTF_8)
+    }
+)
+
+internal fun writeSyntheticEpub(
+    packageBytes: ByteArray,
+    packagePath: String = "OPS/package.opf",
+    containerBytes: ByteArray = syntheticContainerXml(
+        packagePath
+    ).toByteArray(StandardCharsets.UTF_8),
+    additionalEntries: Map<String, ByteArray> = emptyMap()
 ) = Files.createTempFile("synthetic-package-", ".epub").toFile().apply {
     deleteOnExit()
     ZipOutputStream(outputStream()).use { zip ->
         zip.writeTextEntry("mimetype", "application/epub+zip")
-        zip.writeTextEntry("META-INF/container.xml", containerXml)
-        zip.writeTextEntry(packagePath, packageXml)
-        additionalEntries.forEach { (path, contents) -> zip.writeTextEntry(path, contents) }
+        zip.writeBytesEntry("META-INF/container.xml", containerBytes)
+        zip.writeBytesEntry(packagePath, packageBytes)
+        additionalEntries.forEach { (path, contents) -> zip.writeBytesEntry(path, contents) }
     }
 }
 
@@ -71,7 +87,11 @@ internal fun syntheticContainerXml(packagePath: String): String = """
 """.trimIndent()
 
 private fun ZipOutputStream.writeTextEntry(path: String, contents: String) {
+    writeBytesEntry(path, contents.toByteArray(StandardCharsets.UTF_8))
+}
+
+private fun ZipOutputStream.writeBytesEntry(path: String, contents: ByteArray) {
     putNextEntry(ZipEntry(path))
-    write(contents.toByteArray(StandardCharsets.UTF_8))
+    write(contents)
     closeEntry()
 }

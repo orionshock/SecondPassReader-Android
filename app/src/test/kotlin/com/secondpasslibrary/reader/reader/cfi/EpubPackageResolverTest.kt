@@ -1,6 +1,12 @@
 package com.secondpasslibrary.reader.reader.cfi
 
+import java.io.ByteArrayInputStream
+import java.io.File
+import java.nio.charset.Charset
+import java.nio.charset.StandardCharsets
+import javax.xml.parsers.DocumentBuilderFactory
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -138,6 +144,93 @@ class EpubPackageResolverTest {
     }
 
     @Test
+    fun `rejects duplicate rootfile declarations even when they name the same package`() {
+        val container = """
+            <container xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+              <rootfiles>
+                <rootfile full-path="OPS/package.opf" media-type="$PACKAGE_MEDIA_TYPE"/>
+                <rootfile full-path="OPS/package.opf" media-type="$PACKAGE_MEDIA_TYPE"/>
+              </rootfiles>
+            </container>
+        """.trimIndent()
+
+        assertThrows(IllegalArgumentException::class.java) {
+            resolver.resolve(writeSyntheticEpub(oneChapterPackage(), containerXml = container))
+        }
+    }
+
+    @Test
+    fun `preserves package semantics across XML encodings`() {
+        listOf(
+            XmlEncoding(StandardCharsets.UTF_8, "UTF-8"),
+            XmlEncoding(
+                StandardCharsets.UTF_16LE,
+                "UTF-16",
+                byteArrayOf(0xFF.toByte(), 0xFE.toByte())
+            ),
+            XmlEncoding(
+                StandardCharsets.UTF_16BE,
+                "UTF-16",
+                byteArrayOf(0xFE.toByte(), 0xFF.toByte())
+            )
+        ).forEach { encoding ->
+            val packageXml = syntheticPackageXml(
+                manifest = listOf(SyntheticManifestItem("chapter", "text/caf\u00e9.xhtml")),
+                spine = listOf(SyntheticSpineItem("chapter"))
+            ).replace("encoding=\"UTF-8\"", "encoding=\"${encoding.declaration}\"")
+
+            val document = resolver.resolve(
+                writeSyntheticEpub(
+                    packageBytes = encoding.bom + packageXml.toByteArray(encoding.charset)
+                )
+            )
+
+            assertEquals("OPS/text/caf\u00e9.xhtml", document.spine.single().resourceHref)
+            assertFalse(encoding.charset.name(), document.packageXml.contains('\u0000'))
+            assertFalse(encoding.charset.name(), document.packageXml.contains('\uFFFD'))
+            assertEquals("text/caf\u00e9.xhtml", document.packageXmlManifestHref())
+        }
+    }
+
+    @Test
+    fun `bounds container package and archive entry counts`() {
+        val packageXml = oneChapterPackage()
+        val containerBytes = syntheticContainerXml("OPS/package.opf")
+            .toByteArray(StandardCharsets.UTF_8)
+        val packageBytes = packageXml.toByteArray(StandardCharsets.UTF_8)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            ZipEpubPackageResolver(
+                EpubPackageLimits(maxContainerBytes = containerBytes.size - 1)
+            ).resolve(writeSyntheticEpub(packageXml))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            ZipEpubPackageResolver(
+                EpubPackageLimits(maxPackageBytes = packageBytes.size - 1)
+            ).resolve(writeSyntheticEpub(packageXml))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            ZipEpubPackageResolver(
+                EpubPackageLimits(maxZipEntryCount = 2)
+            ).resolve(writeSyntheticEpub(packageXml))
+        }
+    }
+
+    @Test
+    fun `rejects duplicate ZIP entry names`() {
+        val packageXml = oneChapterPackage()
+        val epub = writeSyntheticEpub(
+            packageXml = packageXml,
+            packagePath = "OPS/first.opf",
+            additionalEntries = mapOf("OPS/other.opf" to packageXml)
+        ).replaceZipEntryName("OPS/other.opf", "OPS/first.opf")
+
+        assertThrows(IllegalArgumentException::class.java) {
+            resolver.resolve(epub)
+        }
+    }
+
+    @Test
     fun `rejects package href traversal beyond the publication root`() {
         val packageXml = syntheticPackageXml(
             manifest = listOf(SyntheticManifestItem("chapter", "../../outside.xhtml")),
@@ -202,4 +295,45 @@ class EpubPackageResolverTest {
         manifest = listOf(SyntheticManifestItem("chapter", "chapter.xhtml")),
         spine = listOf(SyntheticSpineItem("chapter"))
     )
+
+    private data class XmlEncoding(
+        val charset: Charset,
+        val declaration: String,
+        val bom: ByteArray = byteArrayOf()
+    )
+
+    private fun File.replaceZipEntryName(from: String, to: String): File {
+        val source = from.toByteArray(StandardCharsets.US_ASCII)
+        val replacement = to.toByteArray(StandardCharsets.US_ASCII)
+        require(source.size == replacement.size)
+        val archive = readBytes()
+        var replacements = 0
+        for (start in 0..archive.size - source.size) {
+            if (source.indices.all { offset -> archive[start + offset] == source[offset] }) {
+                replacement.copyInto(archive, destinationOffset = start)
+                replacements += 1
+            }
+        }
+        require(replacements >= 2)
+        writeBytes(archive)
+        return this
+    }
+
+    private fun EpubPackageDocument.packageXmlManifestHref(): String {
+        val parser = DocumentBuilderFactory.newInstance().apply {
+            isNamespaceAware = true
+        }.newDocumentBuilder()
+        val packageDocument = parser.parse(
+            ByteArrayInputStream(packageXml.toByteArray(StandardCharsets.UTF_8))
+        )
+        return packageDocument.getElementsByTagNameNS("*", "item")
+            .item(0)
+            .attributes
+            .getNamedItem("href")
+            .nodeValue
+    }
+
+    private companion object {
+        const val PACKAGE_MEDIA_TYPE = "application/oebps-package+xml"
+    }
 }

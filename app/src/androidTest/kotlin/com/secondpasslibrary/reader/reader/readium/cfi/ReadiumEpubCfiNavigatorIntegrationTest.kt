@@ -6,14 +6,22 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
+import com.secondpasslibrary.reader.reader.cfi.EpubCfiFailure
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
+import com.secondpasslibrary.reader.reader.cfi.EpubCfiReadiness
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiSelection
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiTargetKind
 import com.secondpasslibrary.reader.reader.cfi.SyntheticEpubCfiSources
 import com.secondpasslibrary.reader.reader.cfi.SyntheticEpubFixtureBuilder
+import com.secondpasslibrary.reader.reader.cfi.normalizeEpubHref
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import java.io.File
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -21,17 +29,100 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
+import org.readium.r2.shared.publication.Link
+import org.readium.r2.shared.util.Url
+import org.readium.r2.shared.util.mediatype.MediaType
 
 private const val HOST_TIMEOUT_MILLIS = 30_000L
 
 @RunWith(AndroidJUnit4::class)
 class ReadiumEpubCfiNavigatorIntegrationTest {
     private val targetContext: Context = ApplicationProvider.getApplicationContext()
+
+    @Test
+    fun cfiReadinessWaitsForViewportAttachment() = withFixture(
+        "deferred-viewport.epub"
+    ) { fixture ->
+        launchHost(fixture, deferViewport = true).use { scenario ->
+            val engine = scenario.awaitOpenedEngine()
+            assertEquals(EpubCfiReadiness.AwaitingViewport, engine.cfiNavigator.readiness.value)
+            val beforeBind = runBlocking { engine.cfiNavigator.currentPosition() }
+            assertEquals(
+                EpubCfiOutcome.Failure(EpubCfiFailure.NAVIGATOR_UNAVAILABLE),
+                beforeBind
+            )
+
+            val waiterScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+            val readiness = waiterScope.async {
+                engine.cfiNavigator.awaitNavigationAvailable()
+            }
+            scenario.onActivity(ReadiumCfiTestActivity::attachViewport)
+
+            assertEquals(
+                EpubCfiOutcome.Success(Unit),
+                runBlocking { withTimeout(HOST_TIMEOUT_MILLIS) { readiness.await() } }
+            )
+            assertEquals(EpubCfiReadiness.Available, engine.cfiNavigator.readiness.value)
+            runBlocking { engine.cfiNavigator.currentPosition().requireSuccess() }
+            waiterScope.cancel()
+        }
+    }
+
+    @Test
+    fun pendingBoundOperationEndsWhenNavigatorIsRecreated() = withFixture(
+        "pending-recreation.epub"
+    ) { fixture ->
+        launchHost(fixture).use { scenario ->
+            val host = scenario.awaitReadyHost()
+            val testBinding = ReadiumCfiNavigatorBinding(
+                ReadiumCfiJavascriptRuntime(targetContext)
+            )
+            scenario.onActivity { testBinding.bind(host.navigator) }
+            assertEquals(
+                EpubCfiReadiness.Available,
+                runBlocking {
+                    withTimeout(HOST_TIMEOUT_MILLIS) {
+                        testBinding.readiness.first { it == EpubCfiReadiness.Available }
+                    }
+                }
+            )
+            val operationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+            val started = kotlinx.coroutines.CompletableDeferred<Unit>()
+            val pending = operationScope.async {
+                testBinding.withNavigator { _, _ ->
+                    started.complete(Unit)
+                    awaitCancellation()
+                }
+            }
+            runBlocking { withTimeout(HOST_TIMEOUT_MILLIS) { started.await() } }
+
+            scenario.onActivity { testBinding.unbind(host.navigator) }
+            assertNull(runBlocking { withTimeout(HOST_TIMEOUT_MILLIS) { pending.await() } })
+            assertEquals(EpubCfiReadiness.AwaitingViewport, testBinding.readiness.value)
+
+            scenario.recreate()
+            val recreated = scenario.awaitReadyHost()
+            scenario.onActivity { testBinding.bind(recreated.navigator) }
+            assertEquals(
+                EpubCfiReadiness.Available,
+                runBlocking {
+                    withTimeout(HOST_TIMEOUT_MILLIS) {
+                        testBinding.readiness.first { it == EpubCfiReadiness.Available }
+                    }
+                }
+            )
+            testBinding.close()
+            scenario.onActivity { testBinding.unbind(recreated.navigator) }
+            assertEquals(EpubCfiReadiness.Closed, testBinding.readiness.value)
+            operationScope.cancel()
+        }
+    }
 
     @Test
     fun realNavigatorRoundTripsPointAndCrossMarkupRange() = withFixture(
@@ -109,6 +200,90 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
         }
     }
 
+    @Test
+    fun rapidNavigationKeepsNewestCfiAsFinalDestination() = withFixture(
+        "latest-navigation.epub"
+    ) { fixture ->
+        launchHost(fixture).use { scenario ->
+            val host = scenario.awaitReadyHost()
+            val originalPosition = runBlocking {
+                host.engine.cfiNavigator.currentPosition().requireSuccess()
+            }
+
+            runBlocking {
+                val first = async {
+                    host.engine.cfiNavigator.goTo(EpubCfi(CROSS_SPINE_POINT_CFI))
+                }
+                val second = async { host.engine.cfiNavigator.goTo(originalPosition) }
+                runCatching { first.await() }
+                second.await().requireSuccess()
+            }
+
+            assertCurrentResource(host.engine, SyntheticEpubCfiSources.CHAPTER_ONE_PATH)
+        }
+    }
+
+    @Test
+    fun resourceTransitionDuringBoundCaptureIsRejected() = withFixture(
+        "resource-coherence.epub"
+    ) { fixture ->
+        launchHost(fixture).use { scenario ->
+            val host = scenario.awaitReadyHost()
+            val testBinding = ReadiumCfiNavigatorBinding(
+                ReadiumCfiJavascriptRuntime(targetContext)
+            )
+            scenario.onActivity { testBinding.bind(host.navigator) }
+            runBlocking {
+                withTimeout(HOST_TIMEOUT_MILLIS) {
+                    testBinding.readiness.first { it == EpubCfiReadiness.Available }
+                }
+            }
+
+            val capture = runBlocking {
+                testBinding.withNavigator { navigator, _ ->
+                    val before = testBinding.resourceIdentity(navigator)
+                    val moved = navigator.go(
+                        Link(
+                            href = requireNotNull(
+                                Url(SyntheticEpubCfiSources.CHAPTER_TWO_PATH)
+                            ),
+                            mediaType = requireNotNull(MediaType("application/xhtml+xml"))
+                        ),
+                        animated = false
+                    )
+                    assertTrue(moved)
+                    withTimeout(HOST_TIMEOUT_MILLIS) {
+                        navigator.currentLocator.first { locator ->
+                            normalizeEpubHref(locator.href.toString()) ==
+                                SyntheticEpubCfiSources.CHAPTER_TWO_PATH
+                        }
+                    }
+                    val coherent = coherentResourceCapture(
+                        before,
+                        testBinding.resourceIdentity(navigator),
+                        "captured content"
+                    )
+                    assertEquals(
+                        EpubCfiReadiness.PreparingDocument,
+                        testBinding.readiness.value
+                    )
+                    coherent
+                }
+            }
+
+            assertEquals(ReadiumCfiResourceCapture.Changed, capture)
+            assertEquals(
+                EpubCfiReadiness.Available,
+                runBlocking {
+                    withTimeout(HOST_TIMEOUT_MILLIS) {
+                        testBinding.readiness.first { it == EpubCfiReadiness.Available }
+                    }
+                }
+            )
+            testBinding.close()
+        }
+    }
+
     private fun assertRangeRoundTrip(engine: ReaderEngine, selection: EpubCfiSelection) {
         runBlocking {
             engine.cfiNavigator.goTo(EpubCfi(CROSS_SPINE_POINT_CFI)).requireSuccess()
@@ -133,21 +308,19 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
         assertEquals(expectedHref, resolution.resourceHref)
     }
 
-    private fun launchHost(fixture: File): ActivityScenario<ReadiumCfiTestActivity> {
-        val intent = Intent(targetContext, ReadiumCfiTestActivity::class.java).putExtra(
-            ReadiumCfiTestActivity.EXTRA_EPUB_PATH,
-            fixture.absolutePath
-        )
+    private fun launchHost(
+        fixture: File,
+        deferViewport: Boolean = false
+    ): ActivityScenario<ReadiumCfiTestActivity> {
+        val intent = Intent(targetContext, ReadiumCfiTestActivity::class.java)
+            .putExtra(ReadiumCfiTestActivity.EXTRA_EPUB_PATH, fixture.absolutePath)
+            .putExtra(ReadiumCfiTestActivity.EXTRA_DEFER_VIEWPORT, deferViewport)
         return ActivityScenario.launch(intent)
     }
 
-    private fun ActivityScenario<ReadiumCfiTestActivity>.awaitReadyHost(): ReadyHost {
+    private fun ActivityScenario<ReadiumCfiTestActivity>.awaitOpenedEngine(): ReaderEngine {
         lateinit var state: StateFlow<ReadiumCfiTestHostState>
-        lateinit var generation: StateFlow<Int>
-        onActivity { activity ->
-            state = activity.hostState
-            generation = activity.navigatorGeneration
-        }
+        onActivity { activity -> state = activity.hostState }
         val hostState = runBlocking {
             withTimeout(HOST_TIMEOUT_MILLIS) {
                 state.first { it !is ReadiumCfiTestHostState.Loading }
@@ -156,11 +329,20 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
         check(hostState is ReadiumCfiTestHostState.Ready) {
             "Reader test host failed: ${(hostState as ReadiumCfiTestHostState.Failed).reason}"
         }
-        val engine = hostState.engine
+        return hostState.engine
+    }
+
+    private fun ActivityScenario<ReadiumCfiTestActivity>.awaitReadyHost(): ReadyHost {
+        lateinit var generation: StateFlow<Int>
+        onActivity { activity ->
+            generation = activity.navigatorGeneration
+        }
+        val engine = awaitOpenedEngine()
         runBlocking {
             withTimeout(HOST_TIMEOUT_MILLIS) {
                 generation.first { it > 0 }
             }
+            engine.cfiNavigator.awaitNavigationAvailable().requireSuccess()
         }
         lateinit var navigator: EpubNavigatorFragment
         onActivity { activity ->

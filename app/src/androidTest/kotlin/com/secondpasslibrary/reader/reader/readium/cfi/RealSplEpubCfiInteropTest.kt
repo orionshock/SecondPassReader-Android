@@ -7,8 +7,10 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.secondpasslibrary.client.AuthenticatedSecondPassClient
 import com.secondpasslibrary.client.MarginaliaAnnotation
+import com.secondpasslibrary.client.ReadingProgress
 import com.secondpasslibrary.client.ReadingSessionListItem
 import com.secondpasslibrary.client.ReadingSessionListOptions
+import com.secondpasslibrary.client.ReadingSessionSummary
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetRequest
 import com.secondpasslibrary.reader.reader.asset.ReaderEpubUnavailableException
@@ -327,11 +329,10 @@ private suspend fun captureSession(
     val progress = client.marginalia.sessions.getProgress(sessionId)
     val annotations = client.marginalia.sessions.listAnnotations(sessionId)
     return ReadOnlySessionCapture(
-        progressCfi = progress?.cfi,
         snapshot = ReadOnlySessionSnapshot(
-            sessionUpdatedAt = detail.session.summary.updatedAt,
-            progressUpdatedAt = progress?.updatedAt,
-            annotations = annotations.map { AnnotationVersion(it.id, it.updatedAt) }
+            session = detail.session.summary,
+            progress = progress,
+            annotations = annotations
         )
     )
 }
@@ -377,17 +378,15 @@ private data class RealInteropSubject(
 )
 
 private data class ReadOnlySessionSnapshot(
-    val sessionUpdatedAt: String,
-    val progressUpdatedAt: String?,
-    val annotations: List<AnnotationVersion>
+    val session: ReadingSessionSummary,
+    val progress: ReadingProgress?,
+    val annotations: List<MarginaliaAnnotation>
 )
 
-private data class ReadOnlySessionCapture(
-    val progressCfi: String?,
-    val snapshot: ReadOnlySessionSnapshot
-)
-
-private data class AnnotationVersion(val id: String, val updatedAt: String)
+private data class ReadOnlySessionCapture(val snapshot: ReadOnlySessionSnapshot) {
+    val progressCfi: String?
+        get() = snapshot.progress?.cfi
+}
 
 private val REAL_PHRASE_SELECTION_SCRIPT =
     """

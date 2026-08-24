@@ -39,16 +39,29 @@ class ReadiumCfiJavascriptRuntimeTest {
             harness.evaluate("typeof SecondPassColibrio.EpubCfiParser.parse").jsonString()
         )
         assertEquals(
-            "1.11.1",
+            "1.12.5",
             harness.evaluate("__secondPassEpubCfi.runtimeVersion()").jsonString()
         )
 
         harness.evaluate(asset("reader/cfi/secondpass-epub-cfi-runtime.js"))
 
         assertEquals(
-            "1.11.1",
+            "1.12.5",
             harness.evaluate("__secondPassEpubCfi.runtimeVersion()").jsonString()
         )
+    }
+
+    @Test
+    fun documentReadinessRequiresReadiumPublicationRuntime() = withHarness { harness ->
+        assertTrue(successBoolean(harness.runtime("isDocumentReady")))
+
+        harness.evaluate("delete window.readium")
+
+        assertFalse(successBoolean(harness.runtime("isDocumentReady")))
+
+        harness.evaluate("window.readium = { isReflowable: false, isFixedLayout: true }")
+
+        assertFailure(harness.runtime("isDocumentReady"), "UNSUPPORTED_FIXED_LAYOUT")
     }
 
     @Test
@@ -204,7 +217,162 @@ class ReadiumCfiJavascriptRuntimeTest {
             ),
             "UNSUPPORTED_CFI_FEATURE"
         )
+
+        val sideBiased =
+            "epubcfi(/6/2[spine-chapter-one]!/4/2[chapter-one-root]/4" +
+                "[repeated-phrase]/1:4[;s=b])"
+        assertFailure(
+            harness.runtime(
+                "resolvePackage",
+                sideBiased,
+                SyntheticEpubCfiSources.packageDocument,
+                SyntheticEpubCfiSources.PACKAGE_PATH
+            ),
+            "UNSUPPORTED_CFI_FEATURE"
+        )
     }
+
+    @Test
+    fun rejectsTerminalPointWithoutTruthfulMovementAnchor() = withHarness { harness ->
+        val packageCfi = harness.packageCfi()
+        val terminalContent =
+            harness.generateContentCfi(
+                """
+                const node = document.querySelector("#post-lookalike-target").firstChild;
+                builder.appendTerminalDomPosition(node, node.length);
+                """.trimIndent()
+            )
+
+        assertFailure(
+            harness.runtime(
+                "resolveContent",
+                harness.compose(packageCfi, terminalContent),
+                SyntheticEpubCfiSources.packageDocument,
+                SyntheticEpubCfiSources.PACKAGE_PATH,
+                0,
+                "chapter-one",
+                "spine-chapter-one",
+                SyntheticEpubCfiSources.CHAPTER_ONE_PATH
+            ),
+            "UNSUPPORTED_CFI_FEATURE"
+        )
+    }
+
+    @Test
+    fun rejectsSelectionLargerThanSplHighlightBoundaryWithoutTruncating() = withHarness { harness ->
+        harness.evaluate(
+            """
+                (() => {
+                  document.body.innerHTML = '<p id="large-selection"></p>';
+                  const node = document.getElementById("large-selection");
+                  for (let index = 0; index < 4; index += 1) {
+                    const part = document.createElement("span");
+                    part.textContent = "x".repeat(16 * 1024);
+                    node.appendChild(part);
+                  }
+                  const range = document.createRange();
+                  range.selectNodeContents(node);
+                  const selection = window.getSelection();
+                  selection.removeAllRanges();
+                  selection.addRange(range);
+                })()
+            """.trimIndent()
+        )
+        val maximum = successObject(harness.runtime("generateSelectionContentCfi"))
+        assertEquals(64 * 1024, maximum.getString("selectedText").length)
+
+        harness.evaluate(
+            """
+                (() => {
+                  const node = document.getElementById("large-selection");
+                  node.lastChild.textContent += "x";
+                  const range = document.createRange();
+                  range.selectNodeContents(node);
+                  const selection = window.getSelection();
+                  selection.removeAllRanges();
+                  selection.addRange(range);
+                })()
+            """.trimIndent()
+        )
+
+        assertFailure(
+            harness.runtime("generateSelectionContentCfi"),
+            "RESULT_TOO_LARGE"
+        )
+    }
+
+    @Test
+    fun visiblePositionUsesLogicalLeadingTextAcrossPaginatedGeometry() = withHarness { harness ->
+        val packageCfi = harness.packageCfi()
+
+        harness.preparePaginatedGeometry("ltr", "LTR leading page text")
+        harness.assertCurrentPositionStartsWith(packageCfi, "LTR leading page text")
+
+        harness.preparePaginatedGeometry("rtl", "RTL logical leading text")
+        harness.assertCurrentPositionStartsWith(packageCfi, "RTL logical leading text")
+    }
+
+    @Test
+    fun visiblePositionFindsFirstVisibleCharacterInsidePartiallyClippedText() =
+        withHarness { harness ->
+            val packageCfi = harness.packageCfi()
+            harness.prepareGeometry(
+                direction = "ltr",
+                body =
+                    """
+                    <p id="partial" style="position:absolute;left:0;top:8px;
+                        margin:0;white-space:pre;font:24px monospace">ABCDLeading clipped text</p>
+                    """.trimIndent()
+            )
+            harness.evaluate(
+                """
+                (() => {
+                  const node = document.getElementById("partial").firstChild;
+                  const prefix = document.createRange();
+                  prefix.setStart(node, 0);
+                  prefix.setEnd(node, 4);
+                  document.getElementById("partial").style.left =
+                    `${'$'}{-prefix.getBoundingClientRect().width}px`;
+                })()
+                """.trimIndent()
+            )
+
+            harness.assertCurrentPositionStartsWith(packageCfi, "Leading clipped text")
+        }
+
+    @Test
+    fun visiblePositionSkipsBlankImageZeroWidthAndSubpixelPreviousContent() =
+        withHarness { harness ->
+            val packageCfi = harness.packageCfi()
+            harness.prepareGeometry(
+                direction = "ltr",
+                body =
+                    """
+                    <img alt="Cover page" style="position:absolute;left:0;top:0;width:40px;height:40px"/>
+                    <p>   &#8203; </p>
+                    <p style="position:absolute;left:0;top:48px;transform:scaleX(0);
+                        transform-origin:left">Zero width text</p>
+                    <p id="subpixel" style="position:absolute;left:0;top:72px;
+                        margin:0;white-space:pre;font:20px monospace">Previous column remnant</p>
+                    <p style="position:absolute;left:8px;top:104px">
+                      <span>Inline</span> leading target
+                    </p>
+                    """.trimIndent()
+            )
+            harness.evaluate(
+                """
+                (() => {
+                  const element = document.getElementById("subpixel");
+                  const range = document.createRange();
+                  range.selectNodeContents(element);
+                  element.style.left =
+                    `${'$'}{-range.getBoundingClientRect().width + 0.25}px`;
+                })()
+                """.trimIndent()
+            )
+
+            harness.assertCurrentPositionStartsWith(packageCfi, "Inline")
+        }
 
     @Test
     fun selectionRoundTripPreservesSemanticTextContext() = withHarness { harness ->
@@ -218,11 +386,6 @@ class ReadiumCfiJavascriptRuntimeTest {
                 harness.runtime(
                     "verifyContentTarget",
                     fullCfi,
-                    SyntheticEpubCfiSources.packageDocument,
-                    SyntheticEpubCfiSources.PACKAGE_PATH,
-                    0,
-                    "chapter-one",
-                    "spine-chapter-one",
                     SyntheticEpubCfiSources.CHAPTER_ONE_PATH,
                     "range",
                     resolution.nullableString("selectedText"),
@@ -300,6 +463,138 @@ private suspend fun EpubCfiWebViewHarness.pointCfiFor(
     return compose(packageCfi, content)
 }
 
+private suspend fun EpubCfiWebViewHarness.preparePaginatedGeometry(
+    direction: String,
+    expectedText: String
+) {
+    evaluate(
+        """
+        (() => {
+          const pageWidth = document.documentElement.clientWidth;
+          const pageHeight = document.documentElement.clientHeight;
+          document.documentElement.style.cssText =
+            "margin:0;overflow:hidden;writing-mode:horizontal-tb";
+          document.body.style.cssText =
+            "margin:0;overflow:hidden;direction:$direction";
+          document.body.innerHTML =
+            '<div id="page-viewport"><main id="columns"><section><p id="previous-page">' +
+            'Previous CSS column text</p></section><section><p id="current-page"></p>' +
+            '</section><section><p id="next-page">Later CSS column text</p></section></main></div>';
+          document.getElementById("current-page").textContent =
+            ${JSONObject.quote(expectedText)};
+          const viewport = document.getElementById("page-viewport");
+          viewport.style.cssText =
+            `position:absolute;left:0;top:0;width:${'$'}{pageWidth}px;` +
+            `height:${'$'}{pageHeight}px;overflow:hidden;direction:ltr`;
+          const columns = document.getElementById("columns");
+          columns.style.cssText =
+            `position:absolute;left:0;top:0;width:${'$'}{pageWidth}px;` +
+            `height:${'$'}{pageHeight}px;column-width:${'$'}{pageWidth}px;` +
+            "column-gap:0;column-fill:auto;transform-origin:left top;direction:ltr";
+          Array.from(columns.children).forEach((page) => {
+            page.style.cssText =
+              "box-sizing:border-box;margin:0;padding:8px;overflow:hidden;direction:$direction";
+          });
+          columns.children[1].style.breakBefore = "column";
+          columns.children[2].style.breakBefore = "column";
+        })()
+        """.trimIndent()
+    )
+    evaluate(
+        """
+        (() => {
+          const pageWidth = document.documentElement.clientWidth;
+          const columns = document.getElementById("columns");
+          const textRectangles = (id) => {
+            const range = document.createRange();
+            range.selectNodeContents(document.getElementById(id).firstChild);
+            return Array.from(range.getClientRects());
+          };
+          const currentBefore = textRectangles("current-page")[0];
+          const targetScroll = "$direction" === "rtl"
+            ? currentBefore.right - (pageWidth - 8)
+            : currentBefore.left - 8;
+          const viewport = document.getElementById("page-viewport");
+          viewport.scrollLeft = targetScroll;
+          window.__secondPassPaginationTest = {
+            currentBeforeLeft: currentBefore.left,
+            currentBeforeRight: currentBefore.right,
+            targetScroll: targetScroll,
+            appliedScroll: viewport.scrollLeft,
+            scrollWidth: viewport.scrollWidth
+          };
+        })()
+        """.trimIndent()
+    )
+    val geometry = evaluateJson(
+        """
+        (() => {
+          const pageWidth = document.documentElement.clientWidth;
+          const pageHeight = document.documentElement.clientHeight;
+          const columns = document.getElementById("columns");
+          const textRectangles = (id) => {
+            const range = document.createRange();
+            range.selectNodeContents(document.getElementById(id).firstChild);
+            return Array.from(range.getClientRects());
+          };
+          const currentAfter = textRectangles("current-page");
+          const previousAfter = textRectangles("previous-page");
+          const nextAfter = textRectangles("next-page");
+          const intersectsViewport = (rectangle) =>
+            rectangle.right > 0.5 && rectangle.left < pageWidth - 0.5 &&
+            rectangle.bottom > 0.5 && rectangle.top < pageHeight - 0.5;
+          const isolated = Math.abs(parseFloat(columns.style.columnWidth) - pageWidth) <= 1 &&
+            currentAfter.some(intersectsViewport) &&
+            !previousAfter.some(intersectsViewport) &&
+            !nextAfter.some(intersectsViewport);
+          const coordinates = (rectangles) => rectangles.map((rectangle) => [
+            rectangle.left,
+            rectangle.right,
+            rectangle.top,
+            rectangle.bottom
+          ]);
+          return {
+            isolated: isolated,
+            pageWidth: pageWidth,
+            columnWidth: columns.style.columnWidth,
+            placement: window.__secondPassPaginationTest,
+            previous: coordinates(previousAfter),
+            current: coordinates(currentAfter),
+            next: coordinates(nextAfter)
+          };
+        })()
+        """.trimIndent()
+    )
+    assertTrue(geometry.toString(), geometry.getBoolean("isolated"))
+}
+
+private suspend fun EpubCfiWebViewHarness.prepareGeometry(direction: String, body: String) {
+    evaluate(
+        """
+        (() => {
+          document.documentElement.style.cssText =
+            "margin:0;overflow:hidden;writing-mode:horizontal-tb";
+          document.body.style.cssText =
+            "margin:0;overflow:hidden;direction:$direction";
+          document.body.innerHTML = ${JSONObject.quote(body)};
+        })()
+        """.trimIndent()
+    )
+}
+
+private suspend fun EpubCfiWebViewHarness.assertCurrentPositionStartsWith(
+    packageCfi: String,
+    expectedPrefix: String
+) {
+    val contentCfi = successString(runtime("generateVisiblePositionContentCfi"))
+    val resolution = resolve(compose(packageCfi, contentCfi))
+    val exact = resolution.getJSONObject("movementAnchor").getString("exact")
+    assertTrue(
+        "Expected '$expectedPrefix' at the viewport lead, got '$exact' from $contentCfi",
+        exact.startsWith(expectedPrefix)
+    )
+}
+
 private suspend fun EpubCfiWebViewHarness.selectNestedInlineRange() {
     evaluate(
         """
@@ -359,6 +654,11 @@ private suspend fun EpubCfiWebViewHarness.selectPhrase(selector: String, phrase:
 private fun successString(result: JSONObject): String {
     assertTrue(result.toString(), result.getBoolean("ok"))
     return result.getString("value")
+}
+
+private fun successBoolean(result: JSONObject): Boolean {
+    assertTrue(result.toString(), result.getBoolean("ok"))
+    return result.getBoolean("value")
 }
 
 private fun assertFailure(result: JSONObject, expectedCode: String) {

@@ -169,7 +169,7 @@ internal class ReadiumEpubPackageCfiMapper(
             ReadiumCfiJavascriptRuntime
         ) -> EpubCfiOutcome<T>
     ): EpubCfiOutcome<T> = binding.withNavigator(block)
-        ?: EpubCfiOutcome.Failure(EpubCfiFailure.NAVIGATOR_UNAVAILABLE)
+        ?: binding.unavailableOutcome()
 }
 
 private data class ReadiumReadingOrderResource(

@@ -5,37 +5,41 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiFailure
 import com.secondpasslibrary.reader.reader.cfi.EpubPackageDocument
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 import org.json.JSONTokener
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 
-private const val RUNTIME_VERSION = "1.11.1"
+private const val RUNTIME_VERSION = "1.12.5"
 private const val CONTEXT_LENGTH = 64
 private const val MOVEMENT_QUOTE_LENGTH = 128
+private const val MAX_SELECTED_TEXT_LENGTH = 64 * 1024
+private const val MAX_RUNTIME_ENVELOPE_LENGTH = 256 * 1024
+private const val MAX_EVALUATED_RESULT_LENGTH = 512 * 1024
+private const val JAVASCRIPT_CALL_TIMEOUT_MILLIS = 10_000L
+private const val JAVASCRIPT_INSTALL_TIMEOUT_MILLIS = 20_000L
 private const val COLIBRIO_ASSET = "reader/cfi/colibrio-epubcfi-1.1.0.min.js"
 private const val RUNTIME_ASSET = "reader/cfi/secondpass-epub-cfi-runtime.js"
 
 internal class ReadiumCfiJavascriptRuntime(context: Context) {
-    private val applicationContext = context.applicationContext
-    private val installationScript by lazy {
-        listOf(COLIBRIO_ASSET, RUNTIME_ASSET).joinToString(separator = "\n") { path ->
-            applicationContext.assets.open(path).bufferedReader().use { it.readText() }
-        }
-    }
+    private val bridge = ReadiumCfiJavascriptBridge(context.applicationContext)
 
-    suspend fun ensureInstalled(navigator: EpubNavigatorFragment): Boolean {
-        if (readInstalledRuntimeVersion(navigator) == RUNTIME_VERSION) return true
-        val installed = navigator.evaluateJavascript(
-            "$installationScript\nwindow.__secondPassEpubCfi.runtimeVersion();"
-        )
-        return installed.decodeJavascriptString() == RUNTIME_VERSION
-    }
+    suspend fun installationFailure(navigator: EpubNavigatorFragment): EpubCfiFailure? =
+        bridge.installationFailure(navigator)
+
+    suspend fun documentReady(
+        navigator: EpubNavigatorFragment
+    ): ReadiumCfiJavascriptResult<Boolean> = bridge.invoke(
+        navigator = navigator,
+        method = "isDocumentReady",
+        arguments = emptyList()
+    ).mapValue { it as? Boolean ?: error("CFI runtime readiness result is invalid.") }
 
     suspend fun resolvePackage(
         navigator: EpubNavigatorFragment,
         cfi: EpubCfi,
         packageDocument: EpubPackageDocument
-    ): ReadiumCfiJavascriptResult<ReadiumPackageTarget> = invoke(
+    ): ReadiumCfiJavascriptResult<ReadiumPackageTarget> = bridge.invoke(
         navigator = navigator,
         method = "resolvePackage",
         arguments = listOf(
@@ -53,7 +57,7 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
         spineIndex: Int,
         idref: String,
         itemrefId: String?
-    ): ReadiumCfiJavascriptResult<EpubCfi> = invoke(
+    ): ReadiumCfiJavascriptResult<EpubCfi> = bridge.invoke(
         navigator = navigator,
         method = "generatePackage",
         arguments = listOf(
@@ -69,7 +73,7 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
         navigator: EpubNavigatorFragment,
         packageCfi: EpubCfi,
         contentCfi: EpubCfi
-    ): ReadiumCfiJavascriptResult<EpubCfi> = invoke(
+    ): ReadiumCfiJavascriptResult<EpubCfi> = bridge.invoke(
         navigator = navigator,
         method = "composeFullCfi",
         arguments = listOf(
@@ -83,7 +87,7 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
         cfi: EpubCfi,
         packageDocument: EpubPackageDocument,
         packageTarget: ReadiumEpubPackageTarget
-    ): ReadiumCfiJavascriptResult<ReadiumContentResolution> = invoke(
+    ): ReadiumCfiJavascriptResult<ReadiumContentResolution> = bridge.invoke(
         navigator = navigator,
         method = "resolveContent",
         arguments = listOf(
@@ -101,20 +105,13 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
     suspend fun verifyContentTarget(
         navigator: EpubNavigatorFragment,
         cfi: EpubCfi,
-        packageDocument: EpubPackageDocument,
         packageTarget: ReadiumEpubPackageTarget,
         resolution: ReadiumContentResolution
-    ): ReadiumCfiJavascriptResult<ReadiumContentTargetVerification> = invoke(
+    ): ReadiumCfiJavascriptResult<ReadiumContentTargetVerification> = bridge.invoke(
         navigator = navigator,
         method = "verifyContentTarget",
         arguments = listOf(
             JavascriptArgument.StringValue(cfi.value),
-            JavascriptArgument.StringValue(packageDocument.packageXml),
-            JavascriptArgument.StringValue(packageDocument.packagePath),
-            JavascriptArgument.NumberValue(packageTarget.spineIndex),
-            JavascriptArgument.StringValue(packageTarget.idref),
-            packageTarget.itemrefId?.let(JavascriptArgument::StringValue)
-                ?: JavascriptArgument.NullValue,
             JavascriptArgument.StringValue(packageTarget.resourceHref),
             JavascriptArgument.StringValue(resolution.kind),
             resolution.selectedText?.let(JavascriptArgument::StringValue)
@@ -140,7 +137,7 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
 
     suspend fun generateSelection(
         navigator: EpubNavigatorFragment
-    ): ReadiumCfiJavascriptResult<ReadiumContentSelection?> = invoke(
+    ): ReadiumCfiJavascriptResult<ReadiumContentSelection?> = bridge.invoke(
         navigator = navigator,
         method = "generateSelectionContentCfi",
         arguments = emptyList()
@@ -148,21 +145,47 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
         val selection = value as? JSONObject ?: return@mapValue null
         ReadiumContentSelection(
             contentCfi = EpubCfi(selection.getString("contentCfi")),
-            selectedText = selection.getString("selectedText"),
-            prefix = selection.nullableString("prefix"),
-            suffix = selection.nullableString("suffix")
+            selectedText = selection.getString("selectedText").also {
+                require(it.length <= MAX_SELECTED_TEXT_LENGTH)
+            },
+            prefix = selection.boundedContext("prefix"),
+            suffix = selection.boundedContext("suffix")
         )
     }
 
     suspend fun generateVisiblePosition(
         navigator: EpubNavigatorFragment
-    ): ReadiumCfiJavascriptResult<EpubCfi> = invoke(
+    ): ReadiumCfiJavascriptResult<EpubCfi> = bridge.invoke(
         navigator = navigator,
         method = "generateVisiblePositionContentCfi",
         arguments = emptyList()
     ).mapValue { value -> EpubCfi(value as String) }
+}
 
-    private suspend fun invoke(
+private class ReadiumCfiJavascriptBridge(private val context: Context) {
+    private val installationScript by lazy {
+        listOf(COLIBRIO_ASSET, RUNTIME_ASSET).joinToString(separator = "\n") { path ->
+            context.assets.open(path).bufferedReader().use { it.readText() }
+        }
+    }
+
+    suspend fun installationFailure(navigator: EpubNavigatorFragment): EpubCfiFailure? = try {
+        if (ensureInstalledWithinDeadline(navigator)) {
+            null
+        } else {
+            EpubCfiFailure.JAVASCRIPT_RUNTIME_UNAVAILABLE
+        }
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (_: JavascriptRuntimeTimeoutException) {
+        EpubCfiFailure.JAVASCRIPT_RUNTIME_TIMEOUT
+    } catch (_: JavascriptResultTooLargeException) {
+        EpubCfiFailure.JAVASCRIPT_RESULT_TOO_LARGE
+    } catch (_: Exception) {
+        EpubCfiFailure.JAVASCRIPT_RUNTIME_UNAVAILABLE
+    }
+
+    suspend fun invoke(
         navigator: EpubNavigatorFragment,
         method: String,
         arguments: List<JavascriptArgument>
@@ -171,56 +194,126 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
             ",",
             transform = JavascriptArgument::source
         )
-        val script = "JSON.stringify(window.__secondPassEpubCfi.$method($serializedArguments));"
-        val envelope = if (hasRuntime(navigator)) {
-            evaluateEnvelope(navigator, script)
-        } else {
-            null
+        val script = boundedInvocationScript(method, serializedArguments)
+        val evaluation: ReadiumCfiJavascriptResult<JSONObject?> = try {
+            ReadiumCfiJavascriptResult.Success(
+                if (ensureInstalledWithinDeadline(navigator)) {
+                    evaluateEnvelope(navigator, script)
+                } else {
+                    null
+                }
+            )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: JavascriptRuntimeTimeoutException) {
+            ReadiumCfiJavascriptResult.Failure(
+                EpubCfiFailure.JAVASCRIPT_RUNTIME_TIMEOUT
+            )
+        } catch (_: JavascriptResultTooLargeException) {
+            ReadiumCfiJavascriptResult.Failure(
+                EpubCfiFailure.JAVASCRIPT_RESULT_TOO_LARGE
+            )
+        } catch (_: Exception) {
+            ReadiumCfiJavascriptResult.Success(null)
         }
-        return when {
-            envelope == null -> ReadiumCfiJavascriptResult.Failure(
-                EpubCfiFailure.JAVASCRIPT_RUNTIME_UNAVAILABLE
-            )
-
-            !envelope.optBoolean("ok") -> {
-                val errorCode = envelope.optJSONObject("error")?.optString("code").orEmpty()
-                ReadiumCfiJavascriptResult.Failure(errorCode.toCfiFailure())
-            }
-
-            else -> ReadiumCfiJavascriptResult.Success(
-                envelope.opt("value").takeUnless { it === JSONObject.NULL }
-            )
+        return when (evaluation) {
+            is ReadiumCfiJavascriptResult.Failure -> evaluation
+            is ReadiumCfiJavascriptResult.Success -> evaluation.value.toInvocationResult()
         }
     }
 
-    private suspend fun hasRuntime(navigator: EpubNavigatorFragment): Boolean = try {
-        ensureInstalled(navigator)
-    } catch (cancelled: CancellationException) {
-        throw cancelled
-    } catch (_: Exception) {
-        false
+    private fun JSONObject?.toInvocationResult(): ReadiumCfiJavascriptResult<Any?> = when {
+        this == null -> ReadiumCfiJavascriptResult.Failure(
+            EpubCfiFailure.JAVASCRIPT_RUNTIME_UNAVAILABLE
+        )
+
+        !optBoolean("ok") -> {
+            val errorCode = optJSONObject("error")?.optString("code").orEmpty()
+            ReadiumCfiJavascriptResult.Failure(errorCode.toCfiFailure())
+        }
+
+        else -> ReadiumCfiJavascriptResult.Success(
+            opt("value").takeUnless { it === JSONObject.NULL }
+        )
+    }
+
+    private fun boundedInvocationScript(method: String, serializedArguments: String): String =
+        """
+        (() => {
+          const envelope = JSON.stringify(
+            window.__secondPassEpubCfi.$method($serializedArguments)
+          );
+          return envelope.length <= $MAX_RUNTIME_ENVELOPE_LENGTH
+            ? envelope
+            : JSON.stringify({ ok: false, error: { code: "RESULT_TOO_LARGE" } });
+        })();
+        """.trimIndent()
+
+    private suspend fun ensureInstalledWithinDeadline(navigator: EpubNavigatorFragment): Boolean {
+        if (readInstalledRuntimeVersion(navigator) == RUNTIME_VERSION) return true
+        val installed = evaluateJavascriptWithin(
+            navigator = navigator,
+            script = "$installationScript\nwindow.__secondPassEpubCfi.runtimeVersion();",
+            timeoutMillis = JAVASCRIPT_INSTALL_TIMEOUT_MILLIS
+        )
+        return installed.decodeJavascriptString() == RUNTIME_VERSION
     }
 
     private suspend fun evaluateEnvelope(
         navigator: EpubNavigatorFragment,
         script: String
     ): JSONObject? = try {
-        val evaluated = navigator.evaluateJavascript(script)
+        val evaluated = evaluateJavascriptWithin(
+            navigator,
+            script,
+            JAVASCRIPT_CALL_TIMEOUT_MILLIS
+        ) ?: return null
+        if (evaluated.length > MAX_EVALUATED_RESULT_LENGTH) {
+            throw JavascriptResultTooLargeException()
+        }
         val json = JSONTokener(evaluated).nextValue() as? String
             ?: error("CFI runtime did not return JSON.")
+        if (json.length > MAX_RUNTIME_ENVELOPE_LENGTH) {
+            throw JavascriptResultTooLargeException()
+        }
         JSONObject(json)
     } catch (cancelled: CancellationException) {
         throw cancelled
+    } catch (tooLarge: JavascriptResultTooLargeException) {
+        throw tooLarge
     } catch (_: Exception) {
         null
     }
 }
 
 private suspend fun readInstalledRuntimeVersion(navigator: EpubNavigatorFragment): String? =
-    navigator.evaluateJavascript(
-        "window.__secondPassEpubCfi && " +
-            "window.__secondPassEpubCfi.runtimeVersion();"
+    evaluateJavascriptWithin(
+        navigator = navigator,
+        script = "window.__secondPassEpubCfi && " +
+            "window.__secondPassEpubCfi.runtimeVersion();",
+        timeoutMillis = JAVASCRIPT_CALL_TIMEOUT_MILLIS
     ).decodeJavascriptString()
+
+private suspend fun evaluateJavascriptWithin(
+    navigator: EpubNavigatorFragment,
+    script: String,
+    timeoutMillis: Long
+): String? {
+    val result = withTimeoutOrNull(timeoutMillis) {
+        JavascriptEvaluation(navigator.evaluateJavascript(script))
+    } ?: throw JavascriptRuntimeTimeoutException()
+    return result.value?.also { value ->
+        if (value.length > MAX_EVALUATED_RESULT_LENGTH) {
+            throw JavascriptResultTooLargeException()
+        }
+    }
+}
+
+private data class JavascriptEvaluation(val value: String?)
+
+private class JavascriptRuntimeTimeoutException : RuntimeException()
+
+private class JavascriptResultTooLargeException : RuntimeException()
 
 internal data class ReadiumPackageTarget(
     val spineIndex: Int,
@@ -309,6 +402,7 @@ private val CFI_FAILURES_BY_CODE = mapOf(
     "UNSUPPORTED_FIXED_LAYOUT" to EpubCfiFailure.UNSUPPORTED_FIXED_LAYOUT,
     "UNSUPPORTED_SCROLL_MODE" to EpubCfiFailure.UNSUPPORTED_SCROLL_MODE,
     "UNSUPPORTED_WRITING_MODE" to EpubCfiFailure.UNSUPPORTED_WRITING_MODE,
+    "RESULT_TOO_LARGE" to EpubCfiFailure.JAVASCRIPT_RESULT_TOO_LARGE,
     "DOM_TARGET_NOT_FOUND" to EpubCfiFailure.DOM_TARGET_NOT_FOUND,
     "INVALID_RANGE" to EpubCfiFailure.INVALID_RANGE,
     "SELECTION_UNAVAILABLE" to EpubCfiFailure.SELECTION_UNAVAILABLE,
@@ -333,7 +427,9 @@ private fun readContentResolution(value: Any?): ReadiumContentResolution {
     val kind = resolution.getString("kind").also {
         require(it == "point" || it == "range")
     }
-    val selectedText = resolution.nullableString("selectedText")
+    val selectedText = resolution.nullableString("selectedText")?.also {
+        require(it.length <= MAX_SELECTED_TEXT_LENGTH)
+    }
     require(
         (kind == "point" && selectedText == null) ||
             (kind == "range" && selectedText != null)

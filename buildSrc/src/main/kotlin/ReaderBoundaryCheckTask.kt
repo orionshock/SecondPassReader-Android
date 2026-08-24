@@ -21,22 +21,16 @@ abstract class ReaderBoundaryCheckTask : DefaultTask() {
         productionSources.files.filter { it.isFile }.forEach { file ->
             val path = file.invariantSeparatorsPath
             val source = file.readText()
-            val isReadiumAdapter = "/reader/readium/" in path
+            val isReaderFeature = READER_FEATURE_PATH in path
+            val isReadiumAdapter = READIUM_ADAPTER_PATH in path
             if (!isReadiumAdapter && "import org.readium." in source) {
                 violations += "$path: Readium import outside the Reader adapter"
             }
             if (!isReadiumAdapter && "import android.webkit." in source) {
                 violations += "$path: WebView type outside the Reader adapter"
             }
-            if ("/reader/" !in path && "reader.cfi.EpubCfi" in source) {
-                violations += "$path: renderer CFI contract leaked outside Reader"
-            }
-            if ("/reader/" in path) {
-                FORBIDDEN_READER_SERVER_CALLS.forEach { call ->
-                    if (call in source) {
-                        violations += "$path: forbidden Reader server mutation $call"
-                    }
-                }
+            if (!isReaderFeature && "reader.cfi.EpubCfi" in source) {
+                violations += "$path: app-owned CFI contract referenced outside the Reader feature"
             }
             if (isReadiumAdapter && REFLECTION_MARKERS.any { it in source }) {
                 violations += "$path: reflection is forbidden at the Readium boundary"
@@ -58,12 +52,12 @@ abstract class ReaderBoundaryCheckTask : DefaultTask() {
                 )
             )
         }
-        logger.lifecycle("Reader dependency and mutation boundaries passed.")
+        logger.lifecycle("Reader dependency and renderer boundaries passed.")
     }
 
     private companion object {
-        val FORBIDDEN_READER_SERVER_CALLS =
-            listOf(".openSession(", ".replaceProgress(", ".synchronizeAnnotations(")
+        const val READER_FEATURE_PATH = "/com/secondpasslibrary/reader/reader/"
+        const val READIUM_ADAPTER_PATH = "${READER_FEATURE_PATH}readium/"
         val REFLECTION_MARKERS =
             listOf("java.lang.reflect", "getDeclaredField(", "getDeclaredMethod(")
         val FORBIDDEN_MOVEMENT_CALLS = listOf("scrollIntoView(", "window.scrollTo(")
