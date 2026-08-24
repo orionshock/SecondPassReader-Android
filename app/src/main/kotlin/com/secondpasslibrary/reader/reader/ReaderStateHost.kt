@@ -4,6 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.secondpasslibrary.reader.connection.ConnectionProfile
@@ -33,5 +35,12 @@ internal fun ReaderStateHost(
             }
         }
     }
-    ReaderScreen(state, onBack, viewModel::retry)
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
+        viewModel.flushForBackground()
+    }
+    ReaderScreen(
+        state = state,
+        onBack = { viewModel.flushThenExit(onBack) },
+        onRetry = viewModel::retry
+    )
 }

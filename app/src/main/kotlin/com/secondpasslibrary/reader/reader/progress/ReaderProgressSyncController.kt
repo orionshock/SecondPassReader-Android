@@ -5,6 +5,7 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 internal data class ReaderProgressSyncState(
     val sessionId: String,
@@ -23,6 +25,17 @@ internal data class ReaderProgressSyncState(
     val dirty: Boolean,
     val lastFailure: ReaderProgressSyncFailure?
 )
+
+internal enum class ReaderProgressFlushResult {
+    FLUSHED,
+    CLEAN,
+    NOT_WRITABLE,
+    AUTHORITY_UNAVAILABLE,
+    FAILED,
+    OWNERSHIP_CHANGED,
+    TIMED_OUT,
+    DISPOSED
+}
 
 /** Coalesces captured progress and serializes authoritative Session progress replacement. */
 @Suppress("TooManyFunctions") // Explicit event handlers keep one serialized sync state machine.
@@ -40,6 +53,7 @@ internal class ReaderProgressSyncController(
     private var progressJob: Job? = null
     private var timerJob: Job? = null
     private var writeJob: Job? = null
+    private val flushWaiters = mutableListOf<CompletableDeferred<ReaderProgressFlushResult>>()
 
     fun start(profile: ConnectionProfile, progress: StateFlow<ReaderProgressState?>) {
         progressJob?.cancel()
@@ -53,6 +67,16 @@ internal class ReaderProgressSyncController(
     fun setAuthorityAvailable(available: Boolean) {
         authorityAllowed.set(available)
         events.trySend(SyncEvent.AuthorityChanged(available))
+    }
+
+    suspend fun flushLatest(): ReaderProgressFlushResult {
+        val waiter = CompletableDeferred<ReaderProgressFlushResult>()
+        if (events.trySend(SyncEvent.Flush(waiter)).isFailure) {
+            return ReaderProgressFlushResult.DISPOSED
+        }
+        val result = withTimeoutOrNull(PROGRESS_FLUSH_TIMEOUT_MILLIS) { waiter.await() }
+        if (result == null) waiter.cancel()
+        return result ?: ReaderProgressFlushResult.TIMED_OUT
     }
 
     fun reset() {
@@ -78,9 +102,11 @@ internal class ReaderProgressSyncController(
                 is SyncEvent.Reset -> reset(model, event.bindingId)
                 is SyncEvent.AuthorityChanged -> authorityChanged(model, event.available)
                 is SyncEvent.Candidate -> acceptCandidate(model, event)
+                is SyncEvent.Flush -> flush(model, event.waiter)
                 is SyncEvent.TimerElapsed -> timerElapsed(model, event)
                 is SyncEvent.WriteCompleted -> writeCompleted(model, event)
             }
+            settleFlushWaiters(model, event)
             publish(model)
         }
     }
@@ -104,10 +130,27 @@ internal class ReaderProgressSyncController(
         return if (available) pump(updated) else updated
     }
 
+    private fun flush(
+        current: SyncModel,
+        waiter: CompletableDeferred<ReaderProgressFlushResult>
+    ): SyncModel {
+        flushWaiters.removeAll { !it.isActive }
+        val immediate = current.flushBlocker()
+        if (immediate != null) {
+            waiter.complete(immediate)
+            return current
+        }
+        flushWaiters += waiter
+        timerJob?.cancel()
+        timerJob = null
+        return pump(current.copy(eligibleVersion = current.latestVersion))
+    }
+
     private fun acceptCandidate(current: SyncModel, event: SyncEvent.Candidate): SyncModel {
         val candidate = event.progress?.takeIf { event.bindingId == current.bindingId }
             ?: return current
         val base = if (current.sessionId != null && current.sessionId != candidate.sessionId) {
+            completeFlushWaiters(ReaderProgressFlushResult.OWNERSHIP_CHANGED)
             cancelPendingWork()
             current.copy(
                 sessionId = candidate.sessionId,
@@ -116,15 +159,19 @@ internal class ReaderProgressSyncController(
                 syncedVersion = 0,
                 eligibleVersion = null,
                 inFlightVersion = null,
+                sessionActive = candidate.sessionStatus == ReaderSessionStatus.ACTIVE,
                 lastFailure = null
             )
         } else {
-            current
+            current.copy(sessionActive = candidate.sessionStatus == ReaderSessionStatus.ACTIVE)
         }
         val cfi = candidate.latestCandidate
         return when {
-            candidate.sessionStatus != ReaderSessionStatus.ACTIVE || !candidate.captureEnabled ->
+            candidate.sessionStatus != ReaderSessionStatus.ACTIVE || !candidate.captureEnabled -> {
+                timerJob?.cancel()
+                timerJob = null
                 base.withSession(candidate.sessionId)
+            }
 
             cfi == null -> base.withSession(candidate.sessionId)
 
@@ -169,7 +216,13 @@ internal class ReaderProgressSyncController(
                 }
             }
         }
-        return if (event.outcome is ReaderProgressWriteOutcome.Success) pump(updated) else updated
+        val flushHasNewerCandidate = flushWaiters.any { it.isActive } &&
+            updated.latestVersion > event.version
+        return if (event.outcome is ReaderProgressWriteOutcome.Success || flushHasNewerCandidate) {
+            pump(updated.copy(eligibleVersion = updated.latestVersion))
+        } else {
+            updated
+        }
     }
 
     private fun scheduleTimer(model: SyncModel) {
@@ -198,6 +251,36 @@ internal class ReaderProgressSyncController(
         mutableState.value = model.toState()
     }
 
+    private fun settleFlushWaiters(model: SyncModel, event: SyncEvent) {
+        flushWaiters.removeAll { !it.isActive }
+        val result = when {
+            event is SyncEvent.Bind || event is SyncEvent.Reset ->
+                ReaderProgressFlushResult.OWNERSHIP_CHANGED
+
+            !model.authorityAvailable || !authorityAllowed.get() ->
+                ReaderProgressFlushResult.AUTHORITY_UNAVAILABLE
+
+            !model.sessionActive -> ReaderProgressFlushResult.NOT_WRITABLE
+
+            model.latestVersion <= model.syncedVersion && model.inFlightVersion == null ->
+                ReaderProgressFlushResult.FLUSHED
+
+            event is SyncEvent.WriteCompleted &&
+                event.outcome is ReaderProgressWriteOutcome.Failure &&
+                model.inFlightVersion == null -> ReaderProgressFlushResult.FAILED
+
+            else -> null
+        }
+        if (result != null) {
+            completeFlushWaiters(result)
+        }
+    }
+
+    private fun completeFlushWaiters(result: ReaderProgressFlushResult) {
+        flushWaiters.forEach { it.complete(result) }
+        flushWaiters.clear()
+    }
+
     private fun cancelPendingWork() {
         timerJob?.cancel()
         timerJob = null
@@ -215,6 +298,7 @@ internal class ReaderProgressSyncController(
         val syncedVersion: Long = 0,
         val eligibleVersion: Long? = null,
         val inFlightVersion: Long? = null,
+        val sessionActive: Boolean = false,
         val lastFailure: ReaderProgressSyncFailure? = null
     ) {
         fun withSession(nextSessionId: String): SyncModel = if (sessionId == null) {
@@ -235,7 +319,8 @@ internal class ReaderProgressSyncController(
         }
 
         fun submission(authorityAllowed: Boolean, writeActive: Boolean): ProgressSubmission? {
-            val canReachServer = authorityAvailable && authorityAllowed && !writeActive
+            val canReachServer = authorityAvailable && authorityAllowed && sessionActive &&
+                !writeActive
             val hasEligibleProgress = eligibleVersion == latestVersion &&
                 latestVersion > syncedVersion
             return if (canReachServer && hasEligibleProgress) {
@@ -249,6 +334,14 @@ internal class ReaderProgressSyncController(
             } else {
                 null
             }
+        }
+
+        fun flushBlocker(): ReaderProgressFlushResult? = when {
+            sessionId == null -> ReaderProgressFlushResult.CLEAN
+            !sessionActive -> ReaderProgressFlushResult.NOT_WRITABLE
+            latestVersion <= syncedVersion -> ReaderProgressFlushResult.CLEAN
+            !authorityAvailable -> ReaderProgressFlushResult.AUTHORITY_UNAVAILABLE
+            else -> null
         }
     }
 
@@ -264,6 +357,7 @@ internal class ReaderProgressSyncController(
         data class Reset(val bindingId: Long) : SyncEvent
         data class AuthorityChanged(val available: Boolean) : SyncEvent
         data class Candidate(val bindingId: Long, val progress: ReaderProgressState?) : SyncEvent
+        data class Flush(val waiter: CompletableDeferred<ReaderProgressFlushResult>) : SyncEvent
         data class TimerElapsed(val bindingId: Long, val version: Long) : SyncEvent
         data class WriteCompleted(
             val bindingId: Long,
@@ -274,5 +368,6 @@ internal class ReaderProgressSyncController(
 
     private companion object {
         const val PROGRESS_SYNC_WINDOW_MILLIS = 3_000L
+        const val PROGRESS_FLUSH_TIMEOUT_MILLIS = 1_500L
     }
 }

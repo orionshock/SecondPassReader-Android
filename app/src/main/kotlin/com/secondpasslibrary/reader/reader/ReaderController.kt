@@ -60,7 +60,8 @@ internal class ReaderController(
     private val engineOpener: ReaderEngineOpener,
     private val sessionCoordinator: ReaderSessionCoordinator,
     progressWriter: ReaderProgressWriter,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val progressSyncScope: CoroutineScope = scope
 ) {
     private val mutableState = MutableStateFlow<ReaderState>(ReaderState.Resolving)
     val state = mutableState.asStateFlow()
@@ -69,7 +70,7 @@ internal class ReaderController(
     private val progressController = ReaderProgressController(scope)
     val progress = progressController.state
     private val progressSyncController = ReaderProgressSyncController(
-        scope,
+        progressSyncScope,
         progressWriter,
         onAuthenticationRejected = {
             connectionEventChannel.trySend(ReaderConnectionEvent.AuthenticationRejected)
@@ -99,12 +100,21 @@ internal class ReaderController(
         progressSyncController.setAuthorityAvailable(available)
     }
 
-    fun close() {
+    suspend fun flushLatestProgress() = progressSyncController.flushLatest()
+
+    fun close(onProgressSyncClosed: () -> Unit = {}) {
         job?.cancel()
-        progressSyncController.close()
         progressController.reset()
         closeEngine()
         connectionEventChannel.close()
+        progressSyncScope.launch {
+            try {
+                progressSyncController.flushLatest()
+            } finally {
+                progressSyncController.close()
+                onProgressSyncClosed()
+            }
+        }
     }
 
     private fun load(request: ReaderRequest) {

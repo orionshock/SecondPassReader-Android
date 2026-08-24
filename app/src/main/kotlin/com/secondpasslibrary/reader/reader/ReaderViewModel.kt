@@ -9,6 +9,11 @@ import com.secondpasslibrary.reader.reader.progress.SplReaderProgressWriter
 import com.secondpasslibrary.reader.reader.session.SplReaderSessionCoordinator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 @HiltViewModel
 internal class ReaderViewModel @Inject constructor(
@@ -17,14 +22,18 @@ internal class ReaderViewModel @Inject constructor(
     sessionCoordinator: SplReaderSessionCoordinator,
     progressWriter: SplReaderProgressWriter
 ) : ViewModel() {
+    private val progressSyncJob = SupervisorJob()
+    private val progressSyncScope = CoroutineScope(progressSyncJob + Dispatchers.IO)
     private val controller =
         ReaderController(
             assetResolver,
             engineOpener,
             sessionCoordinator,
             progressWriter,
-            viewModelScope
+            viewModelScope,
+            progressSyncScope
         )
+    private var exitJob: Job? = null
 
     val state = controller.state
     val progress = controller.progress
@@ -42,5 +51,17 @@ internal class ReaderViewModel @Inject constructor(
 
     fun setAuthorityAvailable(available: Boolean) = controller.setAuthorityAvailable(available)
 
-    override fun onCleared() = controller.close()
+    fun flushForBackground() {
+        viewModelScope.launch { controller.flushLatestProgress() }
+    }
+
+    fun flushThenExit(onExit: () -> Unit) {
+        if (exitJob?.isActive == true) return
+        exitJob = viewModelScope.launch {
+            controller.flushLatestProgress()
+            onExit()
+        }
+    }
+
+    override fun onCleared() = controller.close { progressSyncJob.cancel() }
 }
