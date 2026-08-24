@@ -9,6 +9,8 @@ import io.ktor.client.request.HttpResponseData
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import java.io.ByteArrayOutputStream
+import java.io.IOException
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -18,6 +20,108 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LibraryBooksClientTest {
+    @Test
+    fun `book asset download uses authoritative reference bearer and streams bytes`() =
+        runBlocking {
+            val requests = mutableListOf<HttpRequestData>()
+            val client = authenticatedClient { request ->
+                requests += request
+                if (request.url.encodedPath.endsWith("/download/")) {
+                    respond(byteArrayOf(0x50, 0x4b, 0x03, 0x04))
+                } else {
+                    jsonResponse(BOOK_DETAIL)
+                }
+            }
+            val detail = client.library.books.getBook("book-1")
+            val destination = ByteArrayOutputStream()
+
+            client.library.books.downloadBook(requireNotNull(detail.file).download, destination)
+
+            assertEquals(
+                "/api/v1/library/books/book-1/download/",
+                requests.last().url.encodedPath
+            )
+            assertEquals("Bearer spl_secret", requests.last().headers[HttpHeaders.Authorization])
+            assertTrue(destination.toByteArray().contentEquals(byteArrayOf(0x50, 0x4b, 0x03, 0x04)))
+        }
+
+    @Test
+    fun `book asset download rejects a reference on another origin before transport`() =
+        runBlocking {
+            var requestCount = 0
+            val client = authenticatedClient {
+                requestCount += 1
+                jsonResponse(
+                    BOOK_DETAIL.replace(
+                        "https://library.example/api/v1/library/books/book-1/download/",
+                        "https://assets.example/book-1.epub"
+                    )
+                )
+            }
+            val detail = client.library.books.getBook("book-1")
+
+            assertThrows(SplClientException.ProtocolInvalid::class.java) {
+                runBlocking {
+                    client.library.books.downloadBook(
+                        requireNotNull(detail.file).download,
+                        ByteArrayOutputStream()
+                    )
+                }
+            }
+            assertEquals(1, requestCount)
+        }
+
+    @Test
+    fun `book asset download preserves authentication and request failure taxonomy`() =
+        runBlocking {
+            suspend fun downloadFailure(status: HttpStatusCode): Throwable {
+                val client = authenticatedClient { request ->
+                    if (request.url.encodedPath.endsWith("/download/")) {
+                        jsonResponse("{\"detail\":\"failure\"}", status)
+                    } else {
+                        jsonResponse(BOOK_DETAIL)
+                    }
+                }
+                val detail = client.library.books.getBook("book-1")
+                return runCatching {
+                    client.library.books.downloadBook(
+                        requireNotNull(detail.file).download,
+                        ByteArrayOutputStream()
+                    )
+                }.exceptionOrNull() ?: error("Expected download failure.")
+            }
+
+            assertTrue(
+                downloadFailure(HttpStatusCode.Unauthorized) is
+                    SplClientException.AuthenticationRejected
+            )
+            assertTrue(
+                downloadFailure(HttpStatusCode.InternalServerError) is
+                    SplClientException.AuthenticatedRequestFailed
+            )
+        }
+
+    @Test
+    fun `book asset transport failure maps to server unreachable`() = runBlocking {
+        val client = authenticatedClient { request ->
+            if (request.url.encodedPath.endsWith("/download/")) {
+                throw IOException("network unavailable")
+            }
+            jsonResponse(BOOK_DETAIL)
+        }
+        val detail = client.library.books.getBook("book-1")
+
+        assertThrows(SplClientException.ServerUnreachable::class.java) {
+            runBlocking {
+                client.library.books.downloadBook(
+                    requireNotNull(detail.file).download,
+                    ByteArrayOutputStream()
+                )
+            }
+        }
+        Unit
+    }
+
     @Test
     fun `book detail maps ordered metadata nullable file and authenticated reference`() =
         runBlocking {

@@ -34,6 +34,7 @@ internal fun BookDetailScreen(
     onAuthorSelected: (String) -> Unit,
     onSeriesSelected: (String) -> Unit,
     onTagSelected: (String, String) -> Unit,
+    onReadBook: () -> Unit,
     onReadingSessions: () -> Unit,
     onAddToShelf: () -> Unit
 ) {
@@ -50,6 +51,7 @@ internal fun BookDetailScreen(
                     onAuthorSelected,
                     onSeriesSelected,
                     onTagSelected,
+                    onReadBook,
                     onReadingSessions,
                     onAddToShelf
                 )
@@ -87,6 +89,7 @@ private fun BookDetailHero(
     onAuthorSelected: (String) -> Unit,
     onSeriesSelected: (String) -> Unit,
     onTagSelected: (String, String) -> Unit,
+    onReadBook: () -> Unit,
     onReadingSessions: () -> Unit,
     onAddToShelf: () -> Unit
 ) {
@@ -103,6 +106,7 @@ private fun BookDetailHero(
                         book,
                         onAuthorSelected,
                         onSeriesSelected,
+                        onReadBook,
                         onReadingSessions,
                         onAddToShelf
                     )
@@ -111,6 +115,7 @@ private fun BookDetailHero(
                         book,
                         onAuthorSelected,
                         onSeriesSelected,
+                        onReadBook,
                         onReadingSessions,
                         onAddToShelf
                     )
@@ -119,6 +124,7 @@ private fun BookDetailHero(
                         book,
                         onAuthorSelected,
                         onSeriesSelected,
+                        onReadBook,
                         onReadingSessions,
                         onAddToShelf
                     )
@@ -142,6 +148,7 @@ private fun BookDetailWideHero(
     book: com.secondpasslibrary.client.LibraryBookDetail,
     onAuthorSelected: (String) -> Unit,
     onSeriesSelected: (String) -> Unit,
+    onReadBook: () -> Unit,
     onReadingSessions: () -> Unit,
     onAddToShelf: () -> Unit
 ) {
@@ -154,8 +161,10 @@ private fun BookDetailWideHero(
             Modifier.weight(1f)
         )
         BookDetailActions(
+            onReadBook,
             onReadingSessions,
             onAddToShelf,
+            readBookEnabled = book.hasReadableEpub,
             BookDetailActionLayout.VERTICAL,
             Modifier.width(184.dp)
         )
@@ -167,6 +176,7 @@ private fun BookDetailMediumHero(
     book: com.secondpasslibrary.client.LibraryBookDetail,
     onAuthorSelected: (String) -> Unit,
     onSeriesSelected: (String) -> Unit,
+    onReadBook: () -> Unit,
     onReadingSessions: () -> Unit,
     onAddToShelf: () -> Unit
 ) {
@@ -184,8 +194,10 @@ private fun BookDetailMediumHero(
             )
         }
         BookDetailActions(
+            onReadBook,
             onReadingSessions,
             onAddToShelf,
+            readBookEnabled = book.hasReadableEpub,
             BookDetailActionLayout.HORIZONTAL
         )
     }
@@ -196,6 +208,7 @@ private fun BookDetailNarrowHero(
     book: com.secondpasslibrary.client.LibraryBookDetail,
     onAuthorSelected: (String) -> Unit,
     onSeriesSelected: (String) -> Unit,
+    onReadBook: () -> Unit,
     onReadingSessions: () -> Unit,
     onAddToShelf: () -> Unit
 ) {
@@ -205,9 +218,14 @@ private fun BookDetailNarrowHero(
         }
         BookDetailMetadata(book, onAuthorSelected, onSeriesSelected)
         BookDetailActions(
+            onReadBook,
             onReadingSessions,
             onAddToShelf,
+            readBookEnabled = book.hasReadableEpub,
             BookDetailActionLayout.HORIZONTAL
         )
     }
 }
+
+private val com.secondpasslibrary.client.LibraryBookDetail.hasReadableEpub: Boolean
+    get() = file?.format.equals("epub", ignoreCase = true)

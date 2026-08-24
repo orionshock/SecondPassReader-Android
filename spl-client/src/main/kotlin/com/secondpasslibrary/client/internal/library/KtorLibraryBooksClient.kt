@@ -1,5 +1,6 @@
 package com.secondpasslibrary.client.internal.library
 
+import com.secondpasslibrary.client.AuthenticatedBookDownloadReference
 import com.secondpasslibrary.client.AuthenticatedLibraryBooksClient
 import com.secondpasslibrary.client.BookListOptions
 import com.secondpasslibrary.client.CompactBook
@@ -10,7 +11,11 @@ import com.secondpasslibrary.client.LibrarySearchOptions
 import com.secondpasslibrary.client.internal.transport.AuthenticatedRequestExecutor
 import com.secondpasslibrary.client.internal.transport.decodeProtocolBody
 import io.ktor.client.call.body
+import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.encodeURLPathPart
+import io.ktor.utils.io.jvm.javaio.toInputStream
+import java.io.IOException
+import java.io.OutputStream
 import kotlinx.serialization.json.Json
 
 internal class KtorLibraryBooksClient(
@@ -24,6 +29,19 @@ internal class KtorLibraryBooksClient(
             response.body(),
             "book detail"
         ).toModel()
+    }
+
+    override suspend fun downloadBook(
+        reference: AuthenticatedBookDownloadReference,
+        destination: OutputStream
+    ) {
+        val response = requests.getAuthorizedReference(reference.url)
+        com.secondpasslibrary.client.internal.transport.requireAuthenticatedSuccess(response)
+        try {
+            response.bodyAsChannel().toInputStream().use { input -> input.copyTo(destination) }
+        } catch (failure: IOException) {
+            throw com.secondpasslibrary.client.SplClientException.ServerUnreachable(failure)
+        }
     }
 
     override suspend fun list(

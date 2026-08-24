@@ -109,6 +109,12 @@ interface AuthenticatedLibraryClient {
 interface AuthenticatedLibraryBooksClient {
     suspend fun getBook(bookId: String): LibraryBookDetail
 
+    /** Streams the server-authorized immutable Book asset into [destination]. */
+    suspend fun downloadBook(
+        reference: AuthenticatedBookDownloadReference,
+        destination: java.io.OutputStream
+    )
+
     suspend fun list(
         scope: LibraryScope = LibraryScope.Global,
         options: BookListOptions = BookListOptions()

@@ -186,6 +186,7 @@ internal fun showsShellTopBar(destination: AppDestination, route: NavKey): Boole
         destination != AppDestination.Shelves &&
         destination != AppDestination.Marginalia &&
         route !is BookDetailRoute &&
+        route !is ReaderRoute &&
         route !is BookMarginaliaRoute &&
         route !is ReadingSessionDetailRoute
 

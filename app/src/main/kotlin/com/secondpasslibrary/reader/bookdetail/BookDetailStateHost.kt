@@ -42,6 +42,7 @@ internal fun BookDetailStateHost(
         onAuthorSelected = { onNavigation(BookDetailNavigationIntent.Author(it)) },
         onSeriesSelected = { onNavigation(BookDetailNavigationIntent.Series(it)) },
         onTagSelected = { id, slug -> onNavigation(BookDetailNavigationIntent.Tag(id, slug)) },
+        onReadBook = { onNavigation(BookDetailNavigationIntent.ReadBook(bookId)) },
         onReadingSessions = {
             onNavigation(BookDetailNavigationIntent.ReadingSessions(bookId))
         },

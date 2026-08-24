@@ -64,6 +64,7 @@ internal fun AccountDestinations(
             registerShelfDetailEntry(environment)
             registerLibraryRouteEntries(environment)
             registerSharedBookDetailEntry(environment)
+            registerReaderEntry(environment)
             registerBookMarginaliaEntry(environment)
             registerReadingSessionDetailEntry(environment)
         }

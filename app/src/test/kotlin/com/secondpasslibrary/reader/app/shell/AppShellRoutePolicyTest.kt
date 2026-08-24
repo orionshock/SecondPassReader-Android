@@ -8,7 +8,7 @@ import org.junit.Test
 
 class AppShellRoutePolicyTest {
     @Test
-    fun `all current routes allow the edge drawer gesture`() {
+    fun `normal shell routes allow the edge drawer gesture`() {
         val routes: List<NavKey> =
             AppDestination.entries +
                 BookDetailRoute("book-1", BookDetailReturnTarget.Home) +
@@ -20,6 +20,13 @@ class AppShellRoutePolicyTest {
                 )
 
         routes.forEach { assertTrue(it.drawerGestureEnabled) }
+    }
+
+    @Test
+    fun `Reader route reserves horizontal gestures`() {
+        val source = BookDetailRoute("book-1", BookDetailReturnTarget.Library)
+
+        assertFalse(ReaderRoute("book-1", source).drawerGestureEnabled)
     }
 
     @Test

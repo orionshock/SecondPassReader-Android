@@ -33,6 +33,11 @@ internal class FakeAuthenticatedLibraryClient(
 private object UnsupportedLibraryBooksClient : AuthenticatedLibraryBooksClient {
     override suspend fun getBook(bookId: String): LibraryBookDetail = unsupported()
 
+    override suspend fun downloadBook(
+        reference: com.secondpasslibrary.client.AuthenticatedBookDownloadReference,
+        destination: java.io.OutputStream
+    ): Unit = unsupported()
+
     override suspend fun list(
         scope: LibraryScope,
         options: BookListOptions

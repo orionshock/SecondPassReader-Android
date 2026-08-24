@@ -179,8 +179,13 @@ internal data class BookDetailActionPresentation(
     val enabled: Boolean
 )
 
-internal fun bookDetailActionPresentations() = listOf(
-    BookDetailActionPresentation(BookDetailActionKind.READ_BOOK, "Read book", AppIcon.Book, false),
+internal fun bookDetailActionPresentations(readBookEnabled: Boolean = false) = listOf(
+    BookDetailActionPresentation(
+        BookDetailActionKind.READ_BOOK,
+        "Read book",
+        AppIcon.Book,
+        readBookEnabled
+    ),
     BookDetailActionPresentation(
         BookDetailActionKind.READING_SESSIONS,
         "Reading sessions",
@@ -197,17 +202,19 @@ internal fun bookDetailActionPresentations() = listOf(
 
 @Composable
 internal fun BookDetailActions(
+    onReadBook: () -> Unit,
     onReadingSessions: () -> Unit,
     onAddToShelf: () -> Unit,
+    readBookEnabled: Boolean,
     layout: BookDetailActionLayout,
     modifier: Modifier = Modifier
 ) {
     val callbacks = mapOf(
-        BookDetailActionKind.READ_BOOK to {},
+        BookDetailActionKind.READ_BOOK to onReadBook,
         BookDetailActionKind.READING_SESSIONS to onReadingSessions,
         BookDetailActionKind.ADD_TO_SHELF to onAddToShelf
     )
-    val actions = bookDetailActionPresentations()
+    val actions = bookDetailActionPresentations(readBookEnabled)
     if (layout == BookDetailActionLayout.VERTICAL) {
         Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
             actions.forEach { action ->

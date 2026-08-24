@@ -199,6 +199,22 @@ class AppNavigatorTest {
     }
 
     @Test
+    fun `Reader is pushed on its Book Detail origin stack and Back restores Book Detail`() {
+        val navigation = appNavigationStateForTest(AppDestination.Library)
+        val navigator = AppNavigator(navigation)
+        val source = BookDetailRoute("book-1", BookDetailReturnTarget.Library)
+        navigation.push(source)
+
+        navigator.handleBookDetailNavigation(BookDetailNavigationIntent.ReadBook("book-1"), source)
+
+        assertEquals(ReaderRoute("book-1", source), navigation.currentRoute)
+        assertEquals(AppDestination.Library, navigation.currentRoute.topLevelDestination())
+        assertFalse(showsShellTopBar(AppDestination.Library, navigation.currentRoute))
+        assertTrue(navigator.goBack())
+        assertEquals(source, navigation.currentRoute)
+    }
+
+    @Test
     fun `Home details stay on Home stack with typed return context`() {
         val navigation = appNavigationStateForTest()
         val navigator = AppNavigator(navigation)

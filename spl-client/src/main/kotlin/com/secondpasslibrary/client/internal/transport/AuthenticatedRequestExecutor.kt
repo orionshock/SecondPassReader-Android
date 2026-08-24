@@ -43,6 +43,14 @@ internal class AuthenticatedRequestExecutor(
         throw SplClientException.ServerUnreachable(failure)
     }
 
+    suspend fun getAuthorizedReference(url: String): HttpResponse = try {
+        httpClient.get(requireSameOriginHttpUrl(url, apiBaseUrl, "book download")) {
+            credential.useSecret { token -> header(HttpHeaders.Authorization, "Bearer $token") }
+        }
+    } catch (failure: IOException) {
+        throw SplClientException.ServerUnreachable(failure)
+    }
+
     suspend fun post(path: String, body: String, idempotencyKey: String? = null): HttpResponse =
         mutationRequest(HttpMethod.Post, path, body, idempotencyKey)
 

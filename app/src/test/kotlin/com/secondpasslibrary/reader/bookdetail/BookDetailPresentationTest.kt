@@ -109,6 +109,13 @@ class BookDetailPresentationTest {
     }
 
     @Test
+    fun `Read book becomes enabled only when the Reader entry is available`() {
+        val actions = bookDetailActionPresentations(readBookEnabled = true).associateBy { it.kind }
+
+        assertTrue(requireNotNull(actions[BookDetailActionKind.READ_BOOK]).enabled)
+    }
+
+    @Test
     fun `file sizes use bounded human readable binary units`() {
         assertEquals("0 B", fileSizeLabel(0))
         assertEquals("1 KiB", fileSizeLabel(1024))

@@ -86,6 +86,11 @@ internal class FakeLibraryClient :
     override suspend fun getBook(bookId: String): com.secondpasslibrary.client.LibraryBookDetail =
         error("Book detail is outside this fixture.")
 
+    override suspend fun downloadBook(
+        reference: com.secondpasslibrary.client.AuthenticatedBookDownloadReference,
+        destination: java.io.OutputStream
+    ) = error("Book download is outside this fixture.")
+
     override suspend fun list(
         scope: LibraryScope,
         options: BookListOptions

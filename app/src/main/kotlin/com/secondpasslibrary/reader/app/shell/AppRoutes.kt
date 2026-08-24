@@ -62,6 +62,18 @@ enum class ShelfCollectionOrigin {
 data class BookDetailRoute(val bookId: String, val returnTarget: BookDetailReturnTarget) : NavKey
 
 @Serializable
+data class ReaderRoute(val bookId: String, val source: BookDetailRoute) :
+    NavKey,
+    AppShellDrawerGesturePolicy {
+    init {
+        require(bookId.isNotBlank()) { "Book ID must not be blank." }
+        require(source.bookId == bookId) { "Reader Book must match its Book Detail source." }
+    }
+
+    override val drawerGestureEnabled: Boolean = false
+}
+
+@Serializable
 sealed interface MarginaliaReturnTarget {
     @Serializable
     data class BookDetail(val route: BookDetailRoute) : MarginaliaReturnTarget
@@ -103,6 +115,8 @@ internal fun NavKey.topLevelDestination(): AppDestination = when (this) {
     is ShelfDetailRoute -> AppDestination.Shelves
 
     is BookDetailRoute -> returnTarget.topLevelDestination()
+
+    is ReaderRoute -> source.topLevelDestination()
 
     is BookMarginaliaRoute -> when (val target = returnTarget) {
         is MarginaliaReturnTarget.BookDetail -> target.route.topLevelDestination()

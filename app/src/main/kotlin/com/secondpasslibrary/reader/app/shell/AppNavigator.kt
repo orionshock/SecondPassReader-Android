@@ -65,6 +65,13 @@ internal class AppNavigator(private val navigation: AppNavigationState) {
             is BookDetailNavigationIntent.ReadingSessions ->
                 openBookMarginalia(intent.bookId, source)
 
+            is BookDetailNavigationIntent.ReadBook -> {
+                require(intent.bookId == source.bookId) {
+                    "Reader Book must match its Book Detail source."
+                }
+                navigation.push(ReaderRoute(intent.bookId, source))
+            }
+
             BookDetailNavigationIntent.ManageShelves -> {
                 navigation.removeTop(source)
                 navigation.replace(AppDestination.Shelves)
