@@ -1,7 +1,7 @@
 (function installSecondPassEpubCfiRuntime(global) {
     "use strict";
 
-    const RUNTIME_VERSION = "1.10.0";
+    const RUNTIME_VERSION = "1.11.0";
     const CONTEXT_LENGTH = 64;
     const MOVEMENT_QUOTE_LENGTH = 128;
     const existing = global.__secondPassEpubCfi;
@@ -83,8 +83,7 @@
             return indexes;
         }, []);
         if (indirectionIndexes.length !== 1 ||
-            indirectionIndexes[0] === 0 ||
-            indirectionIndexes[0] === localPaths.length - 1) {
+            indirectionIndexes[0] === 0) {
             throw new Error("UNSUPPORTED_CFI_FEATURE");
         }
         const kind = targetKind(root);
@@ -838,7 +837,7 @@
             postLength: CONTEXT_LENGTH,
             snapToWordBoundaries: false
         });
-        builder.appendTerminalDomRange(snapshotRange);
+        builder.appendTerminalDomRange(rangeForCfiBuilder(snapshotRange));
         const contentCfi = builder.toString();
         parseCfi(contentCfi);
         return {
@@ -846,6 +845,32 @@
             selectedText: context.selectedText,
             prefix: context.prefix,
             suffix: context.suffix
+        };
+    }
+
+    /*
+     * Colibrio 1.1.0 emits an invalid compact range when a DOM Range's common
+     * ancestor is itself a text node (`/1,:start,:end`). Supplying the same
+     * boundaries with their parent element as the common ancestor produces the
+     * standards-shaped equivalent (`,/1:start,/1:end`) without altering the
+     * selected content or offsets.
+     */
+    function rangeForCfiBuilder(range) {
+        const commonAncestor = range.commonAncestorContainer;
+        if (!isCharacterData(commonAncestor)) {
+            return range;
+        }
+        const parent = commonAncestor.parentElement;
+        if (!parent) {
+            throw new Error("DOM_TARGET_NOT_FOUND");
+        }
+        return {
+            collapsed: range.collapsed,
+            startContainer: range.startContainer,
+            startOffset: range.startOffset,
+            endContainer: range.endContainer,
+            endOffset: range.endOffset,
+            commonAncestorContainer: parent
         };
     }
 
