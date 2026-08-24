@@ -1,6 +1,7 @@
 package com.secondpasslibrary.reader.reader.readium.cfi
 
 import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -33,7 +34,15 @@ internal class ReadiumCfiNavigatorBinding(private val runtime: ReadiumCfiJavascr
             navigator.currentLocator
                 .map { it.href }
                 .distinctUntilChanged()
-                .collectLatest { runtime.ensureInstalled(navigator) }
+                .collectLatest {
+                    try {
+                        runtime.ensureInstalled(navigator)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        // The next explicit CFI operation retries installation and reports failure.
+                    }
+                }
         }
     }
 
@@ -48,8 +57,13 @@ internal class ReadiumCfiNavigatorBinding(private val runtime: ReadiumCfiJavascr
         block: suspend (EpubNavigatorFragment, ReadiumCfiJavascriptRuntime) -> T
     ): T? {
         val lease = synchronized(lock) { current } ?: return null
-        return lease.scope.async { block(lease.navigator, runtime) }.await().also {
-            checkCurrent(lease)
+        val operation = lease.scope.async { block(lease.navigator, runtime) }
+        return try {
+            operation.await().takeIf { isCurrent(lease) }
+        } catch (cancelled: CancellationException) {
+            if (isCurrent(lease)) throw cancelled else null
+        } finally {
+            if (!operation.isCompleted) operation.cancel()
         }
     }
 
@@ -62,11 +76,8 @@ internal class ReadiumCfiNavigatorBinding(private val runtime: ReadiumCfiJavascr
         removed?.scope?.cancel()
     }
 
-    private fun checkCurrent(lease: Lease) {
-        val isCurrent = synchronized(lock) {
-            !closed && current?.generation == lease.generation
-        }
-        check(isCurrent) { "The CFI navigator binding changed during the operation." }
+    private fun isCurrent(lease: Lease): Boolean = synchronized(lock) {
+        !closed && current?.generation == lease.generation
     }
 
     private data class Lease(
