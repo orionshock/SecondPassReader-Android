@@ -34,6 +34,7 @@ internal fun ReadingHistorySection(
     showClosed: Boolean,
     onShowClosedChanged: (Boolean) -> Unit,
     onRetry: () -> Unit,
+    onPrimaryAction: (OpenReaderIntent) -> Unit,
     onContextAction: (HomeNavigationIntent) -> Unit,
     onViewAll: () -> Unit
 ) {
@@ -70,7 +71,11 @@ internal fun ReadingHistorySection(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(content.items, key = { it.sessionId }) { item ->
-                    ReadingHistoryCard(HomePresenter.readingHistory(item), onContextAction)
+                    ReadingHistoryCard(
+                        HomePresenter.readingHistory(item),
+                        onPrimaryAction,
+                        onContextAction
+                    )
                 }
             }
         }

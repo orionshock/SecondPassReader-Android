@@ -36,11 +36,16 @@ private const val COVER_SCRIM_START = 0.3f
 @Composable
 internal fun ReadingHistoryCard(
     model: ReadingHistoryCardModel,
+    onPrimaryAction: (OpenReaderIntent) -> Unit,
     onContextAction: (HomeNavigationIntent) -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     Box {
-        ReadingHistoryCardSurface(model) { menuExpanded = true }
+        ReadingHistoryCardSurface(
+            model,
+            onClick = { model.primaryIntent?.let(onPrimaryAction) },
+            onLongClick = { menuExpanded = true }
+        )
         AnchoredOverflowMenu(
             items = model.contextActions,
             expanded = menuExpanded,
@@ -54,14 +59,19 @@ internal fun ReadingHistoryCard(
 }
 
 @Composable
-private fun ReadingHistoryCardSurface(model: ReadingHistoryCardModel, onLongClick: () -> Unit) {
+private fun ReadingHistoryCardSurface(
+    model: ReadingHistoryCardModel,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
+) {
     Surface(
         modifier =
             Modifier
                 .width(172.dp)
                 .height(258.dp)
                 .combinedClickable(
-                    onClick = {},
+                    onClickLabel = model.primaryIntent?.let { "Read ${model.title}" },
+                    onClick = onClick,
                     onLongClickLabel = "Reading session actions",
                     onLongClick = onLongClick
                 ),

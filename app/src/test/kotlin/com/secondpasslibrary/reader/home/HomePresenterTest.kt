@@ -43,6 +43,16 @@ class HomePresenterTest {
     }
 
     @Test
+    fun `unavailable reading history does not expose a Reader action`() {
+        val model =
+            HomePresenter.readingHistory(
+                recent(ReadingSessionStatus.CLOSED, canOpen = false)
+            )
+
+        assertNull(model.primaryIntent)
+    }
+
+    @Test
     fun `active reading history exposes detail edit and close context actions`() {
         val model = HomePresenter.readingHistory(recent(ReadingSessionStatus.ACTIVE))
 
@@ -123,12 +133,12 @@ class HomePresenterTest {
         assertEquals(HomeShelfOrigin.SHARED, shared.origin)
     }
 
-    private fun recent(status: ReadingSessionStatus) = RecentReadingItem(
+    private fun recent(status: ReadingSessionStatus, canOpen: Boolean = true) = RecentReadingItem(
         sessionId = "session-1",
         sessionName = "The Dispossessed",
         status = status,
         lastActivityAt = "2026-08-16T12:00:00Z",
-        book = RecentReadingBook("book-1", "The Dispossessed", null, true),
+        book = RecentReadingBook("book-1", "The Dispossessed", null, canOpen),
         progress = ReadingProgress("epubcfi(/6/4)", "Chapter 4", "2026-08-16T12:00:00Z")
     )
 

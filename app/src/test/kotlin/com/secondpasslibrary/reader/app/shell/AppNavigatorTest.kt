@@ -4,6 +4,7 @@ import com.secondpasslibrary.reader.bookdetail.BookDetailNavigationIntent
 import com.secondpasslibrary.reader.design.book.BookCardAction
 import com.secondpasslibrary.reader.home.HomeNavigationIntent
 import com.secondpasslibrary.reader.home.HomeShelfOrigin
+import com.secondpasslibrary.reader.home.OpenReaderIntent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
@@ -207,11 +208,35 @@ class AppNavigatorTest {
 
         navigator.handleBookDetailNavigation(BookDetailNavigationIntent.ReadBook("book-1"), source)
 
-        assertEquals(ReaderRoute("book-1", source), navigation.currentRoute)
+        assertEquals(
+            ReaderRoute("book-1", ReaderReturnTarget.BookDetail(source)),
+            navigation.currentRoute
+        )
         assertEquals(AppDestination.Library, navigation.currentRoute.topLevelDestination())
         assertFalse(showsShellTopBar(AppDestination.Library, navigation.currentRoute))
         assertTrue(navigator.goBack())
         assertEquals(source, navigation.currentRoute)
+    }
+
+    @Test
+    fun `Home Reading History opens Reader directly and Back restores Home`() {
+        val navigation = appNavigationStateForTest(AppDestination.Home)
+        val navigator = AppNavigator(navigation)
+
+        navigator.handleHomeNavigation(
+            OpenReaderIntent("book-1", "session-1", progress = null)
+        )
+
+        assertEquals(
+            listOf(
+                AppDestination.Home,
+                ReaderRoute("book-1", ReaderReturnTarget.Home)
+            ),
+            navigation.activeBackStack
+        )
+        assertEquals(AppDestination.Home, navigation.currentRoute.topLevelDestination())
+        assertTrue(navigator.goBack())
+        assertEquals(listOf(AppDestination.Home), navigation.activeBackStack)
     }
 
     @Test

@@ -28,7 +28,7 @@ internal data class ReadingHistoryCardModel(
     val statusLabel: String,
     val statusIndicator: ReadingStatusIndicator,
     val cover: BookCoverPresentation,
-    val primaryIntent: OpenReaderIntent,
+    val primaryIntent: OpenReaderIntent?,
     val contextActions: List<HomeNavigationIntent>
 )
 
@@ -55,7 +55,10 @@ internal object HomePresenter {
         statusLabel = item.status.label,
         statusIndicator = item.status.indicator,
         cover = item.book.cover.toPresentation(),
-        primaryIntent = OpenReaderIntent(item.book.id, item.sessionId, item.progress),
+        primaryIntent =
+            item.book.takeIf { it.canOpen }?.let {
+                OpenReaderIntent(it.id, item.sessionId, item.progress)
+            },
         contextActions = item.contextActions
     )
 

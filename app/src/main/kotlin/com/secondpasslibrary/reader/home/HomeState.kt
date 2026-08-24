@@ -41,12 +41,15 @@ enum class ReadingSessionDetailAction {
     CLOSE
 }
 
-/** Typed seam for the future Reader route. Home does not emit this until a Reader exists. */
+/**
+ * Home retains the Session/progress context for future resume support. The current Reader launch
+ * deliberately consumes only [bookId].
+ */
 internal data class OpenReaderIntent(
     val bookId: String,
     val sessionId: String,
     val progress: ReadingProgress?
-)
+) : HomeNavigationIntent
 
 internal sealed interface HomeConnectionEvent {
     data object AuthenticationRejected : HomeConnectionEvent

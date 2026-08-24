@@ -91,6 +91,7 @@ private fun HomeContent(
             showClosed = state.showClosedSessions,
             onShowClosedChanged = onShowClosedChanged,
             onRetry = onRetryRecentReading,
+            onPrimaryAction = { onReadingHistoryAction(it) },
             onContextAction = onReadingHistoryAction,
             onViewAll = onViewAllSessions
         )

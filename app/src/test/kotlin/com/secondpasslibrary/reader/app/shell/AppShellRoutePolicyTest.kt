@@ -26,7 +26,9 @@ class AppShellRoutePolicyTest {
     fun `Reader route reserves horizontal gestures`() {
         val source = BookDetailRoute("book-1", BookDetailReturnTarget.Library)
 
-        assertFalse(ReaderRoute("book-1", source).drawerGestureEnabled)
+        assertFalse(
+            ReaderRoute("book-1", ReaderReturnTarget.BookDetail(source)).drawerGestureEnabled
+        )
     }
 
     @Test

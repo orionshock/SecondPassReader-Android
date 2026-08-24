@@ -18,6 +18,11 @@ internal class AppNavigator(private val navigation: AppNavigationState) {
         navigation.push(route)
     }
 
+    fun openReader(bookId: String, returnTarget: ReaderReturnTarget) {
+        require(bookId.isNotBlank()) { "Book ID must not be blank." }
+        navigation.push(ReaderRoute(bookId, returnTarget))
+    }
+
     fun openBookMarginalia(bookId: String, source: BookDetailRoute) {
         require(bookId.isNotBlank()) { "Book ID must not be blank." }
         require(source.bookId == bookId) { "Marginalia Book must match its Book Detail source." }
@@ -69,7 +74,7 @@ internal class AppNavigator(private val navigation: AppNavigationState) {
                 require(intent.bookId == source.bookId) {
                     "Reader Book must match its Book Detail source."
                 }
-                navigation.push(ReaderRoute(intent.bookId, source))
+                openReader(intent.bookId, ReaderReturnTarget.BookDetail(source))
             }
 
             BookDetailNavigationIntent.ManageShelves -> {

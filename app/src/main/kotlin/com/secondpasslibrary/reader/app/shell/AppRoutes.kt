@@ -62,12 +62,23 @@ enum class ShelfCollectionOrigin {
 data class BookDetailRoute(val bookId: String, val returnTarget: BookDetailReturnTarget) : NavKey
 
 @Serializable
-data class ReaderRoute(val bookId: String, val source: BookDetailRoute) :
+sealed interface ReaderReturnTarget {
+    @Serializable
+    data object Home : ReaderReturnTarget
+
+    @Serializable
+    data class BookDetail(val route: BookDetailRoute) : ReaderReturnTarget
+}
+
+@Serializable
+data class ReaderRoute(val bookId: String, val returnTarget: ReaderReturnTarget) :
     NavKey,
     AppShellDrawerGesturePolicy {
     init {
         require(bookId.isNotBlank()) { "Book ID must not be blank." }
-        require(source.bookId == bookId) { "Reader Book must match its Book Detail source." }
+        require(
+            returnTarget !is ReaderReturnTarget.BookDetail || returnTarget.route.bookId == bookId
+        ) { "Reader Book must match its Book Detail return target." }
     }
 
     override val drawerGestureEnabled: Boolean = false
@@ -116,7 +127,7 @@ internal fun NavKey.topLevelDestination(): AppDestination = when (this) {
 
     is BookDetailRoute -> returnTarget.topLevelDestination()
 
-    is ReaderRoute -> source.topLevelDestination()
+    is ReaderRoute -> returnTarget.topLevelDestination()
 
     is BookMarginaliaRoute -> when (val target = returnTarget) {
         is MarginaliaReturnTarget.BookDetail -> target.route.topLevelDestination()
@@ -139,4 +150,9 @@ private fun BookDetailReturnTarget.topLevelDestination(): AppDestination = when 
     is BookDetailReturnTarget.ReadingSessionDetail -> route.topLevelDestination()
     is BookDetailReturnTarget.BookMarginalia -> route.topLevelDestination()
     is BookDetailReturnTarget.ShelfDetail -> AppDestination.Shelves
+}
+
+private fun ReaderReturnTarget.topLevelDestination(): AppDestination = when (this) {
+    ReaderReturnTarget.Home -> AppDestination.Home
+    is ReaderReturnTarget.BookDetail -> route.topLevelDestination()
 }

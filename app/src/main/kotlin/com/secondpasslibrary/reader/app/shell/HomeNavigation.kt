@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.app.shell
 
 import com.secondpasslibrary.reader.home.HomeNavigationIntent
 import com.secondpasslibrary.reader.home.HomeShelfOrigin
+import com.secondpasslibrary.reader.home.OpenReaderIntent
 import com.secondpasslibrary.reader.home.ReadingSessionDetailAction
 import com.secondpasslibrary.reader.marginalia.ReadingSessionDetailEntryAction
 
@@ -18,6 +19,8 @@ internal fun AppNavigator.handleHomeNavigation(intent: HomeNavigationIntent) {
                 ReadingSessionDetailReturnTarget.Home,
                 intent.action.toRouteAction()
             )
+
+        is OpenReaderIntent -> openReader(intent.bookId, ReaderReturnTarget.Home)
 
         HomeNavigationIntent.OpenShelves -> select(AppDestination.Shelves)
 
