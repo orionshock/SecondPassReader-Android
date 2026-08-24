@@ -17,4 +17,11 @@ class EpubCfiTest {
         assertThrows(IllegalArgumentException::class.java) { EpubCfi("  ") }
         assertThrows(IllegalArgumentException::class.java) { EpubCfi("x".repeat(8 * 1024 + 1)) }
     }
+
+    @Test
+    fun `accepts the exact SPL CFI length bound`() {
+        val boundary = "x".repeat(8 * 1024)
+
+        assertEquals(boundary, EpubCfi(boundary).value)
+    }
 }
