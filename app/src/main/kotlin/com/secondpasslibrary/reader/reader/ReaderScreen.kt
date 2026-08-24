@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.reader
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -29,9 +30,16 @@ internal fun ReaderScreen(state: ReaderState, onBack: () -> Unit, onRetry: () ->
         )
         when (state) {
             ReaderState.Resolving -> ReaderLoading("Preparing book…")
+
             ReaderState.Downloading -> ReaderLoading("Downloading book…")
+
             ReaderState.Opening -> ReaderLoading("Opening EPUB…")
-            is ReaderState.Ready -> state.engine.viewport.Content(Modifier.weight(1f))
+
+            is ReaderState.Ready -> Box(Modifier.weight(1f)) {
+                state.engine.viewport.Content(Modifier.fillMaxSize())
+                ReaderCfiProbe(state.engine, Modifier.align(Alignment.TopEnd))
+            }
+
             is ReaderState.Failure -> ReaderFailureContent(state.kind, onBack, onRetry)
         }
     }
