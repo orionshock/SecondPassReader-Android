@@ -1,7 +1,8 @@
 (function installSecondPassEpubCfiRuntime(global) {
     "use strict";
 
-    const RUNTIME_VERSION = "1.3.0";
+    const RUNTIME_VERSION = "1.4.0";
+    const CONTEXT_LENGTH = 64;
     const existing = global.__secondPassEpubCfi;
     if (existing && existing.runtimeVersion() === RUNTIME_VERSION) {
         return;
@@ -446,6 +447,76 @@
             throw new Error("DOM_TARGET_NOT_FOUND");
         }
         return liveIndex;
+    }
+
+    /*
+     * DOM character offsets are UTF-16 code-unit offsets. Keep every CFI and
+     * context operation in JavaScript so Kotlin never reinterprets them as
+     * code-point indexes. A boundary splitting a surrogate pair is not a
+     * durable text position and is rejected.
+     */
+    function validateTextBoundary(container, offset) {
+        if (!isCharacterData(container) || container.nodeType === Node.COMMENT_NODE) {
+            return;
+        }
+        const text = container.data;
+        if (offset > 0 && offset < text.length &&
+            isHighSurrogate(text.charCodeAt(offset - 1)) &&
+            isLowSurrogate(text.charCodeAt(offset))) {
+            throw new Error("INVALID_RANGE");
+        }
+    }
+
+    function isHighSurrogate(codeUnit) {
+        return codeUnit >= 0xd800 && codeUnit <= 0xdbff;
+    }
+
+    function isLowSurrogate(codeUnit) {
+        return codeUnit >= 0xdc00 && codeUnit <= 0xdfff;
+    }
+
+    function textContext(range, publicationDocument) {
+        validateTextBoundary(range.startContainer, range.startOffset);
+        validateTextBoundary(range.endContainer, range.endOffset);
+        const body = publicationBody(publicationDocument);
+        if (!body || !body.contains(range.startContainer) ||
+            !body.contains(range.endContainer)) {
+            throw new Error("DOM_TARGET_NOT_FOUND");
+        }
+        const before = publicationDocument.createRange();
+        before.selectNodeContents(body);
+        before.setEnd(range.startContainer, range.startOffset);
+        const after = publicationDocument.createRange();
+        after.selectNodeContents(body);
+        after.setStart(range.endContainer, range.endOffset);
+        return {
+            selectedText: range.collapsed ? null : range.toString(),
+            prefix: takeLastCodeUnitSafe(before.toString(), CONTEXT_LENGTH),
+            suffix: takeFirstCodeUnitSafe(after.toString(), CONTEXT_LENGTH)
+        };
+    }
+
+    function publicationBody(publicationDocument) {
+        return publicationDocument.getElementsByTagNameNS("*", "body")[0] || null;
+    }
+
+    function takeLastCodeUnitSafe(value, limit) {
+        let start = Math.max(0, value.length - limit);
+        if (start > 0 && isLowSurrogate(value.charCodeAt(start)) &&
+            isHighSurrogate(value.charCodeAt(start - 1))) {
+            start += 1;
+        }
+        return value.slice(start) || null;
+    }
+
+    function takeFirstCodeUnitSafe(value, limit) {
+        let end = Math.min(value.length, limit);
+        if (end < value.length && end > 0 &&
+            isHighSurrogate(value.charCodeAt(end - 1)) &&
+            isLowSurrogate(value.charCodeAt(end))) {
+            end -= 1;
+        }
+        return value.slice(0, end) || null;
     }
 
     global.__secondPassEpubCfi = Object.freeze({

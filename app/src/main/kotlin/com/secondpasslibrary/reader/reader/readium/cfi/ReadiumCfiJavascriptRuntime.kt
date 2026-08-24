@@ -9,7 +9,7 @@ import org.json.JSONObject
 import org.json.JSONTokener
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 
-private const val RUNTIME_VERSION = "1.3.0"
+private const val RUNTIME_VERSION = "1.4.0"
 private const val COLIBRIO_ASSET = "reader/cfi/colibrio-epubcfi-1.1.0.min.js"
 private const val RUNTIME_ASSET = "reader/cfi/secondpass-epub-cfi-runtime.js"
 
