@@ -10,17 +10,18 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfiTargetKind
 import com.secondpasslibrary.reader.reader.cfi.EpubLayout
 import com.secondpasslibrary.reader.reader.cfi.EpubPackageDocument
 import com.secondpasslibrary.reader.reader.cfi.normalizeEpubHref
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withTimeoutOrNull
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.shared.publication.Link
 import org.readium.r2.shared.publication.Locator
 
 private val NAVIGATION_TIMEOUT = 10.seconds
+private val TARGET_VERIFICATION_INTERVAL = 50.milliseconds
 
 internal class ReadiumEpubCfiNavigator(
     private val binding: ReadiumCfiNavigatorBinding,
@@ -251,30 +252,31 @@ private class ReadiumCfiIncomingNavigation(
         resolution: ReadiumContentResolution
     ): EpubCfiFailure? {
         val verified = withTimeoutOrNull(NAVIGATION_TIMEOUT) {
-            flow {
-                emit(Unit)
-                navigator.currentLocator.drop(1).collect { emit(Unit) }
-            }.first {
-                navigator.isActiveResource(target) &&
-                    when (
-                        val verification = runtime.verifyContentTarget(
-                            navigator,
-                            cfi,
-                            packageDocument,
-                            target,
-                            resolution
-                        )
-                    ) {
-                        is ReadiumCfiJavascriptResult.Failure -> false
-
-                        is ReadiumCfiJavascriptResult.Success ->
-                            verification.value.semanticMatch && verification.value.visible
-                    }
+            var targetVerified = false
+            while (!targetVerified) {
+                val active = navigator.isActiveResource(target)
+                val result = runtime.verifyContentTarget(
+                    navigator,
+                    cfi,
+                    packageDocument,
+                    target,
+                    resolution
+                )
+                targetVerified = active && result.isVerifiedTarget()
+                if (!targetVerified) delay(TARGET_VERIFICATION_INTERVAL)
             }
-            true
+            targetVerified
         } ?: false
         return if (verified) null else EpubCfiFailure.NAVIGATION_TIMEOUT
     }
+}
+
+private typealias TargetVerificationResult =
+    ReadiumCfiJavascriptResult<ReadiumContentTargetVerification>
+
+private fun TargetVerificationResult.isVerifiedTarget(): Boolean = when (this) {
+    is ReadiumCfiJavascriptResult.Failure -> false
+    is ReadiumCfiJavascriptResult.Success -> value.semanticMatch && value.visible
 }
 
 private fun EpubNavigatorFragment.activeResourceHref(): String? =

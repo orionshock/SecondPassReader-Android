@@ -26,7 +26,10 @@ import java.io.File
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
+
+private const val TEST_ENGINE_OPEN_TIMEOUT_MILLIS = 20_000L
 
 /** Debug-only lifecycle host for connected Readium adapter tests. */
 internal class ReadiumCfiTestActivity : FragmentActivity() {
@@ -68,7 +71,7 @@ internal class ReadiumCfiTestActivity : FragmentActivity() {
                         Modifier.fillMaxSize()
                     )
 
-                    ReadiumCfiTestHostState.Failed -> Unit
+                    is ReadiumCfiTestHostState.Failed -> Unit
                 }
             }
         }
@@ -92,7 +95,7 @@ internal sealed interface ReadiumCfiTestHostState {
 
     data class Ready(val engine: ReaderEngine) : ReadiumCfiTestHostState
 
-    data object Failed : ReadiumCfiTestHostState
+    data class Failed(val reason: String) : ReadiumCfiTestHostState
 }
 
 private class ReadiumCfiTestViewModel(context: Context, epubPath: String) : ViewModel() {
@@ -104,10 +107,14 @@ private class ReadiumCfiTestViewModel(context: Context, epubPath: String) : View
     init {
         viewModelScope.launch {
             mutableState.value = runCatching {
-                ReadiumReaderEngineOpener(context).open(File(epubPath))
+                withTimeout(TEST_ENGINE_OPEN_TIMEOUT_MILLIS) {
+                    ReadiumReaderEngineOpener(context).open(File(epubPath))
+                }
             }.fold(
                 onSuccess = ReadiumCfiTestHostState::Ready,
-                onFailure = { ReadiumCfiTestHostState.Failed }
+                onFailure = {
+                    ReadiumCfiTestHostState.Failed(it.boundedFailureChain())
+                }
             )
         }
     }
@@ -125,3 +132,10 @@ private class ReadiumCfiTestViewModel(context: Context, epubPath: String) : View
         }
     }
 }
+
+private fun Throwable.boundedFailureChain(): String = generateSequence(this) { it.cause }
+    .take(5)
+    .joinToString(" -> ") { failure ->
+        val message = failure.message?.replace(Regex("\\s+"), " ")?.take(160)
+        listOfNotNull(failure::class.java.simpleName, message).joinToString(": ")
+    }

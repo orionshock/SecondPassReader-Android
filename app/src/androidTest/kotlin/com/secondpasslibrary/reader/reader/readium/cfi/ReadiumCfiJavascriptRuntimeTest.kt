@@ -10,6 +10,7 @@ import org.json.JSONTokener
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -21,20 +22,31 @@ class ReadiumCfiJavascriptRuntimeTest {
     val compose = createAndroidComposeRule<ComponentActivity>()
 
     @Test
+    fun mapsMissingPackageItemrefIdAsNull() {
+        val target = readPackageTarget(
+            JSONObject(
+                """{"spineIndex":28,"itemrefId":null,"idref":"id97","kind":"range"}"""
+            )
+        )
+
+        assertNull(target.itemrefId)
+    }
+
+    @Test
     fun installsPinnedBundleAndRuntimeIdempotently() = withHarness { harness ->
         assertEquals(
             "function",
             harness.evaluate("typeof SecondPassColibrio.EpubCfiParser.parse").jsonString()
         )
         assertEquals(
-            "1.11.0",
+            "1.11.1",
             harness.evaluate("__secondPassEpubCfi.runtimeVersion()").jsonString()
         )
 
         harness.evaluate(asset("reader/cfi/secondpass-epub-cfi-runtime.js"))
 
         assertEquals(
-            "1.11.0",
+            "1.11.1",
             harness.evaluate("__secondPassEpubCfi.runtimeVersion()").jsonString()
         )
     }

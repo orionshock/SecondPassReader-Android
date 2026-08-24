@@ -16,19 +16,31 @@ import com.secondpasslibrary.reader.reader.asset.ResolvedReaderBook
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiResolution
+import com.secondpasslibrary.reader.reader.cfi.EpubCfiSelection
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiTargetKind
+import com.secondpasslibrary.reader.reader.cfi.EpubLayout
+import com.secondpasslibrary.reader.reader.cfi.ZipEpubPackageResolver
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import dagger.hilt.android.EntryPointAccessors
+import java.io.File
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeNotNull
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.readium.r2.shared.publication.Link
+import org.readium.r2.shared.util.Url
+import org.readium.r2.shared.util.mediatype.MediaType
 
 private const val REAL_SPL_CFI_ARGUMENT = "reader.realSplCfiInterop"
 private const val INTEROP_PAGE_SIZE = 50
@@ -75,7 +87,35 @@ class RealSplEpubCfiInteropTest {
         ActivityScenario.launch<ReadiumCfiTestActivity>(intent).use { scenario ->
             val engine = scenario.awaitReadyEngine()
             verifyStoredRange(engine, subject.candidate)
-            verifyGeneratedPointRoundTrip(engine)
+            val initialPoint = capturePoint(engine)
+            val initialResolution = engine.cfiNavigator.resolve(initialPoint)
+                .requireSuccess("resolve initial point")
+            val generatedSelection = captureRealSelection(scenario, engine)
+            val detourCfi = captureCrossSpinePoint(
+                scenario = scenario,
+                engine = engine,
+                epubFile = subject.book.file,
+                currentResourceHref = initialResolution.resourceHref
+            )
+
+            verifyGeneratedRoundTrips(
+                engine = engine,
+                initialPoint = initialPoint,
+                initialResourceHref = initialResolution.resourceHref,
+                detourCfi = detourCfi,
+                selection = generatedSelection
+            )
+
+            scenario.recreate()
+            val recreatedEngine = scenario.awaitReadyEngine()
+            assertSame(engine, recreatedEngine)
+            verifyGeneratedRoundTrips(
+                engine = recreatedEngine,
+                initialPoint = initialPoint,
+                initialResourceHref = initialResolution.resourceHref,
+                detourCfi = detourCfi,
+                selection = generatedSelection
+            )
             subject.progressCfi?.let { verifyStoredProgress(engine, it) }
         }
 
@@ -114,13 +154,17 @@ private suspend fun findReadableRangeSubject(
         newSessions.asSequence()
             .filter { it.book.canOpen }
             .forEach { session ->
-                val range = client.marginalia.sessions.listAnnotations(session.session.id)
+                val annotations = client.marginalia.sessions.listAnnotations(session.session.id)
+                val range = annotations
                     .filterIsInstance<MarginaliaAnnotation.Highlight>()
                     .firstOrNull {
                         it.body.text.isNotBlank() && it.location.cfi.looksLikeRangeCfi()
                     }
                 if (range != null) {
-                    val candidate = RealRangeCandidate(session, range)
+                    val candidate = RealRangeCandidate(
+                        session = session,
+                        annotation = range
+                    )
                     val before = captureSession(client, session.session.id)
                     val book = resolveReaderBook(owners, profile, profileId, candidate)
                     if (book != null) {
@@ -174,11 +218,89 @@ private suspend fun verifyStoredRange(engine: ReaderEngine, candidate: RealRange
     assertSemanticTextMatches(candidate.annotation.body.text, resolution)
 }
 
-private suspend fun verifyGeneratedPointRoundTrip(engine: ReaderEngine) {
-    val generated = engine.cfiNavigator.currentPosition().requireSuccess("capture visible point")
-    val resolution = engine.cfiNavigator.resolve(generated).requireSuccess("resolve visible point")
-    assertEquals(EpubCfiTargetKind.POINT, resolution.kind)
-    engine.cfiNavigator.goTo(generated).requireSuccess("navigate to visible point")
+private suspend fun capturePoint(engine: ReaderEngine): EpubCfi =
+    engine.cfiNavigator.currentPosition().requireSuccess("capture visible point")
+
+private suspend fun captureCrossSpinePoint(
+    scenario: ActivityScenario<ReadiumCfiTestActivity>,
+    engine: ReaderEngine,
+    epubFile: File,
+    currentResourceHref: String
+): EpubCfi {
+    val packageDocument = withContext(Dispatchers.IO) {
+        ZipEpubPackageResolver().resolve(epubFile)
+    }
+    lateinit var activity: ReadiumCfiTestActivity
+    scenario.onActivity { activity = it }
+    val navigator = requireNotNull(activity.currentNavigator())
+    packageDocument.spine
+        .asSequence()
+        .filter { it.layout == EpubLayout.REFLOWABLE }
+        .filter { it.resourceHref != currentResourceHref }
+        .forEach { item ->
+            val link = Link(
+                href = requireNotNull(Url(item.resourceHref)),
+                mediaType = requireNotNull(MediaType(item.mediaType))
+            )
+            val moved = withContext(Dispatchers.Main) { navigator.go(link) }
+            if (!moved) return@forEach
+            val point = withTimeoutOrNull(10.seconds) {
+                var target: EpubCfi? = null
+                while (target == null) {
+                    delay(100)
+                    val captured = engine.cfiNavigator.currentPosition()
+                    if (captured is EpubCfiOutcome.Success) {
+                        val resolved = engine.cfiNavigator.resolve(captured.value)
+                        if (resolved is EpubCfiOutcome.Success &&
+                            resolved.value.resourceHref == item.resourceHref
+                        ) {
+                            target = captured.value
+                        }
+                    }
+                }
+                target
+            }
+            if (point != null) return point
+        }
+    error("The real EPUB has no capturable cross-spine CFI verification target.")
+}
+
+private suspend fun captureRealSelection(
+    scenario: ActivityScenario<ReadiumCfiTestActivity>,
+    engine: ReaderEngine
+): EpubCfiSelection {
+    lateinit var activity: ReadiumCfiTestActivity
+    scenario.onActivity { activity = it }
+    withContext(Dispatchers.Main) {
+        requireNotNull(activity.currentNavigator()).evaluateJavascript(REAL_PHRASE_SELECTION_SCRIPT)
+    }
+    return requireNotNull(
+        engine.cfiNavigator.currentSelection().requireSuccess("capture real selection")
+    )
+}
+
+private suspend fun verifyGeneratedRoundTrips(
+    engine: ReaderEngine,
+    initialPoint: EpubCfi,
+    initialResourceHref: String,
+    detourCfi: EpubCfi,
+    selection: EpubCfiSelection
+) {
+    engine.cfiNavigator.goTo(detourCfi).requireSuccess("navigate away from visible point")
+    engine.cfiNavigator.goTo(initialPoint).requireSuccess("restore visible point")
+    val pointResolution = engine.cfiNavigator.resolve(initialPoint)
+        .requireSuccess("resolve restored visible point")
+    assertEquals(EpubCfiTargetKind.POINT, pointResolution.kind)
+    assertEquals(initialResourceHref, pointResolution.resourceHref)
+
+    engine.cfiNavigator.goTo(detourCfi).requireSuccess("navigate away from selection")
+    engine.cfiNavigator.goTo(selection.cfi).requireSuccess("restore real selection")
+    val selectionResolution = engine.cfiNavigator.resolve(selection.cfi)
+        .requireSuccess("resolve real selection")
+    assertEquals(EpubCfiTargetKind.RANGE, selectionResolution.kind)
+    assertEquals(selection.selectedText, selectionResolution.selectedText)
+    assertEquals(selection.prefix, selectionResolution.prefix)
+    assertEquals(selection.suffix, selectionResolution.suffix)
 }
 
 private suspend fun verifyStoredProgress(engine: ReaderEngine, progressCfi: String) {
@@ -266,3 +388,30 @@ private data class ReadOnlySessionCapture(
 )
 
 private data class AnnotationVersion(val id: String, val updatedAt: String)
+
+private val REAL_PHRASE_SELECTION_SCRIPT =
+    """
+    (() => {
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      let node;
+      while ((node = walker.nextNode())) {
+        const parent = node.parentElement;
+        if (!parent || parent.closest("script, style")) continue;
+        const text = node.nodeValue || "";
+        const start = text.search(/\S/);
+        if (start < 0) continue;
+        let end = Math.min(text.length, start + 32);
+        if (end < text.length && /[\uD800-\uDBFF]/.test(text.charAt(end - 1))) end -= 1;
+        while (end > start && /\s/.test(text.charAt(end - 1))) end -= 1;
+        if (end - start < 8) continue;
+        const range = document.createRange();
+        range.setStart(node, start);
+        range.setEnd(node, end);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        return selection.toString();
+      }
+      return null;
+    })();
+    """.trimIndent()

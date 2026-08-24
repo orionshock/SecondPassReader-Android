@@ -15,7 +15,6 @@ import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -49,7 +48,20 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
 
             assertEquals(EpubCfiTargetKind.POINT, pointResolution.kind)
             assertEquals(SyntheticEpubCfiSources.CHAPTER_ONE_PATH, pointResolution.resourceHref)
-            runBlocking { host.engine.cfiNavigator.goTo(point).requireSuccess() }
+
+            val knownRange = EpubCfi(CROSS_MARKUP_RANGE_CFI)
+            val knownRangeResolution = runBlocking {
+                host.engine.cfiNavigator.resolve(knownRange).requireSuccess()
+            }
+            assertEquals(EpubCfiTargetKind.RANGE, knownRangeResolution.kind)
+            assertEquals(CROSS_MARKUP_EXPECTED_TEXT, knownRangeResolution.selectedText)
+
+            runBlocking {
+                host.engine.cfiNavigator.goTo(EpubCfi(CROSS_SPINE_POINT_CFI)).requireSuccess()
+                host.engine.cfiNavigator.goTo(point).requireSuccess()
+                host.engine.cfiNavigator.goTo(knownRange).requireSuccess()
+            }
+            assertCurrentResource(host.engine, SyntheticEpubCfiSources.CHAPTER_ONE_PATH)
 
             runBlocking {
                 withContext(Dispatchers.Main) {
@@ -62,7 +74,7 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
 
             assertNotNull(selection)
             assertTrue(requireNotNull(selection).selectedText.contains("nested"))
-            assertRangeRoundTrip(host.engine, selection)
+            assertRangeRoundTrip(host.engine, requireNotNull(selection))
         }
     }
 
@@ -74,6 +86,9 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
             val initialHost = scenario.awaitReadyHost()
             val originalEngine = initialHost.engine
             val target = EpubCfi(CROSS_SPINE_POINT_CFI)
+            val originalPosition = runBlocking {
+                originalEngine.cfiNavigator.currentPosition().requireSuccess()
+            }
 
             runBlocking { originalEngine.cfiNavigator.goTo(target).requireSuccess() }
             assertCurrentResource(originalEngine, SyntheticEpubCfiSources.CHAPTER_TWO_PATH)
@@ -84,16 +99,21 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
             assertSame(originalEngine, recreatedHost.engine)
             runBlocking {
                 recreatedHost.engine.cfiNavigator.currentPosition().requireSuccess()
+                recreatedHost.engine.cfiNavigator.goTo(target).requireSuccess()
+                recreatedHost.engine.cfiNavigator.goTo(originalPosition).requireSuccess()
             }
-            runBlocking { recreatedHost.engine.cfiNavigator.goTo(target).requireSuccess() }
             assertCurrentResource(
                 recreatedHost.engine,
-                SyntheticEpubCfiSources.CHAPTER_TWO_PATH
+                SyntheticEpubCfiSources.CHAPTER_ONE_PATH
             )
         }
     }
 
     private fun assertRangeRoundTrip(engine: ReaderEngine, selection: EpubCfiSelection) {
+        runBlocking {
+            engine.cfiNavigator.goTo(EpubCfi(CROSS_SPINE_POINT_CFI)).requireSuccess()
+            engine.cfiNavigator.goTo(selection.cfi).requireSuccess()
+        }
         val resolution = runBlocking {
             engine.cfiNavigator.resolve(selection.cfi).requireSuccess()
         }
@@ -101,7 +121,6 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
         assertEquals(selection.selectedText, resolution.selectedText)
         assertEquals(selection.prefix, resolution.prefix)
         assertEquals(selection.suffix, resolution.suffix)
-        runBlocking { engine.cfiNavigator.goTo(selection.cfi).requireSuccess() }
     }
 
     private fun assertCurrentResource(engine: ReaderEngine, expectedHref: String) {
@@ -129,11 +148,15 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
             state = activity.hostState
             generation = activity.navigatorGeneration
         }
-        val engine = runBlocking {
+        val hostState = runBlocking {
             withTimeout(HOST_TIMEOUT_MILLIS) {
-                state.filterIsInstance<ReadiumCfiTestHostState.Ready>().first().engine
+                state.first { it !is ReadiumCfiTestHostState.Loading }
             }
         }
+        check(hostState is ReadiumCfiTestHostState.Ready) {
+            "Reader test host failed: ${(hostState as ReadiumCfiTestHostState.Failed).reason}"
+        }
+        val engine = hostState.engine
         runBlocking {
             withTimeout(HOST_TIMEOUT_MILLIS) {
                 generation.first { it > 0 }
@@ -168,6 +191,12 @@ private fun <T> EpubCfiOutcome<T>.requireSuccess(): T = when (this) {
 
 private const val CROSS_SPINE_POINT_CFI =
     "epubcfi(/6/4[spine-chapter-two]!/4/2[chapter-two-root]/4[cross-spine-target]/1:4)"
+
+private const val CROSS_MARKUP_RANGE_CFI =
+    "epubcfi(/6/2[spine-chapter-one]!/4/2[chapter-one-root]/6[inline-markup]," +
+        "/1:2,/2[nested-span]/2[nested-emphasis]/1:4)"
+
+private const val CROSS_MARKUP_EXPECTED_TEXT = "fore nested inli"
 
 private val CROSS_MARKUP_SELECTION_SCRIPT =
     """

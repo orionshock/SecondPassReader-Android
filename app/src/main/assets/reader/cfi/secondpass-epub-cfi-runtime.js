@@ -1,7 +1,7 @@
 (function installSecondPassEpubCfiRuntime(global) {
     "use strict";
 
-    const RUNTIME_VERSION = "1.11.0";
+    const RUNTIME_VERSION = "1.11.1";
     const CONTEXT_LENGTH = 64;
     const MOVEMENT_QUOTE_LENGTH = 128;
     const existing = global.__secondPassEpubCfi;
@@ -695,7 +695,7 @@
     }
 
     function visibilityProbeRange(range, publicationDocument) {
-        if (!range.collapsed || range.getClientRects().length > 0) {
+        if (!range.collapsed) {
             return range;
         }
         const probe = range.cloneRange();

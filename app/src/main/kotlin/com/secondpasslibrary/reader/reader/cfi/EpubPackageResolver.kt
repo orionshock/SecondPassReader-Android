@@ -8,14 +8,16 @@ import javax.xml.parsers.DocumentBuilderFactory
 import org.w3c.dom.Document
 import org.w3c.dom.Element
 import org.w3c.dom.Node
+import org.xml.sax.SAXException
 
 private const val CONTAINER_PATH = "META-INF/container.xml"
 private const val PACKAGE_MEDIA_TYPE = "application/oebps-package+xml"
 private const val FIXED_LAYOUT = "pre-paginated"
 private const val REFLOWABLE_LAYOUT = "reflowable"
-private const val XML_CONSTANTS_PROPERTY = "http://javax.xml.XMLConstants/property"
-private const val ACCESS_EXTERNAL_DTD = "$XML_CONSTANTS_PROPERTY/accessExternalDTD"
-private const val ACCESS_EXTERNAL_SCHEMA = "$XML_CONSTANTS_PROPERTY/accessExternalSchema"
+private val FORBIDDEN_XML_DECLARATION = Regex(
+    pattern = "<!\\s*(DOCTYPE|ENTITY)",
+    option = RegexOption.IGNORE_CASE
+)
 
 internal fun interface EpubPackageResolver {
     fun resolve(file: File): EpubPackageDocument
@@ -126,18 +128,24 @@ private fun ZipFile.readRequiredEntry(path: String): ByteArray {
 }
 
 private fun parseXml(bytes: ByteArray): Document {
+    require(!bytes.containsForbiddenXmlDeclaration()) {
+        "EPUB XML document type and entity declarations are forbidden."
+    }
     val factory = DocumentBuilderFactory.newInstance().apply {
         isNamespaceAware = true
-        isXIncludeAware = false
         setExpandEntityReferences(false)
-        setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
-        setFeature("http://xml.org/sax/features/external-general-entities", false)
-        setFeature("http://xml.org/sax/features/external-parameter-entities", false)
-        setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
-        setAttribute(ACCESS_EXTERNAL_DTD, "")
-        setAttribute(ACCESS_EXTERNAL_SCHEMA, "")
     }
-    return factory.newDocumentBuilder().parse(ByteArrayInputStream(bytes))
+    val builder = factory.newDocumentBuilder().apply {
+        setEntityResolver { _, _ -> throw SAXException("External XML entities are forbidden.") }
+    }
+    return builder.parse(ByteArrayInputStream(bytes))
+}
+
+private fun ByteArray.containsForbiddenXmlDeclaration(): Boolean {
+    val ascii = filterNot { it == 0.toByte() }
+        .toByteArray()
+        .toString(StandardCharsets.ISO_8859_1)
+    return FORBIDDEN_XML_DECLARATION.containsMatchIn(ascii)
 }
 
 private fun Element.descendants(localName: String): List<Element> {

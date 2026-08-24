@@ -9,7 +9,7 @@ import org.json.JSONObject
 import org.json.JSONTokener
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 
-private const val RUNTIME_VERSION = "1.11.0"
+private const val RUNTIME_VERSION = "1.11.1"
 private const val CONTEXT_LENGTH = 64
 private const val MOVEMENT_QUOTE_LENGTH = 128
 private const val COLIBRIO_ASSET = "reader/cfi/colibrio-epubcfi-1.1.0.min.js"
@@ -44,13 +44,7 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
             JavascriptArgument.StringValue(packageDocument.packagePath)
         )
     ).mapValue { value ->
-        val target = value as? JSONObject ?: error("CFI runtime package result is invalid.")
-        ReadiumPackageTarget(
-            spineIndex = target.getInt("spineIndex"),
-            itemrefId = target.getString("itemrefId").ifBlank { null },
-            idref = target.getString("idref"),
-            kind = target.getString("kind")
-        )
+        readPackageTarget(value)
     }
 
     suspend fun generatePackage(
@@ -234,6 +228,16 @@ internal data class ReadiumPackageTarget(
     val idref: String,
     val kind: String
 )
+
+internal fun readPackageTarget(value: Any?): ReadiumPackageTarget {
+    val target = value as? JSONObject ?: error("CFI runtime package result is invalid.")
+    return ReadiumPackageTarget(
+        spineIndex = target.getInt("spineIndex"),
+        itemrefId = target.nullableString("itemrefId"),
+        idref = target.getString("idref"),
+        kind = target.getString("kind")
+    )
+}
 
 internal data class ReadiumContentSelection(
     val contentCfi: EpubCfi,
