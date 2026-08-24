@@ -24,4 +24,12 @@ class EpubCfiTest {
 
         assertEquals(boundary, EpubCfi(boundary).value)
     }
+
+    @Test
+    fun `does not interpret renderer syntax at the domain boundary`() {
+        val opaqueValue = "not-yet-parsed-by-the-renderer"
+
+        assertEquals(opaqueValue, EpubCfi(opaqueValue).value)
+        assertEquals(opaqueValue, EpubCfi(opaqueValue).toString())
+    }
 }
