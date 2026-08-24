@@ -2,6 +2,8 @@ package com.secondpasslibrary.reader.reader.readium
 
 import android.content.Context
 import androidx.fragment.app.FragmentFactory
+import com.secondpasslibrary.reader.reader.cfi.EpubPackageDocument
+import com.secondpasslibrary.reader.reader.cfi.ZipEpubPackageResolver
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpenException
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
@@ -24,11 +26,18 @@ import org.readium.r2.shared.util.http.DefaultHttpClient
 import org.readium.r2.streamer.PublicationOpener
 import org.readium.r2.streamer.parser.DefaultPublicationParser
 
-private class ReadiumReaderEngine(private val publication: Publication, context: Context) :
-    ReaderEngine {
+private class ReadiumReaderEngine(
+    private val publication: Publication,
+    packageDocument: EpubPackageDocument,
+    context: Context
+) : ReaderEngine {
     private val navigatorFactory = EpubNavigatorFactory(publication)
     private val cfiBinding = ReadiumCfiNavigatorBinding(ReadiumCfiJavascriptRuntime(context))
-    private val readiumCfiNavigator = ReadiumEpubCfiNavigator(cfiBinding)
+    private val readiumCfiNavigator = ReadiumEpubCfiNavigator(
+        binding = cfiBinding,
+        packageDocument = packageDocument,
+        readingOrderHrefs = publication.readingOrder.map { it.href.toString() }
+    )
 
     override val viewport: ReaderViewport = ReadiumReaderViewport(
         fragmentFactory = {
@@ -57,6 +66,7 @@ internal class ReadiumReaderEngineOpener @Inject constructor(
     private val publicationOpener = PublicationOpener(
         DefaultPublicationParser(context, httpClient, assetRetriever, pdfFactory = null)
     )
+    private val packageResolver = ZipEpubPackageResolver()
 
     override suspend fun open(file: File): ReaderEngine {
         var pendingAsset: Asset? = null
@@ -65,6 +75,7 @@ internal class ReadiumReaderEngineOpener @Inject constructor(
         try {
             val result = runCatching {
                 withContext(Dispatchers.IO) {
+                    val packageDocument = packageResolver.resolve(file)
                     val assetResult = assetRetriever.retrieve(file)
                     val asset = assetResult.getOrNull()
                         ?: failReaderEngineOpen(
@@ -84,7 +95,7 @@ internal class ReadiumReaderEngineOpener @Inject constructor(
                     if (!publication.conformsTo(Publication.Profile.EPUB)) {
                         failReaderEngineOpen("The Book asset is not an EPUB.")
                     }
-                    ReadiumReaderEngine(publication, context).also {
+                    ReadiumReaderEngine(publication, packageDocument, context).also {
                         pendingEngine = it
                         pendingPublication = null
                     }

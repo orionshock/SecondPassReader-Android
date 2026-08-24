@@ -7,10 +7,10 @@ internal data class EpubPackageDocument(
     val spine: List<EpubSpineItem>,
     val layout: EpubLayout
 ) {
-    private val spineByHref = spine.associateBy { it.resourceHref }
+    private val spineByHref = spine.groupBy { it.resourceHref }
 
     fun spineItemForHref(resourceHref: String): EpubSpineItem? =
-        spineByHref[normalizeEpubHref(resourceHref)]
+        spineByHref[normalizeEpubHref(resourceHref)]?.singleOrNull()
 }
 
 internal data class EpubManifestItem(

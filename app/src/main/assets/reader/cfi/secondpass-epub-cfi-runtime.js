@@ -1,7 +1,7 @@
 (function installSecondPassEpubCfiRuntime(global) {
     "use strict";
 
-    const RUNTIME_VERSION = "1.0.0";
+    const RUNTIME_VERSION = "1.1.0";
     const existing = global.__secondPassEpubCfi;
     if (existing && existing.runtimeVersion() === RUNTIME_VERSION) {
         return;
@@ -96,16 +96,86 @@
         if (!indirection || indirection.element.localName !== "itemref") {
             throw new Error("PACKAGE_TARGET_NOT_FOUND");
         }
+        const resolvedTarget = resolver.getResolvedTarget();
+        if (resolvedTarget.getParserErrors().length > 0 ||
+            resolvedTarget.getResolverErrors().length > 0 ||
+            resolvedTarget.getTargetElement() !== indirection.element) {
+            throw new Error("PACKAGE_TARGET_MISMATCH");
+        }
         const idref = indirection.element.getAttribute("idref");
         if (!idref) {
+            throw new Error("PACKAGE_TARGET_NOT_FOUND");
+        }
+        const itemrefs = packageSpineItemrefs(packageDocument);
+        const spineIndex = itemrefs.indexOf(indirection.element);
+        if (spineIndex < 0) {
             throw new Error("PACKAGE_TARGET_NOT_FOUND");
         }
         return {
             packageDocument: packageDocument,
             resolver: resolver,
             itemref: indirection.element,
-            idref: idref
+            idref: idref,
+            spineIndex: spineIndex
         };
+    }
+
+    function packageSpineItemrefs(packageDocument) {
+        const spines = Array.from(packageDocument.getElementsByTagNameNS("*", "spine"));
+        if (spines.length !== 1) {
+            throw new Error("INVALID_PACKAGE_DOCUMENT");
+        }
+        return Array.from(spines[0].children).filter(function (element) {
+            return element.localName === "itemref";
+        });
+    }
+
+    function verifiedPackageItemref(
+        packageDocument,
+        spineIndex,
+        expectedIdref,
+        expectedItemrefId
+    ) {
+        const itemref = packageSpineItemrefs(packageDocument)[spineIndex];
+        if (!itemref || itemref.getAttribute("idref") !== expectedIdref) {
+            throw new Error("PACKAGE_TARGET_MISMATCH");
+        }
+        const actualItemrefId = itemref.getAttribute("id") || null;
+        if (actualItemrefId !== expectedItemrefId) {
+            throw new Error("PACKAGE_TARGET_MISMATCH");
+        }
+        return itemref;
+    }
+
+    function generatePackageCfi(
+        packageDocumentXml,
+        packagePath,
+        spineIndex,
+        expectedIdref,
+        expectedItemrefId
+    ) {
+        const packageDocument = parsePackageDocument(packageDocumentXml);
+        const itemref = verifiedPackageItemref(
+            packageDocument,
+            spineIndex,
+            expectedIdref,
+            expectedItemrefId
+        );
+        const builder = new cfi.EpubCfiBuilder();
+        builder.appendLocalPathTo(itemref);
+        const packageCfi = builder.toString();
+        const resolver = new cfi.EpubCfiResolver(packageCfi, {
+            processTextAssertions: true,
+            textAssertionSearchDistance: 10000
+        });
+        resolver.continueResolving(packageDocument, packageUrl(packagePath));
+        const resolvedTarget = resolver.getResolvedTarget();
+        if (resolvedTarget.getParserErrors().length > 0 ||
+            resolvedTarget.getResolverErrors().length > 0 ||
+            resolvedTarget.getTargetElement() !== itemref) {
+            throw new Error("PACKAGE_TARGET_MISMATCH");
+        }
+        return packageCfi;
     }
 
     function serializeComponent(source) {
@@ -136,8 +206,27 @@
                 return {
                     itemrefId: target.itemref.getAttribute("id"),
                     idref: target.idref,
+                    spineIndex: target.spineIndex,
                     kind: targetKind(parseCfi(fullCfi))
                 };
+            });
+        },
+
+        generatePackage: function generatePackage(
+            packageDocumentXml,
+            packagePath,
+            spineIndex,
+            expectedIdref,
+            expectedItemrefId
+        ) {
+            return safely(function () {
+                return generatePackageCfi(
+                    packageDocumentXml,
+                    packagePath,
+                    spineIndex,
+                    expectedIdref,
+                    expectedItemrefId
+                );
             });
         },
 
