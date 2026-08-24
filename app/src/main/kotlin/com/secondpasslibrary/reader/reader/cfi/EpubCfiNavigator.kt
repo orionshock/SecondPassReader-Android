@@ -23,6 +23,10 @@ internal data class EpubCfiSelection(
     val suffix: String?
 )
 
+/**
+ * Renderer-neutral evidence for a durable CFI target. [originalCfi] remains canonical; the text
+ * context is an adapter input for later decoration anchoring, not a replacement location.
+ */
 internal data class EpubCfiResolution(
     val originalCfi: EpubCfi,
     val resourceHref: String,
