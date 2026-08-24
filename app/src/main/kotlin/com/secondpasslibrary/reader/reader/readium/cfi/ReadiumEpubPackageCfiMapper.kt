@@ -4,15 +4,18 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiFailure
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiTargetKind
+import com.secondpasslibrary.reader.reader.cfi.EpubLayout
 import com.secondpasslibrary.reader.reader.cfi.EpubPackageDocument
 import com.secondpasslibrary.reader.reader.cfi.EpubSpineItem
 import com.secondpasslibrary.reader.reader.cfi.normalizeEpubHref
 
 internal data class ReadiumEpubPackageTarget(
     val spineIndex: Int,
+    val itemrefId: String?,
     val idref: String,
     val resourceHref: String,
-    val kind: EpubCfiTargetKind
+    val kind: EpubCfiTargetKind,
+    val layout: EpubLayout
 )
 
 internal class ReadiumEpubPackageCfiMapper(
@@ -93,9 +96,11 @@ internal class ReadiumEpubPackageCfiMapper(
             else -> EpubCfiOutcome.Success(
                 ReadiumEpubPackageTarget(
                     spineIndex = spineItem.index,
+                    itemrefId = spineItem.id,
                     idref = spineItem.idref,
                     resourceHref = spineItem.resourceHref,
-                    kind = targetKind
+                    kind = targetKind,
+                    layout = spineItem.layout
                 )
             )
         }

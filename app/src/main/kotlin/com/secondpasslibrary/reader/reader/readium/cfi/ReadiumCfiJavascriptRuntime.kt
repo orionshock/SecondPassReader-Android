@@ -9,7 +9,9 @@ import org.json.JSONObject
 import org.json.JSONTokener
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 
-private const val RUNTIME_VERSION = "1.6.0"
+private const val RUNTIME_VERSION = "1.7.0"
+private const val CONTEXT_LENGTH = 64
+private const val MOVEMENT_QUOTE_LENGTH = 128
 private const val COLIBRIO_ASSET = "reader/cfi/colibrio-epubcfi-1.1.0.min.js"
 private const val RUNTIME_ASSET = "reader/cfi/secondpass-epub-cfi-runtime.js"
 
@@ -81,6 +83,26 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
             JavascriptArgument.StringValue(contentCfi.value)
         )
     ).mapValue { value -> EpubCfi(value as String) }
+
+    suspend fun resolveContent(
+        navigator: EpubNavigatorFragment,
+        cfi: EpubCfi,
+        packageDocument: EpubPackageDocument,
+        packageTarget: ReadiumEpubPackageTarget
+    ): ReadiumCfiJavascriptResult<ReadiumContentResolution> = invoke(
+        navigator = navigator,
+        method = "resolveContent",
+        arguments = listOf(
+            JavascriptArgument.StringValue(cfi.value),
+            JavascriptArgument.StringValue(packageDocument.packageXml),
+            JavascriptArgument.StringValue(packageDocument.packagePath),
+            JavascriptArgument.NumberValue(packageTarget.spineIndex),
+            JavascriptArgument.StringValue(packageTarget.idref),
+            packageTarget.itemrefId?.let(JavascriptArgument::StringValue)
+                ?: JavascriptArgument.NullValue,
+            JavascriptArgument.StringValue(packageTarget.resourceHref)
+        )
+    ).mapValue(::readContentResolution)
 
     suspend fun generateSelection(
         navigator: EpubNavigatorFragment
@@ -180,6 +202,20 @@ internal data class ReadiumContentSelection(
     val suffix: String?
 )
 
+internal data class ReadiumContentResolution(
+    val kind: String,
+    val selectedText: String?,
+    val prefix: String?,
+    val suffix: String?,
+    val movementAnchor: ReadiumTextQuoteAnchor
+)
+
+internal data class ReadiumTextQuoteAnchor(
+    val exact: String,
+    val before: String?,
+    val after: String?
+)
+
 internal sealed interface ReadiumCfiJavascriptResult<out T> {
     data class Success<T>(val value: T) : ReadiumCfiJavascriptResult<T>
 
@@ -248,3 +284,33 @@ private fun String?.decodeJavascriptString(): String? = this
 
 private fun JSONObject.nullableString(name: String): String? =
     takeUnless { isNull(name) }?.optString(name)?.takeIf(String::isNotEmpty)
+
+private fun readContentResolution(value: Any?): ReadiumContentResolution {
+    val resolution = value as? JSONObject ?: error("CFI runtime content result is invalid.")
+    val movementAnchor = resolution.getJSONObject("movementAnchor")
+    val kind = resolution.getString("kind").also {
+        require(it == "point" || it == "range")
+    }
+    val selectedText = resolution.nullableString("selectedText")
+    require(
+        (kind == "point" && selectedText == null) ||
+            (kind == "range" && selectedText != null)
+    )
+    return ReadiumContentResolution(
+        kind = kind,
+        selectedText = selectedText,
+        prefix = resolution.boundedContext("prefix"),
+        suffix = resolution.boundedContext("suffix"),
+        movementAnchor = ReadiumTextQuoteAnchor(
+            exact = movementAnchor.getString("exact").also {
+                require(it.isNotBlank() && it.length <= MOVEMENT_QUOTE_LENGTH)
+            },
+            before = movementAnchor.boundedContext("before"),
+            after = movementAnchor.boundedContext("after")
+        )
+    )
+}
+
+private fun JSONObject.boundedContext(name: String): String? = nullableString(name)?.also {
+    require(it.length <= CONTEXT_LENGTH)
+}

@@ -1,8 +1,9 @@
 (function installSecondPassEpubCfiRuntime(global) {
     "use strict";
 
-    const RUNTIME_VERSION = "1.6.0";
+    const RUNTIME_VERSION = "1.7.0";
     const CONTEXT_LENGTH = 64;
+    const MOVEMENT_QUOTE_LENGTH = 128;
     const existing = global.__secondPassEpubCfi;
     if (existing && existing.runtimeVersion() === RUNTIME_VERSION) {
         return;
@@ -54,8 +55,13 @@
         if (typeof source !== "string") {
             throw new Error("INVALID_CFI");
         }
-        const root = cfi.EpubCfiParser.parse(source);
-        cfi.EpubCfiValidator.runAllValidations(root);
+        let root;
+        try {
+            root = cfi.EpubCfiParser.parse(source);
+            cfi.EpubCfiValidator.runAllValidations(root);
+        } catch (error) {
+            throw new Error("INVALID_CFI");
+        }
         if (root.errors.length > 0 || !root.parentPath) {
             throw new Error("INVALID_CFI");
         }
@@ -152,6 +158,53 @@
             idref: idref,
             spineIndex: spineIndex
         };
+    }
+
+    function verifiedContentResourceUrl(
+        packageTarget,
+        packagePath,
+        expectedSpineIndex,
+        expectedIdref,
+        expectedItemrefId,
+        expectedResourceHref
+    ) {
+        const itemrefId = packageTarget.itemref.getAttribute("id") || null;
+        if (packageTarget.spineIndex !== expectedSpineIndex ||
+            packageTarget.idref !== expectedIdref ||
+            itemrefId !== expectedItemrefId) {
+            throw new Error("PACKAGE_TARGET_MISMATCH");
+        }
+        if (typeof expectedResourceHref !== "string" ||
+            expectedResourceHref.length === 0) {
+            throw new Error("PACKAGE_TARGET_MISMATCH");
+        }
+        const manifestItems = Array.from(
+            packageTarget.packageDocument.getElementsByTagNameNS("*", "item")
+        ).filter(function (item) {
+            return item.getAttribute("id") === packageTarget.idref;
+        });
+        if (manifestItems.length !== 1) {
+            throw new Error("PACKAGE_TARGET_NOT_FOUND");
+        }
+        const manifestHref = manifestItems[0].getAttribute("href");
+        if (!manifestHref) {
+            throw new Error("PACKAGE_TARGET_NOT_FOUND");
+        }
+        let manifestUrl;
+        let expectedUrl;
+        try {
+            manifestUrl = new URL(manifestHref, packageUrl(packagePath));
+            expectedUrl = new URL(
+                expectedResourceHref,
+                "https://secondpass.invalid/"
+            );
+        } catch (error) {
+            throw new Error("PACKAGE_TARGET_MISMATCH");
+        }
+        if (manifestUrl.href !== expectedUrl.href) {
+            throw new Error("PACKAGE_TARGET_MISMATCH");
+        }
+        return manifestUrl;
     }
 
     function packageSpineItemrefs(packageDocument) {
@@ -498,6 +551,135 @@
         };
     }
 
+    function resolveContentTarget(
+        fullCfi,
+        packageDocumentXml,
+        packagePath,
+        expectedSpineIndex,
+        expectedIdref,
+        expectedItemrefId,
+        expectedResourceHref
+    ) {
+        const packageTarget = resolvePackageTarget(
+            fullCfi,
+            packageDocumentXml,
+            packagePath
+        );
+        const resourceUrl = verifiedContentResourceUrl(
+            packageTarget,
+            packagePath,
+            expectedSpineIndex,
+            expectedIdref,
+            expectedItemrefId,
+            expectedResourceHref
+        );
+        const expectedKind = targetKind(validateSupportedFullCfi(fullCfi));
+        const snapshot = createPublicationSnapshot(document);
+        let remainingIndirection;
+        try {
+            remainingIndirection = packageTarget.resolver.continueResolving(
+                snapshot.document,
+                resourceUrl
+            );
+        } catch (error) {
+            throw new Error("DOM_TARGET_NOT_FOUND");
+        }
+        if (remainingIndirection) {
+            throw new Error("UNSUPPORTED_CFI_FEATURE");
+        }
+        const resolvedTarget = packageTarget.resolver.getResolvedTarget();
+        if (resolvedTarget.getParserErrors().length > 0 ||
+            resolvedTarget.getResolverErrors().length > 0 ||
+            resolvedTarget.indirectionErrors.length > 0 ||
+            resolvedTarget.hasErrors() ||
+            !resolvedTarget.isEveryIndirectionResolved() ||
+            !resolvedTarget.isEveryStepAndOffsetParsed() ||
+            !resolvedTarget.isEveryStepResolved() ||
+            !resolvedTarget.isOwnedBySingleDocument()) {
+            throw new Error("DOM_TARGET_NOT_FOUND");
+        }
+        let snapshotRange;
+        try {
+            snapshotRange = resolvedTarget.createDomRange();
+        } catch (error) {
+            throw new Error(expectedKind === "range" ? "INVALID_RANGE" : "DOM_TARGET_NOT_FOUND");
+        }
+        const snapshotBody = publicationBody(snapshot.document);
+        if (!snapshotRange || !snapshotBody ||
+            !snapshotBody.contains(snapshotRange.startContainer) ||
+            !snapshotBody.contains(snapshotRange.endContainer)) {
+            throw new Error("DOM_TARGET_NOT_FOUND");
+        }
+        validateResolvedRange(snapshotRange, resolvedTarget, expectedKind);
+
+        const liveRange = snapshot.toLiveRange(snapshotRange);
+        validateResolvedRange(liveRange, resolvedTarget, expectedKind);
+        if (liveRange.toString() !== snapshotRange.toString()) {
+            throw new Error("DOM_TARGET_NOT_FOUND");
+        }
+
+        const context = textContext(snapshotRange, snapshot.document);
+        const movementAnchor = createMovementAnchor(
+            snapshotRange,
+            snapshot.document,
+            context
+        );
+        return {
+            kind: expectedKind,
+            selectedText: context.selectedText,
+            prefix: context.prefix,
+            suffix: context.suffix,
+            movementAnchor: movementAnchor
+        };
+    }
+
+    function validateResolvedRange(range, resolvedTarget, expectedKind) {
+        if (!isTextPosition(range.startContainer, range.startOffset) ||
+            !isTextPosition(range.endContainer, range.endOffset)) {
+            throw new Error("DOM_TARGET_NOT_FOUND");
+        }
+        validateTextBoundary(range.startContainer, range.startOffset);
+        validateTextBoundary(range.endContainer, range.endOffset);
+        if (expectedKind === "range") {
+            if (!resolvedTarget.hasRangePaths() || !resolvedTarget.isDomRange() ||
+                range.collapsed || range.toString().length === 0) {
+                throw new Error("INVALID_RANGE");
+            }
+        } else if (resolvedTarget.hasRangePaths() || !range.collapsed) {
+            throw new Error("INVALID_RANGE");
+        }
+    }
+
+    function createMovementAnchor(range, publicationDocument, context) {
+        const exactSource = range.collapsed
+            ? textFollowingRange(range, publicationDocument)
+            : range.toString();
+        const exact = takeFirstCodeUnitSafe(exactSource, MOVEMENT_QUOTE_LENGTH);
+        if (!exact || !containsDurableText(exact)) {
+            throw new Error("DOM_TARGET_NOT_FOUND");
+        }
+        const trailingText = range.collapsed
+            ? exactSource.slice(exact.length)
+            : range.toString().slice(exact.length) +
+                textFollowingRange(range, publicationDocument);
+        return {
+            exact: exact,
+            before: context.prefix,
+            after: takeFirstCodeUnitSafe(trailingText, CONTEXT_LENGTH)
+        };
+    }
+
+    function textFollowingRange(range, publicationDocument) {
+        const body = publicationBody(publicationDocument);
+        if (!body) {
+            throw new Error("DOM_TARGET_NOT_FOUND");
+        }
+        const following = publicationDocument.createRange();
+        following.selectNodeContents(body);
+        following.setStart(range.endContainer, range.endOffset);
+        return following.toString();
+    }
+
     function publicationBody(publicationDocument) {
         return publicationDocument.getElementsByTagNameNS("*", "body")[0] || null;
     }
@@ -820,8 +1002,26 @@
             });
         },
 
-        resolveContent: function resolveContent() {
-            return failure("UNSUPPORTED_CFI_FEATURE");
+        resolveContent: function resolveContent(
+            fullCfi,
+            packageDocumentXml,
+            packagePath,
+            expectedSpineIndex,
+            expectedIdref,
+            expectedItemrefId,
+            expectedResourceHref
+        ) {
+            return safely(function () {
+                return resolveContentTarget(
+                    fullCfi,
+                    packageDocumentXml,
+                    packagePath,
+                    expectedSpineIndex,
+                    expectedIdref,
+                    expectedItemrefId,
+                    expectedResourceHref
+                );
+            });
         },
 
         generateSelectionContentCfi: function generateSelection() {

@@ -6,11 +6,14 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfiNavigator
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiResolution
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiSelection
+import com.secondpasslibrary.reader.reader.cfi.EpubCfiTargetKind
+import com.secondpasslibrary.reader.reader.cfi.EpubLayout
 import com.secondpasslibrary.reader.reader.cfi.EpubPackageDocument
+import com.secondpasslibrary.reader.reader.cfi.normalizeEpubHref
 
 internal class ReadiumEpubCfiNavigator(
     private val binding: ReadiumCfiNavigatorBinding,
-    packageDocument: EpubPackageDocument,
+    private val packageDocument: EpubPackageDocument,
     readingOrderHrefs: List<String>
 ) : EpubCfiNavigator,
     AutoCloseable {
@@ -81,7 +84,40 @@ internal class ReadiumEpubCfiNavigator(
             )
         }
 
-    override suspend fun resolve(cfi: EpubCfi): EpubCfiOutcome<EpubCfiResolution> = withRuntime()
+    override suspend fun resolve(cfi: EpubCfi): EpubCfiOutcome<EpubCfiResolution> =
+        when (val resolved = resolveForNavigation(cfi)) {
+            is EpubCfiOutcome.Failure -> resolved
+            is EpubCfiOutcome.Success -> resolved.value.toDomainResolution(cfi)
+        }
+
+    internal suspend fun resolveForNavigation(cfi: EpubCfi): EpubCfiOutcome<ReadiumResolvedCfi> =
+        when (val resolvedPackage = resolvePackage(cfi)) {
+            is EpubCfiOutcome.Failure -> resolvedPackage
+
+            is EpubCfiOutcome.Success -> if (resolvedPackage.value.layout == EpubLayout.FIXED) {
+                EpubCfiOutcome.Failure(EpubCfiFailure.UNSUPPORTED_FIXED_LAYOUT)
+            } else {
+                val packageTarget = resolvedPackage.value
+                binding.withNavigator { navigator, runtime ->
+                    val activeBefore = navigator.activeResourceHref()
+                    if (activeBefore != packageTarget.resourceHref) {
+                        EpubCfiOutcome.Failure(EpubCfiFailure.NAVIGATION_FAILED)
+                    } else {
+                        val result = runtime.resolveContent(
+                            navigator = navigator,
+                            cfi = cfi,
+                            packageDocument = packageDocument,
+                            packageTarget = packageTarget
+                        )
+                        if (navigator.activeResourceHref() != activeBefore) {
+                            EpubCfiOutcome.Failure(EpubCfiFailure.NAVIGATION_FAILED)
+                        } else {
+                            result.toResolvedOutcome(packageTarget)
+                        }
+                    }
+                } ?: EpubCfiOutcome.Failure(EpubCfiFailure.NAVIGATOR_UNAVAILABLE)
+            }
+        }
 
     internal suspend fun resolvePackage(cfi: EpubCfi): EpubCfiOutcome<ReadiumEpubPackageTarget> =
         packageCfiMapper.resolve(cfi)
@@ -104,3 +140,42 @@ internal class ReadiumEpubCfiNavigator(
         return result ?: EpubCfiOutcome.Failure(EpubCfiFailure.NAVIGATOR_UNAVAILABLE)
     }
 }
+
+private fun org.readium.r2.navigator.epub.EpubNavigatorFragment.activeResourceHref(): String? =
+    runCatching { normalizeEpubHref(currentLocator.value.href.toString()) }.getOrNull()
+
+internal data class ReadiumResolvedCfi(
+    val packageTarget: ReadiumEpubPackageTarget,
+    val content: ReadiumContentResolution
+)
+
+private fun ReadiumCfiJavascriptResult<ReadiumContentResolution>.toResolvedOutcome(
+    packageTarget: ReadiumEpubPackageTarget
+): EpubCfiOutcome<ReadiumResolvedCfi> = when (this) {
+    is ReadiumCfiJavascriptResult.Failure -> EpubCfiOutcome.Failure(reason)
+
+    is ReadiumCfiJavascriptResult.Success -> if (value.kind == packageTarget.kind.runtimeName) {
+        EpubCfiOutcome.Success(ReadiumResolvedCfi(packageTarget, value))
+    } else {
+        EpubCfiOutcome.Failure(EpubCfiFailure.INVALID_CFI)
+    }
+}
+
+private fun ReadiumResolvedCfi.toDomainResolution(
+    originalCfi: EpubCfi
+): EpubCfiOutcome<EpubCfiResolution> = EpubCfiOutcome.Success(
+    EpubCfiResolution(
+        originalCfi = originalCfi,
+        resourceHref = packageTarget.resourceHref,
+        kind = packageTarget.kind,
+        selectedText = content.selectedText,
+        prefix = content.prefix,
+        suffix = content.suffix
+    )
+)
+
+private val EpubCfiTargetKind.runtimeName: String
+    get() = when (this) {
+        EpubCfiTargetKind.POINT -> "point"
+        EpubCfiTargetKind.RANGE -> "range"
+    }
