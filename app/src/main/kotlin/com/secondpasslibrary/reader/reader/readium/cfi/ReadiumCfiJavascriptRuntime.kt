@@ -9,7 +9,7 @@ import org.json.JSONObject
 import org.json.JSONTokener
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 
-private const val RUNTIME_VERSION = "1.1.0"
+private const val RUNTIME_VERSION = "1.2.0"
 private const val COLIBRIO_ASSET = "reader/cfi/colibrio-epubcfi-1.1.0.min.js"
 private const val RUNTIME_ASSET = "reader/cfi/secondpass-epub-cfi-runtime.js"
 
@@ -186,6 +186,8 @@ private inline fun <T, R> ReadiumCfiJavascriptResult<T>.mapValue(
 
 private fun String.toCfiFailure(): EpubCfiFailure = when (this) {
     "INVALID_CFI" -> EpubCfiFailure.INVALID_CFI
+
+    "UNSUPPORTED_CFI_FEATURE" -> EpubCfiFailure.UNSUPPORTED_CFI_FEATURE
 
     "INVALID_PACKAGE_DOCUMENT" -> EpubCfiFailure.PACKAGE_DOCUMENT_MISSING
 

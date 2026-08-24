@@ -1,7 +1,7 @@
 (function installSecondPassEpubCfiRuntime(global) {
     "use strict";
 
-    const RUNTIME_VERSION = "1.1.0";
+    const RUNTIME_VERSION = "1.2.0";
     const existing = global.__secondPassEpubCfi;
     if (existing && existing.runtimeVersion() === RUNTIME_VERSION) {
         return;
@@ -32,6 +32,7 @@
         const code = error && typeof error.message === "string" ? error.message : "";
         switch (code) {
             case "INVALID_CFI":
+            case "UNSUPPORTED_CFI_FEATURE":
             case "INVALID_PACKAGE_DOCUMENT":
             case "PACKAGE_TARGET_NOT_FOUND":
             case "PACKAGE_TARGET_MISMATCH":
@@ -62,6 +63,36 @@
         return root.rangeStartPath && root.rangeEndPath ? "range" : "point";
     }
 
+    function validateSupportedFullCfi(source) {
+        const root = parseCfi(source);
+        const localPaths = root.parentPath.localPaths;
+        const indirectionIndexes = localPaths.reduce(function (indexes, path, index) {
+            if (path.indirection) {
+                indexes.push(index);
+            }
+            return indexes;
+        }, []);
+        if (indirectionIndexes.length !== 1 ||
+            indirectionIndexes[0] === 0 ||
+            indirectionIndexes[0] === localPaths.length - 1) {
+            throw new Error("UNSUPPORTED_CFI_FEATURE");
+        }
+        const kind = targetKind(root);
+        if (kind === "point" && !isCharacterOffset(root.parentPath.offset)) {
+            throw new Error("UNSUPPORTED_CFI_FEATURE");
+        }
+        if (kind === "range" &&
+            (!isCharacterOffset(root.rangeStartPath.offset) ||
+                !isCharacterOffset(root.rangeEndPath.offset))) {
+            throw new Error("UNSUPPORTED_CFI_FEATURE");
+        }
+        return root;
+    }
+
+    function isCharacterOffset(offset) {
+        return offset && offset.type === "CHARACTER";
+    }
+
     function parsePackageDocument(packageDocumentXml) {
         if (typeof packageDocumentXml !== "string" || packageDocumentXml.length === 0) {
             throw new Error("INVALID_PACKAGE_DOCUMENT");
@@ -85,7 +116,7 @@
 
     function resolvePackageTarget(fullCfi, packageDocumentXml, packagePath) {
         const packageDocument = parsePackageDocument(packageDocumentXml);
-        const resolver = new cfi.EpubCfiResolver(parseCfi(fullCfi), {
+        const resolver = new cfi.EpubCfiResolver(validateSupportedFullCfi(fullCfi), {
             processTextAssertions: true,
             textAssertionSearchDistance: 10000
         });
