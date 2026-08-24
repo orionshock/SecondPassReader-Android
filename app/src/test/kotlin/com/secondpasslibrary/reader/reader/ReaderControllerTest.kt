@@ -5,6 +5,11 @@ import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetResolver
 import com.secondpasslibrary.reader.reader.asset.ReaderEpubUnavailableException
 import com.secondpasslibrary.reader.reader.asset.ResolvedReaderBook
+import com.secondpasslibrary.reader.reader.cfi.EpubCfi
+import com.secondpasslibrary.reader.reader.cfi.EpubCfiNavigator
+import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
+import com.secondpasslibrary.reader.reader.cfi.EpubCfiResolution
+import com.secondpasslibrary.reader.reader.cfi.EpubCfiSelection
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpenException
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
@@ -151,6 +156,19 @@ class ReaderControllerTest {
     private class FakeEngine : ReaderEngine {
         var closed = false
         override val viewport = ReaderViewport { }
+        override val cfiNavigator = object : EpubCfiNavigator {
+            override suspend fun goTo(cfi: EpubCfi): EpubCfiOutcome<Unit> =
+                error("CFI navigation is not used by ReaderController tests.")
+
+            override suspend fun currentPosition(): EpubCfiOutcome<EpubCfi> =
+                error("CFI navigation is not used by ReaderController tests.")
+
+            override suspend fun currentSelection(): EpubCfiOutcome<EpubCfiSelection?> =
+                error("CFI navigation is not used by ReaderController tests.")
+
+            override suspend fun resolve(cfi: EpubCfi): EpubCfiOutcome<EpubCfiResolution> =
+                error("CFI navigation is not used by ReaderController tests.")
+        }
 
         override fun close() {
             closed = true

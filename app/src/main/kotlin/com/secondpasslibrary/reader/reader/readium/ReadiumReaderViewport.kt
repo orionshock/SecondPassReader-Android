@@ -13,6 +13,7 @@ import androidx.fragment.app.FragmentActivity
 import androidx.fragment.app.FragmentContainerView
 import com.secondpasslibrary.reader.R
 import com.secondpasslibrary.reader.reader.domain.ReaderViewport
+import com.secondpasslibrary.reader.reader.readium.cfi.ReadiumCfiNavigatorBinding
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 
 private const val NAVIGATOR_TAG = "reader.epub.navigator"
@@ -29,8 +30,10 @@ internal fun FragmentActivity.discardRestoredReaderViewport() {
     }
 }
 
-internal class ReadiumReaderViewport(private val fragmentFactory: ReadiumNavigatorFragmentFactory) :
-    ReaderViewport {
+internal class ReadiumReaderViewport(
+    private val fragmentFactory: ReadiumNavigatorFragmentFactory,
+    private val cfiBinding: ReadiumCfiNavigatorBinding
+) : ReaderViewport {
     @Composable
     override fun Content(modifier: Modifier) {
         val activity = LocalContext.current.requireFragmentActivity()
@@ -49,6 +52,7 @@ internal class ReadiumReaderViewport(private val fragmentFactory: ReadiumNavigat
         DisposableEffect(activity, this) {
             val fragments = activity.supportFragmentManager
             fragments.findFragmentByTag(NAVIGATOR_TAG)?.let { existing ->
+                (existing as? EpubNavigatorFragment)?.let(cfiBinding::unbind)
                 fragments.beginTransaction().remove(existing).commitNowAllowingStateLoss()
             }
             fragments.fragmentFactory = fragmentFactory.create()
@@ -60,7 +64,12 @@ internal class ReadiumReaderViewport(private val fragmentFactory: ReadiumNavigat
                     NAVIGATOR_TAG
                 )
                 .commitNowAllowingStateLoss()
+            val navigator = requireNotNull(
+                fragments.findFragmentByTag(NAVIGATOR_TAG) as? EpubNavigatorFragment
+            )
+            cfiBinding.bind(navigator)
             onDispose {
+                cfiBinding.unbind(navigator)
                 fragments.findFragmentByTag(NAVIGATOR_TAG)?.let { navigator ->
                     fragments.beginTransaction().remove(navigator).commitNowAllowingStateLoss()
                 }

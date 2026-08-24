@@ -6,6 +6,9 @@ import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpenException
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
 import com.secondpasslibrary.reader.reader.domain.ReaderViewport
+import com.secondpasslibrary.reader.reader.readium.cfi.ReadiumCfiJavascriptRuntime
+import com.secondpasslibrary.reader.reader.readium.cfi.ReadiumCfiNavigatorBinding
+import com.secondpasslibrary.reader.reader.readium.cfi.ReadiumEpubCfiNavigator
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
@@ -21,14 +24,24 @@ import org.readium.r2.shared.util.http.DefaultHttpClient
 import org.readium.r2.streamer.PublicationOpener
 import org.readium.r2.streamer.parser.DefaultPublicationParser
 
-private class ReadiumReaderEngine(private val publication: Publication) : ReaderEngine {
+private class ReadiumReaderEngine(private val publication: Publication, context: Context) :
+    ReaderEngine {
     private val navigatorFactory = EpubNavigatorFactory(publication)
+    private val cfiBinding = ReadiumCfiNavigatorBinding(ReadiumCfiJavascriptRuntime(context))
+    private val readiumCfiNavigator = ReadiumEpubCfiNavigator(cfiBinding)
 
-    override val viewport: ReaderViewport = ReadiumReaderViewport {
-        navigatorFactory.createFragmentFactory(initialLocator = null)
+    override val viewport: ReaderViewport = ReadiumReaderViewport(
+        fragmentFactory = {
+            navigatorFactory.createFragmentFactory(initialLocator = null)
+        },
+        cfiBinding = cfiBinding
+    )
+    override val cfiNavigator = readiumCfiNavigator
+
+    override fun close() {
+        readiumCfiNavigator.close()
+        publication.close()
     }
-
-    override fun close() = publication.close()
 }
 
 internal fun interface ReadiumNavigatorFragmentFactory {
@@ -36,8 +49,9 @@ internal fun interface ReadiumNavigatorFragmentFactory {
 }
 
 @Singleton
-internal class ReadiumReaderEngineOpener @Inject constructor(@ApplicationContext context: Context) :
-    ReaderEngineOpener {
+internal class ReadiumReaderEngineOpener @Inject constructor(
+    @ApplicationContext private val context: Context
+) : ReaderEngineOpener {
     private val httpClient = DefaultHttpClient()
     private val assetRetriever = AssetRetriever(context.contentResolver, httpClient)
     private val publicationOpener = PublicationOpener(
@@ -70,7 +84,7 @@ internal class ReadiumReaderEngineOpener @Inject constructor(@ApplicationContext
                     if (!publication.conformsTo(Publication.Profile.EPUB)) {
                         failReaderEngineOpen("The Book asset is not an EPUB.")
                     }
-                    ReadiumReaderEngine(publication).also {
+                    ReadiumReaderEngine(publication, context).also {
                         pendingEngine = it
                         pendingPublication = null
                     }
