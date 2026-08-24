@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.reader.domain
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import com.secondpasslibrary.reader.reader.cfi.EpubCfiNavigator
 import java.io.File
 
 internal class ReaderEngineOpenException(message: String, cause: Throwable? = null) :
@@ -10,6 +11,7 @@ internal class ReaderEngineOpenException(message: String, cause: Throwable? = nu
 /** An open renderer session for one immutable EPUB asset. */
 internal interface ReaderEngine : AutoCloseable {
     val viewport: ReaderViewport
+    val cfiNavigator: EpubCfiNavigator
 }
 
 /**
