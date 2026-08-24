@@ -5,16 +5,16 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.fragment.app.FragmentActivity
 import com.secondpasslibrary.reader.design.SecondPassTheme
-import com.secondpasslibrary.reader.reader.discardRestoredReaderNavigator
-import com.secondpasslibrary.reader.reader.installReaderRestorationFactory
+import com.secondpasslibrary.reader.reader.readium.discardRestoredReaderViewport
+import com.secondpasslibrary.reader.reader.readium.installReaderEngineRestorationFactory
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        installReaderRestorationFactory()
+        installReaderEngineRestorationFactory()
         super.onCreate(savedInstanceState)
-        discardRestoredReaderNavigator()
+        discardRestoredReaderViewport()
         enableEdgeToEdge()
         setContent {
             SecondPassTheme {

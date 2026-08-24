@@ -5,22 +5,24 @@ import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetRequest
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetResolver
 import com.secondpasslibrary.reader.reader.asset.ReaderEpubUnavailableException
-import com.secondpasslibrary.reader.reader.publication.ReaderPublication
-import com.secondpasslibrary.reader.reader.publication.ReaderPublicationOpener
+import com.secondpasslibrary.reader.reader.domain.ReaderEngine
+import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 internal sealed interface ReaderState {
     data object Resolving : ReaderState
     data object Downloading : ReaderState
     data object Opening : ReaderState
-    data class Ready(val title: String, val publication: ReaderPublication) : ReaderState
+    data class Ready(val title: String, val engine: ReaderEngine) : ReaderState
     data class Failure(val kind: ReaderFailure) : ReaderState
 }
 
@@ -32,7 +34,7 @@ internal sealed interface ReaderConnectionEvent {
 
 internal class ReaderController(
     private val assetResolver: ReaderBookAssetResolver,
-    private val publicationOpener: ReaderPublicationOpener,
+    private val engineOpener: ReaderEngineOpener,
     private val scope: CoroutineScope
 ) {
     private val mutableState = MutableStateFlow<ReaderState>(ReaderState.Resolving)
@@ -55,39 +57,62 @@ internal class ReaderController(
 
     fun close() {
         job?.cancel()
-        closePublication()
+        closeEngine()
         connectionEventChannel.close()
     }
 
     private fun load(request: ReaderRequest) {
         job?.cancel()
-        closePublication()
+        closeEngine()
         mutableState.value = ReaderState.Resolving
         job = scope.launch {
-            val result = runCatching {
-                val book = assetResolver.resolve(
-                    ReaderBookAssetRequest(request.profile, request.profileId, request.bookId),
-                    onDownloadStarted = { mutableState.value = ReaderState.Downloading }
-                )
-                mutableState.value = ReaderState.Opening
-                val publication = publicationOpener.open(book.file)
-                ReaderState.Ready(book.title, publication)
-            }
-            (result.exceptionOrNull() as? CancellationException)?.let { throw it }
-            result.fold(
-                onSuccess = { ready -> mutableState.value = ready },
-                onFailure = { failure ->
-                    if (failure is SplClientException.AuthenticationRejected) {
-                        connectionEventChannel.trySend(ReaderConnectionEvent.AuthenticationRejected)
-                    }
-                    mutableState.value = ReaderState.Failure(failure.toReaderFailure())
+            var openedEngine: ReaderEngine? = null
+            var failureKind = ReaderFailure.DOWNLOAD
+            try {
+                val result = runCatching {
+                    val book = assetResolver.resolve(
+                        ReaderBookAssetRequest(request.profile, request.profileId, request.bookId),
+                        onDownloadStarted = {
+                            if (isActive) mutableState.value = ReaderState.Downloading
+                        }
+                    )
+                    coroutineContext.ensureActive()
+                    failureKind = ReaderFailure.OPEN
+                    mutableState.value = ReaderState.Opening
+                    val engine = engineOpener.open(book.file)
+                    openedEngine = engine
+                    coroutineContext.ensureActive()
+                    ReaderState.Ready(book.title, engine)
                 }
-            )
+                (result.exceptionOrNull() as? CancellationException)?.let { throw it }
+                result.fold(
+                    onSuccess = { ready ->
+                        mutableState.value = ready
+                        openedEngine = null
+                    },
+                    onFailure = { failure ->
+                        coroutineContext.ensureActive()
+                        if (failure is SplClientException.AuthenticationRejected) {
+                            connectionEventChannel.trySend(
+                                ReaderConnectionEvent.AuthenticationRejected
+                            )
+                        }
+                        val kind = if (failure is ReaderEpubUnavailableException) {
+                            ReaderFailure.NO_EPUB
+                        } else {
+                            failureKind
+                        }
+                        mutableState.value = ReaderState.Failure(kind)
+                    }
+                )
+            } finally {
+                openedEngine?.close()
+            }
         }
     }
 
-    private fun closePublication() {
-        (mutableState.value as? ReaderState.Ready)?.publication?.close()
+    private fun closeEngine() {
+        (mutableState.value as? ReaderState.Ready)?.engine?.close()
     }
 }
 
@@ -100,13 +125,4 @@ private data class ReaderRequest(
         require(profileId.isNotBlank()) { "Profile ID must not be blank." }
         require(bookId.isNotBlank()) { "Book ID must not be blank." }
     }
-}
-
-private fun Throwable.toReaderFailure(): ReaderFailure = when (this) {
-    is ReaderEpubUnavailableException -> ReaderFailure.NO_EPUB
-
-    is com.secondpasslibrary.reader.reader.publication.ReaderPublicationOpenException ->
-        ReaderFailure.OPEN
-
-    else -> ReaderFailure.DOWNLOAD
 }

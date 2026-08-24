@@ -29,6 +29,8 @@ import com.secondpasslibrary.client.AuthenticatedServerInfo
 import com.secondpasslibrary.client.CurrentUser
 import com.secondpasslibrary.reader.app.AppSessionAuthority
 import com.secondpasslibrary.reader.app.AppSessionState
+import com.secondpasslibrary.reader.connection.ConnectionLifecycleActionState
+import com.secondpasslibrary.reader.connection.ConnectionLifecycleActions
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -114,6 +116,14 @@ class AppNavigationEntryLifecycleTest {
                 rememberUpdatedState(
                     AccountDestinationEnvironment(
                         session = session,
+                        lifecycleActionState = ConnectionLifecycleActionState.Idle,
+                        lifecycleActions =
+                            ConnectionLifecycleActions(
+                                reconnect = {},
+                                retryConnection = {},
+                                logout = {},
+                                forget = {}
+                            ),
                         navigator = AppNavigator(navigation),
                         onAuthenticationRejected = {},
                         onRetryConnection = {},

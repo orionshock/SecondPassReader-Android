@@ -31,7 +31,7 @@ internal fun ReaderScreen(state: ReaderState, onBack: () -> Unit, onRetry: () ->
             ReaderState.Resolving -> ReaderLoading("Preparing book…")
             ReaderState.Downloading -> ReaderLoading("Downloading book…")
             ReaderState.Opening -> ReaderLoading("Opening EPUB…")
-            is ReaderState.Ready -> ReaderNavigatorHost(state.publication, Modifier.weight(1f))
+            is ReaderState.Ready -> state.engine.viewport.Content(Modifier.weight(1f))
             is ReaderState.Failure -> ReaderFailureContent(state.kind, onBack, onRetry)
         }
     }

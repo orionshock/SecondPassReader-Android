@@ -1,14 +1,14 @@
 package com.secondpasslibrary.reader.reader
 
-import androidx.fragment.app.FragmentFactory
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetResolver
 import com.secondpasslibrary.reader.reader.asset.ReaderEpubUnavailableException
 import com.secondpasslibrary.reader.reader.asset.ResolvedReaderBook
-import com.secondpasslibrary.reader.reader.publication.ReaderPublication
-import com.secondpasslibrary.reader.reader.publication.ReaderPublicationOpenException
-import com.secondpasslibrary.reader.reader.publication.ReaderPublicationOpener
+import com.secondpasslibrary.reader.reader.domain.ReaderEngine
+import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpenException
+import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
+import com.secondpasslibrary.reader.reader.domain.ReaderViewport
 import java.nio.file.Files
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -25,12 +25,12 @@ class ReaderControllerTest {
     @Test
     fun `download then publication open reaches ready in order`() = runTest {
         val file = Files.createTempFile("reader", ".epub").toFile()
-        val publication = FakePublication()
+        val engine = FakeEngine()
         val resolver = ReaderBookAssetResolver { _, onDownloadStarted ->
             onDownloadStarted()
             ResolvedReaderBook("Academ's Fury", file, reused = false)
         }
-        val controller = ReaderController(resolver, ReaderPublicationOpener { publication }, this)
+        val controller = ReaderController(resolver, ReaderEngineOpener { engine }, this)
         val states = mutableListOf<ReaderState>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             controller.state.collect(states::add)
@@ -50,7 +50,7 @@ class ReaderControllerTest {
         )
         assertEquals("Academ's Fury", (controller.state.value as ReaderState.Ready).title)
         controller.close()
-        assertTrue(publication.closed)
+        assertTrue(engine.closed)
     }
 
     @Test
@@ -61,9 +61,9 @@ class ReaderControllerTest {
                 onDownloadStarted()
                 throw SplClientException.ServerUnreachable()
             },
-            ReaderPublicationOpener {
+            ReaderEngineOpener {
                 opened = true
-                FakePublication()
+                FakeEngine()
             },
             this
         )
@@ -83,12 +83,12 @@ class ReaderControllerTest {
         }
         val openFailure = ReaderController(
             resolved,
-            ReaderPublicationOpener { throw ReaderPublicationOpenException("broken") },
+            ReaderEngineOpener { throw ReaderEngineOpenException("broken") },
             this
         )
         val noEpub = ReaderController(
             ReaderBookAssetResolver { _, _ -> throw ReaderEpubUnavailableException() },
-            ReaderPublicationOpener { FakePublication() },
+            ReaderEngineOpener { FakeEngine() },
             this
         )
 
@@ -101,10 +101,43 @@ class ReaderControllerTest {
     }
 
     @Test
+    fun `reinitialization closes a late engine without replacing the current request`() = runTest {
+        val file = Files.createTempFile("reader", ".epub").toFile()
+        val firstEngine = FakeEngine()
+        val secondEngine = FakeEngine()
+        val resolver = ReaderBookAssetResolver { request, _ ->
+            ResolvedReaderBook(request.bookId, file, reused = true)
+        }
+        lateinit var controller: ReaderController
+        var openCount = 0
+        controller = ReaderController(
+            resolver,
+            ReaderEngineOpener {
+                if (openCount++ == 0) {
+                    controller.initialize(profile(), "profile-1", "book-2")
+                    firstEngine
+                } else {
+                    secondEngine
+                }
+            },
+            this
+        )
+
+        controller.initialize(profile(), "profile-1", "book-1")
+        advanceUntilIdle()
+
+        assertTrue(firstEngine.closed)
+        assertEquals("book-2", (controller.state.value as ReaderState.Ready).title)
+        assertTrue(!secondEngine.closed)
+        controller.close()
+        assertTrue(secondEngine.closed)
+    }
+
+    @Test
     fun `authentication rejection is surfaced to connection ownership`() = runTest {
         val controller = ReaderController(
             ReaderBookAssetResolver { _, _ -> throw SplClientException.AuthenticationRejected() },
-            ReaderPublicationOpener { FakePublication() },
+            ReaderEngineOpener { FakeEngine() },
             this
         )
 
@@ -115,9 +148,10 @@ class ReaderControllerTest {
         )
     }
 
-    private class FakePublication : ReaderPublication {
+    private class FakeEngine : ReaderEngine {
         var closed = false
-        override fun navigatorFragmentFactory(): FragmentFactory = FragmentFactory()
+        override val viewport = ReaderViewport { }
+
         override fun close() {
             closed = true
         }
