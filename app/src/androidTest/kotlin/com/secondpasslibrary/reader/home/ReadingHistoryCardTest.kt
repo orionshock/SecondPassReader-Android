@@ -20,7 +20,7 @@ class ReadingHistoryCardTest {
 
     @Test
     fun primaryTapEmitsReaderIntent() {
-        val intent = OpenReaderIntent("book-1", "session-1", progress = null)
+        val intent = OpenReaderIntent("book-1", "session-1")
         val emitted = mutableListOf<OpenReaderIntent>()
         compose.setContent {
             SecondPassTheme {

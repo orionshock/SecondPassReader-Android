@@ -16,11 +16,14 @@ import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpenException
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
 import com.secondpasslibrary.reader.reader.domain.ReaderViewport
+import com.secondpasslibrary.reader.reader.domain.ReaderViewportMovement
+import com.secondpasslibrary.reader.reader.domain.ReaderViewportMovements
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionCoordinator
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import java.nio.file.Files
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -99,6 +102,40 @@ class ReaderControllerTest {
         val restored = controller.state.value as ReaderState.Ready
         assertEquals(ReaderProgressRestore.RESTORED, restored.restore)
         assertEquals(listOf(EpubCfi(PROGRESS_CFI)), engine.navigator.destinations)
+        controller.close()
+    }
+
+    @Test
+    fun `saved-location movement is excluded before progress capture starts`() = runTest {
+        val file = Files.createTempFile("reader", ".epub").toFile()
+        val engine = FakeEngine(EpubCfiReadiness.AwaitingViewport)
+        val controller = ReaderController(
+            ReaderBookAssetResolver { _, _ -> ResolvedReaderBook("Book", file, reused = true) },
+            ReaderEngineOpener { engine },
+            coordinator(PROGRESS_CFI),
+            this
+        )
+
+        controller.initialize(profile(), "profile-1", "book-1", "session-existing")
+        advanceUntilIdle()
+        engine.move(1)
+        engine.navigator.readiness.value = EpubCfiReadiness.Available
+        advanceUntilIdle()
+
+        assertEquals(
+            ReaderProgressRestore.RESTORED,
+            (controller.state.value as ReaderState.Ready).restore
+        )
+        assertTrue(requireNotNull(controller.progress.value).captureEnabled)
+        assertEquals(0, engine.navigator.positionRequests)
+        assertEquals(null, controller.progress.value?.latestCandidate)
+
+        engine.navigator.currentPositionOutcome = EpubCfiOutcome.Success(EpubCfi(NEXT_CFI))
+        engine.move(2)
+        advanceUntilIdle()
+
+        assertEquals(EpubCfi(NEXT_CFI), controller.progress.value?.latestCandidate)
+        controller.close()
     }
 
     @Test
@@ -133,6 +170,8 @@ class ReaderControllerTest {
             ReaderProgressRestore.SKIPPED,
             (rejected.state.value as ReaderState.Ready).restore
         )
+        malformed.close()
+        rejected.close()
     }
 
     @Test
@@ -156,6 +195,7 @@ class ReaderControllerTest {
 
         assertEquals(ReaderState.Failure(ReaderFailure.DOWNLOAD), controller.state.value)
         assertTrue(!opened)
+        controller.close()
     }
 
     @Test
@@ -183,6 +223,8 @@ class ReaderControllerTest {
 
         assertEquals(ReaderState.Failure(ReaderFailure.OPEN), openFailure.state.value)
         assertEquals(ReaderState.Failure(ReaderFailure.NO_EPUB), noEpub.state.value)
+        openFailure.close()
+        noEpub.close()
     }
 
     @Test
@@ -233,14 +275,21 @@ class ReaderControllerTest {
             ReaderConnectionEvent.AuthenticationRejected,
             controller.connectionEvents.first()
         )
+        controller.close()
     }
 
     private class FakeEngine(initialReadiness: EpubCfiReadiness = EpubCfiReadiness.Available) :
         ReaderEngine {
         var closed = false
         override val viewport = ReaderViewport { }
+        val movements = MutableSharedFlow<ReaderViewportMovement>(extraBufferCapacity = 8)
+        override val viewportMovements = ReaderViewportMovements { movements }
         val navigator = FakeCfiNavigator(initialReadiness)
         override val cfiNavigator: EpubCfiNavigator = navigator
+
+        fun move(sequence: Long) {
+            check(movements.tryEmit(ReaderViewportMovement(sequence)))
+        }
 
         override fun close() {
             closed = true
@@ -251,14 +300,19 @@ class ReaderControllerTest {
         override val readiness = MutableStateFlow(initialReadiness)
         val destinations = mutableListOf<EpubCfi>()
         var goToOutcome: EpubCfiOutcome<Unit> = EpubCfiOutcome.Success(Unit)
+        var currentPositionOutcome: EpubCfiOutcome<EpubCfi> =
+            EpubCfiOutcome.Failure(EpubCfiFailure.VISIBLE_POSITION_UNAVAILABLE)
+        var positionRequests = 0
 
         override suspend fun goTo(cfi: EpubCfi): EpubCfiOutcome<Unit> {
             destinations += cfi
             return goToOutcome
         }
 
-        override suspend fun currentPosition(): EpubCfiOutcome<EpubCfi> =
-            error("Position capture is not used by ReaderController tests.")
+        override suspend fun currentPosition(): EpubCfiOutcome<EpubCfi> {
+            positionRequests += 1
+            return currentPositionOutcome
+        }
 
         override suspend fun currentSelection(): EpubCfiOutcome<EpubCfiSelection?> =
             error("Selection capture is not used by ReaderController tests.")
@@ -277,6 +331,7 @@ class ReaderControllerTest {
 
     private companion object {
         const val PROGRESS_CFI = "epubcfi(/6/2!/4/2:3)"
+        const val NEXT_CFI = "epubcfi(/6/4!/4/2:7)"
     }
 
     private fun profile() = ConnectionProfile(

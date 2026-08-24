@@ -19,6 +19,7 @@ internal class ReaderViewModel @Inject constructor(
         ReaderController(assetResolver, engineOpener, sessionCoordinator, viewModelScope)
 
     val state = controller.state
+    val progress = controller.progress
     val connectionEvents = controller.connectionEvents
 
     fun initialize(

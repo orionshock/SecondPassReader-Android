@@ -10,6 +10,7 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfiFailure
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
+import com.secondpasslibrary.reader.reader.progress.ReaderProgressController
 import com.secondpasslibrary.reader.reader.session.ReaderProgressLoadFailure
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionCoordinator
@@ -61,6 +62,8 @@ internal class ReaderController(
     val state = mutableState.asStateFlow()
     private val connectionEventChannel = Channel<ReaderConnectionEvent>(Channel.BUFFERED)
     val connectionEvents = connectionEventChannel.receiveAsFlow()
+    private val progressController = ReaderProgressController(scope)
+    val progress = progressController.state
     private var job: Job? = null
     private var request: ReaderRequest? = null
 
@@ -82,12 +85,14 @@ internal class ReaderController(
 
     fun close() {
         job?.cancel()
+        progressController.reset()
         closeEngine()
         connectionEventChannel.close()
     }
 
     private fun load(request: ReaderRequest) {
         job?.cancel()
+        progressController.reset()
         closeEngine()
         mutableState.value = ReaderState.Resolving
         job = scope.launch {
@@ -110,6 +115,7 @@ internal class ReaderController(
                     failureKind = ReaderFailure.SESSION
                     val ready = prepareReady(request, book.title, engine)
                     coroutineContext.ensureActive()
+                    progressController.prepare(ready.session, engine)
                     mutableState.value = ready
                     openedEngine = null
                     restoreProgress(ready)
@@ -118,6 +124,7 @@ internal class ReaderController(
                 result.fold(
                     onSuccess = { ready ->
                         mutableState.value = ready
+                        progressController.enableAfterStartupRestore()
                         openedEngine = null
                     },
                     onFailure = { failure ->
@@ -132,6 +139,7 @@ internal class ReaderController(
                         } else {
                             failureKind
                         }
+                        progressController.reset()
                         mutableState.value = ReaderState.Failure(kind)
                     }
                 )
