@@ -45,37 +45,47 @@ internal class ReadiumEpubPackageCfiMapper(
             runtime.resolvePackage(navigator, cfi, packageDocument).mapPackageTarget()
         }
 
-    suspend fun compose(resourceHref: String, contentCfi: EpubCfi): EpubCfiOutcome<EpubCfi> {
-        val spineItem = verifiedSpineItem(resourceHref)
-            ?: return EpubCfiOutcome.Failure(EpubCfiFailure.RESOURCE_NOT_IN_READING_ORDER)
-        return withRuntime { navigator, runtime ->
-            when (
-                val packageResult = runtime.generatePackage(
+    suspend fun compose(resourceHref: String, contentCfi: EpubCfi): EpubCfiOutcome<EpubCfi> =
+        when (val spineItem = verifiedSpineItem(resourceHref)) {
+            null -> EpubCfiOutcome.Failure(EpubCfiFailure.RESOURCE_NOT_IN_READING_ORDER)
+
+            else -> if (spineItem.layout == EpubLayout.FIXED) {
+                EpubCfiOutcome.Failure(EpubCfiFailure.UNSUPPORTED_FIXED_LAYOUT)
+            } else {
+                composeReflowable(spineItem, contentCfi)
+            }
+        }
+
+    private suspend fun composeReflowable(
+        spineItem: EpubSpineItem,
+        contentCfi: EpubCfi
+    ): EpubCfiOutcome<EpubCfi> = withRuntime { navigator, runtime ->
+        when (
+            val packageResult = runtime.generatePackage(
+                navigator = navigator,
+                packageDocument = packageDocument,
+                spineIndex = spineItem.index,
+                idref = spineItem.idref,
+                itemrefId = spineItem.id
+            )
+        ) {
+            is ReadiumCfiJavascriptResult.Failure -> packageResult.toOutcome()
+
+            is ReadiumCfiJavascriptResult.Success -> {
+                val composed = runtime.composeFullCfi(
                     navigator = navigator,
-                    packageDocument = packageDocument,
-                    spineIndex = spineItem.index,
-                    idref = spineItem.idref,
-                    itemrefId = spineItem.id
+                    packageCfi = packageResult.value,
+                    contentCfi = contentCfi
                 )
-            ) {
-                is ReadiumCfiJavascriptResult.Failure -> packageResult.toOutcome()
+                when (composed) {
+                    is ReadiumCfiJavascriptResult.Failure -> composed.toOutcome()
 
-                is ReadiumCfiJavascriptResult.Success -> {
-                    val composed = runtime.composeFullCfi(
-                        navigator = navigator,
-                        packageCfi = packageResult.value,
-                        contentCfi = contentCfi
-                    )
-                    when (composed) {
-                        is ReadiumCfiJavascriptResult.Failure -> composed.toOutcome()
-
-                        is ReadiumCfiJavascriptResult.Success -> {
-                            runtime.resolvePackage(
-                                navigator = navigator,
-                                cfi = composed.value,
-                                packageDocument = packageDocument
-                            ).verifyComposedCfi(composed.value, spineItem)
-                        }
+                    is ReadiumCfiJavascriptResult.Success -> {
+                        runtime.resolvePackage(
+                            navigator = navigator,
+                            cfi = composed.value,
+                            packageDocument = packageDocument
+                        ).verifyComposedCfi(composed.value, spineItem)
                     }
                 }
             }

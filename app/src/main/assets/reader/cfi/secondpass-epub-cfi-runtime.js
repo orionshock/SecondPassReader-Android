@@ -1,7 +1,7 @@
 (function installSecondPassEpubCfiRuntime(global) {
     "use strict";
 
-    const RUNTIME_VERSION = "1.8.0";
+    const RUNTIME_VERSION = "1.9.0";
     const CONTEXT_LENGTH = 64;
     const MOVEMENT_QUOTE_LENGTH = 128;
     const existing = global.__secondPassEpubCfi;
@@ -560,6 +560,7 @@
         expectedItemrefId,
         expectedResourceHref
     ) {
+        requireReflowableCfiDocument();
         const packageTarget = resolvePackageTarget(
             fullCfi,
             packageDocumentXml,
@@ -809,6 +810,7 @@
     }
 
     function generateSelectionContentCfi() {
+        requireReflowableCfiDocument();
         const selection = global.getSelection();
         if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
             return null;
@@ -890,10 +892,7 @@
     }
 
     function visiblePositionMode() {
-        if (!global.readium || global.readium.isFixedLayout === true ||
-            global.readium.isReflowable !== true) {
-            throw new Error("UNSUPPORTED_FIXED_LAYOUT");
-        }
+        requireReflowableCfiDocument();
         const root = document.documentElement;
         const style = root.style;
         if (style.getPropertyValue("--USER__view").trim() === "readium-scroll-on" ||
@@ -913,6 +912,13 @@
             throw new Error("UNSUPPORTED_WRITING_MODE");
         }
         return { direction: bodyDirection };
+    }
+
+    function requireReflowableCfiDocument() {
+        if (!global.readium || global.readium.isFixedLayout === true ||
+            global.readium.isReflowable !== true) {
+            throw new Error("UNSUPPORTED_FIXED_LAYOUT");
+        }
     }
 
     function firstVisibleTextBoundary(liveDocument, direction) {
