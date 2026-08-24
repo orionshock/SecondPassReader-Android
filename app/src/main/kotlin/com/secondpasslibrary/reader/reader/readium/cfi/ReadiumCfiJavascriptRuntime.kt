@@ -9,7 +9,7 @@ import org.json.JSONObject
 import org.json.JSONTokener
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 
-private const val RUNTIME_VERSION = "1.4.0"
+private const val RUNTIME_VERSION = "1.5.0"
 private const val COLIBRIO_ASSET = "reader/cfi/colibrio-epubcfi-1.1.0.min.js"
 private const val RUNTIME_ASSET = "reader/cfi/secondpass-epub-cfi-runtime.js"
 
@@ -82,6 +82,22 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
         )
     ).mapValue { value -> EpubCfi(value as String) }
 
+    suspend fun generateSelection(
+        navigator: EpubNavigatorFragment
+    ): ReadiumCfiJavascriptResult<ReadiumContentSelection?> = invoke(
+        navigator = navigator,
+        method = "generateSelectionContentCfi",
+        arguments = emptyList()
+    ).mapValue { value ->
+        val selection = value as? JSONObject ?: return@mapValue null
+        ReadiumContentSelection(
+            contentCfi = EpubCfi(selection.getString("contentCfi")),
+            selectedText = selection.getString("selectedText"),
+            prefix = selection.nullableString("prefix"),
+            suffix = selection.nullableString("suffix")
+        )
+    }
+
     private suspend fun installedVersion(navigator: EpubNavigatorFragment): String? =
         navigator.evaluateJavascript(
             "window.__secondPassEpubCfi && " +
@@ -149,6 +165,13 @@ internal data class ReadiumPackageTarget(
     val kind: String
 )
 
+internal data class ReadiumContentSelection(
+    val contentCfi: EpubCfi,
+    val selectedText: String,
+    val prefix: String?,
+    val suffix: String?
+)
+
 internal sealed interface ReadiumCfiJavascriptResult<out T> {
     data class Success<T>(val value: T) : ReadiumCfiJavascriptResult<T>
 
@@ -208,3 +231,6 @@ private fun String.toCfiFailure(): EpubCfiFailure = when (this) {
 private fun String?.decodeJavascriptString(): String? = this
     ?.takeUnless { it == "null" || it == "undefined" }
     ?.removeSurrounding("\"")
+
+private fun JSONObject.nullableString(name: String): String? =
+    takeUnless { isNull(name) }?.optString(name)?.takeIf(String::isNotEmpty)

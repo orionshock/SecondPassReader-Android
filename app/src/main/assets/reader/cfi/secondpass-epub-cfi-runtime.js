@@ -1,7 +1,7 @@
 (function installSecondPassEpubCfiRuntime(global) {
     "use strict";
 
-    const RUNTIME_VERSION = "1.4.0";
+    const RUNTIME_VERSION = "1.5.0";
     const CONTEXT_LENGTH = 64;
     const existing = global.__secondPassEpubCfi;
     if (existing && existing.runtimeVersion() === RUNTIME_VERSION) {
@@ -519,6 +519,44 @@
         return value.slice(0, end) || null;
     }
 
+    function generateSelectionContentCfi() {
+        const selection = global.getSelection();
+        if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+            return null;
+        }
+        if (selection.rangeCount !== 1) {
+            throw new Error("INVALID_RANGE");
+        }
+        const liveRange = selection.getRangeAt(0);
+        if (liveRange.collapsed) {
+            return null;
+        }
+        const snapshot = createPublicationSnapshot(document);
+        const snapshotRange = snapshot.toSnapshotRange(liveRange);
+        if (snapshotRange.collapsed) {
+            throw new Error("SELECTION_UNAVAILABLE");
+        }
+        const context = textContext(snapshotRange, snapshot.document);
+        if (context.selectedText === null) {
+            throw new Error("SELECTION_UNAVAILABLE");
+        }
+        const builder = new cfi.EpubCfiBuilder();
+        builder.setTextAssertionOptions({
+            preLength: CONTEXT_LENGTH,
+            postLength: CONTEXT_LENGTH,
+            snapToWordBoundaries: false
+        });
+        builder.appendTerminalDomRange(snapshotRange);
+        const contentCfi = builder.toString();
+        parseCfi(contentCfi);
+        return {
+            contentCfi: contentCfi,
+            selectedText: context.selectedText,
+            prefix: context.prefix,
+            suffix: context.suffix
+        };
+    }
+
     global.__secondPassEpubCfi = Object.freeze({
         runtimeVersion: function runtimeVersion() {
             return RUNTIME_VERSION;
@@ -570,8 +608,8 @@
             return failure("UNSUPPORTED_CFI_FEATURE");
         },
 
-        generateSelectionContentCfi: function generateSelectionContentCfi() {
-            return failure("UNSUPPORTED_CFI_FEATURE");
+        generateSelectionContentCfi: function generateSelection() {
+            return safely(generateSelectionContentCfi);
         },
 
         generateVisiblePositionContentCfi: function generateVisiblePositionContentCfi() {

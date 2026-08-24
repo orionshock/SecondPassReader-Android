@@ -24,7 +24,50 @@ internal class ReadiumEpubCfiNavigator(
 
     override suspend fun currentPosition(): EpubCfiOutcome<EpubCfi> = withRuntime()
 
-    override suspend fun currentSelection(): EpubCfiOutcome<EpubCfiSelection?> = withRuntime()
+    override suspend fun currentSelection(): EpubCfiOutcome<EpubCfiSelection?> {
+        val captured = binding.withNavigator { navigator, runtime ->
+            navigator.currentLocator.value.href.toString() to runtime.generateSelection(navigator)
+        }
+        return if (captured == null) {
+            EpubCfiOutcome.Failure(EpubCfiFailure.NAVIGATOR_UNAVAILABLE)
+        } else {
+            selectionOutcome(captured.first, captured.second)
+        }
+    }
+
+    private suspend fun selectionOutcome(
+        resourceHref: String,
+        result: ReadiumCfiJavascriptResult<ReadiumContentSelection?>
+    ): EpubCfiOutcome<EpubCfiSelection?> = when (result) {
+        is ReadiumCfiJavascriptResult.Failure ->
+            EpubCfiOutcome.Failure(result.reason)
+
+        is ReadiumCfiJavascriptResult.Success -> {
+            val selection = result.value
+            if (selection == null) {
+                EpubCfiOutcome.Success(null)
+            } else {
+                composeSelection(resourceHref, selection)
+            }
+        }
+    }
+
+    private suspend fun composeSelection(
+        resourceHref: String,
+        selection: ReadiumContentSelection
+    ): EpubCfiOutcome<EpubCfiSelection> =
+        when (val fullCfi = packageCfiMapper.compose(resourceHref, selection.contentCfi)) {
+            is EpubCfiOutcome.Failure -> fullCfi
+
+            is EpubCfiOutcome.Success -> EpubCfiOutcome.Success(
+                EpubCfiSelection(
+                    cfi = fullCfi.value,
+                    selectedText = selection.selectedText,
+                    prefix = selection.prefix,
+                    suffix = selection.suffix
+                )
+            )
+        }
 
     override suspend fun resolve(cfi: EpubCfi): EpubCfiOutcome<EpubCfiResolution> = withRuntime()
 
