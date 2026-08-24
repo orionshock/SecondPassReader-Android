@@ -1,6 +1,5 @@
 package com.secondpasslibrary.reader.home
 
-import com.secondpasslibrary.client.ReadingProgress
 import com.secondpasslibrary.client.RecentReadingItem
 import com.secondpasslibrary.client.ShelfSummary
 import com.secondpasslibrary.reader.design.book.BookCardAction
@@ -41,15 +40,9 @@ enum class ReadingSessionDetailAction {
     CLOSE
 }
 
-/**
- * Home retains the Session/progress context for future resume support. The current Reader launch
- * deliberately consumes only [bookId].
- */
-internal data class OpenReaderIntent(
-    val bookId: String,
-    val sessionId: String,
-    val progress: ReadingProgress?
-) : HomeNavigationIntent
+/** Home identifies the exact existing Session; Reader reloads its authoritative progress. */
+internal data class OpenReaderIntent(val bookId: String, val sessionId: String) :
+    HomeNavigationIntent
 
 internal sealed interface HomeConnectionEvent {
     data object AuthenticationRejected : HomeConnectionEvent

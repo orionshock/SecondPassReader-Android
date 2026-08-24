@@ -71,11 +71,17 @@ sealed interface ReaderReturnTarget {
 }
 
 @Serializable
-data class ReaderRoute(val bookId: String, val returnTarget: ReaderReturnTarget) :
-    NavKey,
+data class ReaderRoute(
+    val bookId: String,
+    val returnTarget: ReaderReturnTarget,
+    val existingSessionId: String? = null
+) : NavKey,
     AppShellDrawerGesturePolicy {
     init {
         require(bookId.isNotBlank()) { "Book ID must not be blank." }
+        require(existingSessionId == null || existingSessionId.isNotBlank()) {
+            "Existing Reading Session ID must not be blank."
+        }
         require(
             returnTarget !is ReaderReturnTarget.BookDetail || returnTarget.route.bookId == bookId
         ) { "Reader Book must match its Book Detail return target." }

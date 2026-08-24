@@ -63,6 +63,7 @@ private fun ReaderFailureContent(kind: ReaderFailure, onBack: () -> Unit, onRetr
         ReaderFailure.DOWNLOAD -> "Couldn’t download this book."
         ReaderFailure.OPEN -> "Couldn’t open this EPUB."
         ReaderFailure.NO_EPUB -> "This book does not have an EPUB file."
+        ReaderFailure.SESSION -> "Couldn't prepare this reading session."
     }
     Column(
         Modifier.fillMaxSize(),

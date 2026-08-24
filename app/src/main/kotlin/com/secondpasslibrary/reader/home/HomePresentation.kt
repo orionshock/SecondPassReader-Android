@@ -57,7 +57,7 @@ internal object HomePresenter {
         cover = item.book.cover.toPresentation(),
         primaryIntent =
             item.book.takeIf { it.canOpen }?.let {
-                OpenReaderIntent(it.id, item.sessionId, item.progress)
+                OpenReaderIntent(it.id, item.sessionId)
             },
         contextActions = item.contextActions
     )

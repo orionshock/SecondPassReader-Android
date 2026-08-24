@@ -20,7 +20,8 @@ internal fun AppNavigator.handleHomeNavigation(intent: HomeNavigationIntent) {
                 intent.action.toRouteAction()
             )
 
-        is OpenReaderIntent -> openReader(intent.bookId, ReaderReturnTarget.Home)
+        is OpenReaderIntent ->
+            openReader(intent.bookId, ReaderReturnTarget.Home, intent.sessionId)
 
         HomeNavigationIntent.OpenShelves -> select(AppDestination.Shelves)
 

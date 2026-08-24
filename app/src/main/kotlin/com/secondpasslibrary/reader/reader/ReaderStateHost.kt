@@ -12,13 +12,14 @@ internal fun ReaderStateHost(
     profile: ConnectionProfile,
     profileId: String,
     bookId: String,
+    existingSessionId: String?,
     onBack: () -> Unit,
     onAuthenticationRejected: () -> Unit,
     viewModel: ReaderViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    LaunchedEffect(profile, profileId, bookId) {
-        viewModel.initialize(profile, profileId, bookId)
+    LaunchedEffect(profile, profileId, bookId, existingSessionId) {
+        viewModel.initialize(profile, profileId, bookId, existingSessionId)
     }
     LaunchedEffect(viewModel, onAuthenticationRejected) {
         viewModel.connectionEvents.collect { event ->

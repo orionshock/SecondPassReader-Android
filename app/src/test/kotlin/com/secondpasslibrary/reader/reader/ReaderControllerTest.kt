@@ -6,6 +6,7 @@ import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetResolver
 import com.secondpasslibrary.reader.reader.asset.ReaderEpubUnavailableException
 import com.secondpasslibrary.reader.reader.asset.ResolvedReaderBook
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
+import com.secondpasslibrary.reader.reader.cfi.EpubCfiFailure
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiNavigator
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiReadiness
@@ -15,6 +16,9 @@ import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpenException
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
 import com.secondpasslibrary.reader.reader.domain.ReaderViewport
+import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
+import com.secondpasslibrary.reader.reader.session.ReaderSessionCoordinator
+import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import java.nio.file.Files
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,13 +41,18 @@ class ReaderControllerTest {
             onDownloadStarted()
             ResolvedReaderBook("Academ's Fury", file, reused = false)
         }
-        val controller = ReaderController(resolver, ReaderEngineOpener { engine }, this)
+        val controller = ReaderController(
+            resolver,
+            ReaderEngineOpener { engine },
+            coordinator(),
+            this
+        )
         val states = mutableListOf<ReaderState>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             controller.state.collect(states::add)
         }
 
-        controller.initialize(profile(), "profile-1", "book-1")
+        controller.initialize(profile(), "profile-1", "book-1", null)
         advanceUntilIdle()
 
         assertEquals(
@@ -56,8 +65,74 @@ class ReaderControllerTest {
             states.map { it::class }
         )
         assertEquals("Academ's Fury", (controller.state.value as ReaderState.Ready).title)
+        assertEquals(
+            ReaderProgressRestore.NOT_NEEDED,
+            (controller.state.value as ReaderState.Ready).restore
+        )
+        assertTrue(engine.navigator.destinations.isEmpty())
         controller.close()
         assertTrue(engine.closed)
+    }
+
+    @Test
+    fun `saved progress waits for navigator readiness and restores exact CFI`() = runTest {
+        val file = Files.createTempFile("reader", ".epub").toFile()
+        val engine = FakeEngine(EpubCfiReadiness.AwaitingViewport)
+        val controller = ReaderController(
+            ReaderBookAssetResolver { _, _ -> ResolvedReaderBook("Book", file, reused = true) },
+            ReaderEngineOpener { engine },
+            coordinator(PROGRESS_CFI),
+            this
+        )
+
+        controller.initialize(profile(), "profile-1", "book-1", "session-existing")
+        advanceUntilIdle()
+
+        val waiting = controller.state.value as ReaderState.Ready
+        assertEquals("session-existing", waiting.session.sessionId)
+        assertEquals(ReaderProgressRestore.WAITING, waiting.restore)
+        assertTrue(engine.navigator.destinations.isEmpty())
+
+        engine.navigator.readiness.value = EpubCfiReadiness.Available
+        advanceUntilIdle()
+
+        val restored = controller.state.value as ReaderState.Ready
+        assertEquals(ReaderProgressRestore.RESTORED, restored.restore)
+        assertEquals(listOf(EpubCfi(PROGRESS_CFI)), engine.navigator.destinations)
+    }
+
+    @Test
+    fun `malformed or rejected saved progress leaves Reader usable`() = runTest {
+        val file = Files.createTempFile("reader", ".epub").toFile()
+        val malformedEngine = FakeEngine()
+        val rejectedEngine = FakeEngine().apply {
+            navigator.goToOutcome = EpubCfiOutcome.Failure(EpubCfiFailure.DOM_TARGET_NOT_FOUND)
+        }
+        val malformed = ReaderController(
+            ReaderBookAssetResolver { _, _ -> ResolvedReaderBook("Book", file, reused = true) },
+            ReaderEngineOpener { malformedEngine },
+            coordinator(" "),
+            this
+        )
+        val rejected = ReaderController(
+            ReaderBookAssetResolver { _, _ -> ResolvedReaderBook("Book", file, reused = true) },
+            ReaderEngineOpener { rejectedEngine },
+            coordinator(PROGRESS_CFI),
+            this
+        )
+
+        malformed.initialize(profile(), "profile-1", "book-1", null)
+        rejected.initialize(profile(), "profile-1", "book-2", null)
+        advanceUntilIdle()
+
+        assertEquals(
+            ReaderProgressRestore.SKIPPED,
+            (malformed.state.value as ReaderState.Ready).restore
+        )
+        assertEquals(
+            ReaderProgressRestore.SKIPPED,
+            (rejected.state.value as ReaderState.Ready).restore
+        )
     }
 
     @Test
@@ -72,10 +147,11 @@ class ReaderControllerTest {
                 opened = true
                 FakeEngine()
             },
+            coordinator(),
             this
         )
 
-        controller.initialize(profile(), "profile-1", "book-1")
+        controller.initialize(profile(), "profile-1", "book-1", null)
         advanceUntilIdle()
 
         assertEquals(ReaderState.Failure(ReaderFailure.DOWNLOAD), controller.state.value)
@@ -91,16 +167,18 @@ class ReaderControllerTest {
         val openFailure = ReaderController(
             resolved,
             ReaderEngineOpener { throw ReaderEngineOpenException("broken") },
+            coordinator(),
             this
         )
         val noEpub = ReaderController(
             ReaderBookAssetResolver { _, _ -> throw ReaderEpubUnavailableException() },
             ReaderEngineOpener { FakeEngine() },
+            coordinator(),
             this
         )
 
-        openFailure.initialize(profile(), "profile-1", "book-1")
-        noEpub.initialize(profile(), "profile-1", "book-2")
+        openFailure.initialize(profile(), "profile-1", "book-1", null)
+        noEpub.initialize(profile(), "profile-1", "book-2", null)
         advanceUntilIdle()
 
         assertEquals(ReaderState.Failure(ReaderFailure.OPEN), openFailure.state.value)
@@ -121,16 +199,17 @@ class ReaderControllerTest {
             resolver,
             ReaderEngineOpener {
                 if (openCount++ == 0) {
-                    controller.initialize(profile(), "profile-1", "book-2")
+                    controller.initialize(profile(), "profile-1", "book-2", null)
                     firstEngine
                 } else {
                     secondEngine
                 }
             },
+            coordinator(),
             this
         )
 
-        controller.initialize(profile(), "profile-1", "book-1")
+        controller.initialize(profile(), "profile-1", "book-1", null)
         advanceUntilIdle()
 
         assertTrue(firstEngine.closed)
@@ -145,40 +224,59 @@ class ReaderControllerTest {
         val controller = ReaderController(
             ReaderBookAssetResolver { _, _ -> throw SplClientException.AuthenticationRejected() },
             ReaderEngineOpener { FakeEngine() },
+            coordinator(),
             this
         )
 
-        controller.initialize(profile(), "profile-1", "book-1")
+        controller.initialize(profile(), "profile-1", "book-1", null)
         assertEquals(
             ReaderConnectionEvent.AuthenticationRejected,
             controller.connectionEvents.first()
         )
     }
 
-    private class FakeEngine : ReaderEngine {
+    private class FakeEngine(initialReadiness: EpubCfiReadiness = EpubCfiReadiness.Available) :
+        ReaderEngine {
         var closed = false
         override val viewport = ReaderViewport { }
-        override val cfiNavigator = object : EpubCfiNavigator {
-            override val readiness = MutableStateFlow<EpubCfiReadiness>(
-                EpubCfiReadiness.Available
-            )
-
-            override suspend fun goTo(cfi: EpubCfi): EpubCfiOutcome<Unit> =
-                error("CFI navigation is not used by ReaderController tests.")
-
-            override suspend fun currentPosition(): EpubCfiOutcome<EpubCfi> =
-                error("CFI navigation is not used by ReaderController tests.")
-
-            override suspend fun currentSelection(): EpubCfiOutcome<EpubCfiSelection?> =
-                error("CFI navigation is not used by ReaderController tests.")
-
-            override suspend fun resolve(cfi: EpubCfi): EpubCfiOutcome<EpubCfiResolution> =
-                error("CFI navigation is not used by ReaderController tests.")
-        }
+        val navigator = FakeCfiNavigator(initialReadiness)
+        override val cfiNavigator: EpubCfiNavigator = navigator
 
         override fun close() {
             closed = true
         }
+    }
+
+    private class FakeCfiNavigator(initialReadiness: EpubCfiReadiness) : EpubCfiNavigator {
+        override val readiness = MutableStateFlow(initialReadiness)
+        val destinations = mutableListOf<EpubCfi>()
+        var goToOutcome: EpubCfiOutcome<Unit> = EpubCfiOutcome.Success(Unit)
+
+        override suspend fun goTo(cfi: EpubCfi): EpubCfiOutcome<Unit> {
+            destinations += cfi
+            return goToOutcome
+        }
+
+        override suspend fun currentPosition(): EpubCfiOutcome<EpubCfi> =
+            error("Position capture is not used by ReaderController tests.")
+
+        override suspend fun currentSelection(): EpubCfiOutcome<EpubCfiSelection?> =
+            error("Selection capture is not used by ReaderController tests.")
+
+        override suspend fun resolve(cfi: EpubCfi): EpubCfiOutcome<EpubCfiResolution> =
+            error("CFI resolution is not used by ReaderController tests.")
+    }
+
+    private fun coordinator(progressCfi: String? = null) = ReaderSessionCoordinator { _, request ->
+        ReaderSessionContext(
+            sessionId = request.existingSessionId ?: "session-1",
+            status = ReaderSessionStatus.ACTIVE,
+            savedProgressCfi = progressCfi
+        )
+    }
+
+    private companion object {
+        const val PROGRESS_CFI = "epubcfi(/6/2!/4/2:3)"
     }
 
     private fun profile() = ConnectionProfile(

@@ -35,8 +35,7 @@ class HomePresenterTest {
         assertEquals(
             OpenReaderIntent(
                 "book-1",
-                "session-1",
-                ReadingProgress("epubcfi(/6/4)", "Chapter 4", "2026-08-16T12:00:00Z")
+                "session-1"
             ),
             model.primaryIntent
         )

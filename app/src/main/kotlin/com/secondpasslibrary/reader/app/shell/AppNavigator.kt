@@ -18,9 +18,13 @@ internal class AppNavigator(private val navigation: AppNavigationState) {
         navigation.push(route)
     }
 
-    fun openReader(bookId: String, returnTarget: ReaderReturnTarget) {
+    fun openReader(
+        bookId: String,
+        returnTarget: ReaderReturnTarget,
+        existingSessionId: String? = null
+    ) {
         require(bookId.isNotBlank()) { "Book ID must not be blank." }
-        navigation.push(ReaderRoute(bookId, returnTarget))
+        navigation.push(ReaderRoute(bookId, returnTarget, existingSessionId))
     }
 
     fun openBookMarginalia(bookId: String, source: BookDetailRoute) {

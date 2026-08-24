@@ -5,22 +5,28 @@ import androidx.lifecycle.viewModelScope
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.reader.asset.SplReaderBookAssetResolver
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
+import com.secondpasslibrary.reader.reader.session.SplReaderSessionCoordinator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
 @HiltViewModel
 internal class ReaderViewModel @Inject constructor(
     assetResolver: SplReaderBookAssetResolver,
-    engineOpener: ReaderEngineOpener
+    engineOpener: ReaderEngineOpener,
+    sessionCoordinator: SplReaderSessionCoordinator
 ) : ViewModel() {
     private val controller =
-        ReaderController(assetResolver, engineOpener, viewModelScope)
+        ReaderController(assetResolver, engineOpener, sessionCoordinator, viewModelScope)
 
     val state = controller.state
     val connectionEvents = controller.connectionEvents
 
-    fun initialize(profile: ConnectionProfile, profileId: String, bookId: String) =
-        controller.initialize(profile, profileId, bookId)
+    fun initialize(
+        profile: ConnectionProfile,
+        profileId: String,
+        bookId: String,
+        existingSessionId: String?
+    ) = controller.initialize(profile, profileId, bookId, existingSessionId)
 
     fun retry() = controller.retry()
 

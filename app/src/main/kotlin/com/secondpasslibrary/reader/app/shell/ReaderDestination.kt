@@ -15,6 +15,7 @@ internal fun EntryProviderScope<NavKey>.registerReaderEntry(
                 profile = bindings.profile,
                 profileId = current.session.profileId,
                 bookId = route.bookId,
+                existingSessionId = route.existingSessionId,
                 onBack = bindings.navigator::goBack,
                 onAuthenticationRejected = bindings.onAuthenticationRejected
             )

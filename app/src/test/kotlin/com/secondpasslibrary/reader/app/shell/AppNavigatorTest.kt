@@ -224,13 +224,13 @@ class AppNavigatorTest {
         val navigator = AppNavigator(navigation)
 
         navigator.handleHomeNavigation(
-            OpenReaderIntent("book-1", "session-1", progress = null)
+            OpenReaderIntent("book-1", "session-1")
         )
 
         assertEquals(
             listOf(
                 AppDestination.Home,
-                ReaderRoute("book-1", ReaderReturnTarget.Home)
+                ReaderRoute("book-1", ReaderReturnTarget.Home, "session-1")
             ),
             navigation.activeBackStack
         )

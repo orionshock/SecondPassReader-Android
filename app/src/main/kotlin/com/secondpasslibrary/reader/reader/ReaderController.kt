@@ -5,8 +5,15 @@ import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetRequest
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetResolver
 import com.secondpasslibrary.reader.reader.asset.ReaderEpubUnavailableException
+import com.secondpasslibrary.reader.reader.cfi.EpubCfi
+import com.secondpasslibrary.reader.reader.cfi.EpubCfiFailure
+import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
+import com.secondpasslibrary.reader.reader.session.ReaderProgressLoadFailure
+import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
+import com.secondpasslibrary.reader.reader.session.ReaderSessionCoordinator
+import com.secondpasslibrary.reader.reader.session.ReaderSessionRequest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -22,11 +29,23 @@ internal sealed interface ReaderState {
     data object Resolving : ReaderState
     data object Downloading : ReaderState
     data object Opening : ReaderState
-    data class Ready(val title: String, val engine: ReaderEngine) : ReaderState
+    data class Ready(
+        val title: String,
+        val engine: ReaderEngine,
+        val session: ReaderSessionContext,
+        val restore: ReaderProgressRestore
+    ) : ReaderState
     data class Failure(val kind: ReaderFailure) : ReaderState
 }
 
-internal enum class ReaderFailure { DOWNLOAD, OPEN, NO_EPUB }
+internal enum class ReaderProgressRestore {
+    NOT_NEEDED,
+    WAITING,
+    RESTORED,
+    SKIPPED
+}
+
+internal enum class ReaderFailure { DOWNLOAD, OPEN, NO_EPUB, SESSION }
 
 internal sealed interface ReaderConnectionEvent {
     data object AuthenticationRejected : ReaderConnectionEvent
@@ -35,6 +54,7 @@ internal sealed interface ReaderConnectionEvent {
 internal class ReaderController(
     private val assetResolver: ReaderBookAssetResolver,
     private val engineOpener: ReaderEngineOpener,
+    private val sessionCoordinator: ReaderSessionCoordinator,
     private val scope: CoroutineScope
 ) {
     private val mutableState = MutableStateFlow<ReaderState>(ReaderState.Resolving)
@@ -44,8 +64,13 @@ internal class ReaderController(
     private var job: Job? = null
     private var request: ReaderRequest? = null
 
-    fun initialize(profile: ConnectionProfile, profileId: String, bookId: String) {
-        val next = ReaderRequest(profile, profileId, bookId)
+    fun initialize(
+        profile: ConnectionProfile,
+        profileId: String,
+        bookId: String,
+        existingSessionId: String?
+    ) {
+        val next = ReaderRequest(profile, profileId, bookId, existingSessionId)
         if (request == next && (job?.isActive == true || state.value is ReaderState.Ready)) return
         request = next
         load(next)
@@ -82,7 +107,12 @@ internal class ReaderController(
                     val engine = engineOpener.open(book.file)
                     openedEngine = engine
                     coroutineContext.ensureActive()
-                    ReaderState.Ready(book.title, engine)
+                    failureKind = ReaderFailure.SESSION
+                    val ready = prepareReady(request, book.title, engine)
+                    coroutineContext.ensureActive()
+                    mutableState.value = ready
+                    openedEngine = null
+                    restoreProgress(ready)
                 }
                 (result.exceptionOrNull() as? CancellationException)?.let { throw it }
                 result.fold(
@@ -114,15 +144,82 @@ internal class ReaderController(
     private fun closeEngine() {
         (mutableState.value as? ReaderState.Ready)?.engine?.close()
     }
+
+    private suspend fun prepareReady(
+        request: ReaderRequest,
+        title: String,
+        engine: ReaderEngine
+    ): ReaderState.Ready {
+        val session = sessionCoordinator.resolve(
+            request.profile,
+            ReaderSessionRequest(request.bookId, request.existingSessionId)
+        )
+        if (session.progressFailure == ReaderProgressLoadFailure.AUTHENTICATION_REQUIRED) {
+            connectionEventChannel.trySend(ReaderConnectionEvent.AuthenticationRejected)
+        }
+        return ReaderState.Ready(
+            title = title,
+            engine = engine,
+            session = session,
+            restore = if (session.savedProgressCfi == null) {
+                ReaderProgressRestore.NOT_NEEDED
+            } else {
+                ReaderProgressRestore.WAITING
+            }
+        )
+    }
+
+    private suspend fun restoreProgress(ready: ReaderState.Ready): ReaderState.Ready = try {
+        val rawCfi = ready.session.savedProgressCfi ?: return ready
+        val cfi = runCatching { EpubCfi(rawCfi) }.getOrNull()
+            ?: return ready.copy(restore = ReaderProgressRestore.SKIPPED)
+        val navigator = ready.engine.cfiNavigator
+        val firstAttempt = navigator.awaitNavigationAvailable().then { navigator.goTo(cfi) }
+        val outcome = if (firstAttempt.isTransientRestoreFailure()) {
+            navigator.awaitNavigationAvailable().then { navigator.goTo(cfi) }
+        } else {
+            firstAttempt
+        }
+        ready.copy(
+            restore = if (outcome is EpubCfiOutcome.Success) {
+                ReaderProgressRestore.RESTORED
+            } else {
+                ReaderProgressRestore.SKIPPED
+            }
+        )
+    } catch (cancellation: CancellationException) {
+        throw cancellation
+    } catch (_: Exception) {
+        ready.copy(restore = ReaderProgressRestore.SKIPPED)
+    }
 }
 
 private data class ReaderRequest(
     val profile: ConnectionProfile,
     val profileId: String,
-    val bookId: String
+    val bookId: String,
+    val existingSessionId: String?
 ) {
     init {
         require(profileId.isNotBlank()) { "Profile ID must not be blank." }
         require(bookId.isNotBlank()) { "Book ID must not be blank." }
+        require(existingSessionId == null || existingSessionId.isNotBlank()) {
+            "Existing Reading Session ID must not be blank."
+        }
     }
 }
+
+private suspend inline fun EpubCfiOutcome<Unit>.then(
+    operation: suspend () -> EpubCfiOutcome<Unit>
+): EpubCfiOutcome<Unit> = when (this) {
+    is EpubCfiOutcome.Success -> operation()
+    is EpubCfiOutcome.Failure -> this
+}
+
+private fun EpubCfiOutcome<Unit>.isTransientRestoreFailure(): Boolean =
+    this is EpubCfiOutcome.Failure && reason in transientRestoreFailures
+
+private val transientRestoreFailures = setOf(
+    EpubCfiFailure.NAVIGATOR_UNAVAILABLE,
+    EpubCfiFailure.RESOURCE_CHANGED_DURING_OPERATION
+)
