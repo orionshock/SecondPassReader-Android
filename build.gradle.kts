@@ -35,7 +35,8 @@ val hygieneFiles =
             ".gradle/**",
             ".idea/**",
             ".kotlin/**",
-            "**/build/**"
+            "**/build/**",
+            "gitlog.txt"
         )
     }
 
@@ -44,6 +45,24 @@ tasks.register<StaticHygieneTask>("staticHygiene") {
     description = "Checks repository text files for encoding and whitespace damage."
     textFiles.from(hygieneFiles)
     repositoryDirectory.set(layout.projectDirectory)
+}
+
+val readerBoundaryCheck =
+    tasks.register<ReaderBoundaryCheckTask>("readerBoundaryCheck") {
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        description = "Checks Reader engine isolation and forbidden mutation/movement seams."
+        productionSources.from(
+            fileTree("app/src/main/kotlin") { include("**/*.kt") },
+            fileTree("app/src/debug/kotlin") { include("**/*.kt") },
+            fileTree("app/src/release/kotlin") { include("**/*.kt") }
+        )
+        authoredJavascript.from(
+            file("app/src/main/assets/reader/cfi/secondpass-epub-cfi-runtime.js")
+        )
+    }
+
+tasks.named("staticHygiene") {
+    dependsOn(readerBoundaryCheck)
 }
 
 tasks.register("detekt") {
