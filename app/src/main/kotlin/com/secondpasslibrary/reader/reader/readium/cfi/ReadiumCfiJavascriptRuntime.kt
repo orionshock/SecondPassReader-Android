@@ -9,7 +9,7 @@ import org.json.JSONObject
 import org.json.JSONTokener
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 
-private const val RUNTIME_VERSION = "1.9.0"
+private const val RUNTIME_VERSION = "1.10.0"
 private const val CONTEXT_LENGTH = 64
 private const val MOVEMENT_QUOTE_LENGTH = 128
 private const val COLIBRIO_ASSET = "reader/cfi/colibrio-epubcfi-1.1.0.min.js"
@@ -291,37 +291,30 @@ private inline fun <T, R> ReadiumCfiJavascriptResult<T>.mapValue(
     is ReadiumCfiJavascriptResult.Success -> runCatching { transform(value) }.fold(
         onSuccess = ReadiumCfiJavascriptResult<R>::Success,
         onFailure = {
-            ReadiumCfiJavascriptResult.Failure(EpubCfiFailure.JAVASCRIPT_RUNTIME_UNAVAILABLE)
+            ReadiumCfiJavascriptResult.Failure(EpubCfiFailure.CFI_RUNTIME_FAILURE)
         }
     )
 }
 
-private fun String.toCfiFailure(): EpubCfiFailure = when (this) {
-    "INVALID_CFI" -> EpubCfiFailure.INVALID_CFI
+private val CFI_FAILURES_BY_CODE = mapOf(
+    "INVALID_CFI" to EpubCfiFailure.INVALID_CFI,
+    "UNSUPPORTED_CFI_FEATURE" to EpubCfiFailure.UNSUPPORTED_CFI_FEATURE,
+    "INVALID_PACKAGE_DOCUMENT" to EpubCfiFailure.PACKAGE_DOCUMENT_MISSING,
+    "PACKAGE_TARGET_NOT_FOUND" to EpubCfiFailure.PACKAGE_TARGET_NOT_FOUND,
+    "PACKAGE_TARGET_MISMATCH" to EpubCfiFailure.PACKAGE_TARGET_NOT_FOUND,
+    "UNSUPPORTED_FIXED_LAYOUT" to EpubCfiFailure.UNSUPPORTED_FIXED_LAYOUT,
+    "UNSUPPORTED_SCROLL_MODE" to EpubCfiFailure.UNSUPPORTED_SCROLL_MODE,
+    "UNSUPPORTED_WRITING_MODE" to EpubCfiFailure.UNSUPPORTED_WRITING_MODE,
+    "DOM_TARGET_NOT_FOUND" to EpubCfiFailure.DOM_TARGET_NOT_FOUND,
+    "INVALID_RANGE" to EpubCfiFailure.INVALID_RANGE,
+    "SELECTION_UNAVAILABLE" to EpubCfiFailure.SELECTION_UNAVAILABLE,
+    "VISIBLE_POSITION_UNAVAILABLE" to EpubCfiFailure.VISIBLE_POSITION_UNAVAILABLE,
+    "MOVEMENT_ANCHOR_UNAVAILABLE" to EpubCfiFailure.MOVEMENT_ANCHOR_UNAVAILABLE,
+    "CFI_RUNTIME_FAILURE" to EpubCfiFailure.CFI_RUNTIME_FAILURE
+)
 
-    "UNSUPPORTED_CFI_FEATURE" -> EpubCfiFailure.UNSUPPORTED_CFI_FEATURE
-
-    "INVALID_PACKAGE_DOCUMENT" -> EpubCfiFailure.PACKAGE_DOCUMENT_MISSING
-
-    "PACKAGE_TARGET_NOT_FOUND", "PACKAGE_TARGET_MISMATCH" ->
-        EpubCfiFailure.PACKAGE_TARGET_NOT_FOUND
-
-    "UNSUPPORTED_FIXED_LAYOUT" -> EpubCfiFailure.UNSUPPORTED_FIXED_LAYOUT
-
-    "UNSUPPORTED_SCROLL_MODE" -> EpubCfiFailure.UNSUPPORTED_SCROLL_MODE
-
-    "UNSUPPORTED_WRITING_MODE" -> EpubCfiFailure.UNSUPPORTED_WRITING_MODE
-
-    "DOM_TARGET_NOT_FOUND" -> EpubCfiFailure.DOM_TARGET_NOT_FOUND
-
-    "INVALID_RANGE" -> EpubCfiFailure.INVALID_RANGE
-
-    "SELECTION_UNAVAILABLE" -> EpubCfiFailure.SELECTION_UNAVAILABLE
-
-    "VISIBLE_POSITION_UNAVAILABLE" -> EpubCfiFailure.VISIBLE_POSITION_UNAVAILABLE
-
-    else -> EpubCfiFailure.JAVASCRIPT_RUNTIME_UNAVAILABLE
-}
+private fun String.toCfiFailure(): EpubCfiFailure =
+    CFI_FAILURES_BY_CODE[this] ?: EpubCfiFailure.CFI_RUNTIME_FAILURE
 
 private fun String?.decodeJavascriptString(): String? = this
     ?.takeUnless { it == "null" || it == "undefined" }

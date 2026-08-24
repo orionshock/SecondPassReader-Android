@@ -1,7 +1,7 @@
 (function installSecondPassEpubCfiRuntime(global) {
     "use strict";
 
-    const RUNTIME_VERSION = "1.9.0";
+    const RUNTIME_VERSION = "1.10.0";
     const CONTEXT_LENGTH = 64;
     const MOVEMENT_QUOTE_LENGTH = 128;
     const existing = global.__secondPassEpubCfi;
@@ -42,6 +42,7 @@
             case "INVALID_RANGE":
             case "SELECTION_UNAVAILABLE":
             case "VISIBLE_POSITION_UNAVAILABLE":
+            case "MOVEMENT_ANCHOR_UNAVAILABLE":
             case "UNSUPPORTED_FIXED_LAYOUT":
             case "UNSUPPORTED_SCROLL_MODE":
             case "UNSUPPORTED_WRITING_MODE":
@@ -762,7 +763,7 @@
             : range.toString();
         const exact = takeFirstCodeUnitSafe(exactSource, MOVEMENT_QUOTE_LENGTH);
         if (!exact || !containsDurableText(exact)) {
-            throw new Error("DOM_TARGET_NOT_FOUND");
+            throw new Error("MOVEMENT_ANCHOR_UNAVAILABLE");
         }
         const trailingText = range.collapsed
             ? exactSource.slice(exact.length)
