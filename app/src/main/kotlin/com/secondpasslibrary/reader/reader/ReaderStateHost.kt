@@ -1,6 +1,7 @@
 package com.secondpasslibrary.reader.reader
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -18,6 +19,10 @@ internal fun ReaderStateHost(
     viewModel: ReaderViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    DisposableEffect(viewModel) {
+        viewModel.setAuthorityAvailable(true)
+        onDispose { viewModel.setAuthorityAvailable(false) }
+    }
     LaunchedEffect(profile, profileId, bookId, existingSessionId) {
         viewModel.initialize(profile, profileId, bookId, existingSessionId)
     }

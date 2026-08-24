@@ -18,6 +18,8 @@ import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
 import com.secondpasslibrary.reader.reader.domain.ReaderViewport
 import com.secondpasslibrary.reader.reader.domain.ReaderViewportMovement
 import com.secondpasslibrary.reader.reader.domain.ReaderViewportMovements
+import com.secondpasslibrary.reader.reader.progress.ReaderProgressWriteOutcome
+import com.secondpasslibrary.reader.reader.progress.ReaderProgressWriter
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionCoordinator
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
@@ -48,6 +50,7 @@ class ReaderControllerTest {
             resolver,
             ReaderEngineOpener { engine },
             coordinator(),
+            writer(),
             this
         )
         val states = mutableListOf<ReaderState>()
@@ -85,6 +88,7 @@ class ReaderControllerTest {
             ReaderBookAssetResolver { _, _ -> ResolvedReaderBook("Book", file, reused = true) },
             ReaderEngineOpener { engine },
             coordinator(PROGRESS_CFI),
+            writer(),
             this
         )
 
@@ -113,6 +117,7 @@ class ReaderControllerTest {
             ReaderBookAssetResolver { _, _ -> ResolvedReaderBook("Book", file, reused = true) },
             ReaderEngineOpener { engine },
             coordinator(PROGRESS_CFI),
+            writer(),
             this
         )
 
@@ -149,12 +154,14 @@ class ReaderControllerTest {
             ReaderBookAssetResolver { _, _ -> ResolvedReaderBook("Book", file, reused = true) },
             ReaderEngineOpener { malformedEngine },
             coordinator(" "),
+            writer(),
             this
         )
         val rejected = ReaderController(
             ReaderBookAssetResolver { _, _ -> ResolvedReaderBook("Book", file, reused = true) },
             ReaderEngineOpener { rejectedEngine },
             coordinator(PROGRESS_CFI),
+            writer(),
             this
         )
 
@@ -187,6 +194,7 @@ class ReaderControllerTest {
                 FakeEngine()
             },
             coordinator(),
+            writer(),
             this
         )
 
@@ -208,12 +216,14 @@ class ReaderControllerTest {
             resolved,
             ReaderEngineOpener { throw ReaderEngineOpenException("broken") },
             coordinator(),
+            writer(),
             this
         )
         val noEpub = ReaderController(
             ReaderBookAssetResolver { _, _ -> throw ReaderEpubUnavailableException() },
             ReaderEngineOpener { FakeEngine() },
             coordinator(),
+            writer(),
             this
         )
 
@@ -248,6 +258,7 @@ class ReaderControllerTest {
                 }
             },
             coordinator(),
+            writer(),
             this
         )
 
@@ -267,6 +278,7 @@ class ReaderControllerTest {
             ReaderBookAssetResolver { _, _ -> throw SplClientException.AuthenticationRejected() },
             ReaderEngineOpener { FakeEngine() },
             coordinator(),
+            writer(),
             this
         )
 
@@ -328,6 +340,8 @@ class ReaderControllerTest {
             savedProgressCfi = progressCfi
         )
     }
+
+    private fun writer() = ReaderProgressWriter { _, _, _ -> ReaderProgressWriteOutcome.Success }
 
     private companion object {
         const val PROGRESS_CFI = "epubcfi(/6/2!/4/2:3)"

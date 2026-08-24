@@ -19,6 +19,7 @@ import kotlinx.coroutines.launch
 
 internal data class ReaderProgressState(
     val sessionId: String,
+    val sessionStatus: ReaderSessionStatus,
     val captureEnabled: Boolean,
     val latestCandidate: EpubCfi?,
     val candidateVersion: Long
@@ -38,6 +39,7 @@ internal class ReaderProgressController(private val scope: CoroutineScope) {
         prepared = PreparedCapture(session, engine, generation)
         mutableState.value = ReaderProgressState(
             sessionId = session.sessionId,
+            sessionStatus = session.status,
             captureEnabled = false,
             latestCandidate = null,
             candidateVersion = 0

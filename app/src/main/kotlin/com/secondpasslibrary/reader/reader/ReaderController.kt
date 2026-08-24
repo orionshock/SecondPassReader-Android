@@ -11,10 +11,13 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
 import com.secondpasslibrary.reader.reader.progress.ReaderProgressController
+import com.secondpasslibrary.reader.reader.progress.ReaderProgressSyncController
+import com.secondpasslibrary.reader.reader.progress.ReaderProgressWriter
 import com.secondpasslibrary.reader.reader.session.ReaderProgressLoadFailure
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionCoordinator
 import com.secondpasslibrary.reader.reader.session.ReaderSessionRequest
+import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -56,6 +59,7 @@ internal class ReaderController(
     private val assetResolver: ReaderBookAssetResolver,
     private val engineOpener: ReaderEngineOpener,
     private val sessionCoordinator: ReaderSessionCoordinator,
+    progressWriter: ReaderProgressWriter,
     private val scope: CoroutineScope
 ) {
     private val mutableState = MutableStateFlow<ReaderState>(ReaderState.Resolving)
@@ -64,6 +68,14 @@ internal class ReaderController(
     val connectionEvents = connectionEventChannel.receiveAsFlow()
     private val progressController = ReaderProgressController(scope)
     val progress = progressController.state
+    private val progressSyncController = ReaderProgressSyncController(
+        scope,
+        progressWriter,
+        onAuthenticationRejected = {
+            connectionEventChannel.trySend(ReaderConnectionEvent.AuthenticationRejected)
+        }
+    )
+    val progressSync = progressSyncController.state
     private var job: Job? = null
     private var request: ReaderRequest? = null
 
@@ -83,8 +95,13 @@ internal class ReaderController(
         request?.let(::load)
     }
 
+    fun setAuthorityAvailable(available: Boolean) {
+        progressSyncController.setAuthorityAvailable(available)
+    }
+
     fun close() {
         job?.cancel()
+        progressSyncController.close()
         progressController.reset()
         closeEngine()
         connectionEventChannel.close()
@@ -92,6 +109,7 @@ internal class ReaderController(
 
     private fun load(request: ReaderRequest) {
         job?.cancel()
+        progressSyncController.reset()
         progressController.reset()
         closeEngine()
         mutableState.value = ReaderState.Resolving
@@ -124,7 +142,7 @@ internal class ReaderController(
                 result.fold(
                     onSuccess = { ready ->
                         mutableState.value = ready
-                        progressController.enableAfterStartupRestore()
+                        startProgressSynchronization(request.profile, ready.session.status)
                         openedEngine = null
                     },
                     onFailure = { failure ->
@@ -140,12 +158,23 @@ internal class ReaderController(
                             failureKind
                         }
                         progressController.reset()
+                        progressSyncController.reset()
                         mutableState.value = ReaderState.Failure(kind)
                     }
                 )
             } finally {
                 openedEngine?.close()
             }
+        }
+    }
+
+    private fun startProgressSynchronization(
+        profile: ConnectionProfile,
+        sessionStatus: ReaderSessionStatus
+    ) {
+        progressController.enableAfterStartupRestore()
+        if (sessionStatus == ReaderSessionStatus.ACTIVE) {
+            progressSyncController.start(profile, progressController.state)
         }
     }
 
