@@ -1,7 +1,7 @@
 (function installSecondPassEpubCfiRuntime(global) {
     "use strict";
 
-    const RUNTIME_VERSION = "1.7.0";
+    const RUNTIME_VERSION = "1.8.0";
     const CONTEXT_LENGTH = 64;
     const MOVEMENT_QUOTE_LENGTH = 128;
     const existing = global.__secondPassEpubCfi;
@@ -551,7 +551,7 @@
         };
     }
 
-    function resolveContentTarget(
+    function resolveContentTargetDetails(
         fullCfi,
         packageDocumentXml,
         packagePath,
@@ -625,12 +625,117 @@
             context
         );
         return {
-            kind: expectedKind,
-            selectedText: context.selectedText,
-            prefix: context.prefix,
-            suffix: context.suffix,
-            movementAnchor: movementAnchor
+            liveRange: liveRange,
+            resolution: {
+                kind: expectedKind,
+                selectedText: context.selectedText,
+                prefix: context.prefix,
+                suffix: context.suffix,
+                movementAnchor: movementAnchor
+            }
         };
+    }
+
+    function resolveContentTarget() {
+        return resolveContentTargetDetails.apply(null, arguments).resolution;
+    }
+
+    function verifyContentTarget(
+        fullCfi,
+        packageDocumentXml,
+        packagePath,
+        expectedSpineIndex,
+        expectedIdref,
+        expectedItemrefId,
+        expectedResourceHref,
+        expectedKind,
+        expectedSelectedText,
+        expectedPrefix,
+        expectedSuffix,
+        expectedExact,
+        expectedBefore,
+        expectedAfter
+    ) {
+        const details = resolveContentTargetDetails(
+            fullCfi,
+            packageDocumentXml,
+            packagePath,
+            expectedSpineIndex,
+            expectedIdref,
+            expectedItemrefId,
+            expectedResourceHref
+        );
+        const resolution = details.resolution;
+        const semanticMatch = resolution.kind === expectedKind &&
+            resolution.selectedText === expectedSelectedText &&
+            resolution.prefix === expectedPrefix &&
+            resolution.suffix === expectedSuffix &&
+            resolution.movementAnchor.exact === expectedExact &&
+            resolution.movementAnchor.before === expectedBefore &&
+            resolution.movementAnchor.after === expectedAfter;
+        return {
+            semanticMatch: semanticMatch,
+            visible: semanticMatch && isTargetRangeVisible(details.liveRange, document)
+        };
+    }
+
+    function isTargetRangeVisible(range, publicationDocument) {
+        const probe = visibilityProbeRange(range, publicationDocument);
+        const viewportWidth = global.innerWidth || publicationDocument.documentElement.clientWidth;
+        const viewportHeight = global.innerHeight || publicationDocument.documentElement.clientHeight;
+        return Array.from(probe.getClientRects()).some(function (rectangle) {
+            const visibleWidth = Math.min(rectangle.right, viewportWidth) -
+                Math.max(rectangle.left, 0);
+            const visibleHeight = Math.min(rectangle.bottom, viewportHeight) -
+                Math.max(rectangle.top, 0);
+            return visibleWidth > 0.5 && visibleHeight > 0.5 &&
+                rectangle.width > 0 && rectangle.height > 0;
+        });
+    }
+
+    function visibilityProbeRange(range, publicationDocument) {
+        if (!range.collapsed || range.getClientRects().length > 0) {
+            return range;
+        }
+        const probe = range.cloneRange();
+        const container = range.startContainer;
+        const offset = range.startOffset;
+        if (isCharacterData(container) && offset < container.length) {
+            probe.setEnd(container, nextCodeUnitBoundary(container.data, offset));
+            return probe;
+        }
+        const body = publicationBody(publicationDocument);
+        const walker = publicationDocument.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+        let foundContainer = false;
+        let node = walker.nextNode();
+        while (node) {
+            if (node === container) {
+                foundContainer = true;
+            } else if (foundContainer && node.length > 0 && !isInsideRuntimeNode(node)) {
+                probe.setStart(node, 0);
+                probe.setEnd(node, nextCodeUnitBoundary(node.data, 0));
+                return probe;
+            }
+            node = walker.nextNode();
+        }
+        return probe;
+    }
+
+    function nextCodeUnitBoundary(text, offset) {
+        const first = text.charCodeAt(offset);
+        const second = text.charCodeAt(offset + 1);
+        return offset + (isHighSurrogate(first) && isLowSurrogate(second) ? 2 : 1);
+    }
+
+    function isInsideRuntimeNode(node) {
+        let candidate = node;
+        while (candidate && candidate !== document) {
+            if (isOwnedRuntimeNode(candidate, document)) {
+                return true;
+            }
+            candidate = candidate.parentNode;
+        }
+        return false;
     }
 
     function validateResolvedRange(range, resolvedTarget, expectedKind) {
@@ -1020,6 +1125,42 @@
                     expectedIdref,
                     expectedItemrefId,
                     expectedResourceHref
+                );
+            });
+        },
+
+        verifyContentTarget: function verifyResolvedContentTarget(
+            fullCfi,
+            packageDocumentXml,
+            packagePath,
+            expectedSpineIndex,
+            expectedIdref,
+            expectedItemrefId,
+            expectedResourceHref,
+            expectedKind,
+            expectedSelectedText,
+            expectedPrefix,
+            expectedSuffix,
+            expectedExact,
+            expectedBefore,
+            expectedAfter
+        ) {
+            return safely(function () {
+                return verifyContentTarget(
+                    fullCfi,
+                    packageDocumentXml,
+                    packagePath,
+                    expectedSpineIndex,
+                    expectedIdref,
+                    expectedItemrefId,
+                    expectedResourceHref,
+                    expectedKind,
+                    expectedSelectedText,
+                    expectedPrefix,
+                    expectedSuffix,
+                    expectedExact,
+                    expectedBefore,
+                    expectedAfter
                 );
             });
         },

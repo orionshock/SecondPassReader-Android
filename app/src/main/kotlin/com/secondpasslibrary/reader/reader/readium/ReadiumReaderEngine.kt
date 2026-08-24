@@ -36,7 +36,7 @@ private class ReadiumReaderEngine(
     private val readiumCfiNavigator = ReadiumEpubCfiNavigator(
         binding = cfiBinding,
         packageDocument = packageDocument,
-        readingOrderHrefs = publication.readingOrder.map { it.href.toString() }
+        readingOrder = publication.readingOrder
     )
 
     override val viewport: ReaderViewport = ReadiumReaderViewport(

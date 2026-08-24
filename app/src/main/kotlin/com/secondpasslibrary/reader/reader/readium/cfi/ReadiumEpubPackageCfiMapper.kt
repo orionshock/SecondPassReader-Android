@@ -8,25 +8,37 @@ import com.secondpasslibrary.reader.reader.cfi.EpubLayout
 import com.secondpasslibrary.reader.reader.cfi.EpubPackageDocument
 import com.secondpasslibrary.reader.reader.cfi.EpubSpineItem
 import com.secondpasslibrary.reader.reader.cfi.normalizeEpubHref
+import org.readium.r2.shared.publication.Link
+import org.readium.r2.shared.util.Url
+import org.readium.r2.shared.util.mediatype.MediaType
 
 internal data class ReadiumEpubPackageTarget(
     val spineIndex: Int,
     val itemrefId: String?,
     val idref: String,
     val resourceHref: String,
+    val resourceUrl: Url,
+    val mediaType: MediaType,
+    val resourceLink: Link,
     val kind: EpubCfiTargetKind,
     val layout: EpubLayout
 )
 
 internal class ReadiumEpubPackageCfiMapper(
     private val packageDocument: EpubPackageDocument,
-    readingOrderHrefs: List<String>,
+    readingOrder: List<Link>,
     private val binding: ReadiumCfiNavigatorBinding
 ) {
-    private val readingOrderHrefCounts = readingOrderHrefs
-        .map(::normalizeEpubHref)
-        .groupingBy { it }
-        .eachCount()
+    private val readingOrderByHref = readingOrder
+        .mapNotNull { link ->
+            val url = link.url()
+            val mediaType = link.mediaType ?: return@mapNotNull null
+            runCatching {
+                normalizeEpubHref(link.href.toString()) to
+                    ReadiumReadingOrderResource(link, url, mediaType)
+            }.getOrNull()
+        }
+        .groupBy({ it.first }, { it.second })
 
     suspend fun resolve(cfi: EpubCfi): EpubCfiOutcome<ReadiumEpubPackageTarget> =
         withRuntime { navigator, runtime ->
@@ -88,21 +100,27 @@ internal class ReadiumEpubPackageCfiMapper(
             spineItem == null || spineItem.idref != idref || spineItem.id != itemrefId ->
                 EpubCfiOutcome.Failure(EpubCfiFailure.PACKAGE_TARGET_NOT_FOUND)
 
-            readingOrderHrefCounts[spineItem.resourceHref] != 1 ->
+            uniqueReadingOrderResource(spineItem) == null ->
                 EpubCfiOutcome.Failure(EpubCfiFailure.RESOURCE_NOT_IN_READING_ORDER)
 
             targetKind == null -> EpubCfiOutcome.Failure(EpubCfiFailure.INVALID_CFI)
 
-            else -> EpubCfiOutcome.Success(
-                ReadiumEpubPackageTarget(
-                    spineIndex = spineItem.index,
-                    itemrefId = spineItem.id,
-                    idref = spineItem.idref,
-                    resourceHref = spineItem.resourceHref,
-                    kind = targetKind,
-                    layout = spineItem.layout
+            else -> {
+                val readingOrderResource = checkNotNull(uniqueReadingOrderResource(spineItem))
+                EpubCfiOutcome.Success(
+                    ReadiumEpubPackageTarget(
+                        spineIndex = spineItem.index,
+                        itemrefId = spineItem.id,
+                        idref = spineItem.idref,
+                        resourceHref = spineItem.resourceHref,
+                        resourceUrl = readingOrderResource.url,
+                        mediaType = readingOrderResource.mediaType,
+                        resourceLink = readingOrderResource.link,
+                        kind = targetKind,
+                        layout = spineItem.layout
+                    )
                 )
-            )
+            }
         }
     }
 
@@ -126,9 +144,14 @@ internal class ReadiumEpubPackageCfiMapper(
     private fun verifiedSpineItem(resourceHref: String): EpubSpineItem? {
         val normalized = runCatching { normalizeEpubHref(resourceHref) }.getOrNull()
         return normalized
-            ?.takeIf { readingOrderHrefCounts[it] == 1 }
             ?.let(packageDocument::spineItemForHref)
+            ?.takeIf { uniqueReadingOrderResource(it) != null }
     }
+
+    private fun uniqueReadingOrderResource(spineItem: EpubSpineItem): ReadiumReadingOrderResource? =
+        readingOrderByHref[spineItem.resourceHref]
+            ?.singleOrNull()
+            ?.takeIf { resource -> resource.mediaType.matches(spineItem.mediaType) }
 
     private suspend fun <T> withRuntime(
         block: suspend (
@@ -138,6 +161,12 @@ internal class ReadiumEpubPackageCfiMapper(
     ): EpubCfiOutcome<T> = binding.withNavigator(block)
         ?: EpubCfiOutcome.Failure(EpubCfiFailure.NAVIGATOR_UNAVAILABLE)
 }
+
+private data class ReadiumReadingOrderResource(
+    val link: Link,
+    val url: Url,
+    val mediaType: MediaType
+)
 
 private fun <T> ReadiumCfiJavascriptResult.Failure.toOutcome(): EpubCfiOutcome<T> =
     EpubCfiOutcome.Failure(reason)

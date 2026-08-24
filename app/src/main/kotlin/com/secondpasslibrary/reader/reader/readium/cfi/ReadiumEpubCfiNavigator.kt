@@ -10,20 +10,36 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfiTargetKind
 import com.secondpasslibrary.reader.reader.cfi.EpubLayout
 import com.secondpasslibrary.reader.reader.cfi.EpubPackageDocument
 import com.secondpasslibrary.reader.reader.cfi.normalizeEpubHref
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.withTimeoutOrNull
+import org.readium.r2.navigator.epub.EpubNavigatorFragment
+import org.readium.r2.shared.publication.Link
+import org.readium.r2.shared.publication.Locator
+
+private val NAVIGATION_TIMEOUT = 10.seconds
 
 internal class ReadiumEpubCfiNavigator(
     private val binding: ReadiumCfiNavigatorBinding,
     private val packageDocument: EpubPackageDocument,
-    readingOrderHrefs: List<String>
+    readingOrder: List<Link>
 ) : EpubCfiNavigator,
     AutoCloseable {
     private val packageCfiMapper = ReadiumEpubPackageCfiMapper(
         packageDocument = packageDocument,
-        readingOrderHrefs = readingOrderHrefs,
+        readingOrder = readingOrder,
         binding = binding
     )
+    private val incomingNavigation = ReadiumCfiIncomingNavigation(
+        binding = binding,
+        packageDocument = packageDocument,
+        packageCfiMapper = packageCfiMapper
+    )
 
-    override suspend fun goTo(cfi: EpubCfi): EpubCfiOutcome<Unit> = withRuntime()
+    override suspend fun goTo(cfi: EpubCfi): EpubCfiOutcome<Unit> = incomingNavigation.goTo(cfi)
 
     override suspend fun currentPosition(): EpubCfiOutcome<EpubCfi> {
         val captured = binding.withNavigator { navigator, runtime ->
@@ -128,21 +144,145 @@ internal class ReadiumEpubCfiNavigator(
     ): EpubCfiOutcome<EpubCfi> = packageCfiMapper.compose(resourceHref, contentCfi)
 
     override fun close() = binding.close()
+}
 
-    private suspend fun <T> withRuntime(): EpubCfiOutcome<T> {
-        val result = binding.withNavigator { navigator, runtime ->
-            if (runtime.ensureInstalled(navigator)) {
-                EpubCfiOutcome.Failure(EpubCfiFailure.UNSUPPORTED_CFI_FEATURE)
-            } else {
-                EpubCfiOutcome.Failure(EpubCfiFailure.JAVASCRIPT_RUNTIME_UNAVAILABLE)
-            }
+private class ReadiumCfiIncomingNavigation(
+    private val binding: ReadiumCfiNavigatorBinding,
+    private val packageDocument: EpubPackageDocument,
+    private val packageCfiMapper: ReadiumEpubPackageCfiMapper
+) {
+    suspend fun goTo(cfi: EpubCfi): EpubCfiOutcome<Unit> = try {
+        when (val packageOutcome = packageCfiMapper.resolve(cfi)) {
+            is EpubCfiOutcome.Failure -> packageOutcome
+            is EpubCfiOutcome.Success -> navigate(cfi, packageOutcome.value)
         }
-        return result ?: EpubCfiOutcome.Failure(EpubCfiFailure.NAVIGATOR_UNAVAILABLE)
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        EpubCfiOutcome.Failure(EpubCfiFailure.NAVIGATION_FAILED)
+    }
+
+    private suspend fun navigate(
+        cfi: EpubCfi,
+        target: ReadiumEpubPackageTarget
+    ): EpubCfiOutcome<Unit> {
+        if (target.layout == EpubLayout.FIXED) {
+            return EpubCfiOutcome.Failure(EpubCfiFailure.UNSUPPORTED_FIXED_LAYOUT)
+        }
+        return binding.withNavigator { navigator, runtime ->
+            val resourceFailure = navigateToResource(navigator, runtime, target)
+            if (resourceFailure != null) {
+                return@withNavigator EpubCfiOutcome.Failure(resourceFailure)
+            }
+            val resolution = when (
+                val content = runtime.resolveContent(
+                    navigator,
+                    cfi,
+                    packageDocument,
+                    target
+                )
+            ) {
+                is ReadiumCfiJavascriptResult.Failure ->
+                    return@withNavigator EpubCfiOutcome.Failure(content.reason)
+
+                is ReadiumCfiJavascriptResult.Success -> content.value
+            }
+            val locator = Locator(
+                href = target.resourceUrl,
+                mediaType = target.mediaType,
+                locations = Locator.Locations(),
+                text = Locator.Text(
+                    before = resolution.movementAnchor.before,
+                    highlight = resolution.movementAnchor.exact,
+                    after = resolution.movementAnchor.after
+                )
+            )
+            if (!navigator.go(locator, animated = false)) {
+                return@withNavigator EpubCfiOutcome.Failure(EpubCfiFailure.NAVIGATION_FAILED)
+            }
+            val verificationFailure = awaitVerifiedTarget(
+                navigator,
+                runtime,
+                cfi,
+                target,
+                resolution
+            )
+            if (verificationFailure == null) {
+                EpubCfiOutcome.Success(Unit)
+            } else {
+                EpubCfiOutcome.Failure(verificationFailure)
+            }
+        } ?: EpubCfiOutcome.Failure(EpubCfiFailure.NAVIGATOR_UNAVAILABLE)
+    }
+
+    private suspend fun navigateToResource(
+        navigator: EpubNavigatorFragment,
+        runtime: ReadiumCfiJavascriptRuntime,
+        target: ReadiumEpubPackageTarget
+    ): EpubCfiFailure? {
+        val alreadyActive = navigator.isActiveResource(target)
+        val navigationAccepted = alreadyActive ||
+            navigator.go(target.resourceLink, animated = false)
+        val arrived = if (alreadyActive) {
+            true
+        } else if (!navigationAccepted) {
+            false
+        } else {
+            withTimeoutOrNull(NAVIGATION_TIMEOUT) {
+                navigator.currentLocator.first { locator ->
+                    locator.href.isEquivalent(target.resourceUrl)
+                }
+            } != null
+        }
+        return when {
+            !navigationAccepted -> EpubCfiFailure.NAVIGATION_FAILED
+            !arrived -> EpubCfiFailure.NAVIGATION_TIMEOUT
+            !navigator.isActiveResource(target) -> EpubCfiFailure.NAVIGATION_FAILED
+            !runtime.ensureInstalled(navigator) -> EpubCfiFailure.JAVASCRIPT_RUNTIME_UNAVAILABLE
+            else -> null
+        }
+    }
+
+    private suspend fun awaitVerifiedTarget(
+        navigator: EpubNavigatorFragment,
+        runtime: ReadiumCfiJavascriptRuntime,
+        cfi: EpubCfi,
+        target: ReadiumEpubPackageTarget,
+        resolution: ReadiumContentResolution
+    ): EpubCfiFailure? {
+        val verified = withTimeoutOrNull(NAVIGATION_TIMEOUT) {
+            flow {
+                emit(Unit)
+                navigator.currentLocator.drop(1).collect { emit(Unit) }
+            }.first {
+                navigator.isActiveResource(target) &&
+                    when (
+                        val verification = runtime.verifyContentTarget(
+                            navigator,
+                            cfi,
+                            packageDocument,
+                            target,
+                            resolution
+                        )
+                    ) {
+                        is ReadiumCfiJavascriptResult.Failure -> false
+
+                        is ReadiumCfiJavascriptResult.Success ->
+                            verification.value.semanticMatch && verification.value.visible
+                    }
+            }
+            true
+        } ?: false
+        return if (verified) null else EpubCfiFailure.NAVIGATION_TIMEOUT
     }
 }
 
-private fun org.readium.r2.navigator.epub.EpubNavigatorFragment.activeResourceHref(): String? =
+private fun EpubNavigatorFragment.activeResourceHref(): String? =
     runCatching { normalizeEpubHref(currentLocator.value.href.toString()) }.getOrNull()
+
+private fun EpubNavigatorFragment.isActiveResource(target: ReadiumEpubPackageTarget): Boolean =
+    currentLocator.value.href.isEquivalent(target.resourceUrl) &&
+        activeResourceHref() == target.resourceHref
 
 internal data class ReadiumResolvedCfi(
     val packageTarget: ReadiumEpubPackageTarget,

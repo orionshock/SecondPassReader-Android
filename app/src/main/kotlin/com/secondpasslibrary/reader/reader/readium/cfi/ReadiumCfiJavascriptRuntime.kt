@@ -9,7 +9,7 @@ import org.json.JSONObject
 import org.json.JSONTokener
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 
-private const val RUNTIME_VERSION = "1.7.0"
+private const val RUNTIME_VERSION = "1.8.0"
 private const val CONTEXT_LENGTH = 64
 private const val MOVEMENT_QUOTE_LENGTH = 128
 private const val COLIBRIO_ASSET = "reader/cfi/colibrio-epubcfi-1.1.0.min.js"
@@ -24,7 +24,7 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
     }
 
     suspend fun ensureInstalled(navigator: EpubNavigatorFragment): Boolean {
-        if (installedVersion(navigator) == RUNTIME_VERSION) return true
+        if (readInstalledRuntimeVersion(navigator) == RUNTIME_VERSION) return true
         val installed = navigator.evaluateJavascript(
             "$installationScript\nwindow.__secondPassEpubCfi.runtimeVersion();"
         )
@@ -104,6 +104,46 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
         )
     ).mapValue(::readContentResolution)
 
+    suspend fun verifyContentTarget(
+        navigator: EpubNavigatorFragment,
+        cfi: EpubCfi,
+        packageDocument: EpubPackageDocument,
+        packageTarget: ReadiumEpubPackageTarget,
+        resolution: ReadiumContentResolution
+    ): ReadiumCfiJavascriptResult<ReadiumContentTargetVerification> = invoke(
+        navigator = navigator,
+        method = "verifyContentTarget",
+        arguments = listOf(
+            JavascriptArgument.StringValue(cfi.value),
+            JavascriptArgument.StringValue(packageDocument.packageXml),
+            JavascriptArgument.StringValue(packageDocument.packagePath),
+            JavascriptArgument.NumberValue(packageTarget.spineIndex),
+            JavascriptArgument.StringValue(packageTarget.idref),
+            packageTarget.itemrefId?.let(JavascriptArgument::StringValue)
+                ?: JavascriptArgument.NullValue,
+            JavascriptArgument.StringValue(packageTarget.resourceHref),
+            JavascriptArgument.StringValue(resolution.kind),
+            resolution.selectedText?.let(JavascriptArgument::StringValue)
+                ?: JavascriptArgument.NullValue,
+            resolution.prefix?.let(JavascriptArgument::StringValue)
+                ?: JavascriptArgument.NullValue,
+            resolution.suffix?.let(JavascriptArgument::StringValue)
+                ?: JavascriptArgument.NullValue,
+            JavascriptArgument.StringValue(resolution.movementAnchor.exact),
+            resolution.movementAnchor.before?.let(JavascriptArgument::StringValue)
+                ?: JavascriptArgument.NullValue,
+            resolution.movementAnchor.after?.let(JavascriptArgument::StringValue)
+                ?: JavascriptArgument.NullValue
+        )
+    ).mapValue { value ->
+        val verification = value as? JSONObject
+            ?: error("CFI runtime verification result is invalid.")
+        ReadiumContentTargetVerification(
+            semanticMatch = verification.getBoolean("semanticMatch"),
+            visible = verification.getBoolean("visible")
+        )
+    }
+
     suspend fun generateSelection(
         navigator: EpubNavigatorFragment
     ): ReadiumCfiJavascriptResult<ReadiumContentSelection?> = invoke(
@@ -127,12 +167,6 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
         method = "generateVisiblePositionContentCfi",
         arguments = emptyList()
     ).mapValue { value -> EpubCfi(value as String) }
-
-    private suspend fun installedVersion(navigator: EpubNavigatorFragment): String? =
-        navigator.evaluateJavascript(
-            "window.__secondPassEpubCfi && " +
-                "window.__secondPassEpubCfi.runtimeVersion();"
-        ).decodeJavascriptString()
 
     private suspend fun invoke(
         navigator: EpubNavigatorFragment,
@@ -188,6 +222,12 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
     }
 }
 
+private suspend fun readInstalledRuntimeVersion(navigator: EpubNavigatorFragment): String? =
+    navigator.evaluateJavascript(
+        "window.__secondPassEpubCfi && " +
+            "window.__secondPassEpubCfi.runtimeVersion();"
+    ).decodeJavascriptString()
+
 internal data class ReadiumPackageTarget(
     val spineIndex: Int,
     val itemrefId: String?,
@@ -214,6 +254,11 @@ internal data class ReadiumTextQuoteAnchor(
     val exact: String,
     val before: String?,
     val after: String?
+)
+
+internal data class ReadiumContentTargetVerification(
+    val semanticMatch: Boolean,
+    val visible: Boolean
 )
 
 internal sealed interface ReadiumCfiJavascriptResult<out T> {
