@@ -12,6 +12,7 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiReadiness
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiResolution
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiSelection
+import com.secondpasslibrary.reader.reader.domain.EmptyReaderTableOfContents
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpenException
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
@@ -298,6 +299,7 @@ class ReaderControllerTest {
         override val viewportMovements = ReaderViewportMovements { movements }
         val navigator = FakeCfiNavigator(initialReadiness)
         override val cfiNavigator: EpubCfiNavigator = navigator
+        override val tableOfContents = EmptyReaderTableOfContents
 
         fun move(sequence: Long) {
             check(movements.tryEmit(ReaderViewportMovement(sequence)))

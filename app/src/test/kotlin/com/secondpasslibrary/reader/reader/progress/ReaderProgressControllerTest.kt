@@ -7,6 +7,7 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiReadiness
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiResolution
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiSelection
+import com.secondpasslibrary.reader.reader.domain.EmptyReaderTableOfContents
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import com.secondpasslibrary.reader.reader.domain.ReaderViewport
 import com.secondpasslibrary.reader.reader.domain.ReaderViewportMovement
@@ -148,6 +149,7 @@ class ReaderProgressControllerTest {
         )
         override val viewport = ReaderViewport { }
         override val viewportMovements = ReaderViewportMovements { movementEvents }
+        override val tableOfContents = EmptyReaderTableOfContents
         override val cfiNavigator = object : EpubCfiNavigator {
             override val readiness = MutableStateFlow<EpubCfiReadiness>(
                 EpubCfiReadiness.Available

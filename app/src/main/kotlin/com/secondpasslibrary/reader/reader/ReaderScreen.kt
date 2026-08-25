@@ -7,35 +7,70 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 
 @Composable
 internal fun ReaderScreen(state: ReaderState, onBack: () -> Unit, onRetry: () -> Unit) {
-    BackHandler(onBack = onBack)
-    Box(Modifier.fillMaxSize()) {
-        when (state) {
-            ReaderState.Resolving -> ReaderLoading("Preparing book…")
-
-            ReaderState.Downloading -> ReaderLoading("Downloading book…")
-
-            ReaderState.Opening -> ReaderLoading("Opening EPUB…")
-
-            is ReaderState.Ready -> Box(Modifier.fillMaxSize()) {
-                state.engine.viewport.Content(Modifier.fillMaxSize())
-                ReaderCfiProbe(state.engine, Modifier.align(Alignment.TopEnd))
-            }
-
-            is ReaderState.Failure -> ReaderFailureContent(state.kind, onBack, onRetry)
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    val ready = state as? ReaderState.Ready
+    BackHandler {
+        val drawerOpen = drawerState.currentValue == DrawerValue.Open ||
+            drawerState.targetValue == DrawerValue.Open
+        if (drawerOpen) scope.launch { drawerState.close() } else onBack()
+    }
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        gesturesEnabled = false,
+        drawerContent = {
+            ReaderTocDrawer(
+                bookTitle = ready?.title ?: "Reader",
+                entries = ready?.engine?.tableOfContents?.entries.orEmpty(),
+                onEntrySelected = { target ->
+                    scope.launch {
+                        drawerState.close()
+                        ready?.engine?.tableOfContents?.goTo(target)
+                    }
+                },
+                onReturnToBook = {
+                    scope.launch {
+                        drawerState.close()
+                        onBack()
+                    }
+                }
+            )
         }
-        ReaderChrome(
-            title = (state as? ReaderState.Ready)?.title ?: "Reader",
-            onReturnToBook = onBack
-        )
+    ) {
+        Box(Modifier.fillMaxSize()) {
+            when (state) {
+                ReaderState.Resolving -> ReaderLoading("Preparing book…")
+
+                ReaderState.Downloading -> ReaderLoading("Downloading book…")
+
+                ReaderState.Opening -> ReaderLoading("Opening EPUB…")
+
+                is ReaderState.Ready -> Box(Modifier.fillMaxSize()) {
+                    state.engine.viewport.Content(Modifier.fillMaxSize())
+                    ReaderCfiProbe(state.engine, Modifier.align(Alignment.TopEnd))
+                }
+
+                is ReaderState.Failure -> ReaderFailureContent(state.kind, onBack, onRetry)
+            }
+            ReaderChrome(
+                title = ready?.title ?: "Reader",
+                onNavigationMenuRequested = { scope.launch { drawerState.open() } }
+            )
+        }
     }
 }
 

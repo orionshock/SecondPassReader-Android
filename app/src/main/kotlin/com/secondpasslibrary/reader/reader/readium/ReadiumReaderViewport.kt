@@ -33,6 +33,7 @@ internal fun FragmentActivity.discardRestoredReaderViewport() {
 internal class ReadiumReaderViewport(
     private val fragmentFactory: ReadiumNavigatorFragmentFactory,
     private val cfiBinding: ReadiumCfiNavigatorBinding,
+    private val publicationBinding: ReadiumPublicationNavigatorBinding,
     private val movements: ReadiumViewportMovements
 ) : ReaderViewport {
     @Composable
@@ -69,9 +70,11 @@ internal class ReadiumReaderViewport(
                 fragments.findFragmentByTag(NAVIGATOR_TAG) as? EpubNavigatorFragment
             )
             cfiBinding.bind(navigator)
+            publicationBinding.bind(navigator)
             movements.bind(navigator)
             onDispose {
                 movements.unbind(navigator)
+                publicationBinding.unbind(navigator)
                 cfiBinding.unbind(navigator)
                 fragments.findFragmentByTag(NAVIGATOR_TAG)?.let { navigator ->
                     fragments.beginTransaction().remove(navigator).commitNowAllowingStateLoss()
