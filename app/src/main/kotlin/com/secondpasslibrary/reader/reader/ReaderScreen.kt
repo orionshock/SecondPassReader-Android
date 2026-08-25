@@ -13,21 +13,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.secondpasslibrary.reader.design.components.AppBarNavigation
-import com.secondpasslibrary.reader.design.components.AppBarPresentation
-import com.secondpasslibrary.reader.design.components.ContextualAppBar
 
 @Composable
 internal fun ReaderScreen(state: ReaderState, onBack: () -> Unit, onRetry: () -> Unit) {
     BackHandler(onBack = onBack)
-    Column(Modifier.fillMaxSize()) {
-        ContextualAppBar(
-            AppBarPresentation(
-                navigation = AppBarNavigation.BACK,
-                title = (state as? ReaderState.Ready)?.title ?: "Reader"
-            ),
-            onNavigation = onBack
-        )
+    Box(Modifier.fillMaxSize()) {
         when (state) {
             ReaderState.Resolving -> ReaderLoading("Preparing book…")
 
@@ -35,13 +25,17 @@ internal fun ReaderScreen(state: ReaderState, onBack: () -> Unit, onRetry: () ->
 
             ReaderState.Opening -> ReaderLoading("Opening EPUB…")
 
-            is ReaderState.Ready -> Box(Modifier.weight(1f)) {
+            is ReaderState.Ready -> Box(Modifier.fillMaxSize()) {
                 state.engine.viewport.Content(Modifier.fillMaxSize())
                 ReaderCfiProbe(state.engine, Modifier.align(Alignment.TopEnd))
             }
 
             is ReaderState.Failure -> ReaderFailureContent(state.kind, onBack, onRetry)
         }
+        ReaderChrome(
+            title = (state as? ReaderState.Ready)?.title ?: "Reader",
+            onReturnToBook = onBack
+        )
     }
 }
 
