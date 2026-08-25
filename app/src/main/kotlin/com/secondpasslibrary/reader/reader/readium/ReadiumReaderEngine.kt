@@ -34,6 +34,7 @@ private class ReadiumReaderEngine(
     private val navigatorFactory = EpubNavigatorFactory(publication)
     private val cfiBinding = ReadiumCfiNavigatorBinding(ReadiumCfiJavascriptRuntime(context))
     private val publicationBinding = ReadiumPublicationNavigatorBinding()
+    private val appearanceController = ReadiumReaderAppearanceController()
     private val movements = ReadiumViewportMovements()
     private val readiumCfiNavigator = ReadiumEpubCfiNavigator(
         binding = cfiBinding,
@@ -43,14 +44,19 @@ private class ReadiumReaderEngine(
 
     override val viewport: ReaderViewport = ReadiumReaderViewport(
         fragmentFactory = {
-            navigatorFactory.createFragmentFactory(initialLocator = null)
+            navigatorFactory.createFragmentFactory(
+                initialLocator = null,
+                initialPreferences = appearanceController.initialPreferences()
+            )
         },
         cfiBinding = cfiBinding,
         publicationBinding = publicationBinding,
+        appearanceController = appearanceController,
         movements = movements
     )
     override val cfiNavigator = readiumCfiNavigator
     override val viewportMovements = movements
+    override val appearance = appearanceController
     override val tableOfContents = ReadiumReaderTableOfContents(
         links = publication.tableOfContents,
         readingOrder = publication.readingOrder,
@@ -61,6 +67,7 @@ private class ReadiumReaderEngine(
         movements.close()
         readiumCfiNavigator.close()
         publicationBinding.close()
+        appearanceController.close()
         publication.close()
     }
 }

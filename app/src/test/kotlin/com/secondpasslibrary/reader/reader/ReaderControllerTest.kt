@@ -13,6 +13,8 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfiReadiness
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiResolution
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiSelection
 import com.secondpasslibrary.reader.reader.domain.EmptyReaderTableOfContents
+import com.secondpasslibrary.reader.reader.domain.ReaderAppearance
+import com.secondpasslibrary.reader.reader.domain.ReaderAppearanceController
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpenException
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
@@ -300,6 +302,7 @@ class ReaderControllerTest {
         val navigator = FakeCfiNavigator(initialReadiness)
         override val cfiNavigator: EpubCfiNavigator = navigator
         override val tableOfContents = EmptyReaderTableOfContents
+        override val appearance = TestAppearanceController()
 
         fun move(sequence: Long) {
             check(movements.tryEmit(ReaderViewportMovement(sequence)))
@@ -307,6 +310,15 @@ class ReaderControllerTest {
 
         override fun close() {
             closed = true
+        }
+    }
+
+    private class TestAppearanceController : ReaderAppearanceController {
+        private val state = MutableStateFlow(ReaderAppearance())
+        override val appearance = state
+
+        override suspend fun update(appearance: ReaderAppearance) {
+            state.value = appearance
         }
     }
 

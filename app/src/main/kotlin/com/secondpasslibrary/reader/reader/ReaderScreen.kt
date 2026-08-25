@@ -1,22 +1,32 @@
 package com.secondpasslibrary.reader.reader
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.secondpasslibrary.reader.reader.domain.ReaderAppearance
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 @Composable
@@ -24,34 +34,27 @@ internal fun ReaderScreen(state: ReaderState, onBack: () -> Unit, onRetry: () ->
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val ready = state as? ReaderState.Ready
-    BackHandler {
-        val drawerOpen = drawerState.currentValue == DrawerValue.Open ||
-            drawerState.targetValue == DrawerValue.Open
-        if (drawerOpen) scope.launch { drawerState.close() } else onBack()
+    val appearanceFlow = remember(ready?.engine) {
+        ready?.engine?.appearance?.appearance ?: DEFAULT_READER_APPEARANCE
     }
+    val appearance by appearanceFlow.collectAsState()
+    val chromeColors = appearance.theme.chromeColors()
+    var appearancePanelVisible by remember { mutableStateOf(false) }
+    ReaderBackHandler(
+        appearancePanelVisible = appearancePanelVisible,
+        onDismissAppearance = { appearancePanelVisible = false },
+        drawerState = drawerState,
+        scope = scope,
+        onBack = onBack
+    )
     ModalNavigationDrawer(
         drawerState = drawerState,
         gesturesEnabled = false,
         drawerContent = {
-            ReaderTocDrawer(
-                bookTitle = ready?.title ?: "Reader",
-                entries = ready?.engine?.tableOfContents?.entries.orEmpty(),
-                onEntrySelected = { target ->
-                    scope.launch {
-                        drawerState.close()
-                        ready?.engine?.tableOfContents?.goTo(target)
-                    }
-                },
-                onReturnToBook = {
-                    scope.launch {
-                        drawerState.close()
-                        onBack()
-                    }
-                }
-            )
+            ReaderTocDrawerContent(ready, drawerState, scope, onBack)
         }
     ) {
-        Box(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize().background(chromeColors.background)) {
             when (state) {
                 ReaderState.Resolving -> ReaderLoading("Preparing book…")
 
@@ -68,11 +71,92 @@ internal fun ReaderScreen(state: ReaderState, onBack: () -> Unit, onRetry: () ->
             }
             ReaderChrome(
                 title = ready?.title ?: "Reader",
-                onNavigationMenuRequested = { scope.launch { drawerState.open() } }
+                colors = chromeColors,
+                onNavigationMenuRequested = {
+                    appearancePanelVisible = false
+                    scope.launch { drawerState.open() }
+                },
+                onAppearanceRequested = {
+                    scope.launch {
+                        drawerState.close()
+                        appearancePanelVisible = true
+                    }
+                }
             )
+            if (appearancePanelVisible && ready != null) {
+                ReaderAppearanceOverlay(
+                    ready = ready,
+                    appearance = appearance,
+                    scope = scope,
+                    onDismissRequest = { appearancePanelVisible = false }
+                )
+            }
         }
     }
 }
+
+@Composable
+private fun ReaderBackHandler(
+    appearancePanelVisible: Boolean,
+    onDismissAppearance: () -> Unit,
+    drawerState: DrawerState,
+    scope: CoroutineScope,
+    onBack: () -> Unit
+) {
+    BackHandler {
+        when {
+            appearancePanelVisible -> onDismissAppearance()
+
+            drawerState.currentValue == DrawerValue.Open ||
+                drawerState.targetValue == DrawerValue.Open -> scope.launch { drawerState.close() }
+
+            else -> onBack()
+        }
+    }
+}
+
+@Composable
+private fun ReaderTocDrawerContent(
+    ready: ReaderState.Ready?,
+    drawerState: DrawerState,
+    scope: CoroutineScope,
+    onBack: () -> Unit
+) {
+    ReaderTocDrawer(
+        bookTitle = ready?.title ?: "Reader",
+        entries = ready?.engine?.tableOfContents?.entries.orEmpty(),
+        onEntrySelected = { target ->
+            scope.launch {
+                drawerState.close()
+                ready?.engine?.tableOfContents?.goTo(target)
+            }
+        },
+        onReturnToBook = {
+            scope.launch {
+                drawerState.close()
+                onBack()
+            }
+        }
+    )
+}
+
+@Composable
+private fun ReaderAppearanceOverlay(
+    ready: ReaderState.Ready,
+    appearance: ReaderAppearance,
+    scope: CoroutineScope,
+    onDismissRequest: () -> Unit
+) {
+    ReaderAppearancePanel(
+        appearance = appearance,
+        onAppearanceChanged = { updated ->
+            scope.launch { ready.engine.appearance.update(updated) }
+        },
+        onDismissRequest = onDismissRequest
+    )
+}
+
+private val DEFAULT_READER_APPEARANCE = MutableStateFlow(ReaderAppearance())
 
 @Composable
 private fun ReaderLoading(label: String) {

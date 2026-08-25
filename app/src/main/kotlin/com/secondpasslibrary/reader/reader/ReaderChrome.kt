@@ -18,11 +18,16 @@ import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 
 /** Reader-local navigation chrome layered over the publication viewport. */
 @Composable
-internal fun ReaderChrome(title: String, onNavigationMenuRequested: () -> Unit) {
+internal fun ReaderChrome(
+    title: String,
+    colors: ReaderChromeColors,
+    onNavigationMenuRequested: () -> Unit,
+    onAppearanceRequested: () -> Unit
+) {
     Surface(
         modifier = Modifier.fillMaxWidth().heightIn(min = READER_CHROME_HEIGHT),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = CHROME_ALPHA),
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+        color = colors.background.copy(alpha = CHROME_ALPHA),
+        contentColor = colors.secondaryContent
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onNavigationMenuRequested) {
@@ -34,13 +39,20 @@ internal fun ReaderChrome(title: String, onNavigationMenuRequested: () -> Unit) 
             Text(
                 text = title,
                 modifier = Modifier.weight(1f),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = colors.secondaryContent,
                 style = MaterialTheme.typography.titleSmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            // Keeps the title centered and reserves the future right-side action position.
-            androidx.compose.foundation.layout.Box(Modifier.size(READER_CHROME_CONTROL_SIZE))
+            IconButton(
+                modifier = Modifier.size(READER_CHROME_CONTROL_SIZE),
+                onClick = onAppearanceRequested
+            ) {
+                AppIconGraphic(
+                    icon = AppIcon.Settings,
+                    contentDescription = "Reading appearance"
+                )
+            }
         }
     }
 }

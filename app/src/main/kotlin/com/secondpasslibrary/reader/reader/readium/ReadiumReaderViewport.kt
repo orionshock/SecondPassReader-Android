@@ -34,6 +34,7 @@ internal class ReadiumReaderViewport(
     private val fragmentFactory: ReadiumNavigatorFragmentFactory,
     private val cfiBinding: ReadiumCfiNavigatorBinding,
     private val publicationBinding: ReadiumPublicationNavigatorBinding,
+    private val appearanceController: ReadiumReaderAppearanceController,
     private val movements: ReadiumViewportMovements
 ) : ReaderViewport {
     @Composable
@@ -55,6 +56,7 @@ internal class ReadiumReaderViewport(
             val fragments = activity.supportFragmentManager
             fragments.findFragmentByTag(NAVIGATOR_TAG)?.let { existing ->
                 (existing as? EpubNavigatorFragment)?.let(cfiBinding::unbind)
+                (existing as? EpubNavigatorFragment)?.let(appearanceController::unbind)
                 fragments.beginTransaction().remove(existing).commitNowAllowingStateLoss()
             }
             fragments.fragmentFactory = fragmentFactory.create()
@@ -71,10 +73,12 @@ internal class ReadiumReaderViewport(
             )
             cfiBinding.bind(navigator)
             publicationBinding.bind(navigator)
+            appearanceController.bind(navigator)
             movements.bind(navigator)
             onDispose {
                 movements.unbind(navigator)
                 publicationBinding.unbind(navigator)
+                appearanceController.unbind(navigator)
                 cfiBinding.unbind(navigator)
                 fragments.findFragmentByTag(NAVIGATOR_TAG)?.let { navigator ->
                     fragments.beginTransaction().remove(navigator).commitNowAllowingStateLoss()

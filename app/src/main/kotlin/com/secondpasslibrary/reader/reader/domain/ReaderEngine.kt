@@ -15,6 +15,7 @@ internal interface ReaderEngine : AutoCloseable {
     val cfiNavigator: EpubCfiNavigator
     val viewportMovements: ReaderViewportMovements
     val tableOfContents: ReaderTableOfContents
+    val appearance: ReaderAppearanceController
 }
 
 /** Renderer-neutral notification that the visible reading position has settled after movement. */

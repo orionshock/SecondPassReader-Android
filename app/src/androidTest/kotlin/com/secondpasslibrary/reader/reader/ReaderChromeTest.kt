@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -17,10 +18,13 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiReadiness
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiResolution
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiSelection
+import com.secondpasslibrary.reader.reader.domain.ReaderAppearance
+import com.secondpasslibrary.reader.reader.domain.ReaderAppearanceController
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import com.secondpasslibrary.reader.reader.domain.ReaderPublicationNavigationResult
 import com.secondpasslibrary.reader.reader.domain.ReaderPublicationTarget
 import com.secondpasslibrary.reader.reader.domain.ReaderTableOfContents
+import com.secondpasslibrary.reader.reader.domain.ReaderTheme
 import com.secondpasslibrary.reader.reader.domain.ReaderTocEntry
 import com.secondpasslibrary.reader.reader.domain.ReaderViewport
 import com.secondpasslibrary.reader.reader.domain.ReaderViewportMovements
@@ -60,7 +64,7 @@ class ReaderChromeTest {
         assertEquals(listOf(CHAPTER_TWO), toc.destinations)
 
         compose.onNodeWithContentDescription("Reader menu").performClick()
-        compose.activity.onBackPressedDispatcher.onBackPressed()
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
         compose.waitForIdle()
         assertEquals(0, exits)
 
@@ -69,9 +73,42 @@ class ReaderChromeTest {
         compose.runOnIdle { assertEquals(1, exits) }
     }
 
-    private fun readyState(toc: ReaderTableOfContents) = ReaderState.Ready(
+    @Test
+    fun appearancePanelUpdatesAppOwnedAppearanceAndLeavesReaderOpen() {
+        val appearance = RecordingAppearance()
+        compose.setContent {
+            SecondPassTheme {
+                ReaderScreen(
+                    readyState(RecordingToc(), appearance),
+                    onBack = {},
+                    onRetry = {}
+                )
+            }
+        }
+
+        compose.onNodeWithContentDescription("Reading appearance").performClick()
+        compose.onNodeWithText("Reading appearance").assertIsDisplayed()
+        compose.onNodeWithText("Sepia").performClick()
+        compose.waitUntil { appearance.appearance.value.theme == ReaderTheme.SEPIA }
+        compose.onNodeWithContentDescription("Increase Font size").performClick()
+        compose.waitUntil { appearance.appearance.value.fontScale > 1.0 }
+        compose.onNodeWithContentDescription("Increase Line height").performClick()
+        compose.waitUntil { appearance.appearance.value.lineHeight > 1.4 }
+        compose.onNodeWithContentDescription("Publisher styles").performClick()
+        compose.waitUntil { appearance.appearance.value.publisherStylesEnabled }
+
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.waitForIdle()
+        assertEquals(0, compose.onAllNodesWithText("Theme").fetchSemanticsNodes().size)
+        compose.onNodeWithContentDescription("Reader menu").assertIsDisplayed()
+    }
+
+    private fun readyState(
+        toc: ReaderTableOfContents,
+        appearance: ReaderAppearanceController = RecordingAppearance()
+    ) = ReaderState.Ready(
         title = BOOK_TITLE,
-        engine = FakeEngine(toc),
+        engine = FakeEngine(toc, appearance),
         session = ReaderSessionContext("session-1", ReaderSessionStatus.ACTIVE, null),
         restore = ReaderProgressRestore.NOT_NEEDED
     )
@@ -94,11 +131,23 @@ class ReaderChromeTest {
         }
     }
 
-    private class FakeEngine(override val tableOfContents: ReaderTableOfContents) : ReaderEngine {
+    private class FakeEngine(
+        override val tableOfContents: ReaderTableOfContents,
+        override val appearance: ReaderAppearanceController
+    ) : ReaderEngine {
         override val viewport = ReaderViewport { Box {} }
         override val cfiNavigator = UnusedCfiNavigator
         override val viewportMovements = ReaderViewportMovements { emptyFlow() }
         override fun close() = Unit
+    }
+
+    private class RecordingAppearance : ReaderAppearanceController {
+        private val mutableAppearance = MutableStateFlow(ReaderAppearance())
+        override val appearance = mutableAppearance
+
+        override suspend fun update(appearance: ReaderAppearance) {
+            mutableAppearance.value = appearance
+        }
     }
 
     private data object UnusedCfiNavigator : EpubCfiNavigator {
