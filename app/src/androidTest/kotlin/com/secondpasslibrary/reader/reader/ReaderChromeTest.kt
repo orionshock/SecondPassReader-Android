@@ -81,7 +81,8 @@ class ReaderChromeTest {
                 ReaderScreen(
                     readyState(RecordingToc(), appearance),
                     onBack = {},
-                    onRetry = {}
+                    onRetry = {},
+                    onAppearanceChanged = appearance::record
                 )
             }
         }
@@ -146,6 +147,10 @@ class ReaderChromeTest {
         override val appearance = mutableAppearance
 
         override suspend fun update(appearance: ReaderAppearance) {
+            mutableAppearance.value = appearance
+        }
+
+        fun record(appearance: ReaderAppearance) {
             mutableAppearance.value = appearance
         }
     }

@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.reader
 
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceStore
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetResolver
 import com.secondpasslibrary.reader.reader.asset.ReaderEpubUnavailableException
 import com.secondpasslibrary.reader.reader.asset.ResolvedReaderBook
@@ -18,6 +19,7 @@ import com.secondpasslibrary.reader.reader.domain.ReaderAppearanceController
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpenException
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
+import com.secondpasslibrary.reader.reader.domain.ReaderTheme
 import com.secondpasslibrary.reader.reader.domain.ReaderViewport
 import com.secondpasslibrary.reader.reader.domain.ReaderViewportMovement
 import com.secondpasslibrary.reader.reader.domain.ReaderViewportMovements
@@ -27,6 +29,7 @@ import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionCoordinator
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import java.nio.file.Files
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,6 +37,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -293,6 +297,78 @@ class ReaderControllerTest {
         controller.close()
     }
 
+    @Test
+    fun `persisted appearance initializes a newly opened engine`() = runTest {
+        val file = Files.createTempFile("reader", ".epub").toFile()
+        val saved = ReaderAppearance(
+            theme = ReaderTheme.LIGHT,
+            fontScale = 1.2,
+            lineHeight = 1.6,
+            publisherStylesEnabled = true
+        )
+        var openedWith: ReaderAppearance? = null
+        val engine = FakeEngine()
+        val opener = object : ReaderEngineOpener {
+            override suspend fun open(file: java.io.File) = error("Initial appearance is required")
+
+            override suspend fun open(
+                file: java.io.File,
+                initialAppearance: ReaderAppearance
+            ): ReaderEngine {
+                openedWith = initialAppearance
+                engine.appearance.update(initialAppearance)
+                return engine
+            }
+        }
+        val controller = ReaderController(
+            ReaderBookAssetResolver { _, _ -> ResolvedReaderBook("Book", file, reused = true) },
+            opener,
+            coordinator(),
+            writer(),
+            this,
+            FakeAppearanceStore(saved)
+        )
+
+        controller.initialize(profile(), "profile-1", "book-1", null)
+        advanceUntilIdle()
+
+        assertEquals(saved, openedWith)
+        assertEquals(
+            saved,
+            (controller.state.value as ReaderState.Ready).engine.appearance.appearance.value
+        )
+        controller.close()
+    }
+
+    @Test
+    fun `live appearance applies before asynchronous persistence completes`() = runTest {
+        val file = Files.createTempFile("reader", ".epub").toFile()
+        val writeGate = CompletableDeferred<Unit>()
+        val store = FakeAppearanceStore(ReaderAppearance(), writeGate)
+        val engine = FakeEngine()
+        val controller = ReaderController(
+            ReaderBookAssetResolver { _, _ -> ResolvedReaderBook("Book", file, reused = true) },
+            ReaderEngineOpener { engine },
+            coordinator(),
+            writer(),
+            this,
+            store
+        )
+        controller.initialize(profile(), "profile-1", "book-1", null)
+        advanceUntilIdle()
+        val updated = ReaderAppearance(theme = ReaderTheme.DARK, fontScale = 1.1)
+
+        controller.updateAppearance(updated)
+        runCurrent()
+
+        assertEquals(updated, engine.appearance.appearance.value)
+        assertEquals(null, store.written)
+        writeGate.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(updated, store.written)
+        controller.close()
+    }
+
     private class FakeEngine(initialReadiness: EpubCfiReadiness = EpubCfiReadiness.Available) :
         ReaderEngine {
         var closed = false
@@ -319,6 +395,20 @@ class ReaderControllerTest {
 
         override suspend fun update(appearance: ReaderAppearance) {
             state.value = appearance
+        }
+    }
+
+    private class FakeAppearanceStore(
+        private val stored: ReaderAppearance,
+        private val writeGate: CompletableDeferred<Unit>? = null
+    ) : ReaderAppearanceStore {
+        var written: ReaderAppearance? = null
+
+        override suspend fun read() = stored
+
+        override suspend fun write(appearance: ReaderAppearance) {
+            writeGate?.await()
+            written = appearance
         }
     }
 

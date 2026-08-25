@@ -41,6 +41,7 @@ internal fun ReaderStateHost(
     ReaderScreen(
         state = state,
         onBack = { viewModel.flushThenExit(onBack) },
-        onRetry = viewModel::retry
+        onRetry = viewModel::retry,
+        onAppearanceChanged = viewModel::updateAppearance
     )
 }

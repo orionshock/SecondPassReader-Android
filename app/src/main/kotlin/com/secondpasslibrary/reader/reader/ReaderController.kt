@@ -2,12 +2,14 @@ package com.secondpasslibrary.reader.reader
 
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceStore
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetRequest
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetResolver
 import com.secondpasslibrary.reader.reader.asset.ReaderEpubUnavailableException
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiFailure
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
+import com.secondpasslibrary.reader.reader.domain.ReaderAppearance
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
 import com.secondpasslibrary.reader.reader.progress.ReaderProgressController
@@ -21,6 +23,7 @@ import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -61,6 +64,7 @@ internal class ReaderController(
     private val sessionCoordinator: ReaderSessionCoordinator,
     progressWriter: ReaderProgressWriter,
     private val scope: CoroutineScope,
+    private val appearanceStore: ReaderAppearanceStore = DefaultReaderAppearanceStore,
     private val progressSyncScope: CoroutineScope = scope
 ) {
     private val mutableState = MutableStateFlow<ReaderState>(ReaderState.Resolving)
@@ -102,6 +106,14 @@ internal class ReaderController(
 
     suspend fun flushLatestProgress() = progressSyncController.flushLatest()
 
+    fun updateAppearance(appearance: ReaderAppearance) {
+        val engine = (state.value as? ReaderState.Ready)?.engine ?: return
+        scope.launch {
+            engine.appearance.update(appearance)
+            runCatching { appearanceStore.write(appearance) }
+        }
+    }
+
     fun close(onProgressSyncClosed: () -> Unit = {}) {
         job?.cancel()
         progressController.reset()
@@ -128,6 +140,7 @@ internal class ReaderController(
             var failureKind = ReaderFailure.DOWNLOAD
             try {
                 val result = runCatching {
+                    val initialAppearance = async { appearanceStore.readOrDefault() }
                     val book = assetResolver.resolve(
                         ReaderBookAssetRequest(request.profile, request.profileId, request.bookId),
                         onDownloadStarted = {
@@ -137,7 +150,7 @@ internal class ReaderController(
                     coroutineContext.ensureActive()
                     failureKind = ReaderFailure.OPEN
                     mutableState.value = ReaderState.Opening
-                    val engine = engineOpener.open(book.file)
+                    val engine = engineOpener.open(book.file, initialAppearance.await())
                     openedEngine = engine
                     coroutineContext.ensureActive()
                     failureKind = ReaderFailure.SESSION
@@ -162,10 +175,9 @@ internal class ReaderController(
                                 ReaderConnectionEvent.AuthenticationRejected
                             )
                         }
-                        val kind = if (failure is ReaderEpubUnavailableException) {
-                            ReaderFailure.NO_EPUB
-                        } else {
-                            failureKind
+                        val kind = when (failure) {
+                            is ReaderEpubUnavailableException -> ReaderFailure.NO_EPUB
+                            else -> failureKind
                         }
                         progressController.reset()
                         progressSyncController.reset()
@@ -240,6 +252,15 @@ internal class ReaderController(
         ready.copy(restore = ReaderProgressRestore.SKIPPED)
     }
 }
+
+private data object DefaultReaderAppearanceStore : ReaderAppearanceStore {
+    override suspend fun read() = ReaderAppearance()
+
+    override suspend fun write(appearance: ReaderAppearance) = Unit
+}
+
+private suspend fun ReaderAppearanceStore.readOrDefault(): ReaderAppearance =
+    runCatching { read() }.getOrDefault(ReaderAppearance())
 
 private data class ReaderRequest(
     val profile: ConnectionProfile,

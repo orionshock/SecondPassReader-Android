@@ -30,7 +30,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 @Composable
-internal fun ReaderScreen(state: ReaderState, onBack: () -> Unit, onRetry: () -> Unit) {
+internal fun ReaderScreen(
+    state: ReaderState,
+    onBack: () -> Unit,
+    onRetry: () -> Unit,
+    onAppearanceChanged: (ReaderAppearance) -> Unit = {}
+) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val ready = state as? ReaderState.Ready
@@ -85,9 +90,8 @@ internal fun ReaderScreen(state: ReaderState, onBack: () -> Unit, onRetry: () ->
             )
             if (appearancePanelVisible && ready != null) {
                 ReaderAppearanceOverlay(
-                    ready = ready,
                     appearance = appearance,
-                    scope = scope,
+                    onAppearanceChanged = onAppearanceChanged,
                     onDismissRequest = { appearancePanelVisible = false }
                 )
             }
@@ -142,16 +146,13 @@ private fun ReaderTocDrawerContent(
 
 @Composable
 private fun ReaderAppearanceOverlay(
-    ready: ReaderState.Ready,
     appearance: ReaderAppearance,
-    scope: CoroutineScope,
+    onAppearanceChanged: (ReaderAppearance) -> Unit,
     onDismissRequest: () -> Unit
 ) {
     ReaderAppearancePanel(
         appearance = appearance,
-        onAppearanceChanged = { updated ->
-            scope.launch { ready.engine.appearance.update(updated) }
-        },
+        onAppearanceChanged = onAppearanceChanged,
         onDismissRequest = onDismissRequest
     )
 }

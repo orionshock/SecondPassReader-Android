@@ -9,7 +9,7 @@ internal enum class ReaderTheme {
 }
 
 internal data class ReaderAppearance(
-    val theme: ReaderTheme = ReaderTheme.DARK,
+    val theme: ReaderTheme = ReaderTheme.SEPIA,
     val fontScale: Double = DEFAULT_FONT_SCALE,
     val lineHeight: Double = DEFAULT_LINE_HEIGHT,
     val publisherStylesEnabled: Boolean = false

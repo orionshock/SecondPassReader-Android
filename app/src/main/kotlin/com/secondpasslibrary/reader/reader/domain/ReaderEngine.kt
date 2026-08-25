@@ -36,4 +36,6 @@ internal fun interface ReaderViewport {
 
 internal fun interface ReaderEngineOpener {
     suspend fun open(file: File): ReaderEngine
+
+    suspend fun open(file: File, initialAppearance: ReaderAppearance): ReaderEngine = open(file)
 }

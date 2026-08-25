@@ -3,7 +3,9 @@ package com.secondpasslibrary.reader.reader
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceStore
 import com.secondpasslibrary.reader.reader.asset.SplReaderBookAssetResolver
+import com.secondpasslibrary.reader.reader.domain.ReaderAppearance
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
 import com.secondpasslibrary.reader.reader.progress.SplReaderProgressWriter
 import com.secondpasslibrary.reader.reader.session.SplReaderSessionCoordinator
@@ -20,7 +22,8 @@ internal class ReaderViewModel @Inject constructor(
     assetResolver: SplReaderBookAssetResolver,
     engineOpener: ReaderEngineOpener,
     sessionCoordinator: SplReaderSessionCoordinator,
-    progressWriter: SplReaderProgressWriter
+    progressWriter: SplReaderProgressWriter,
+    appearanceStore: ReaderAppearanceStore
 ) : ViewModel() {
     private val progressSyncJob = SupervisorJob()
     private val progressSyncScope = CoroutineScope(progressSyncJob + Dispatchers.IO)
@@ -31,6 +34,7 @@ internal class ReaderViewModel @Inject constructor(
             sessionCoordinator,
             progressWriter,
             viewModelScope,
+            appearanceStore,
             progressSyncScope
         )
     private var exitJob: Job? = null
@@ -48,6 +52,8 @@ internal class ReaderViewModel @Inject constructor(
     ) = controller.initialize(profile, profileId, bookId, existingSessionId)
 
     fun retry() = controller.retry()
+
+    fun updateAppearance(appearance: ReaderAppearance) = controller.updateAppearance(appearance)
 
     fun setAuthorityAvailable(available: Boolean) = controller.setAuthorityAvailable(available)
 

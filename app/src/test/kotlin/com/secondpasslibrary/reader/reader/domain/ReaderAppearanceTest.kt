@@ -6,10 +6,10 @@ import org.junit.Test
 
 class ReaderAppearanceTest {
     @Test
-    fun `default appearance is valid and uses the dark Reader baseline`() {
+    fun `default appearance is valid and uses the Sepia Reader baseline`() {
         val appearance = ReaderAppearance()
 
-        assertEquals(ReaderTheme.DARK, appearance.theme)
+        assertEquals(ReaderTheme.SEPIA, appearance.theme)
         assertEquals(1.0, appearance.fontScale, 0.0)
         assertEquals(1.4, appearance.lineHeight, 0.0)
         assertEquals(false, appearance.publisherStylesEnabled)

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.fragment.app.FragmentFactory
 import com.secondpasslibrary.reader.reader.cfi.EpubPackageDocument
 import com.secondpasslibrary.reader.reader.cfi.ZipEpubPackageResolver
+import com.secondpasslibrary.reader.reader.domain.ReaderAppearance
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpenException
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
@@ -29,12 +30,13 @@ import org.readium.r2.streamer.parser.DefaultPublicationParser
 private class ReadiumReaderEngine(
     private val publication: Publication,
     packageDocument: EpubPackageDocument,
-    context: Context
+    context: Context,
+    initialAppearance: ReaderAppearance
 ) : ReaderEngine {
     private val navigatorFactory = EpubNavigatorFactory(publication)
     private val cfiBinding = ReadiumCfiNavigatorBinding(ReadiumCfiJavascriptRuntime(context))
     private val publicationBinding = ReadiumPublicationNavigatorBinding()
-    private val appearanceController = ReadiumReaderAppearanceController()
+    private val appearanceController = ReadiumReaderAppearanceController(initialAppearance)
     private val movements = ReadiumViewportMovements()
     private val readiumCfiNavigator = ReadiumEpubCfiNavigator(
         binding = cfiBinding,
@@ -87,7 +89,9 @@ internal class ReadiumReaderEngineOpener @Inject constructor(
     )
     private val packageResolver = ZipEpubPackageResolver()
 
-    override suspend fun open(file: File): ReaderEngine {
+    override suspend fun open(file: File): ReaderEngine = open(file, ReaderAppearance())
+
+    override suspend fun open(file: File, initialAppearance: ReaderAppearance): ReaderEngine {
         var pendingAsset: Asset? = null
         var pendingPublication: Publication? = null
         var pendingEngine: ReaderEngine? = null
@@ -114,7 +118,12 @@ internal class ReadiumReaderEngineOpener @Inject constructor(
                     if (!publication.conformsTo(Publication.Profile.EPUB)) {
                         failReaderEngineOpen("The Book asset is not an EPUB.")
                     }
-                    ReadiumReaderEngine(publication, packageDocument, context).also {
+                    ReadiumReaderEngine(
+                        publication,
+                        packageDocument,
+                        context,
+                        initialAppearance
+                    ).also {
                         pendingEngine = it
                         pendingPublication = null
                     }
