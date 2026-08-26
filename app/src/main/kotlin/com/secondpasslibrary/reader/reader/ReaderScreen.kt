@@ -44,6 +44,7 @@ internal fun ReaderScreen(
     selection: ReaderSelection? = null,
     annotationMutations: ReaderAnnotationMutationState = ReaderAnnotationMutationState(),
     onAnnotationMutation: (ReaderAnnotationMutationIntent) -> Unit = {},
+    onCreateBookmark: () -> Unit = {},
     onDismissSelection: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
@@ -76,10 +77,12 @@ internal fun ReaderScreen(
                 onDismiss = dismiss,
                 onRetry = onRetryAnnotations,
                 editable = ready?.session?.status == ReaderSessionStatus.ACTIVE,
+                mutationState = annotationMutations,
+                onCreateBookmark = onCreateBookmark,
                 onEditHighlight = {
                     onAnnotationMutation(ReaderAnnotationMutationIntent.BeginEdit(it))
                 },
-                onDeleteHighlight = {
+                onDeleteAnnotation = {
                     onAnnotationMutation(ReaderAnnotationMutationIntent.RequestDelete(it))
                 }
             )
@@ -189,8 +192,10 @@ private fun ReaderAnnotationsOverlay(
     onDismiss: () -> Unit,
     onRetry: () -> Unit,
     editable: Boolean,
+    mutationState: ReaderAnnotationMutationState,
+    onCreateBookmark: () -> Unit,
     onEditHighlight: (ReaderAnnotation.Highlight) -> Unit,
-    onDeleteHighlight: (ReaderAnnotation.Highlight) -> Unit
+    onDeleteAnnotation: (ReaderAnnotation) -> Unit
 ) {
     if (ready == null) return
     ReaderAnnotationsDrawer(
@@ -199,8 +204,10 @@ private fun ReaderAnnotationsOverlay(
         onDismiss = onDismiss,
         onRetry = onRetry,
         editable = editable,
+        mutationState = mutationState,
+        onCreateBookmark = onCreateBookmark,
         onEditHighlight = onEditHighlight,
-        onDeleteHighlight = onDeleteHighlight,
+        onDeleteAnnotation = onDeleteAnnotation,
         onAnnotationSelected = { annotation ->
             onDismiss()
             navigateToAnnotation(scope, ready, annotation)

@@ -13,11 +13,14 @@ import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsControll
 import com.secondpasslibrary.reader.reader.annotations.ReaderSelectionController
 import com.secondpasslibrary.reader.reader.annotations.SplReaderAnnotationWriter
 import com.secondpasslibrary.reader.reader.annotations.SplReaderAnnotationsLoader
+import com.secondpasslibrary.reader.reader.annotations.captureReaderBookmarkPosition
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceStore
 import com.secondpasslibrary.reader.reader.asset.SplReaderBookAssetResolver
+import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
 import com.secondpasslibrary.reader.reader.domain.ReaderAppearance
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
 import com.secondpasslibrary.reader.reader.progress.SplReaderProgressWriter
+import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import com.secondpasslibrary.reader.reader.session.SplReaderSessionCoordinator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -68,6 +71,7 @@ internal class ReaderViewModel @Inject constructor(
         }
     )
     private var exitJob: Job? = null
+    private var bookmarkCaptureJob: Job? = null
     private var activeProfile: ConnectionProfile? = null
     private var entryIdentity: ReaderEntryIdentity? = null
 
@@ -164,6 +168,27 @@ internal class ReaderViewModel @Inject constructor(
         annotationMutations.accept(intent)
     }
 
+    fun createBookmark() {
+        val ready = controller.state.value as? ReaderState.Ready
+        when {
+            ready == null || ready.session.status != ReaderSessionStatus.ACTIVE -> Unit
+
+            annotationMutationState.value.pendingBookmark != null ->
+                annotationMutations.accept(ReaderAnnotationMutationIntent.RetryBookmark)
+
+            bookmarkCaptureJob?.isActive == true -> Unit
+
+            else -> bookmarkCaptureJob = viewModelScope.launch {
+                val position = captureReaderBookmarkPosition(ready.engine.cfiNavigator)
+                if (controller.state.value === ready && position is EpubCfiOutcome.Success) {
+                    annotationMutations.accept(
+                        ReaderAnnotationMutationIntent.CreateBookmark(position.value)
+                    )
+                }
+            }
+        }
+    }
+
     fun dismissSelection() {
         annotationMutations.accept(ReaderAnnotationMutationIntent.DismissCreate)
         selections.dismiss()
@@ -184,6 +209,7 @@ internal class ReaderViewModel @Inject constructor(
     }
 
     override fun onCleared() {
+        bookmarkCaptureJob?.cancel()
         annotationsController.close()
         selections.detach()
         annotationMutations.clear()

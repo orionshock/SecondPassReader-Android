@@ -294,7 +294,7 @@ class ReaderChromeTest {
     }
 
     @Test
-    fun `active highlight offers mutation while closed and bookmark stay read only`() {
+    fun `active annotations offer allowed mutations while closed Session stays read only`() {
         val highlight = ReaderAnnotation.Highlight(
             id = "server-highlight",
             clientId = "client-highlight",
@@ -317,6 +317,7 @@ class ReaderChromeTest {
         val status = androidx.compose.runtime.mutableStateOf(ReaderSessionStatus.ACTIVE)
         val mutations = androidx.compose.runtime.mutableStateOf(ReaderAnnotationMutationState())
         val observed = mutableListOf<ReaderAnnotationMutationIntent>()
+        var bookmarkCreates = 0
         var exits = 0
         compose.setContent {
             SecondPassTheme {
@@ -330,6 +331,7 @@ class ReaderChromeTest {
                         loaded = true
                     ),
                     annotationMutations = mutations.value,
+                    onCreateBookmark = { bookmarkCreates += 1 },
                     onAnnotationMutation = { intent ->
                         observed += intent
                         mutations.value = reduceMutationUiState(mutations.value, intent)
@@ -339,6 +341,8 @@ class ReaderChromeTest {
         }
 
         compose.onNodeWithContentDescription("Reading annotations").performClick()
+        compose.onNodeWithContentDescription("Bookmark current location").performClick()
+        compose.runOnIdle { assertEquals(1, bookmarkCreates) }
         compose.onNodeWithContentDescription("Highlight actions").performClick()
         compose.onNodeWithText("Edit").performClick()
         compose.onNodeWithText("Edit highlight").assertIsDisplayed()
@@ -366,12 +370,31 @@ class ReaderChromeTest {
 
         compose.runOnUiThread {
             mutations.value = ReaderAnnotationMutationState()
+        }
+        compose.onNodeWithContentDescription("Bookmark actions").performClick()
+        compose.onNodeWithText("Delete").performClick()
+        compose.onNodeWithText("Delete this bookmark?").assertIsDisplayed()
+        compose.onNodeWithText("Delete").performClick()
+        assertEquals(ReaderAnnotationMutationIntent.ConfirmDelete, observed.last())
+        assertEquals(bookmark, mutations.value.deleting)
+
+        compose.runOnUiThread {
+            mutations.value = ReaderAnnotationMutationState()
             status.value = ReaderSessionStatus.CLOSED
         }
         compose.waitForIdle()
         assertEquals(
             0,
             compose.onAllNodesWithContentDescription("Highlight actions").fetchSemanticsNodes().size
+        )
+        assertEquals(
+            0,
+            compose.onAllNodesWithContentDescription("Bookmark actions").fetchSemanticsNodes().size
+        )
+        assertEquals(
+            0,
+            compose.onAllNodesWithContentDescription("Bookmark current location")
+                .fetchSemanticsNodes().size
         )
     }
 

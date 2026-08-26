@@ -26,7 +26,14 @@ internal interface EpubCfiNavigator {
 
     suspend fun goTo(cfi: EpubCfi): EpubCfiOutcome<Unit>
 
-    suspend fun currentPosition(): EpubCfiOutcome<EpubCfi>
+    suspend fun currentPosition(): EpubCfiOutcome<EpubCfi> =
+        when (val captured = currentPositionWithContext()) {
+            is EpubCfiOutcome.Failure -> captured
+            is EpubCfiOutcome.Success -> EpubCfiOutcome.Success(captured.value.cfi)
+        }
+
+    suspend fun currentPositionWithContext(): EpubCfiOutcome<EpubCfiPosition> =
+        EpubCfiOutcome.Failure(EpubCfiFailure.VISIBLE_POSITION_UNAVAILABLE)
 
     suspend fun currentSelection(): EpubCfiOutcome<EpubCfiSelection?>
 
@@ -45,6 +52,12 @@ internal sealed interface EpubCfiReadiness {
 
     data object Closed : EpubCfiReadiness
 }
+
+internal data class EpubCfiPosition(
+    val cfi: EpubCfi,
+    val chapterOrdinal: Int,
+    val totalProgression: Double?
+)
 
 internal sealed interface EpubCfiOutcome<out T> {
     data class Success<T>(val value: T) : EpubCfiOutcome<T>

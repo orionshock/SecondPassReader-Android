@@ -52,6 +52,7 @@ internal fun ReaderStateHost(
         selection = selection,
         annotationMutations = annotationMutations,
         onAnnotationMutation = viewModel::mutateAnnotation,
+        onCreateBookmark = viewModel::createBookmark,
         onDismissSelection = viewModel::dismissSelection
     )
 }

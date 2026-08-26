@@ -44,6 +44,7 @@ import com.secondpasslibrary.reader.design.marginalia.AnnotationHighlightTone
 import com.secondpasslibrary.reader.design.marginalia.annotationHighlightPalette
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationMutationState
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsState
 import java.time.Instant
 import java.time.OffsetDateTime
@@ -60,8 +61,10 @@ internal fun ReaderAnnotationsDrawer(
     onRetry: () -> Unit,
     onAnnotationSelected: (ReaderAnnotation) -> Unit,
     editable: Boolean = false,
+    mutationState: ReaderAnnotationMutationState = ReaderAnnotationMutationState(),
+    onCreateBookmark: () -> Unit = {},
     onEditHighlight: (ReaderAnnotation.Highlight) -> Unit = {},
-    onDeleteHighlight: (ReaderAnnotation.Highlight) -> Unit = {}
+    onDeleteAnnotation: (ReaderAnnotation) -> Unit = {}
 ) {
     Box(Modifier.fillMaxSize()) {
         Box(
@@ -80,7 +83,13 @@ internal fun ReaderAnnotationsDrawer(
             contentColor = colors.content
         ) {
             Column {
-                ReaderAnnotationsHeader(state, colors)
+                ReaderAnnotationsHeader(
+                    state,
+                    colors,
+                    editable,
+                    mutationState,
+                    onCreateBookmark
+                )
                 HorizontalDivider(color = colors.secondaryContent.copy(alpha = DIVIDER_ALPHA))
                 ReaderAnnotationsContent(
                     state,
@@ -89,7 +98,7 @@ internal fun ReaderAnnotationsDrawer(
                     onAnnotationSelected,
                     editable,
                     onEditHighlight,
-                    onDeleteHighlight
+                    onDeleteAnnotation
                 )
             }
         }
@@ -97,15 +106,48 @@ internal fun ReaderAnnotationsDrawer(
 }
 
 @Composable
-private fun ReaderAnnotationsHeader(state: ReaderAnnotationsState, colors: ReaderChromeColors) {
-    Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
-        Text("Annotations", style = MaterialTheme.typography.titleMedium)
-        if (state.loaded) {
-            Text(
-                annotationCountLabel(state.annotations.size),
-                color = colors.secondaryContent,
-                style = MaterialTheme.typography.labelMedium
-            )
+private fun ReaderAnnotationsHeader(
+    state: ReaderAnnotationsState,
+    colors: ReaderChromeColors,
+    editable: Boolean,
+    mutationState: ReaderAnnotationMutationState,
+    onCreateBookmark: () -> Unit
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("Annotations", style = MaterialTheme.typography.titleMedium)
+            if (state.loaded) {
+                Text(
+                    annotationCountLabel(state.annotations.size),
+                    color = colors.secondaryContent,
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
+            if (mutationState.pendingBookmark != null && mutationState.failure != null) {
+                Text(
+                    "Bookmark could not be saved. Tap retry.",
+                    color = colors.secondaryContent,
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+        }
+        if (editable) {
+            IconButton(
+                enabled = !mutationState.submitting,
+                onClick = onCreateBookmark
+            ) {
+                AppIconGraphic(
+                    AppIcon.AddBookmark,
+                    if (mutationState.pendingBookmark == null) {
+                        "Bookmark current location"
+                    } else {
+                        "Retry bookmark"
+                    }
+                )
+            }
         }
     }
 }
@@ -118,7 +160,7 @@ private fun ReaderAnnotationsContent(
     onAnnotationSelected: (ReaderAnnotation) -> Unit,
     editable: Boolean,
     onEditHighlight: (ReaderAnnotation.Highlight) -> Unit,
-    onDeleteHighlight: (ReaderAnnotation.Highlight) -> Unit
+    onDeleteAnnotation: (ReaderAnnotation) -> Unit
 ) {
     when {
         state.loading && state.annotations.isEmpty() -> Box(
@@ -147,7 +189,7 @@ private fun ReaderAnnotationsContent(
                     onAnnotationSelected,
                     editable,
                     onEditHighlight,
-                    onDeleteHighlight
+                    onDeleteAnnotation
                 )
             }
         }
@@ -161,7 +203,7 @@ private fun ReaderAnnotationRow(
     onAnnotationSelected: (ReaderAnnotation) -> Unit,
     editable: Boolean,
     onEditHighlight: (ReaderAnnotation.Highlight) -> Unit,
-    onDeleteHighlight: (ReaderAnnotation.Highlight) -> Unit
+    onDeleteAnnotation: (ReaderAnnotation) -> Unit
 ) {
     val tone = (annotation as? ReaderAnnotation.Highlight)?.color?.toTone()
     val palette = tone?.let { annotationHighlightPalette(it) }
@@ -202,32 +244,40 @@ private fun ReaderAnnotationRow(
             }
             Text(formatAnnotationTimestamp(annotation.updatedAt), color = colors.secondaryContent)
         }
-        if (editable && annotation is ReaderAnnotation.Highlight) {
-            ReaderHighlightActions(annotation, onEditHighlight, onDeleteHighlight)
+        if (editable) {
+            ReaderAnnotationActions(annotation, onEditHighlight, onDeleteAnnotation)
         }
     }
 }
 
 @Composable
-private fun ReaderHighlightActions(
-    annotation: ReaderAnnotation.Highlight,
+private fun ReaderAnnotationActions(
+    annotation: ReaderAnnotation,
     onEdit: (ReaderAnnotation.Highlight) -> Unit,
-    onDelete: (ReaderAnnotation.Highlight) -> Unit
+    onDelete: (ReaderAnnotation) -> Unit
 ) {
     var expanded by remember(annotation.id) { mutableStateOf(false) }
     Box {
         IconButton(onClick = { expanded = true }) {
-            AppIconGraphic(AppIcon.OverflowVertical, "Highlight actions")
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(
-                text = { Text("Edit") },
-                leadingIcon = { AppIconGraphic(AppIcon.EditAnnotation, null) },
-                onClick = {
-                    expanded = false
-                    onEdit(annotation)
+            AppIconGraphic(
+                AppIcon.OverflowVertical,
+                when (annotation) {
+                    is ReaderAnnotation.Bookmark -> "Bookmark actions"
+                    is ReaderAnnotation.Highlight -> "Highlight actions"
                 }
             )
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            if (annotation is ReaderAnnotation.Highlight) {
+                DropdownMenuItem(
+                    text = { Text("Edit") },
+                    leadingIcon = { AppIconGraphic(AppIcon.EditAnnotation, null) },
+                    onClick = {
+                        expanded = false
+                        onEdit(annotation)
+                    }
+                )
+            }
             DropdownMenuItem(
                 text = { Text("Delete") },
                 leadingIcon = { AppIconGraphic(AppIcon.Delete, null) },

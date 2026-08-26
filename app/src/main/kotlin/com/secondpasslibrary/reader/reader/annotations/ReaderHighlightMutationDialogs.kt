@@ -39,8 +39,8 @@ internal fun ReaderHighlightMutationDialogs(
             onDismiss
         )
     }
-    state.deleting?.let {
-        ReaderHighlightDeleteDialog(state, onConfirmDelete, onDismiss)
+    state.deleting?.let { annotation ->
+        ReaderAnnotationDeleteDialog(annotation, state, onConfirmDelete, onDismiss)
     }
 }
 
@@ -100,7 +100,8 @@ private fun ReaderHighlightEditDialog(
 }
 
 @Composable
-private fun ReaderHighlightDeleteDialog(
+private fun ReaderAnnotationDeleteDialog(
+    annotation: ReaderAnnotation,
     state: ReaderAnnotationMutationState,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
@@ -108,10 +109,20 @@ private fun ReaderHighlightDeleteDialog(
     BackHandler(onBack = onDismiss)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Delete this highlight?") },
+        title = {
+            Text(
+                when (annotation) {
+                    is ReaderAnnotation.Bookmark -> "Delete this bookmark?"
+                    is ReaderAnnotation.Highlight -> "Delete this highlight?"
+                }
+            )
+        },
         text = {
             state.failure?.let {
-                Text("Highlight could not be deleted. Try again.", Modifier.padding(top = 4.dp))
+                Text(
+                    "Annotation could not be deleted. Try again.",
+                    Modifier.padding(top = 4.dp)
+                )
             }
         },
         confirmButton = {

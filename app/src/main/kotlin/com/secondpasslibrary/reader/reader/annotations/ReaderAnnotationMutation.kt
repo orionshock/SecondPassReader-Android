@@ -1,9 +1,12 @@
 package com.secondpasslibrary.reader.reader.annotations
 
+import com.secondpasslibrary.reader.reader.cfi.EpubCfiPosition
+
 internal data class ReaderAnnotationMutationState(
     val pendingCreate: ReaderPendingHighlight? = null,
+    val pendingBookmark: ReaderPendingBookmark? = null,
     val editing: ReaderHighlightEditDraft? = null,
-    val deleting: ReaderAnnotation.Highlight? = null,
+    val deleting: ReaderAnnotation? = null,
     val submitting: Boolean = false,
     val failure: ReaderAnnotationMutationFailure? = null
 )
@@ -22,7 +25,9 @@ internal sealed interface ReaderAnnotationMutationIntent {
         ReaderAnnotationMutationIntent
 
     data object SaveEdit : ReaderAnnotationMutationIntent
-    data class RequestDelete(val annotation: ReaderAnnotation.Highlight) :
+    data class CreateBookmark(val position: EpubCfiPosition) : ReaderAnnotationMutationIntent
+    data object RetryBookmark : ReaderAnnotationMutationIntent
+    data class RequestDelete(val annotation: ReaderAnnotation) :
         ReaderAnnotationMutationIntent
     data object ConfirmDelete : ReaderAnnotationMutationIntent
     data object DismissTransient : ReaderAnnotationMutationIntent
@@ -34,6 +39,12 @@ internal data class ReaderPendingHighlight(
     val selection: ReaderSelection,
     val color: ReaderAnnotationColor = ReaderAnnotationColor.YELLOW,
     val note: String = ""
+)
+
+internal data class ReaderPendingBookmark(
+    val clientId: String,
+    val position: EpubCfiPosition,
+    val locationLabel: String
 )
 
 internal data class ReaderHighlightEditDraft(

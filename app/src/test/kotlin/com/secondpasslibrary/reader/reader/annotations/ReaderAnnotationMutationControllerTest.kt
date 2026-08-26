@@ -11,6 +11,7 @@ import com.secondpasslibrary.reader.FakeAuthenticatedMarginaliaClient
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
+import com.secondpasslibrary.reader.reader.cfi.EpubCfiPosition
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
@@ -204,6 +205,90 @@ class ReaderAnnotationMutationControllerTest {
     }
 
     @Test
+    fun `bookmark delete uses client identity and authoritative removal`() = runTest {
+        val requests = mutableListOf<ReaderAnnotationMutationRequest>()
+        var reconciled: List<ReaderAnnotation>? = null
+        val bookmark = bookmark("server-bookmark")
+        val controller = controller(
+            this,
+            ReaderAnnotationWriter { _, request ->
+                requests += request
+                emptyList()
+            }
+        ) { _, annotations -> reconciled = annotations }
+        controller.select(profile(), SESSION_ID, ReaderSessionStatus.ACTIVE)
+        controller.accept(ReaderAnnotationMutationIntent.RequestDelete(bookmark))
+        controller.accept(ReaderAnnotationMutationIntent.ConfirmDelete)
+        advanceUntilIdle()
+
+        val request = requests.single() as ReaderAnnotationMutationRequest.Delete
+        assertEquals(bookmark.clientId, request.clientId)
+        assertNotEquals(bookmark.id, request.clientId)
+        assertEquals(emptyList<ReaderAnnotation>(), reconciled)
+    }
+
+    @Test
+    fun `bookmark create retries stable identity and reconciles authoritative order`() = runTest {
+        val requests = mutableListOf<ReaderAnnotationMutationRequest>()
+        val authoritative = listOf(bookmark("server-new"), highlight("server-existing"))
+        var fail = true
+        var reconciled = emptyList<ReaderAnnotation>()
+        val controller = controller(
+            this,
+            ReaderAnnotationWriter { _, request ->
+                requests += request
+                if (fail) error("offline")
+                authoritative
+            }
+        ) { _, annotations -> reconciled = annotations }
+        controller.select(profile(), SESSION_ID, ReaderSessionStatus.ACTIVE)
+        controller.accept(ReaderAnnotationMutationIntent.CreateBookmark(position()))
+        advanceUntilIdle()
+
+        val first = requests.single() as ReaderAnnotationMutationRequest.UpsertBookmark
+        assertTrue(runCatching { UUID.fromString(first.clientId) }.isSuccess)
+        assertEquals(CFI, first.cfi)
+        assertEquals(readerLocationLabel(3, 0.42), first.locationLabel)
+        assertEquals(first.clientId, controller.state.value.pendingBookmark?.clientId)
+
+        fail = false
+        controller.accept(ReaderAnnotationMutationIntent.RetryBookmark)
+        advanceUntilIdle()
+
+        val retried = requests.last() as ReaderAnnotationMutationRequest.UpsertBookmark
+        assertEquals(first.clientId, retried.clientId)
+        assertEquals(authoritative, reconciled)
+
+        controller.accept(ReaderAnnotationMutationIntent.CreateBookmark(position()))
+        advanceUntilIdle()
+        val independent = requests.last() as ReaderAnnotationMutationRequest.UpsertBookmark
+        assertNotEquals(first.clientId, independent.clientId)
+    }
+
+    @Test
+    fun `closed Session refuses bookmark create and bookmark delete`() = runTest {
+        val requests = mutableListOf<ReaderAnnotationMutationRequest>()
+        val controller = controller(
+            this,
+            ReaderAnnotationWriter { _, request ->
+                requests += request
+                emptyList()
+            }
+        )
+        val bookmark = bookmark("closed")
+        controller.select(profile(), SESSION_ID, ReaderSessionStatus.CLOSED)
+        controller.accept(ReaderAnnotationMutationIntent.CreateBookmark(position()))
+        controller.accept(ReaderAnnotationMutationIntent.RetryBookmark)
+        controller.accept(ReaderAnnotationMutationIntent.RequestDelete(bookmark))
+        controller.accept(ReaderAnnotationMutationIntent.ConfirmDelete)
+        runCurrent()
+
+        assertTrue(requests.isEmpty())
+        assertNull(controller.state.value.pendingBookmark)
+        assertNull(controller.state.value.deleting)
+    }
+
+    @Test
     fun `SPL writer sends one batch upsert or delete keyed only by client ID`() = runTest {
         val batches = mutableListOf<List<MarginaliaAnnotationOperation>>()
         val delegate = FakeAuthenticatedMarginaliaClient.sessions
@@ -221,6 +306,15 @@ class ReaderAnnotationMutationControllerTest {
         writer.synchronize(profile(), upsertRequest())
         writer.synchronize(
             profile(),
+            ReaderAnnotationMutationRequest.UpsertBookmark(
+                SESSION_ID,
+                "client-bookmark",
+                CFI,
+                readerLocationLabel(3, 0.42)
+            )
+        )
+        writer.synchronize(
+            profile(),
             ReaderAnnotationMutationRequest.Delete(SESSION_ID, "client-existing")
         )
 
@@ -233,6 +327,11 @@ class ReaderAnnotationMutationControllerTest {
         assertEquals("After", draft.body.suffix)
         assertEquals(MarginaliaHighlightColor.PURPLE, draft.body.color)
         assertEquals("  Exact note\n", draft.body.note)
+        val bookmarkDraft = (batches[1].single() as MarginaliaAnnotationOperation.Upsert)
+            .annotation as MarginaliaAnnotationDraft.Bookmark
+        assertEquals("client-bookmark", bookmarkDraft.clientId)
+        assertEquals(CFI, bookmarkDraft.location.cfi)
+        assertEquals(readerLocationLabel(3, 0.42), bookmarkDraft.location.locationLabel)
         assertEquals(
             "client-existing",
             (batches.last().single() as MarginaliaAnnotationOperation.Delete).clientId
@@ -273,6 +372,16 @@ class ReaderAnnotationMutationControllerTest {
         note = "Original note",
         color = ReaderAnnotationColor.YELLOW
     )
+
+    private fun bookmark(id: String) = ReaderAnnotation.Bookmark(
+        id = id,
+        clientId = "client-$id",
+        cfi = CFI,
+        locationLabel = readerLocationLabel(3, 0.42),
+        updatedAt = "2026-08-25T00:00:00Z"
+    )
+
+    private fun position() = EpubCfiPosition(EpubCfi(CFI), 3, 0.42)
 
     private fun upsertRequest() = ReaderAnnotationMutationRequest.UpsertHighlight(
         SESSION_ID,

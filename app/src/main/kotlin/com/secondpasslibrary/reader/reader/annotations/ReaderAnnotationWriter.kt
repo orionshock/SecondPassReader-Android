@@ -24,6 +24,13 @@ internal sealed interface ReaderAnnotationMutationRequest {
         val note: String
     ) : ReaderAnnotationMutationRequest
 
+    data class UpsertBookmark(
+        override val sessionId: String,
+        val clientId: String,
+        val cfi: String,
+        val locationLabel: String
+    ) : ReaderAnnotationMutationRequest
+
     data class Delete(override val sessionId: String, val clientId: String) :
         ReaderAnnotationMutationRequest
 }
@@ -45,6 +52,8 @@ internal class SplReaderAnnotationWriter @Inject constructor(
         val operation = when (request) {
             is ReaderAnnotationMutationRequest.UpsertHighlight -> request.toOperation()
 
+            is ReaderAnnotationMutationRequest.UpsertBookmark -> request.toOperation()
+
             is ReaderAnnotationMutationRequest.Delete ->
                 MarginaliaAnnotationOperation.Delete(request.clientId)
         }
@@ -60,6 +69,14 @@ private fun ReaderAnnotationMutationRequest.UpsertHighlight.toOperation() =
             clientId = clientId,
             location = MarginaliaAnnotationLocationInput(cfi, locationLabel),
             body = MarginaliaHighlightBodyInput(text, prefix, suffix, color.toSdkColor(), note)
+        )
+    )
+
+private fun ReaderAnnotationMutationRequest.UpsertBookmark.toOperation() =
+    MarginaliaAnnotationOperation.Upsert(
+        MarginaliaAnnotationDraft.Bookmark(
+            clientId = clientId,
+            location = MarginaliaAnnotationLocationInput(cfi, locationLabel)
         )
     )
 

@@ -49,6 +49,9 @@ internal class ReaderAnnotationMutationController(
             is ReaderAnnotationMutationIntent.UpdateEdit,
             ReaderAnnotationMutationIntent.SaveEdit -> acceptEdit(intent)
 
+            is ReaderAnnotationMutationIntent.CreateBookmark,
+            ReaderAnnotationMutationIntent.RetryBookmark -> acceptBookmark(intent)
+
             is ReaderAnnotationMutationIntent.RequestDelete,
             ReaderAnnotationMutationIntent.ConfirmDelete -> acceptDelete(intent)
 
@@ -73,7 +76,7 @@ internal class ReaderAnnotationMutationController(
     private fun acceptCreate(intent: ReaderAnnotationMutationIntent) {
         when (intent) {
             is ReaderAnnotationMutationIntent.BeginCreate -> if (
-                canMutate() && !state.value.submitting &&
+                canMutate && !state.value.submitting &&
                 state.value.pendingCreate?.selection?.cfi != intent.selection.cfi
             ) {
                 mutableState.value = ReaderAnnotationMutationState(
@@ -92,7 +95,7 @@ internal class ReaderAnnotationMutationController(
             }
 
             ReaderAnnotationMutationIntent.SubmitCreate -> {
-                val currentOwner = activeOwner()
+                val currentOwner = activeOwner
                 val pending = state.value.pendingCreate
                 if (currentOwner != null && pending != null) {
                     submit(currentOwner, pending.toRequest(currentOwner.sessionId))
@@ -106,7 +109,7 @@ internal class ReaderAnnotationMutationController(
     private fun acceptEdit(intent: ReaderAnnotationMutationIntent) {
         when (intent) {
             is ReaderAnnotationMutationIntent.BeginEdit -> if (
-                canMutate() &&
+                canMutate &&
                 !state.value.submitting
             ) {
                 mutableState.value = ReaderAnnotationMutationState(
@@ -122,7 +125,7 @@ internal class ReaderAnnotationMutationController(
             }
 
             ReaderAnnotationMutationIntent.SaveEdit -> {
-                val currentOwner = activeOwner()
+                val currentOwner = activeOwner
                 val draft = state.value.editing
                 if (currentOwner != null && draft != null) {
                     if (draft.unchanged) {
@@ -137,16 +140,40 @@ internal class ReaderAnnotationMutationController(
         }
     }
 
+    private fun acceptBookmark(intent: ReaderAnnotationMutationIntent) {
+        val currentOwner = activeOwner ?: return
+        when (intent) {
+            is ReaderAnnotationMutationIntent.CreateBookmark -> if (!state.value.submitting) {
+                val pending = ReaderPendingBookmark(
+                    clientId = clientIdFactory().also(::validateClientId),
+                    position = intent.position,
+                    locationLabel = readerLocationLabel(
+                        intent.position.chapterOrdinal,
+                        intent.position.totalProgression
+                    )
+                )
+                mutableState.value = ReaderAnnotationMutationState(pendingBookmark = pending)
+                submit(currentOwner, pending.toRequest(currentOwner.sessionId))
+            }
+
+            ReaderAnnotationMutationIntent.RetryBookmark -> state.value.pendingBookmark?.let {
+                submit(currentOwner, it.toRequest(currentOwner.sessionId))
+            }
+
+            else -> Unit
+        }
+    }
+
     private fun acceptDelete(intent: ReaderAnnotationMutationIntent) {
         when (intent) {
             is ReaderAnnotationMutationIntent.RequestDelete -> if (
-                canMutate() && !state.value.submitting
+                canMutate && !state.value.submitting
             ) {
                 mutableState.value = ReaderAnnotationMutationState(deleting = intent.annotation)
             }
 
             ReaderAnnotationMutationIntent.ConfirmDelete -> {
-                val currentOwner = activeOwner()
+                val currentOwner = activeOwner
                 val annotation = state.value.deleting
                 if (currentOwner != null && annotation != null) {
                     submit(
@@ -208,9 +235,11 @@ internal class ReaderAnnotationMutationController(
         mutableState.value = transform(state.value)
     }
 
-    private fun canMutate() = owner?.status == ReaderSessionStatus.ACTIVE
+    private val canMutate: Boolean
+        get() = owner?.status == ReaderSessionStatus.ACTIVE
 
-    private fun activeOwner() = owner?.takeIf { it.status == ReaderSessionStatus.ACTIVE }
+    private val activeOwner: Owner?
+        get() = owner?.takeIf { it.status == ReaderSessionStatus.ACTIVE }
 
     private data class Owner(
         val profile: ConnectionProfile,
@@ -256,6 +285,14 @@ private fun ReaderHighlightEditDraft.toRequest(sessionId: String) =
         suffix = annotation.suffix,
         color = color,
         note = note
+    )
+
+private fun ReaderPendingBookmark.toRequest(sessionId: String) =
+    ReaderAnnotationMutationRequest.UpsertBookmark(
+        sessionId = sessionId,
+        clientId = clientId,
+        cfi = position.cfi.value,
+        locationLabel = locationLabel
     )
 
 private fun validateClientId(value: String) {

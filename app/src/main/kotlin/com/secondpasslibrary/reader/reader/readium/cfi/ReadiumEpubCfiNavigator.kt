@@ -4,6 +4,7 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiFailure
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiNavigator
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
+import com.secondpasslibrary.reader.reader.cfi.EpubCfiPosition
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiReadiness
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiResolution
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiSelection
@@ -48,28 +49,23 @@ internal class ReadiumEpubCfiNavigator(
     override suspend fun goTo(cfi: EpubCfi): EpubCfiOutcome<Unit> =
         operations.runLatest { incomingNavigation.goTo(cfi) }
 
-    override suspend fun currentPosition(): EpubCfiOutcome<EpubCfi> = operations.runLatest {
-        val captured = binding.withNavigator { navigator, runtime ->
-            val before = binding.resourceIdentity(navigator)
-            val value = runtime.generateVisiblePosition(navigator)
-            coherentResourceCapture(before, binding.resourceIdentity(navigator), value)
-        }
-        if (captured == null) {
-            binding.unavailableOutcome()
-        } else {
-            when (captured) {
-                ReadiumCfiResourceCapture.Changed -> resourceChanged()
-
-                is ReadiumCfiResourceCapture.Stable -> when (val contentCfi = captured.value) {
-                    is ReadiumCfiJavascriptResult.Failure ->
-                        EpubCfiOutcome.Failure(contentCfi.reason)
-
-                    is ReadiumCfiJavascriptResult.Success ->
-                        packageCfiMapper.compose(captured.identity.href, contentCfi.value)
-                }
+    override suspend fun currentPositionWithContext(): EpubCfiOutcome<EpubCfiPosition> =
+        operations.runLatest {
+            val captured = binding.withNavigator { navigator, runtime ->
+                val before = binding.resourceIdentity(navigator)
+                val value = runtime.generateVisiblePosition(navigator)
+                coherentResourceCapture(
+                    before,
+                    binding.resourceIdentity(navigator),
+                    PositionCapture(
+                        value,
+                        navigator.currentLocator.value.locations.totalProgression
+                    )
+                )
             }
+            captured?.toPositionOutcome(packageDocument, packageCfiMapper)
+                ?: binding.unavailableOutcome()
         }
-    }
 
     override suspend fun currentSelection(): EpubCfiOutcome<EpubCfiSelection?> =
         operations.runLatest {
@@ -185,6 +181,51 @@ internal class ReadiumEpubCfiNavigator(
         operations.close()
         binding.close()
     }
+}
+
+private data class PositionCapture(
+    val result: ReadiumCfiJavascriptResult<EpubCfi>,
+    val totalProgression: Double?
+)
+
+private suspend fun ReadiumCfiResourceCapture<PositionCapture>.toPositionOutcome(
+    packageDocument: EpubPackageDocument,
+    packageCfiMapper: ReadiumEpubPackageCfiMapper
+): EpubCfiOutcome<EpubCfiPosition> = when (this) {
+    ReadiumCfiResourceCapture.Changed -> resourceChanged()
+
+    is ReadiumCfiResourceCapture.Stable -> value.toPositionOutcome(
+        identity.href,
+        packageDocument,
+        packageCfiMapper
+    )
+}
+
+private suspend fun PositionCapture.toPositionOutcome(
+    resourceHref: String,
+    packageDocument: EpubPackageDocument,
+    packageCfiMapper: ReadiumEpubPackageCfiMapper
+): EpubCfiOutcome<EpubCfiPosition> = when (val contentCfi = result) {
+    is ReadiumCfiJavascriptResult.Failure -> EpubCfiOutcome.Failure(contentCfi.reason)
+
+    is ReadiumCfiJavascriptResult.Success -> when (
+        val cfi = packageCfiMapper.compose(resourceHref, contentCfi.value)
+    ) {
+        is EpubCfiOutcome.Failure -> cfi
+        is EpubCfiOutcome.Success -> packageDocument.position(cfi.value, resourceHref, this)
+    }
+}
+
+private fun EpubPackageDocument.position(
+    cfi: EpubCfi,
+    resourceHref: String,
+    capture: PositionCapture
+): EpubCfiOutcome<EpubCfiPosition> {
+    val chapterOrdinal = spineItemForHref(resourceHref)?.index?.plus(1)
+        ?: return EpubCfiOutcome.Failure(EpubCfiFailure.RESOURCE_NOT_IN_READING_ORDER)
+    return EpubCfiOutcome.Success(
+        EpubCfiPosition(cfi, chapterOrdinal, capture.totalProgression)
+    )
 }
 
 private class ReadiumCfiIncomingNavigation(
