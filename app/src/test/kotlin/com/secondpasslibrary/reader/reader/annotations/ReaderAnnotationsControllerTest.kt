@@ -58,7 +58,7 @@ class ReaderAnnotationsControllerTest {
                 if (sessionId == "session-a") {
                     withContext(NonCancellable) { firstResult.await() }
                 } else {
-                    listOf(ReaderAnnotation.Bookmark("b", CFI, "B", UPDATED_AT))
+                    listOf(ReaderAnnotation.Bookmark("b", "client-b", CFI, "B", UPDATED_AT))
                 }
             },
             this
@@ -68,7 +68,9 @@ class ReaderAnnotationsControllerTest {
         runCurrent()
         controller.select(profile(), "session-b")
         runCurrent()
-        firstResult.complete(listOf(ReaderAnnotation.Bookmark("a", CFI, "A", UPDATED_AT)))
+        firstResult.complete(
+            listOf(ReaderAnnotation.Bookmark("a", "client-a", CFI, "A", UPDATED_AT))
+        )
         advanceUntilIdle()
 
         assertEquals("session-b", controller.state.value.sessionId)
@@ -82,7 +84,7 @@ class ReaderAnnotationsControllerTest {
             ReaderAnnotationsLoader { _, _ ->
                 attempts += 1
                 if (attempts != 2) {
-                    listOf(ReaderAnnotation.Bookmark("b", CFI, null, UPDATED_AT))
+                    listOf(ReaderAnnotation.Bookmark("b", "client-b", CFI, null, UPDATED_AT))
                 } else {
                     throw SplClientException.ServerUnreachable()
                 }
@@ -111,8 +113,12 @@ class ReaderAnnotationsControllerTest {
         val highlight = highlight("highlight").toReaderAnnotation() as ReaderAnnotation.Highlight
 
         assertEquals(CFI, bookmark.cfi)
+        assertEquals("client-bookmark", bookmark.clientId)
         assertEquals("Chapter 2", bookmark.locationLabel)
         assertEquals("Selected quote", highlight.quote)
+        assertEquals("client-highlight", highlight.clientId)
+        assertEquals("Before", highlight.prefix)
+        assertEquals("After", highlight.suffix)
         assertEquals("Reader note", highlight.note)
         assertEquals(ReaderAnnotationColor.BLUE, highlight.color)
         assertEquals(CFI, highlight.cfi)

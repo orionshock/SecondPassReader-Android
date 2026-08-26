@@ -41,6 +41,7 @@ class ReaderAnnotationNavigationTest {
 
     private fun annotation(cfi: String) = ReaderAnnotation.Bookmark(
         id = "annotation",
+        clientId = "client-annotation",
         cfi = cfi,
         locationLabel = null,
         updatedAt = "2026-08-24T13:00:00Z"

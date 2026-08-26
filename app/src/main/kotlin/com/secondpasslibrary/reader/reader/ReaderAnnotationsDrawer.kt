@@ -16,12 +16,19 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -51,7 +58,10 @@ internal fun ReaderAnnotationsDrawer(
     colors: ReaderChromeColors,
     onDismiss: () -> Unit,
     onRetry: () -> Unit,
-    onAnnotationSelected: (ReaderAnnotation) -> Unit
+    onAnnotationSelected: (ReaderAnnotation) -> Unit,
+    editable: Boolean = false,
+    onEditHighlight: (ReaderAnnotation.Highlight) -> Unit = {},
+    onDeleteHighlight: (ReaderAnnotation.Highlight) -> Unit = {}
 ) {
     Box(Modifier.fillMaxSize()) {
         Box(
@@ -72,7 +82,15 @@ internal fun ReaderAnnotationsDrawer(
             Column {
                 ReaderAnnotationsHeader(state, colors)
                 HorizontalDivider(color = colors.secondaryContent.copy(alpha = DIVIDER_ALPHA))
-                ReaderAnnotationsContent(state, colors, onRetry, onAnnotationSelected)
+                ReaderAnnotationsContent(
+                    state,
+                    colors,
+                    onRetry,
+                    onAnnotationSelected,
+                    editable,
+                    onEditHighlight,
+                    onDeleteHighlight
+                )
             }
         }
     }
@@ -97,7 +115,10 @@ private fun ReaderAnnotationsContent(
     state: ReaderAnnotationsState,
     colors: ReaderChromeColors,
     onRetry: () -> Unit,
-    onAnnotationSelected: (ReaderAnnotation) -> Unit
+    onAnnotationSelected: (ReaderAnnotation) -> Unit,
+    editable: Boolean,
+    onEditHighlight: (ReaderAnnotation.Highlight) -> Unit,
+    onDeleteHighlight: (ReaderAnnotation.Highlight) -> Unit
 ) {
     when {
         state.loading && state.annotations.isEmpty() -> Box(
@@ -120,7 +141,14 @@ private fun ReaderAnnotationsContent(
             if (state.loading) item { ReaderRefreshingAnnotations(colors) }
             if (state.failure != null) item { ReaderAnnotationFailure(onRetry) }
             items(state.annotations, key = ReaderAnnotation::id) { annotation ->
-                ReaderAnnotationRow(annotation, colors, onAnnotationSelected)
+                ReaderAnnotationRow(
+                    annotation,
+                    colors,
+                    onAnnotationSelected,
+                    editable,
+                    onEditHighlight,
+                    onDeleteHighlight
+                )
             }
         }
     }
@@ -130,7 +158,10 @@ private fun ReaderAnnotationsContent(
 private fun ReaderAnnotationRow(
     annotation: ReaderAnnotation,
     colors: ReaderChromeColors,
-    onAnnotationSelected: (ReaderAnnotation) -> Unit
+    onAnnotationSelected: (ReaderAnnotation) -> Unit,
+    editable: Boolean,
+    onEditHighlight: (ReaderAnnotation.Highlight) -> Unit,
+    onDeleteHighlight: (ReaderAnnotation.Highlight) -> Unit
 ) {
     val tone = (annotation as? ReaderAnnotation.Highlight)?.color?.toTone()
     val palette = tone?.let { annotationHighlightPalette(it) }
@@ -163,13 +194,48 @@ private fun ReaderAnnotationRow(
                             .padding(8.dp),
                         fontStyle = FontStyle.Italic
                     )
-                    annotation.note?.let { Text(it) }
+                    annotation.note?.takeIf(String::isNotBlank)?.let { Text(it) }
                     annotation.locationLabel?.let {
                         Text(it, color = colors.secondaryContent)
                     }
                 }
             }
             Text(formatAnnotationTimestamp(annotation.updatedAt), color = colors.secondaryContent)
+        }
+        if (editable && annotation is ReaderAnnotation.Highlight) {
+            ReaderHighlightActions(annotation, onEditHighlight, onDeleteHighlight)
+        }
+    }
+}
+
+@Composable
+private fun ReaderHighlightActions(
+    annotation: ReaderAnnotation.Highlight,
+    onEdit: (ReaderAnnotation.Highlight) -> Unit,
+    onDelete: (ReaderAnnotation.Highlight) -> Unit
+) {
+    var expanded by remember(annotation.id) { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { expanded = true }) {
+            AppIconGraphic(AppIcon.OverflowVertical, "Highlight actions")
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text("Edit") },
+                leadingIcon = { AppIconGraphic(AppIcon.EditAnnotation, null) },
+                onClick = {
+                    expanded = false
+                    onEdit(annotation)
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("Delete") },
+                leadingIcon = { AppIconGraphic(AppIcon.Delete, null) },
+                onClick = {
+                    expanded = false
+                    onDelete(annotation)
+                }
+            )
         }
     }
 }
@@ -199,7 +265,7 @@ private fun ReaderRefreshingAnnotations(colors: ReaderChromeColors) {
 private fun ReaderAnnotation.icon(): AppIcon = when (this) {
     is ReaderAnnotation.Bookmark -> AppIcon.Bookmark
 
-    is ReaderAnnotation.Highlight -> if (note == null) {
+    is ReaderAnnotation.Highlight -> if (note.isNullOrBlank()) {
         AppIcon.Highlight
     } else {
         AppIcon.HighlightWithNote

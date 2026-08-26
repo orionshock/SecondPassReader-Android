@@ -1,0 +1,73 @@
+package com.secondpasslibrary.reader.reader.annotations
+
+import com.secondpasslibrary.client.MarginaliaAnnotationDraft
+import com.secondpasslibrary.client.MarginaliaAnnotationLocationInput
+import com.secondpasslibrary.client.MarginaliaAnnotationOperation
+import com.secondpasslibrary.client.MarginaliaHighlightBodyInput
+import com.secondpasslibrary.client.MarginaliaHighlightColor
+import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
+import com.secondpasslibrary.reader.connection.ConnectionProfile
+import javax.inject.Inject
+
+internal sealed interface ReaderAnnotationMutationRequest {
+    val sessionId: String
+
+    data class UpsertHighlight(
+        override val sessionId: String,
+        val clientId: String,
+        val cfi: String,
+        val locationLabel: String?,
+        val text: String,
+        val prefix: String?,
+        val suffix: String?,
+        val color: ReaderAnnotationColor,
+        val note: String
+    ) : ReaderAnnotationMutationRequest
+
+    data class Delete(override val sessionId: String, val clientId: String) :
+        ReaderAnnotationMutationRequest
+}
+
+internal fun interface ReaderAnnotationWriter {
+    suspend fun synchronize(
+        profile: ConnectionProfile,
+        request: ReaderAnnotationMutationRequest
+    ): List<ReaderAnnotation>
+}
+
+internal class SplReaderAnnotationWriter @Inject constructor(
+    private val clientProvider: AuthenticatedClientProvider
+) : ReaderAnnotationWriter {
+    override suspend fun synchronize(
+        profile: ConnectionProfile,
+        request: ReaderAnnotationMutationRequest
+    ): List<ReaderAnnotation> {
+        val operation = when (request) {
+            is ReaderAnnotationMutationRequest.UpsertHighlight -> request.toOperation()
+
+            is ReaderAnnotationMutationRequest.Delete ->
+                MarginaliaAnnotationOperation.Delete(request.clientId)
+        }
+        return clientProvider.forProfile(profile)
+            .marginalia.sessions.synchronizeAnnotations(request.sessionId, listOf(operation))
+            .map { it.toReaderAnnotation() }
+    }
+}
+
+private fun ReaderAnnotationMutationRequest.UpsertHighlight.toOperation() =
+    MarginaliaAnnotationOperation.Upsert(
+        MarginaliaAnnotationDraft.Highlight(
+            clientId = clientId,
+            location = MarginaliaAnnotationLocationInput(cfi, locationLabel),
+            body = MarginaliaHighlightBodyInput(text, prefix, suffix, color.toSdkColor(), note)
+        )
+    )
+
+private fun ReaderAnnotationColor.toSdkColor(): MarginaliaHighlightColor = when (this) {
+    ReaderAnnotationColor.YELLOW -> MarginaliaHighlightColor.YELLOW
+    ReaderAnnotationColor.GREEN -> MarginaliaHighlightColor.GREEN
+    ReaderAnnotationColor.BLUE -> MarginaliaHighlightColor.BLUE
+    ReaderAnnotationColor.PINK -> MarginaliaHighlightColor.PINK
+    ReaderAnnotationColor.PURPLE -> MarginaliaHighlightColor.PURPLE
+    ReaderAnnotationColor.ORANGE -> MarginaliaHighlightColor.ORANGE
+}

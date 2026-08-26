@@ -9,6 +9,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationMutationIntent
 
 @Composable
 internal fun ReaderStateHost(
@@ -23,7 +24,7 @@ internal fun ReaderStateHost(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val annotations by viewModel.annotations.collectAsStateWithLifecycle()
     val selection by viewModel.selection.collectAsStateWithLifecycle()
-    val annotationCreate by viewModel.annotationCreateState.collectAsStateWithLifecycle()
+    val annotationMutations by viewModel.annotationMutationState.collectAsStateWithLifecycle()
     DisposableEffect(viewModel) {
         viewModel.setAuthorityAvailable(true)
         onDispose { viewModel.setAuthorityAvailable(false) }
@@ -49,10 +50,8 @@ internal fun ReaderStateHost(
         annotations = annotations,
         onRetryAnnotations = viewModel::retryAnnotations,
         selection = selection,
-        annotationCreate = annotationCreate,
-        onHighlightColorChanged = { viewModel.updateHighlightDraft(color = it) },
-        onHighlightNoteChanged = { viewModel.updateHighlightDraft(note = it) },
-        onSubmitHighlight = viewModel::submitHighlight,
+        annotationMutations = annotationMutations,
+        onAnnotationMutation = viewModel::mutateAnnotation,
         onDismissSelection = viewModel::dismissSelection
     )
 }

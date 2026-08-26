@@ -11,13 +11,16 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondpasslibrary.reader.design.SecondPassTheme
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
-import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationCreateState
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationMutationIntent
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationMutationState
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsFailure
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsState
+import com.secondpasslibrary.reader.reader.annotations.ReaderHighlightEditDraft
 import com.secondpasslibrary.reader.reader.annotations.ReaderPendingHighlight
 import com.secondpasslibrary.reader.reader.annotations.ReaderSelection
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
@@ -118,10 +121,13 @@ class ReaderChromeTest {
         val navigator = RecordingCfiNavigator()
         val annotation = ReaderAnnotation.Highlight(
             id = "annotation-1",
+            clientId = "client-annotation-1",
             cfi = ANNOTATION_CFI,
             locationLabel = "Chapter 3",
             updatedAt = "2026-08-24T13:00:00Z",
             quote = "A selected passage",
+            prefix = "Before",
+            suffix = "After",
             note = "A Reader note",
             color = ReaderAnnotationColor.BLUE
         )
@@ -201,8 +207,8 @@ class ReaderChromeTest {
         )
         val status = androidx.compose.runtime.mutableStateOf(ReaderSessionStatus.ACTIVE)
         val createState = androidx.compose.runtime.mutableStateOf(
-            ReaderAnnotationCreateState(
-                pending = ReaderPendingHighlight("client-id", selection)
+            ReaderAnnotationMutationState(
+                pendingCreate = ReaderPendingHighlight("client-id", selection)
             )
         )
         compose.setContent {
@@ -212,20 +218,26 @@ class ReaderChromeTest {
                     onBack = {},
                     onRetry = {},
                     selection = selection,
-                    annotationCreate = createState.value,
-                    onHighlightColorChanged = { color ->
-                        createState.value = createState.value.copy(
-                            pending = createState.value.pending?.copy(color = color)
-                        )
-                    },
-                    onHighlightNoteChanged = { note ->
-                        createState.value = createState.value.copy(
-                            pending = createState.value.pending?.copy(note = note)
-                        )
-                    },
-                    onSubmitHighlight = {
-                        createdColor = createState.value.pending?.color
-                        createdNote = createState.value.pending?.note
+                    annotationMutations = createState.value,
+                    onAnnotationMutation = { intent ->
+                        when (intent) {
+                            is ReaderAnnotationMutationIntent.UpdateCreate -> {
+                                val pending = createState.value.pendingCreate
+                                createState.value = createState.value.copy(
+                                    pendingCreate = pending?.copy(
+                                        color = intent.color ?: pending.color,
+                                        note = intent.note ?: pending.note
+                                    )
+                                )
+                            }
+
+                            ReaderAnnotationMutationIntent.SubmitCreate -> {
+                                createdColor = createState.value.pendingCreate?.color
+                                createdNote = createState.value.pendingCreate?.note
+                            }
+
+                            else -> Unit
+                        }
                     },
                     onDismissSelection = { dismissals += 1 }
                 )
@@ -266,8 +278,8 @@ class ReaderChromeTest {
                     onBack = { exits += 1 },
                     onRetry = {},
                     selection = selection,
-                    annotationCreate = ReaderAnnotationCreateState(
-                        pending = ReaderPendingHighlight("client-id", selection)
+                    annotationMutations = ReaderAnnotationMutationState(
+                        pendingCreate = ReaderPendingHighlight("client-id", selection)
                     ),
                     onDismissSelection = { dismissals += 1 }
                 )
@@ -279,6 +291,110 @@ class ReaderChromeTest {
             assertEquals(1, dismissals)
             assertEquals(0, exits)
         }
+    }
+
+    @Test
+    fun `active highlight offers mutation while closed and bookmark stay read only`() {
+        val highlight = ReaderAnnotation.Highlight(
+            id = "server-highlight",
+            clientId = "client-highlight",
+            cfi = ANNOTATION_CFI,
+            locationLabel = "Chapter 03 · 42%",
+            updatedAt = "2026-08-25T00:00:00Z",
+            quote = "Selected passage",
+            prefix = "Before",
+            suffix = "After",
+            note = "Original note",
+            color = ReaderAnnotationColor.YELLOW
+        )
+        val bookmark = ReaderAnnotation.Bookmark(
+            "server-bookmark",
+            "client-bookmark",
+            ANNOTATION_CFI,
+            "Chapter 03 · 42%",
+            "2026-08-25T00:00:00Z"
+        )
+        val status = androidx.compose.runtime.mutableStateOf(ReaderSessionStatus.ACTIVE)
+        val mutations = androidx.compose.runtime.mutableStateOf(ReaderAnnotationMutationState())
+        val observed = mutableListOf<ReaderAnnotationMutationIntent>()
+        var exits = 0
+        compose.setContent {
+            SecondPassTheme {
+                ReaderScreen(
+                    state = readyState(RecordingToc(), status = status.value),
+                    onBack = { exits += 1 },
+                    onRetry = {},
+                    annotations = ReaderAnnotationsState(
+                        sessionId = "session-1",
+                        annotations = listOf(highlight, bookmark),
+                        loaded = true
+                    ),
+                    annotationMutations = mutations.value,
+                    onAnnotationMutation = { intent ->
+                        observed += intent
+                        mutations.value = reduceMutationUiState(mutations.value, intent)
+                    }
+                )
+            }
+        }
+
+        compose.onNodeWithContentDescription("Reading annotations").performClick()
+        compose.onNodeWithContentDescription("Highlight actions").performClick()
+        compose.onNodeWithText("Edit").performClick()
+        compose.onNodeWithText("Edit highlight").assertIsDisplayed()
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.runOnIdle {
+            assertEquals(ReaderAnnotationMutationIntent.DismissTransient, observed.last())
+            assertEquals(0, exits)
+        }
+
+        compose.onNodeWithContentDescription("Highlight actions").performClick()
+        compose.onNodeWithText("Edit").performClick()
+        compose.onNodeWithText("Note (optional)").performTextReplacement("Revised note")
+        compose.onNodeWithContentDescription("Purple highlight").performClick()
+        compose.onNodeWithText("Save").performClick()
+        assertEquals(ReaderAnnotationMutationIntent.SaveEdit, observed.last())
+
+        compose.runOnUiThread {
+            mutations.value = ReaderAnnotationMutationState()
+        }
+        compose.onNodeWithContentDescription("Highlight actions").performClick()
+        compose.onNodeWithText("Delete").performClick()
+        compose.onNodeWithText("Delete this highlight?").assertIsDisplayed()
+        compose.onNodeWithText("Delete").performClick()
+        assertEquals(ReaderAnnotationMutationIntent.ConfirmDelete, observed.last())
+
+        compose.runOnUiThread {
+            mutations.value = ReaderAnnotationMutationState()
+            status.value = ReaderSessionStatus.CLOSED
+        }
+        compose.waitForIdle()
+        assertEquals(
+            0,
+            compose.onAllNodesWithContentDescription("Highlight actions").fetchSemanticsNodes().size
+        )
+    }
+
+    private fun reduceMutationUiState(
+        state: ReaderAnnotationMutationState,
+        intent: ReaderAnnotationMutationIntent
+    ): ReaderAnnotationMutationState = when (intent) {
+        is ReaderAnnotationMutationIntent.BeginEdit ->
+            ReaderAnnotationMutationState(editing = ReaderHighlightEditDraft(intent.annotation))
+
+        is ReaderAnnotationMutationIntent.UpdateEdit -> state.copy(
+            editing = state.editing?.copy(
+                color = intent.color ?: state.editing.color,
+                note = intent.note ?: state.editing.note
+            )
+        )
+
+        is ReaderAnnotationMutationIntent.RequestDelete ->
+            ReaderAnnotationMutationState(deleting = intent.annotation)
+
+        ReaderAnnotationMutationIntent.DismissTransient -> ReaderAnnotationMutationState()
+
+        else -> state
     }
 
     private fun readyState(

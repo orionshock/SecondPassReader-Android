@@ -5,12 +5,14 @@ import com.secondpasslibrary.client.MarginaliaHighlightColor
 
 internal sealed interface ReaderAnnotation {
     val id: String
+    val clientId: String
     val cfi: String
     val locationLabel: String?
     val updatedAt: String
 
     data class Bookmark(
         override val id: String,
+        override val clientId: String,
         override val cfi: String,
         override val locationLabel: String?,
         override val updatedAt: String
@@ -18,10 +20,13 @@ internal sealed interface ReaderAnnotation {
 
     data class Highlight(
         override val id: String,
+        override val clientId: String,
         override val cfi: String,
         override val locationLabel: String?,
         override val updatedAt: String,
         val quote: String,
+        val prefix: String?,
+        val suffix: String?,
         val note: String?,
         val color: ReaderAnnotationColor
     ) : ReaderAnnotation
@@ -50,6 +55,7 @@ internal enum class ReaderAnnotationColor {
 internal fun MarginaliaAnnotation.toReaderAnnotation(): ReaderAnnotation = when (this) {
     is MarginaliaAnnotation.Bookmark -> ReaderAnnotation.Bookmark(
         id = id,
+        clientId = clientId,
         cfi = location.cfi,
         locationLabel = location.locationLabel?.takeIf(String::isNotBlank),
         updatedAt = updatedAt
@@ -57,11 +63,14 @@ internal fun MarginaliaAnnotation.toReaderAnnotation(): ReaderAnnotation = when 
 
     is MarginaliaAnnotation.Highlight -> ReaderAnnotation.Highlight(
         id = id,
+        clientId = clientId,
         cfi = location.cfi,
         locationLabel = location.locationLabel?.takeIf(String::isNotBlank),
         updatedAt = updatedAt,
         quote = body.text,
-        note = body.note?.takeIf(String::isNotBlank),
+        prefix = body.prefix,
+        suffix = body.suffix,
+        note = body.note,
         color = body.color.toReaderAnnotationColor()
     )
 }

@@ -79,10 +79,13 @@ private fun highlight(id: String): ReaderAnnotation.Highlight =
 private fun highlight(id: String, cfi: String): ReaderAnnotation.Highlight =
     ReaderAnnotation.Highlight(
         id = id,
+        clientId = "client-$id",
         cfi = cfi,
         locationLabel = "Chapter 1",
         updatedAt = "2026-08-25T00:00:00Z",
         quote = "Text",
+        prefix = null,
+        suffix = null,
         note = null,
         color = ReaderAnnotationColor.BLUE
     )
@@ -92,6 +95,7 @@ private fun bookmark(id: String): ReaderAnnotation.Bookmark = bookmark(id, "epub
 private fun bookmark(id: String, cfi: String): ReaderAnnotation.Bookmark =
     ReaderAnnotation.Bookmark(
         id = id,
+        clientId = "client-$id",
         cfi = cfi,
         locationLabel = "Chapter 1",
         updatedAt = "2026-08-25T00:00:00Z"

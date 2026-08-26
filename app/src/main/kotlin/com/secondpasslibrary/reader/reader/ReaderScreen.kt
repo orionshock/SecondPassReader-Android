@@ -18,9 +18,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
-import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
-import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationCreateState
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationMutationIntent
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationMutationState
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsState
+import com.secondpasslibrary.reader.reader.annotations.ReaderHighlightMutationDialogs
 import com.secondpasslibrary.reader.reader.annotations.ReaderSelection
 import com.secondpasslibrary.reader.reader.annotations.ReaderSelectionToolbar
 import com.secondpasslibrary.reader.reader.annotations.navigateToReaderAnnotation
@@ -41,10 +42,8 @@ internal fun ReaderScreen(
     annotations: ReaderAnnotationsState = ReaderAnnotationsState(),
     onRetryAnnotations: () -> Unit = {},
     selection: ReaderSelection? = null,
-    annotationCreate: ReaderAnnotationCreateState = ReaderAnnotationCreateState(),
-    onHighlightColorChanged: (ReaderAnnotationColor) -> Unit = {},
-    onHighlightNoteChanged: (String) -> Unit = {},
-    onSubmitHighlight: () -> Unit = {},
+    annotationMutations: ReaderAnnotationMutationState = ReaderAnnotationMutationState(),
+    onAnnotationMutation: (ReaderAnnotationMutationIntent) -> Unit = {},
     onDismissSelection: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
@@ -54,7 +53,7 @@ internal fun ReaderScreen(
     val chromeColors = appearance.theme.chromeColors()
     val highlightSelection = selection?.takeIf {
         ready?.session?.status == ReaderSessionStatus.ACTIVE &&
-            annotationCreate.pending?.selection?.cfi == it.cfi
+            annotationMutations.pendingCreate?.selection?.cfi == it.cfi
     }
     ReaderOverlayLayout(
         onExit = onBack,
@@ -75,7 +74,14 @@ internal fun ReaderScreen(
                 colors = chromeColors,
                 scope = scope,
                 onDismiss = dismiss,
-                onRetry = onRetryAnnotations
+                onRetry = onRetryAnnotations,
+                editable = ready?.session?.status == ReaderSessionStatus.ACTIVE,
+                onEditHighlight = {
+                    onAnnotationMutation(ReaderAnnotationMutationIntent.BeginEdit(it))
+                },
+                onDeleteHighlight = {
+                    onAnnotationMutation(ReaderAnnotationMutationIntent.RequestDelete(it))
+                }
             )
         }
     ) {
@@ -85,12 +91,10 @@ internal fun ReaderScreen(
             it,
             chromeColors,
             highlightSelection,
-            annotationCreate,
+            annotationMutations,
             onBack,
             onRetry,
-            onHighlightColorChanged,
-            onHighlightNoteChanged,
-            onSubmitHighlight,
+            onAnnotationMutation,
             onDismissSelection
         )
     }
@@ -103,12 +107,10 @@ private fun ReaderReadingSurface(
     overlays: ReaderOverlayHost,
     colors: ReaderChromeColors,
     selection: ReaderSelection?,
-    createState: ReaderAnnotationCreateState,
+    mutationState: ReaderAnnotationMutationState,
     onBack: () -> Unit,
     onRetry: () -> Unit,
-    onColorChanged: (ReaderAnnotationColor) -> Unit,
-    onNoteChanged: (String) -> Unit,
-    onSubmit: () -> Unit,
+    onMutation: (ReaderAnnotationMutationIntent) -> Unit,
     onDismissSelection: () -> Unit
 ) {
     Box(Modifier.fillMaxSize().background(colors.background)) {
@@ -136,15 +138,32 @@ private fun ReaderReadingSurface(
         selection?.let {
             ReaderSelectionToolbar(
                 selection = it,
-                state = createState,
+                state = mutationState,
                 colors = colors,
-                onColorChanged = onColorChanged,
-                onNoteChanged = onNoteChanged,
-                onSubmit = onSubmit,
+                onColorChanged = {
+                    onMutation(ReaderAnnotationMutationIntent.UpdateCreate(color = it))
+                },
+                onNoteChanged = {
+                    onMutation(ReaderAnnotationMutationIntent.UpdateCreate(note = it))
+                },
+                onSubmit = { onMutation(ReaderAnnotationMutationIntent.SubmitCreate) },
                 onDismiss = onDismissSelection,
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp)
             )
         }
+        ReaderHighlightMutationDialogs(
+            state = mutationState,
+            colors = colors,
+            onEditColorChanged = {
+                onMutation(ReaderAnnotationMutationIntent.UpdateEdit(color = it))
+            },
+            onEditNoteChanged = {
+                onMutation(ReaderAnnotationMutationIntent.UpdateEdit(note = it))
+            },
+            onSaveEdit = { onMutation(ReaderAnnotationMutationIntent.SaveEdit) },
+            onConfirmDelete = { onMutation(ReaderAnnotationMutationIntent.ConfirmDelete) },
+            onDismiss = { onMutation(ReaderAnnotationMutationIntent.DismissTransient) }
+        )
     }
 }
 
@@ -168,7 +187,10 @@ private fun ReaderAnnotationsOverlay(
     colors: ReaderChromeColors,
     scope: CoroutineScope,
     onDismiss: () -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    editable: Boolean,
+    onEditHighlight: (ReaderAnnotation.Highlight) -> Unit,
+    onDeleteHighlight: (ReaderAnnotation.Highlight) -> Unit
 ) {
     if (ready == null) return
     ReaderAnnotationsDrawer(
@@ -176,6 +198,9 @@ private fun ReaderAnnotationsOverlay(
         colors = colors,
         onDismiss = onDismiss,
         onRetry = onRetry,
+        editable = editable,
+        onEditHighlight = onEditHighlight,
+        onDeleteHighlight = onDeleteHighlight,
         onAnnotationSelected = { annotation ->
             onDismiss()
             navigateToAnnotation(scope, ready, annotation)

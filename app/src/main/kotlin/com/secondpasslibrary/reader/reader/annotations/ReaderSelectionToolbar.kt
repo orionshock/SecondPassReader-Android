@@ -33,7 +33,7 @@ import com.secondpasslibrary.reader.reader.ReaderChromeColors
 @Composable
 internal fun ReaderSelectionToolbar(
     selection: ReaderSelection,
-    state: ReaderAnnotationCreateState,
+    state: ReaderAnnotationMutationState,
     colors: ReaderChromeColors,
     onColorChanged: (ReaderAnnotationColor) -> Unit,
     onNoteChanged: (String) -> Unit,
@@ -41,7 +41,7 @@ internal fun ReaderSelectionToolbar(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val pending = state.pending?.takeIf { it.selection.cfi == selection.cfi } ?: return
+    val pending = state.pendingCreate?.takeIf { it.selection.cfi == selection.cfi } ?: return
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     val dismiss = {
@@ -97,7 +97,7 @@ internal fun ReaderSelectionToolbar(
 }
 
 @Composable
-private fun ReaderHighlightNoteField(
+internal fun ReaderHighlightNoteField(
     note: String,
     submitting: Boolean,
     onNoteChanged: (String) -> Unit
@@ -116,7 +116,7 @@ private fun ReaderHighlightNoteField(
 }
 
 @Composable
-private fun ReaderColorButton(
+internal fun ReaderColorButton(
     color: ReaderAnnotationColor,
     selected: Boolean,
     enabled: Boolean,
