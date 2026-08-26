@@ -2,7 +2,11 @@ package com.secondpasslibrary.reader.reader
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsController
+import com.secondpasslibrary.reader.reader.annotations.SplReaderAnnotationsLoader
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceStore
 import com.secondpasslibrary.reader.reader.asset.SplReaderBookAssetResolver
 import com.secondpasslibrary.reader.reader.domain.ReaderAppearance
@@ -15,6 +19,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 
 @HiltViewModel
@@ -23,7 +29,8 @@ internal class ReaderViewModel @Inject constructor(
     engineOpener: ReaderEngineOpener,
     sessionCoordinator: SplReaderSessionCoordinator,
     progressWriter: SplReaderProgressWriter,
-    appearanceStore: ReaderAppearanceStore
+    appearanceStore: ReaderAppearanceStore,
+    annotationsLoader: SplReaderAnnotationsLoader
 ) : ViewModel() {
     private val progressSyncJob = SupervisorJob()
     private val progressSyncScope = CoroutineScope(progressSyncJob + Dispatchers.IO)
@@ -37,23 +44,59 @@ internal class ReaderViewModel @Inject constructor(
             appearanceStore,
             progressSyncScope
         )
+    private val annotationsController = ReaderAnnotationsController(
+        annotationsLoader,
+        viewModelScope
+    )
     private var exitJob: Job? = null
+    private var activeProfile: ConnectionProfile? = null
+    private var entryIdentity: ReaderEntryIdentity? = null
 
     val state = controller.state
     val progress = controller.progress
     val progressSync = controller.progressSync
-    val connectionEvents = controller.connectionEvents
+    val annotations = annotationsController.state
+    val connectionEvents = merge(
+        controller.connectionEvents,
+        annotationsController.authenticationRequiredEvents.map {
+            ReaderConnectionEvent.AuthenticationRejected
+        }
+    )
+
+    init {
+        viewModelScope.launch {
+            controller.state.collect { readerState ->
+                val ready = readerState as? ReaderState.Ready ?: return@collect
+                activeProfile?.let { profile ->
+                    annotationsController.select(profile, ready.session.sessionId)
+                }
+            }
+        }
+    }
 
     fun initialize(
         profile: ConnectionProfile,
         profileId: String,
         bookId: String,
         existingSessionId: String?
-    ) = controller.initialize(profile, profileId, bookId, existingSessionId)
+    ) {
+        val nextIdentity = ReaderEntryIdentity(
+            profile.authenticatedConnectionIdentity,
+            profileId,
+            bookId,
+            existingSessionId
+        )
+        if (entryIdentity != nextIdentity) annotationsController.clear()
+        entryIdentity = nextIdentity
+        activeProfile = profile
+        controller.initialize(profile, profileId, bookId, existingSessionId)
+    }
 
     fun retry() = controller.retry()
 
     fun updateAppearance(appearance: ReaderAppearance) = controller.updateAppearance(appearance)
+
+    fun retryAnnotations() = annotationsController.retry()
 
     fun setAuthorityAvailable(available: Boolean) = controller.setAuthorityAvailable(available)
 
@@ -69,5 +112,15 @@ internal class ReaderViewModel @Inject constructor(
         }
     }
 
-    override fun onCleared() = controller.close { progressSyncJob.cancel() }
+    override fun onCleared() {
+        annotationsController.close()
+        controller.close { progressSyncJob.cancel() }
+    }
 }
+
+private data class ReaderEntryIdentity(
+    val connectionIdentity: AuthenticatedConnectionIdentity,
+    val profileId: String,
+    val bookId: String,
+    val existingSessionId: String?
+)

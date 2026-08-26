@@ -11,6 +11,10 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondpasslibrary.reader.design.SecondPassTheme
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsFailure
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsState
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiFailure
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiNavigator
@@ -104,12 +108,87 @@ class ReaderChromeTest {
         compose.onNodeWithContentDescription("Reader menu").assertIsDisplayed()
     }
 
+    @Test
+    fun annotationDrawerPresentsContentAndNavigatesExactCfiWithoutExiting() {
+        val navigator = RecordingCfiNavigator()
+        val annotation = ReaderAnnotation.Highlight(
+            id = "annotation-1",
+            cfi = ANNOTATION_CFI,
+            locationLabel = "Chapter 3",
+            updatedAt = "2026-08-24T13:00:00Z",
+            quote = "A selected passage",
+            note = "A Reader note",
+            color = ReaderAnnotationColor.BLUE
+        )
+        var exits = 0
+        compose.setContent {
+            SecondPassTheme {
+                ReaderScreen(
+                    state = readyState(RecordingToc(), navigator = navigator),
+                    onBack = { exits += 1 },
+                    onRetry = {},
+                    annotations = ReaderAnnotationsState(
+                        sessionId = "session-1",
+                        annotations = listOf(annotation),
+                        loaded = true
+                    )
+                )
+            }
+        }
+
+        compose.onNodeWithContentDescription("Reading annotations").performClick()
+        compose.onNodeWithText("1 annotation").assertIsDisplayed()
+        compose.onNodeWithText("A selected passage").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Open annotation").performClick()
+        compose.waitUntil { navigator.destinations.isNotEmpty() }
+
+        assertEquals(listOf(EpubCfi(ANNOTATION_CFI)), navigator.destinations)
+        assertEquals(0, exits)
+        assertEquals(0, compose.onAllNodesWithText("A selected passage").fetchSemanticsNodes().size)
+    }
+
+    @Test
+    fun annotationDrawerShowsCompactLoadingFailureAndEmptyStates() {
+        val state = androidx.compose.runtime.mutableStateOf(
+            ReaderAnnotationsState(sessionId = "session-1", loading = true)
+        )
+        var retries = 0
+        compose.setContent {
+            SecondPassTheme {
+                ReaderScreen(
+                    state = readyState(RecordingToc()),
+                    onBack = {},
+                    onRetry = {},
+                    annotations = state.value,
+                    onRetryAnnotations = { retries += 1 }
+                )
+            }
+        }
+
+        compose.onNodeWithContentDescription("Reading annotations").performClick()
+        compose.onNodeWithContentDescription("Close annotations").assertIsDisplayed()
+        compose.runOnUiThread {
+            state.value = ReaderAnnotationsState(
+                sessionId = "session-1",
+                failure = ReaderAnnotationsFailure.UNAVAILABLE
+            )
+        }
+        compose.onNodeWithText("Annotations could not be loaded.").assertIsDisplayed()
+        compose.onNodeWithText("Retry").performClick()
+        assertEquals(1, retries)
+        compose.runOnUiThread {
+            state.value = ReaderAnnotationsState(sessionId = "session-1", loaded = true)
+        }
+        compose.onNodeWithText("No annotations in this reading session.").assertIsDisplayed()
+    }
+
     private fun readyState(
         toc: ReaderTableOfContents,
-        appearance: ReaderAppearanceController = RecordingAppearance()
+        appearance: ReaderAppearanceController = RecordingAppearance(),
+        navigator: EpubCfiNavigator = UnusedCfiNavigator
     ) = ReaderState.Ready(
         title = BOOK_TITLE,
-        engine = FakeEngine(toc, appearance),
+        engine = FakeEngine(toc, appearance, navigator),
         session = ReaderSessionContext("session-1", ReaderSessionStatus.ACTIVE, null),
         restore = ReaderProgressRestore.NOT_NEEDED
     )
@@ -134,10 +213,10 @@ class ReaderChromeTest {
 
     private class FakeEngine(
         override val tableOfContents: ReaderTableOfContents,
-        override val appearance: ReaderAppearanceController
+        override val appearance: ReaderAppearanceController,
+        override val cfiNavigator: EpubCfiNavigator
     ) : ReaderEngine {
         override val viewport = ReaderViewport { Box {} }
-        override val cfiNavigator = UnusedCfiNavigator
         override val viewportMovements = ReaderViewportMovements { emptyFlow() }
         override fun close() = Unit
     }
@@ -163,10 +242,25 @@ class ReaderChromeTest {
         override suspend fun resolve(cfi: EpubCfi) = unavailable<EpubCfiResolution>()
     }
 
+    private class RecordingCfiNavigator : EpubCfiNavigator {
+        override val readiness = MutableStateFlow<EpubCfiReadiness>(EpubCfiReadiness.Available)
+        val destinations = mutableListOf<EpubCfi>()
+
+        override suspend fun goTo(cfi: EpubCfi): EpubCfiOutcome<Unit> {
+            destinations += cfi
+            return EpubCfiOutcome.Success(Unit)
+        }
+
+        override suspend fun currentPosition() = unavailable<EpubCfi>()
+        override suspend fun currentSelection() = unavailable<EpubCfiSelection?>()
+        override suspend fun resolve(cfi: EpubCfi) = unavailable<EpubCfiResolution>()
+    }
+
     private companion object {
         const val BOOK_TITLE = "A deliberately long Reader title that remains one line"
         val CHAPTER_ONE = ReaderPublicationTarget("text/chapter-1.xhtml")
         val CHAPTER_TWO = ReaderPublicationTarget("text/chapter-2.xhtml#section")
+        const val ANNOTATION_CFI = "epubcfi(/6/2!/4/2:3)"
     }
 }
 

@@ -22,7 +22,8 @@ internal fun ReaderChrome(
     title: String,
     colors: ReaderChromeColors,
     onNavigationMenuRequested: () -> Unit,
-    onAppearanceRequested: () -> Unit
+    onAppearanceRequested: () -> Unit,
+    onAnnotationsRequested: () -> Unit
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth().heightIn(min = READER_CHROME_HEIGHT),
@@ -51,6 +52,15 @@ internal fun ReaderChrome(
                 AppIconGraphic(
                     icon = AppIcon.Settings,
                     contentDescription = "Reading appearance"
+                )
+            }
+            IconButton(
+                modifier = Modifier.size(READER_CHROME_CONTROL_SIZE),
+                onClick = onAnnotationsRequested
+            ) {
+                AppIconGraphic(
+                    icon = AppIcon.Marginalia,
+                    contentDescription = "Reading annotations"
                 )
             }
         }

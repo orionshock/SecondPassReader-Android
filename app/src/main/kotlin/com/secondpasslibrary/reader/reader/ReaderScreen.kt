@@ -24,6 +24,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsState
+import com.secondpasslibrary.reader.reader.annotations.navigateToReaderAnnotation
 import com.secondpasslibrary.reader.reader.domain.ReaderAppearance
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,20 +37,20 @@ internal fun ReaderScreen(
     state: ReaderState,
     onBack: () -> Unit,
     onRetry: () -> Unit,
-    onAppearanceChanged: (ReaderAppearance) -> Unit = {}
+    onAppearanceChanged: (ReaderAppearance) -> Unit = {},
+    annotations: ReaderAnnotationsState = ReaderAnnotationsState(),
+    onRetryAnnotations: () -> Unit = {}
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val ready = state as? ReaderState.Ready
-    val appearanceFlow = remember(ready?.engine) {
-        ready?.engine?.appearance?.appearance ?: DEFAULT_READER_APPEARANCE
-    }
+    val appearanceFlow = remember(ready?.engine) { readyAppearance(ready) }
     val appearance by appearanceFlow.collectAsState()
     val chromeColors = appearance.theme.chromeColors()
-    var appearancePanelVisible by remember { mutableStateOf(false) }
+    var overlay by remember { mutableStateOf(ReaderOverlay.NONE) }
     ReaderBackHandler(
-        appearancePanelVisible = appearancePanelVisible,
-        onDismissAppearance = { appearancePanelVisible = false },
+        overlay = overlay,
+        onDismissOverlay = { overlay = ReaderOverlay.NONE },
         drawerState = drawerState,
         scope = scope,
         onBack = onBack
@@ -74,42 +77,47 @@ internal fun ReaderScreen(
 
                 is ReaderState.Failure -> ReaderFailureContent(state.kind, onBack, onRetry)
             }
-            ReaderChrome(
+            ReaderChromeLayer(
                 title = ready?.title ?: "Reader",
                 colors = chromeColors,
-                onNavigationMenuRequested = {
-                    appearancePanelVisible = false
-                    scope.launch { drawerState.open() }
-                },
-                onAppearanceRequested = {
-                    scope.launch {
-                        drawerState.close()
-                        appearancePanelVisible = true
-                    }
-                }
+                drawerState = drawerState,
+                scope = scope,
+                onOverlayChanged = { overlay = it }
             )
-            if (appearancePanelVisible && ready != null) {
+            if (overlay == ReaderOverlay.APPEARANCE && ready != null) {
                 ReaderAppearanceOverlay(
                     appearance = appearance,
                     onAppearanceChanged = onAppearanceChanged,
-                    onDismissRequest = { appearancePanelVisible = false }
+                    onDismissRequest = { overlay = ReaderOverlay.NONE }
                 )
             }
+            ReaderAnnotationsOverlay(
+                visible = overlay == ReaderOverlay.ANNOTATIONS,
+                ready = ready,
+                state = annotations,
+                colors = chromeColors,
+                scope = scope,
+                onDismiss = { overlay = ReaderOverlay.NONE },
+                onRetry = onRetryAnnotations
+            )
         }
     }
 }
 
+private fun readyAppearance(ready: ReaderState.Ready?) =
+    ready?.engine?.appearance?.appearance ?: DEFAULT_READER_APPEARANCE
+
 @Composable
 private fun ReaderBackHandler(
-    appearancePanelVisible: Boolean,
-    onDismissAppearance: () -> Unit,
+    overlay: ReaderOverlay,
+    onDismissOverlay: () -> Unit,
     drawerState: DrawerState,
     scope: CoroutineScope,
     onBack: () -> Unit
 ) {
     BackHandler {
         when {
-            appearancePanelVisible -> onDismissAppearance()
+            overlay != ReaderOverlay.NONE -> onDismissOverlay()
 
             drawerState.currentValue == DrawerValue.Open ||
                 drawerState.targetValue == DrawerValue.Open -> scope.launch { drawerState.close() }
@@ -118,6 +126,71 @@ private fun ReaderBackHandler(
         }
     }
 }
+
+private fun navigateToAnnotation(
+    scope: CoroutineScope,
+    ready: ReaderState.Ready,
+    annotation: ReaderAnnotation
+) {
+    scope.launch {
+        navigateToReaderAnnotation(annotation, ready.engine.cfiNavigator)
+    }
+}
+
+@Composable
+private fun ReaderAnnotationsOverlay(
+    visible: Boolean,
+    ready: ReaderState.Ready?,
+    state: ReaderAnnotationsState,
+    colors: ReaderChromeColors,
+    scope: CoroutineScope,
+    onDismiss: () -> Unit,
+    onRetry: () -> Unit
+) {
+    if (!visible || ready == null) return
+    ReaderAnnotationsDrawer(
+        state = state,
+        colors = colors,
+        onDismiss = onDismiss,
+        onRetry = onRetry,
+        onAnnotationSelected = { annotation ->
+            onDismiss()
+            navigateToAnnotation(scope, ready, annotation)
+        }
+    )
+}
+
+@Composable
+private fun ReaderChromeLayer(
+    title: String,
+    colors: ReaderChromeColors,
+    drawerState: DrawerState,
+    scope: CoroutineScope,
+    onOverlayChanged: (ReaderOverlay) -> Unit
+) {
+    ReaderChrome(
+        title = title,
+        colors = colors,
+        onNavigationMenuRequested = {
+            onOverlayChanged(ReaderOverlay.NONE)
+            scope.launch { drawerState.open() }
+        },
+        onAppearanceRequested = {
+            scope.launch {
+                drawerState.close()
+                onOverlayChanged(ReaderOverlay.APPEARANCE)
+            }
+        },
+        onAnnotationsRequested = {
+            scope.launch {
+                drawerState.close()
+                onOverlayChanged(ReaderOverlay.ANNOTATIONS)
+            }
+        }
+    )
+}
+
+private enum class ReaderOverlay { NONE, APPEARANCE, ANNOTATIONS }
 
 @Composable
 private fun ReaderTocDrawerContent(
