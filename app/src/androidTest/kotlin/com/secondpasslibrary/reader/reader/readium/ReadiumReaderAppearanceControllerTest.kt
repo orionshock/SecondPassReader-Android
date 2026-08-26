@@ -1,8 +1,8 @@
 package com.secondpasslibrary.reader.reader.readium
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.secondpasslibrary.reader.reader.domain.ReaderAppearance
-import com.secondpasslibrary.reader.reader.domain.ReaderTheme
+import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
+import com.secondpasslibrary.reader.reader.appearance.ReaderTheme
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

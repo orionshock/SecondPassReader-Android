@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.reader
+package com.secondpasslibrary.reader.reader.ui
 
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth

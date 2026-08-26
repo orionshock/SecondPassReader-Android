@@ -1,8 +1,8 @@
 package com.secondpasslibrary.reader.reader.readium
 
-import com.secondpasslibrary.reader.reader.domain.ReaderAppearance
-import com.secondpasslibrary.reader.reader.domain.ReaderAppearanceController
-import com.secondpasslibrary.reader.reader.domain.ReaderTheme
+import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
+import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceController
+import com.secondpasslibrary.reader.reader.appearance.ReaderTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow

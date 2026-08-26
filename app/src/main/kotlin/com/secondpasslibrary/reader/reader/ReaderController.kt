@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.reader
 
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceStore
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetRequest
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetResolver
@@ -9,7 +10,6 @@ import com.secondpasslibrary.reader.reader.asset.ReaderEpubUnavailableException
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiFailure
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
-import com.secondpasslibrary.reader.reader.domain.ReaderAppearance
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
 import com.secondpasslibrary.reader.reader.progress.ReaderProgressController

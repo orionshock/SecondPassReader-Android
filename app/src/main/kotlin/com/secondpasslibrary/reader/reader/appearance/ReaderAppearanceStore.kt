@@ -8,8 +8,6 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.secondpasslibrary.reader.reader.domain.ReaderAppearance
-import com.secondpasslibrary.reader.reader.domain.ReaderTheme
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn

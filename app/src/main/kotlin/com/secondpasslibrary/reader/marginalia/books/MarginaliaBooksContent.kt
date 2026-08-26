@@ -36,7 +36,7 @@ import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.client.MarginaliaBookSummary
 import com.secondpasslibrary.reader.design.book.PublicBookCover
 import com.secondpasslibrary.reader.design.components.InlineSearchField
-import com.secondpasslibrary.reader.marginalia.formatSessionTimestamp
+import com.secondpasslibrary.reader.design.marginalia.formatMarginaliaTimestamp
 import com.secondpasslibrary.reader.marginalia.userMessage
 import java.time.ZoneId
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -199,7 +199,7 @@ private fun MarginaliaBookRow(book: MarginaliaBookSummary, onClick: () -> Unit) 
                 Text(book.sessionSummaryLabel(), style = MaterialTheme.typography.labelMedium)
                 book.lastActivityAt?.let {
                     Text(
-                        "Last activity ${formatSessionTimestamp(
+                        "Last activity ${formatMarginaliaTimestamp(
                             it,
                             ZoneId.systemDefault(),
                             locale

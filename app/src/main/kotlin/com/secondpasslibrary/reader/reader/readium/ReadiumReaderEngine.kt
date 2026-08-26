@@ -2,9 +2,9 @@ package com.secondpasslibrary.reader.reader.readium
 
 import android.content.Context
 import androidx.fragment.app.FragmentFactory
+import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
 import com.secondpasslibrary.reader.reader.cfi.EpubPackageDocument
 import com.secondpasslibrary.reader.reader.cfi.ZipEpubPackageResolver
-import com.secondpasslibrary.reader.reader.domain.ReaderAppearance
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpenException
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener

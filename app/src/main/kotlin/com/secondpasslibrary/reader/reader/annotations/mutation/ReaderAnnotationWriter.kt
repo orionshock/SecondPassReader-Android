@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.reader.annotations
+package com.secondpasslibrary.reader.reader.annotations.mutation
 
 import com.secondpasslibrary.client.MarginaliaAnnotationDraft
 import com.secondpasslibrary.client.MarginaliaAnnotationLocationInput
@@ -7,6 +7,9 @@ import com.secondpasslibrary.client.MarginaliaHighlightBodyInput
 import com.secondpasslibrary.client.MarginaliaHighlightColor
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
+import com.secondpasslibrary.reader.reader.annotations.toReaderAnnotation
 import javax.inject.Inject
 
 internal sealed interface ReaderAnnotationMutationRequest {

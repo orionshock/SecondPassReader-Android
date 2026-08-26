@@ -2,11 +2,14 @@ package com.secondpasslibrary.reader.reader.domain
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.secondpasslibrary.reader.reader.annotations.EmptyReaderAnnotationDecorations
-import com.secondpasslibrary.reader.reader.annotations.EmptyReaderSelectionEvents
-import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationDecorations
-import com.secondpasslibrary.reader.reader.annotations.ReaderSelectionEvents
+import com.secondpasslibrary.reader.reader.annotations.decoration.EmptyReaderAnnotationDecorations
+import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecorations
+import com.secondpasslibrary.reader.reader.annotations.selection.EmptyReaderSelectionEvents
+import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelectionEvents
+import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
+import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceController
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiNavigator
+import com.secondpasslibrary.reader.reader.toc.ReaderTableOfContents
 import java.io.File
 import kotlinx.coroutines.flow.Flow
 

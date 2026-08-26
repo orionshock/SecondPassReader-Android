@@ -1,6 +1,6 @@
 package com.secondpasslibrary.reader.reader.readium
 
-import com.secondpasslibrary.reader.reader.annotations.ReaderSelectionEvents
+import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelectionEvents
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview

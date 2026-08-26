@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.reader.domain
+package com.secondpasslibrary.reader.reader.appearance
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows

@@ -9,7 +9,8 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationMutationIntent
+import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationIntent
+import com.secondpasslibrary.reader.reader.ui.ReaderScreen
 
 @Composable
 internal fun ReaderStateHost(

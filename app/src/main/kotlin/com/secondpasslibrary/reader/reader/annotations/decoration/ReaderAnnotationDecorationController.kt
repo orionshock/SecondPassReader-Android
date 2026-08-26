@@ -1,5 +1,6 @@
-package com.secondpasslibrary.reader.reader.annotations
+package com.secondpasslibrary.reader.reader.annotations.decoration
 
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 

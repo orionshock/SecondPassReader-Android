@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.reader
+package com.secondpasslibrary.reader.reader.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -17,18 +17,23 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.secondpasslibrary.reader.reader.ReaderCfiProbe
+import com.secondpasslibrary.reader.reader.ReaderFailure
+import com.secondpasslibrary.reader.reader.ReaderState
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
-import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationMutationIntent
-import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationMutationState
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsState
-import com.secondpasslibrary.reader.reader.annotations.ReaderHighlightMutationDialogs
-import com.secondpasslibrary.reader.reader.annotations.ReaderSelection
-import com.secondpasslibrary.reader.reader.annotations.ReaderSelectionToolbar
+import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationIntent
+import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationState
 import com.secondpasslibrary.reader.reader.annotations.navigateToReaderAnnotation
-import com.secondpasslibrary.reader.reader.domain.ReaderAppearance
+import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelection
+import com.secondpasslibrary.reader.reader.annotations.ui.ReaderAnnotationsDrawer
+import com.secondpasslibrary.reader.reader.annotations.ui.ReaderHighlightMutationDialogs
+import com.secondpasslibrary.reader.reader.annotations.ui.ReaderSelectionToolbar
+import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
+import com.secondpasslibrary.reader.reader.appearance.ReaderAppearancePanel
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
-import com.secondpasslibrary.reader.reader.ui.ReaderOverlayHost
-import com.secondpasslibrary.reader.reader.ui.ReaderOverlayLayout
+import com.secondpasslibrary.reader.reader.toc.ReaderTocDrawer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch

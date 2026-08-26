@@ -1,9 +1,9 @@
 @file:Suppress("MagicNumber")
 
-package com.secondpasslibrary.reader.reader
+package com.secondpasslibrary.reader.reader.ui
 
 import androidx.compose.ui.graphics.Color
-import com.secondpasslibrary.reader.reader.domain.ReaderTheme
+import com.secondpasslibrary.reader.reader.appearance.ReaderTheme
 
 internal data class ReaderChromeColors(
     val background: Color,

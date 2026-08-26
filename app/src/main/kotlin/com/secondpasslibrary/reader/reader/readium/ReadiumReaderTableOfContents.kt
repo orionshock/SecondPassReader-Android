@@ -1,10 +1,10 @@
 package com.secondpasslibrary.reader.reader.readium
 
 import com.secondpasslibrary.reader.reader.cfi.normalizeEpubHref
-import com.secondpasslibrary.reader.reader.domain.ReaderPublicationNavigationResult
-import com.secondpasslibrary.reader.reader.domain.ReaderPublicationTarget
-import com.secondpasslibrary.reader.reader.domain.ReaderTableOfContents
-import com.secondpasslibrary.reader.reader.domain.ReaderTocEntry
+import com.secondpasslibrary.reader.reader.toc.ReaderPublicationNavigationResult
+import com.secondpasslibrary.reader.reader.toc.ReaderPublicationTarget
+import com.secondpasslibrary.reader.reader.toc.ReaderTableOfContents
+import com.secondpasslibrary.reader.reader.toc.ReaderTocEntry
 import org.readium.r2.shared.publication.Link
 
 internal class ReadiumReaderTableOfContents(

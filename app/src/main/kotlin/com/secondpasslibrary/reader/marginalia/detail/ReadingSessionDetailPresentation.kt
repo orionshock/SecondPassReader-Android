@@ -5,8 +5,8 @@ import com.secondpasslibrary.client.ReadingSessionDetailResult
 import com.secondpasslibrary.client.ReadingSessionStatus
 import com.secondpasslibrary.reader.design.components.AppBarNavigation
 import com.secondpasslibrary.reader.design.components.AppBarPresentation
-import com.secondpasslibrary.reader.marginalia.annotationCountLabel
-import com.secondpasslibrary.reader.marginalia.formatSessionTimestamp
+import com.secondpasslibrary.reader.design.marginalia.annotationCountLabel
+import com.secondpasslibrary.reader.design.marginalia.formatMarginaliaTimestamp
 import java.time.ZoneId
 import java.util.Locale
 
@@ -52,9 +52,9 @@ internal fun ReadingSessionDetailResult.toDetailPresentation(
         active = !closed,
         annotationCountLabel = annotationCountLabel(summary.annotationCount),
         progressLocation = session.progress?.locationLabel?.takeIf(String::isNotBlank),
-        startedLabel = formatSessionTimestamp(summary.startedAt, zoneId, locale),
-        updatedLabel = formatSessionTimestamp(summary.updatedAt, zoneId, locale),
-        closedLabel = summary.closedAt?.let { formatSessionTimestamp(it, zoneId, locale) },
+        startedLabel = formatMarginaliaTimestamp(summary.startedAt, zoneId, locale),
+        updatedLabel = formatMarginaliaTimestamp(summary.updatedAt, zoneId, locale),
+        closedLabel = summary.closedAt?.let { formatMarginaliaTimestamp(it, zoneId, locale) },
         canOpenBook = book.canOpen
     )
 }

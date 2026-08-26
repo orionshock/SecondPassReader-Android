@@ -2,8 +2,8 @@ package com.secondpasslibrary.reader.reader.readium
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
-import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationDecoration
-import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationKind
+import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecoration
+import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationKind
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiResolution
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiTargetKind

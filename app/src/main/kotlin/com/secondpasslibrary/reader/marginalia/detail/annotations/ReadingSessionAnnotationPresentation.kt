@@ -2,8 +2,8 @@ package com.secondpasslibrary.reader.marginalia.detail.annotations
 
 import com.secondpasslibrary.client.MarginaliaAnnotation
 import com.secondpasslibrary.reader.design.marginalia.AnnotationHighlightTone
+import com.secondpasslibrary.reader.design.marginalia.formatMarginaliaTimestamp
 import com.secondpasslibrary.reader.design.marginalia.toHighlightTone
-import com.secondpasslibrary.reader.marginalia.formatSessionTimestamp
 import java.time.ZoneId
 import java.util.Locale
 
@@ -34,7 +34,7 @@ internal fun MarginaliaAnnotation.toPresentation(
 ): ReadingSessionAnnotationPresentation = when (this) {
     is MarginaliaAnnotation.Bookmark -> ReadingSessionAnnotationPresentation.Bookmark(
         locationLabel = location.locationLabel?.takeIf(String::isNotBlank),
-        updatedLabel = formatSessionTimestamp(updatedAt, zoneId, locale)
+        updatedLabel = formatMarginaliaTimestamp(updatedAt, zoneId, locale)
     )
 
     is MarginaliaAnnotation.Highlight -> {
@@ -42,7 +42,7 @@ internal fun MarginaliaAnnotation.toPresentation(
         ReadingSessionAnnotationPresentation.Highlight(
             label = if (displayedNote == null) "Highlight" else "Commented highlight",
             locationLabel = location.locationLabel?.takeIf(String::isNotBlank),
-            updatedLabel = formatSessionTimestamp(updatedAt, zoneId, locale),
+            updatedLabel = formatMarginaliaTimestamp(updatedAt, zoneId, locale),
             quote = body.text,
             note = displayedNote,
             tone = body.color.toHighlightTone()

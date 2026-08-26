@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.reader
+package com.secondpasslibrary.reader.reader.appearance
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -25,8 +25,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import com.secondpasslibrary.reader.reader.domain.ReaderAppearance
-import com.secondpasslibrary.reader.reader.domain.ReaderTheme
+import com.secondpasslibrary.reader.reader.ui.ReaderChromeColors
+import com.secondpasslibrary.reader.reader.ui.chromeColors
 import java.util.Locale
 
 @Composable

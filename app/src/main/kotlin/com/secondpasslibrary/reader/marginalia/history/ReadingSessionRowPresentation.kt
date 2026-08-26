@@ -6,9 +6,9 @@ import com.secondpasslibrary.client.ReadingSessionListItem
 import com.secondpasslibrary.client.ReadingSessionStatus
 import com.secondpasslibrary.reader.design.components.AppBarNavigation
 import com.secondpasslibrary.reader.design.components.AppBarPresentation
+import com.secondpasslibrary.reader.design.marginalia.annotationCountLabel
+import com.secondpasslibrary.reader.design.marginalia.formatMarginaliaTimestamp
 import com.secondpasslibrary.reader.marginalia.MarginaliaHistoryContext
-import com.secondpasslibrary.reader.marginalia.annotationCountLabel
-import com.secondpasslibrary.reader.marginalia.formatSessionTimestamp
 import java.time.ZoneId
 import java.util.Locale
 
@@ -35,7 +35,7 @@ internal fun ReadingSessionListItem.toRowPresentation(
     statusLabel = session.status.presentationLabel,
     active = session.status == ReadingSessionStatus.ACTIVE,
     annotationCountLabel = annotationCountLabel(session.annotationCount),
-    lastActivityLabel = formatSessionTimestamp(session.lastActivityAt, zoneId, locale),
+    lastActivityLabel = formatMarginaliaTimestamp(session.lastActivityAt, zoneId, locale),
     noteExcerpt = session.notes.trim().takeIf(String::isNotEmpty)
 )
 

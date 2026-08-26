@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.reader.annotations
+package com.secondpasslibrary.reader.reader.annotations.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -28,7 +28,10 @@ import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.client.MAX_HIGHLIGHT_NOTE_LENGTH
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
-import com.secondpasslibrary.reader.reader.ReaderChromeColors
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
+import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationState
+import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelection
+import com.secondpasslibrary.reader.reader.ui.ReaderChromeColors
 
 @Composable
 internal fun ReaderSelectionToolbar(

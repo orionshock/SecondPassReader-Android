@@ -1,7 +1,5 @@
 package com.secondpasslibrary.reader.reader.appearance
 
-import com.secondpasslibrary.reader.reader.domain.ReaderAppearance
-import com.secondpasslibrary.reader.reader.domain.ReaderTheme
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

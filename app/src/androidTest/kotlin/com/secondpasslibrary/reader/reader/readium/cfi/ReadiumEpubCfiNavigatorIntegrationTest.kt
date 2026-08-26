@@ -6,8 +6,10 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
-import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationDecoration
-import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationKind
+import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecoration
+import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationKind
+import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
+import com.secondpasslibrary.reader.reader.appearance.ReaderTheme
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiFailure
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
@@ -17,9 +19,7 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfiTargetKind
 import com.secondpasslibrary.reader.reader.cfi.SyntheticEpubCfiSources
 import com.secondpasslibrary.reader.reader.cfi.SyntheticEpubFixtureBuilder
 import com.secondpasslibrary.reader.reader.cfi.normalizeEpubHref
-import com.secondpasslibrary.reader.reader.domain.ReaderAppearance
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
-import com.secondpasslibrary.reader.reader.domain.ReaderTheme
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

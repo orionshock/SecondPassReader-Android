@@ -1,5 +1,8 @@
-package com.secondpasslibrary.reader.reader.annotations
+package com.secondpasslibrary.reader.reader.annotations.mutation
 
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
+import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelection
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiPosition
 
 internal data class ReaderAnnotationMutationState(

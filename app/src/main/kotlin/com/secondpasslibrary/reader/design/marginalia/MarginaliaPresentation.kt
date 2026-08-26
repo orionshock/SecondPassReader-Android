@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.marginalia
+package com.secondpasslibrary.reader.design.marginalia
 
 import java.time.Instant
 import java.time.OffsetDateTime
@@ -7,7 +7,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
 
-internal fun formatSessionTimestamp(value: String, zoneId: ZoneId, locale: Locale): String {
+internal fun formatMarginaliaTimestamp(value: String, zoneId: ZoneId, locale: Locale): String {
     val instant = runCatching { Instant.parse(value) }
         .recoverCatching { OffsetDateTime.parse(value).toInstant() }
         .getOrNull() ?: return value

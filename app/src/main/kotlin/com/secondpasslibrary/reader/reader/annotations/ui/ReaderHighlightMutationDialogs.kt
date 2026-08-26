@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.reader.annotations
+package com.secondpasslibrary.reader.reader.annotations.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.horizontalScroll
@@ -16,7 +16,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.secondpasslibrary.reader.reader.ReaderChromeColors
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
+import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationIntent
+import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationState
+import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderHighlightEditDraft
+import com.secondpasslibrary.reader.reader.ui.ReaderChromeColors
 
 @Composable
 internal fun ReaderHighlightMutationDialogs(

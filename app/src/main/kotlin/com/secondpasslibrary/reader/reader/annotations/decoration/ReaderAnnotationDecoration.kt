@@ -1,5 +1,7 @@
-package com.secondpasslibrary.reader.reader.annotations
+package com.secondpasslibrary.reader.reader.annotations.decoration
 
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import kotlinx.coroutines.flow.StateFlow
 

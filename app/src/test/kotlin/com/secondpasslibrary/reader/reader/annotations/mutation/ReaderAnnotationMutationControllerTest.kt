@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.reader.annotations
+package com.secondpasslibrary.reader.reader.annotations.mutation
 
 import com.secondpasslibrary.client.AuthenticatedLibraryClient
 import com.secondpasslibrary.client.AuthenticatedReadingSessionsClient
@@ -10,6 +10,10 @@ import com.secondpasslibrary.client.MarginaliaHighlightColor
 import com.secondpasslibrary.reader.FakeAuthenticatedMarginaliaClient
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
+import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelection
+import com.secondpasslibrary.reader.reader.annotations.selection.readerLocationLabel
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiPosition
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus

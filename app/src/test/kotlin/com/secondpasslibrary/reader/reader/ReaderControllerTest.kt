@@ -2,7 +2,10 @@ package com.secondpasslibrary.reader.reader
 
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
+import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceController
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceStore
+import com.secondpasslibrary.reader.reader.appearance.ReaderTheme
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetResolver
 import com.secondpasslibrary.reader.reader.asset.ReaderEpubUnavailableException
 import com.secondpasslibrary.reader.reader.asset.ResolvedReaderBook
@@ -13,13 +16,9 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiReadiness
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiResolution
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiSelection
-import com.secondpasslibrary.reader.reader.domain.EmptyReaderTableOfContents
-import com.secondpasslibrary.reader.reader.domain.ReaderAppearance
-import com.secondpasslibrary.reader.reader.domain.ReaderAppearanceController
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpenException
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
-import com.secondpasslibrary.reader.reader.domain.ReaderTheme
 import com.secondpasslibrary.reader.reader.domain.ReaderViewport
 import com.secondpasslibrary.reader.reader.domain.ReaderViewportMovement
 import com.secondpasslibrary.reader.reader.domain.ReaderViewportMovements
@@ -28,6 +27,7 @@ import com.secondpasslibrary.reader.reader.progress.ReaderProgressWriter
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionCoordinator
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
+import com.secondpasslibrary.reader.reader.toc.EmptyReaderTableOfContents
 import java.nio.file.Files
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi

@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.reader
+package com.secondpasslibrary.reader.reader.toc
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,8 +27,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
-import com.secondpasslibrary.reader.reader.domain.ReaderPublicationTarget
-import com.secondpasslibrary.reader.reader.domain.ReaderTocEntry
 
 @Composable
 internal fun ReaderTocDrawer(

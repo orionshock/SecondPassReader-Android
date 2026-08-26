@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.reader.annotations
+package com.secondpasslibrary.reader.reader.annotations.mutation
 
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiNavigator
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome

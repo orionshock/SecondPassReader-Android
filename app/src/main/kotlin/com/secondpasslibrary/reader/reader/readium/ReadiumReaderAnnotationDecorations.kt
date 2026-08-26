@@ -1,10 +1,10 @@
 package com.secondpasslibrary.reader.reader.readium
 
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
-import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationDecoration
-import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationDecorationFailure
-import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationDecorations
-import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationKind
+import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecoration
+import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecorationFailure
+import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecorations
+import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationKind
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiFailure
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiResolution

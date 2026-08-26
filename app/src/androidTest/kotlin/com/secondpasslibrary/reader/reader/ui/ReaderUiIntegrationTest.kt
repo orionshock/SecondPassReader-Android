@@ -1,7 +1,6 @@
-package com.secondpasslibrary.reader.reader
+package com.secondpasslibrary.reader.reader.ui
 
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -16,51 +15,33 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondpasslibrary.reader.design.SecondPassTheme
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
-import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationMutationIntent
-import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationMutationState
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsFailure
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsState
-import com.secondpasslibrary.reader.reader.annotations.ReaderHighlightEditDraft
-import com.secondpasslibrary.reader.reader.annotations.ReaderPendingHighlight
-import com.secondpasslibrary.reader.reader.annotations.ReaderSelection
+import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationIntent
+import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationState
+import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderHighlightEditDraft
+import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderPendingHighlight
+import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelection
+import com.secondpasslibrary.reader.reader.appearance.ReaderTheme
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
-import com.secondpasslibrary.reader.reader.cfi.EpubCfiFailure
-import com.secondpasslibrary.reader.reader.cfi.EpubCfiNavigator
-import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
-import com.secondpasslibrary.reader.reader.cfi.EpubCfiReadiness
-import com.secondpasslibrary.reader.reader.cfi.EpubCfiResolution
-import com.secondpasslibrary.reader.reader.cfi.EpubCfiSelection
-import com.secondpasslibrary.reader.reader.domain.ReaderAppearance
-import com.secondpasslibrary.reader.reader.domain.ReaderAppearanceController
-import com.secondpasslibrary.reader.reader.domain.ReaderEngine
-import com.secondpasslibrary.reader.reader.domain.ReaderPublicationNavigationResult
-import com.secondpasslibrary.reader.reader.domain.ReaderPublicationTarget
-import com.secondpasslibrary.reader.reader.domain.ReaderTableOfContents
-import com.secondpasslibrary.reader.reader.domain.ReaderTheme
-import com.secondpasslibrary.reader.reader.domain.ReaderTocEntry
-import com.secondpasslibrary.reader.reader.domain.ReaderViewport
-import com.secondpasslibrary.reader.reader.domain.ReaderViewportMovements
-import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.emptyFlow
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
-class ReaderChromeTest {
+class ReaderUiIntegrationTest {
     @get:Rule
     val compose = createAndroidComposeRule<ComponentActivity>()
 
     @Test
     fun readerMenuOwnsNestedTocNavigationBackAndReturn() {
-        val toc = RecordingToc()
+        val toc = RecordingReaderToc()
         var exits = 0
         compose.setContent {
             SecondPassTheme {
-                ReaderScreen(readyState(toc), onBack = { exits += 1 }, onRetry = {})
+                ReaderScreen(readerReadyState(toc), onBack = { exits += 1 }, onRetry = {})
             }
         }
 
@@ -73,7 +54,7 @@ class ReaderChromeTest {
         compose.onNodeWithText("Part One").assertIsDisplayed()
         compose.onNodeWithContentDescription("Open Chapter Two").performClick()
         compose.waitForIdle()
-        assertEquals(listOf(CHAPTER_TWO), toc.destinations)
+        assertEquals(listOf(TEST_CHAPTER_TWO), toc.destinations)
 
         compose.onNodeWithContentDescription("Reader menu").performClick()
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
@@ -87,11 +68,11 @@ class ReaderChromeTest {
 
     @Test
     fun appearancePanelUpdatesAppOwnedAppearanceAndLeavesReaderOpen() {
-        val appearance = RecordingAppearance()
+        val appearance = RecordingReaderAppearance()
         compose.setContent {
             SecondPassTheme {
                 ReaderScreen(
-                    readyState(RecordingToc(), appearance),
+                    readerReadyState(RecordingReaderToc(), appearance),
                     onBack = {},
                     onRetry = {},
                     onAppearanceChanged = appearance::record
@@ -118,11 +99,11 @@ class ReaderChromeTest {
 
     @Test
     fun annotationDrawerPresentsContentAndNavigatesExactCfiWithoutExiting() {
-        val navigator = RecordingCfiNavigator()
+        val navigator = RecordingReaderCfiNavigator()
         val annotation = ReaderAnnotation.Highlight(
             id = "annotation-1",
             clientId = "client-annotation-1",
-            cfi = ANNOTATION_CFI,
+            cfi = TEST_ANNOTATION_CFI,
             locationLabel = "Chapter 3",
             updatedAt = "2026-08-24T13:00:00Z",
             quote = "A selected passage",
@@ -135,7 +116,7 @@ class ReaderChromeTest {
         compose.setContent {
             SecondPassTheme {
                 ReaderScreen(
-                    state = readyState(RecordingToc(), navigator = navigator),
+                    state = readerReadyState(navigator = navigator),
                     onBack = { exits += 1 },
                     onRetry = {},
                     annotations = ReaderAnnotationsState(
@@ -153,7 +134,7 @@ class ReaderChromeTest {
         compose.onNodeWithContentDescription("Open annotation").performClick()
         compose.waitUntil { navigator.destinations.isNotEmpty() }
 
-        assertEquals(listOf(EpubCfi(ANNOTATION_CFI)), navigator.destinations)
+        assertEquals(listOf(EpubCfi(TEST_ANNOTATION_CFI)), navigator.destinations)
         assertEquals(0, exits)
         assertEquals(0, compose.onAllNodesWithText("A selected passage").fetchSemanticsNodes().size)
     }
@@ -167,7 +148,7 @@ class ReaderChromeTest {
         compose.setContent {
             SecondPassTheme {
                 ReaderScreen(
-                    state = readyState(RecordingToc()),
+                    state = readerReadyState(),
                     onBack = {},
                     onRetry = {},
                     annotations = state.value,
@@ -199,7 +180,7 @@ class ReaderChromeTest {
         var createdNote: String? = null
         var dismissals = 0
         val selection = ReaderSelection(
-            EpubCfi(ANNOTATION_CFI),
+            EpubCfi(TEST_ANNOTATION_CFI),
             "Selected passage",
             "Before",
             "After",
@@ -214,7 +195,7 @@ class ReaderChromeTest {
         compose.setContent {
             SecondPassTheme {
                 ReaderScreen(
-                    state = readyState(RecordingToc(), status = status.value),
+                    state = readerReadyState(status = status.value),
                     onBack = {},
                     onRetry = {},
                     selection = selection,
@@ -265,7 +246,7 @@ class ReaderChromeTest {
         var dismissals = 0
         var exits = 0
         val selection = ReaderSelection(
-            EpubCfi(ANNOTATION_CFI),
+            EpubCfi(TEST_ANNOTATION_CFI),
             "Selected passage",
             null,
             null,
@@ -274,7 +255,7 @@ class ReaderChromeTest {
         compose.setContent {
             SecondPassTheme {
                 ReaderScreen(
-                    state = readyState(RecordingToc()),
+                    state = readerReadyState(),
                     onBack = { exits += 1 },
                     onRetry = {},
                     selection = selection,
@@ -298,7 +279,7 @@ class ReaderChromeTest {
         val highlight = ReaderAnnotation.Highlight(
             id = "server-highlight",
             clientId = "client-highlight",
-            cfi = ANNOTATION_CFI,
+            cfi = TEST_ANNOTATION_CFI,
             locationLabel = "Chapter 03 · 42%",
             updatedAt = "2026-08-25T00:00:00Z",
             quote = "Selected passage",
@@ -310,7 +291,7 @@ class ReaderChromeTest {
         val bookmark = ReaderAnnotation.Bookmark(
             "server-bookmark",
             "client-bookmark",
-            ANNOTATION_CFI,
+            TEST_ANNOTATION_CFI,
             "Chapter 03 · 42%",
             "2026-08-25T00:00:00Z"
         )
@@ -322,7 +303,7 @@ class ReaderChromeTest {
         compose.setContent {
             SecondPassTheme {
                 ReaderScreen(
-                    state = readyState(RecordingToc(), status = status.value),
+                    state = readerReadyState(status = status.value),
                     onBack = { exits += 1 },
                     onRetry = {},
                     annotations = ReaderAnnotationsState(
@@ -419,89 +400,4 @@ class ReaderChromeTest {
 
         else -> state
     }
-
-    private fun readyState(
-        toc: ReaderTableOfContents,
-        appearance: ReaderAppearanceController = RecordingAppearance(),
-        navigator: EpubCfiNavigator = UnusedCfiNavigator,
-        status: ReaderSessionStatus = ReaderSessionStatus.ACTIVE
-    ) = ReaderState.Ready(
-        title = BOOK_TITLE,
-        engine = FakeEngine(toc, appearance, navigator),
-        session = ReaderSessionContext("session-1", status, null),
-        restore = ReaderProgressRestore.NOT_NEEDED
-    )
-
-    private class RecordingToc : ReaderTableOfContents {
-        override val entries = listOf(
-            ReaderTocEntry(
-                title = "Part One",
-                target = CHAPTER_ONE,
-                children = listOf(ReaderTocEntry("Chapter Two", CHAPTER_TWO))
-            )
-        )
-        val destinations = mutableListOf<ReaderPublicationTarget>()
-
-        override suspend fun goTo(
-            target: ReaderPublicationTarget
-        ): ReaderPublicationNavigationResult {
-            destinations += target
-            return ReaderPublicationNavigationResult.UNAVAILABLE
-        }
-    }
-
-    private class FakeEngine(
-        override val tableOfContents: ReaderTableOfContents,
-        override val appearance: ReaderAppearanceController,
-        override val cfiNavigator: EpubCfiNavigator
-    ) : ReaderEngine {
-        override val viewport = ReaderViewport { Box {} }
-        override val viewportMovements = ReaderViewportMovements { emptyFlow() }
-        override fun close() = Unit
-    }
-
-    private class RecordingAppearance : ReaderAppearanceController {
-        private val mutableAppearance = MutableStateFlow(ReaderAppearance())
-        override val appearance = mutableAppearance
-
-        override suspend fun update(appearance: ReaderAppearance) {
-            mutableAppearance.value = appearance
-        }
-
-        fun record(appearance: ReaderAppearance) {
-            mutableAppearance.value = appearance
-        }
-    }
-
-    private data object UnusedCfiNavigator : EpubCfiNavigator {
-        override val readiness = MutableStateFlow<EpubCfiReadiness>(EpubCfiReadiness.Available)
-        override suspend fun goTo(cfi: EpubCfi) = unavailable<Unit>()
-        override suspend fun currentPosition() = unavailable<EpubCfi>()
-        override suspend fun currentSelection() = unavailable<EpubCfiSelection?>()
-        override suspend fun resolve(cfi: EpubCfi) = unavailable<EpubCfiResolution>()
-    }
-
-    private class RecordingCfiNavigator : EpubCfiNavigator {
-        override val readiness = MutableStateFlow<EpubCfiReadiness>(EpubCfiReadiness.Available)
-        val destinations = mutableListOf<EpubCfi>()
-
-        override suspend fun goTo(cfi: EpubCfi): EpubCfiOutcome<Unit> {
-            destinations += cfi
-            return EpubCfiOutcome.Success(Unit)
-        }
-
-        override suspend fun currentPosition() = unavailable<EpubCfi>()
-        override suspend fun currentSelection() = unavailable<EpubCfiSelection?>()
-        override suspend fun resolve(cfi: EpubCfi) = unavailable<EpubCfiResolution>()
-    }
-
-    private companion object {
-        const val BOOK_TITLE = "A deliberately long Reader title that remains one line"
-        val CHAPTER_ONE = ReaderPublicationTarget("text/chapter-1.xhtml")
-        val CHAPTER_TWO = ReaderPublicationTarget("text/chapter-2.xhtml#section")
-        const val ANNOTATION_CFI = "epubcfi(/6/2!/4/2:3)"
-    }
 }
-
-private fun <T> unavailable(): EpubCfiOutcome<T> =
-    EpubCfiOutcome.Failure(EpubCfiFailure.NAVIGATOR_UNAVAILABLE)

@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.reader.domain
+package com.secondpasslibrary.reader.reader.appearance
 
 import kotlinx.coroutines.flow.StateFlow
 
