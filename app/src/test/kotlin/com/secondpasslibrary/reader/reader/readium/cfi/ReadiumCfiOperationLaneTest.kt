@@ -73,6 +73,36 @@ class ReadiumCfiOperationLaneTest {
     }
 
     @Test
+    fun `serialized adapter maintenance waits without superseding navigation`() = runTest {
+        val lane = ReadiumCfiOperationLane()
+        val navigationStarted = CompletableDeferred<Unit>()
+        val releaseNavigation = CompletableDeferred<Unit>()
+        val maintenanceStarted = CompletableDeferred<Unit>()
+        val navigation = async {
+            lane.runLatest {
+                navigationStarted.complete(Unit)
+                releaseNavigation.await()
+                "navigated"
+            }
+        }
+        navigationStarted.await()
+
+        val maintenance = async {
+            lane.runSerialized {
+                maintenanceStarted.complete(Unit)
+                "decorated"
+            }
+        }
+        yield()
+
+        assertFalse(maintenanceStarted.isCompleted)
+        releaseNavigation.complete(Unit)
+        assertEquals("navigated", navigation.await())
+        assertEquals("decorated", maintenance.await())
+        lane.close()
+    }
+
+    @Test
     fun `resource identity change rejects captured DOM result`() {
         val before = ReadiumCfiResourceIdentity(
             navigatorGeneration = 1,

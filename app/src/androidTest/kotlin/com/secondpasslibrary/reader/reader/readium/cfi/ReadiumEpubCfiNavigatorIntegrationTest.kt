@@ -5,6 +5,9 @@ import android.content.Intent
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationDecoration
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationKind
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiFailure
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
@@ -14,7 +17,9 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfiTargetKind
 import com.secondpasslibrary.reader.reader.cfi.SyntheticEpubCfiSources
 import com.secondpasslibrary.reader.reader.cfi.SyntheticEpubFixtureBuilder
 import com.secondpasslibrary.reader.reader.cfi.normalizeEpubHref
+import com.secondpasslibrary.reader.reader.domain.ReaderAppearance
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
+import com.secondpasslibrary.reader.reader.domain.ReaderTheme
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +27,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -40,6 +46,13 @@ import org.readium.r2.shared.util.Url
 import org.readium.r2.shared.util.mediatype.MediaType
 
 private const val HOST_TIMEOUT_MILLIS = 30_000L
+
+private fun annotationDecoration(id: String, cfi: EpubCfi) = ReaderAnnotationDecoration(
+    annotationId = id,
+    cfi = cfi,
+    kind = ReaderAnnotationKind.HIGHLIGHT,
+    color = ReaderAnnotationColor.YELLOW
+)
 
 @RunWith(AndroidJUnit4::class)
 class ReadiumEpubCfiNavigatorIntegrationTest {
@@ -201,6 +214,41 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
     }
 
     @Test
+    fun annotationDecorationsIsolateFailuresAndReapplyAfterNavigatorRecreation() = withFixture(
+        "annotation-decorations.epub"
+    ) { fixture ->
+        launchHost(fixture).use { scenario ->
+            val host = scenario.awaitReadyHost()
+            runBlocking {
+                host.engine.annotationDecorations.replace(
+                    listOf(
+                        annotationDecoration("valid", EpubCfi(CROSS_MARKUP_RANGE_CFI)),
+                        annotationDecoration("cross-spine", EpubCfi(CROSS_SPINE_RANGE_CFI)),
+                        annotationDecoration("invalid", EpubCfi("epubcfi(not-valid)"))
+                    )
+                )
+                awaitDecoration(host.navigator)
+                withTimeout(HOST_TIMEOUT_MILLIS) {
+                    host.engine.annotationDecorations.failures.first { "invalid" in it }
+                }
+                host.engine.appearance.update(ReaderAppearance(theme = ReaderTheme.DARK))
+                awaitDecoration(host.navigator)
+                host.engine.appearance.update(ReaderAppearance(theme = ReaderTheme.LIGHT))
+                awaitDecoration(host.navigator)
+                host.engine.appearance.update(ReaderAppearance(theme = ReaderTheme.SEPIA))
+                awaitDecoration(host.navigator)
+                host.engine.cfiNavigator.goTo(EpubCfi(CROSS_SPINE_POINT_CFI)).requireSuccess()
+                awaitDecoration(host.navigator)
+            }
+
+            scenario.recreate()
+            val recreated = scenario.awaitReadyHost()
+            runBlocking { awaitDecoration(recreated.navigator) }
+            assertSame(host.engine, recreated.engine)
+        }
+    }
+
+    @Test
     fun rapidNavigationKeepsNewestCfiAsFinalDestination() = withFixture(
         "latest-navigation.epub"
     ) { fixture ->
@@ -318,6 +366,21 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
         return ActivityScenario.launch(intent)
     }
 
+    private suspend fun awaitDecoration(navigator: EpubNavigatorFragment) {
+        withTimeout(HOST_TIMEOUT_MILLIS) {
+            var installed = false
+            while (!installed) {
+                installed = withContext(Dispatchers.Main) {
+                    navigator.evaluateJavascript(
+                        "Boolean(document.querySelector(" +
+                            "'div[data-group=\\\"second-pass-current-session-annotations\\\"]'))"
+                    ) == "true"
+                }
+                if (!installed) delay(50)
+            }
+        }
+    }
+
     private fun ActivityScenario<ReadiumCfiTestActivity>.awaitOpenedEngine(): ReaderEngine {
         lateinit var state: StateFlow<ReadiumCfiTestHostState>
         onActivity { activity -> state = activity.hostState }
@@ -373,6 +436,9 @@ private fun <T> EpubCfiOutcome<T>.requireSuccess(): T = when (this) {
 
 private const val CROSS_SPINE_POINT_CFI =
     "epubcfi(/6/4[spine-chapter-two]!/4/2[chapter-two-root]/4[cross-spine-target]/1:4)"
+
+private const val CROSS_SPINE_RANGE_CFI =
+    "epubcfi(/6/4[spine-chapter-two]!/4/2[chapter-two-root]/4[cross-spine-target],/1:4,/1:10)"
 
 private const val CROSS_MARKUP_RANGE_CFI =
     "epubcfi(/6/2[spine-chapter-one]!/4/2[chapter-one-root]/6[inline-markup]," +

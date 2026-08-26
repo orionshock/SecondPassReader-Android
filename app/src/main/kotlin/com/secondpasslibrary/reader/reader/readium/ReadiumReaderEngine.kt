@@ -43,6 +43,7 @@ private class ReadiumReaderEngine(
         packageDocument = packageDocument,
         readingOrder = publication.readingOrder
     )
+    private val decorations = ReadiumReaderAnnotationDecorations(readiumCfiNavigator)
 
     override val viewport: ReaderViewport = ReadiumReaderViewport(
         fragmentFactory = {
@@ -54,9 +55,11 @@ private class ReadiumReaderEngine(
         cfiBinding = cfiBinding,
         publicationBinding = publicationBinding,
         appearanceController = appearanceController,
-        movements = movements
+        movements = movements,
+        annotationDecorations = decorations
     )
     override val cfiNavigator = readiumCfiNavigator
+    override val annotationDecorations = decorations
     override val viewportMovements = movements
     override val appearance = appearanceController
     override val tableOfContents = ReadiumReaderTableOfContents(
@@ -67,6 +70,7 @@ private class ReadiumReaderEngine(
 
     override fun close() {
         movements.close()
+        decorations.close()
         readiumCfiNavigator.close()
         publicationBinding.close()
         appearanceController.close()

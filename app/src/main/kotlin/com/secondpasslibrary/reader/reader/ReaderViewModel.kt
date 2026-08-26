@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationDecorationController
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsController
 import com.secondpasslibrary.reader.reader.annotations.SplReaderAnnotationsLoader
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceStore
@@ -19,6 +20,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
@@ -48,6 +51,7 @@ internal class ReaderViewModel @Inject constructor(
         annotationsLoader,
         viewModelScope
     )
+    private val annotationDecorations = ReaderAnnotationDecorationController()
     private var exitJob: Job? = null
     private var activeProfile: ConnectionProfile? = null
     private var entryIdentity: ReaderEntryIdentity? = null
@@ -69,6 +73,22 @@ internal class ReaderViewModel @Inject constructor(
                 val ready = readerState as? ReaderState.Ready ?: return@collect
                 activeProfile?.let { profile ->
                     annotationsController.select(profile, ready.session.sessionId)
+                }
+            }
+        }
+        viewModelScope.launch {
+            combine(controller.state, annotationsController.state) { reader, annotations ->
+                reader to annotations
+            }.collectLatest { (reader, annotations) ->
+                val ready = reader as? ReaderState.Ready
+                if (ready != null && annotations.sessionId == ready.session.sessionId) {
+                    annotationDecorations.replace(
+                        sessionId = ready.session.sessionId,
+                        target = ready.engine.annotationDecorations,
+                        annotations = annotations.annotations
+                    )
+                } else {
+                    annotationDecorations.clear()
                 }
             }
         }

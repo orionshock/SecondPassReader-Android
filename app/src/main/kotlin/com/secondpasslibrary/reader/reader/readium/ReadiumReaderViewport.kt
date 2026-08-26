@@ -35,7 +35,8 @@ internal class ReadiumReaderViewport(
     private val cfiBinding: ReadiumCfiNavigatorBinding,
     private val publicationBinding: ReadiumPublicationNavigatorBinding,
     private val appearanceController: ReadiumReaderAppearanceController,
-    private val movements: ReadiumViewportMovements
+    private val movements: ReadiumViewportMovements,
+    private val annotationDecorations: ReadiumReaderAnnotationDecorations
 ) : ReaderViewport {
     @Composable
     override fun Content(modifier: Modifier) {
@@ -75,7 +76,9 @@ internal class ReadiumReaderViewport(
             publicationBinding.bind(navigator)
             appearanceController.bind(navigator)
             movements.bind(navigator)
+            annotationDecorations.bind(navigator)
             onDispose {
+                annotationDecorations.unbind(navigator)
                 movements.unbind(navigator)
                 publicationBinding.unbind(navigator)
                 appearanceController.unbind(navigator)

@@ -38,6 +38,12 @@ internal class ReadiumCfiOperationLane : AutoCloseable {
         }
     }
 
+    /** Queues adapter maintenance without superseding a user/navigation command. */
+    suspend fun <T> runSerialized(block: suspend () -> T): T {
+        synchronized(lock) { check(!closed) { "The CFI operation lane is closed." } }
+        return mutex.withLock { block() }
+    }
+
     override fun close() {
         val removed = synchronized(lock) {
             if (closed) return

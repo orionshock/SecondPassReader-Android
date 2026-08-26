@@ -145,6 +145,21 @@ internal class ReadiumEpubCfiNavigator(
     internal suspend fun resolvePackage(cfi: EpubCfi): EpubCfiOutcome<ReadiumEpubPackageTarget> =
         packageCfiMapper.resolve(cfi)
 
+    internal suspend fun resolveDecoration(
+        cfi: EpubCfi,
+        activeResourceHref: String
+    ): EpubCfiOutcome<ReadiumDecorationCfiTarget> = operations.runSerialized {
+        when (val target = resolvePackage(cfi)) {
+            is EpubCfiOutcome.Failure -> target
+
+            is EpubCfiOutcome.Success -> resolveDecorationTarget(
+                cfi,
+                activeResourceHref,
+                target.value
+            )
+        }
+    }
+
     internal suspend fun compose(
         resourceHref: String,
         contentCfi: EpubCfi
@@ -302,6 +317,32 @@ private class ReadiumCfiIncomingNavigation(
             } else {
                 TargetVerificationAttempt.Pending
             }
+        }
+    }
+}
+
+internal data class ReadiumDecorationCfiTarget(
+    val packageTarget: ReadiumEpubPackageTarget,
+    val resolution: EpubCfiResolution?
+)
+
+private suspend fun ReadiumEpubCfiNavigator.resolveDecorationTarget(
+    cfi: EpubCfi,
+    activeResourceHref: String,
+    target: ReadiumEpubPackageTarget
+): EpubCfiOutcome<ReadiumDecorationCfiTarget> {
+    if (target.resourceHref != activeResourceHref) {
+        return EpubCfiOutcome.Success(ReadiumDecorationCfiTarget(target, null))
+    }
+    return when (val resolved = resolveForNavigation(cfi)) {
+        is EpubCfiOutcome.Failure -> resolved
+
+        is EpubCfiOutcome.Success -> when (val domain = resolved.value.toDomainResolution(cfi)) {
+            is EpubCfiOutcome.Failure -> domain
+
+            is EpubCfiOutcome.Success -> EpubCfiOutcome.Success(
+                ReadiumDecorationCfiTarget(target, domain.value)
+            )
         }
     }
 }
