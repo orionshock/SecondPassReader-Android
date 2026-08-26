@@ -25,6 +25,7 @@ internal class ReaderOverlayHost internal constructor(
 @Composable
 internal fun ReaderOverlayLayout(
     onExit: () -> Unit,
+    onOverlayOpened: () -> Unit = {},
     tableOfContents: @Composable (dismiss: () -> Unit) -> Unit,
     appearance: @Composable (dismiss: () -> Unit) -> Unit,
     annotations: @Composable (dismiss: () -> Unit) -> Unit,
@@ -40,16 +41,19 @@ internal fun ReaderOverlayLayout(
     }
     val actions = ReaderOverlayHost(
         openTableOfContents = {
+            onOverlayOpened()
             panel = ReaderOverlayPanel.NONE
             scope.launch { drawerState.open() }
         },
         openAppearance = {
+            onOverlayOpened()
             scope.launch {
                 drawerState.close()
                 panel = ReaderOverlayPanel.APPEARANCE
             }
         },
         openAnnotations = {
+            onOverlayOpened()
             scope.launch {
                 drawerState.close()
                 panel = ReaderOverlayPanel.ANNOTATIONS

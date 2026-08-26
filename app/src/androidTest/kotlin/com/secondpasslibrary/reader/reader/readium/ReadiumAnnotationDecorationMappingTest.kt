@@ -42,7 +42,7 @@ class ReadiumAnnotationDecorationMappingTest {
         assertEquals("Before ", decoration.locator.text.before)
         assertEquals(" after", decoration.locator.text.after)
         val style = decoration.style as Decoration.Style.Highlight
-        assertEquals(0xFF6D9EDB.toInt(), style.tint)
+        assertEquals(0xFF3B82F6.toInt(), style.tint)
         assertTrue(!style.isActive)
     }
 

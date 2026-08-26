@@ -56,7 +56,9 @@ internal data class EpubCfiSelection(
     val cfi: EpubCfi,
     val selectedText: String,
     val prefix: String?,
-    val suffix: String?
+    val suffix: String?,
+    val chapterOrdinal: Int,
+    val totalProgression: Double?
 )
 
 /**

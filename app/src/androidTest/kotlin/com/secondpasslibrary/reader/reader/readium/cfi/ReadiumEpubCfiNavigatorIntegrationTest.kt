@@ -178,6 +178,9 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
 
             assertNotNull(selection)
             assertTrue(requireNotNull(selection).selectedText.contains("nested"))
+            assertEquals(1, selection.chapterOrdinal)
+            assertNotNull(selection.totalProgression)
+            assertTrue(requireNotNull(selection.totalProgression) in 0.0..1.0)
             assertRangeRoundTrip(host.engine, requireNotNull(selection))
         }
     }

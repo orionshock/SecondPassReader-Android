@@ -22,6 +22,8 @@ internal fun ReaderStateHost(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val annotations by viewModel.annotations.collectAsStateWithLifecycle()
+    val selection by viewModel.selection.collectAsStateWithLifecycle()
+    val annotationCreate by viewModel.annotationCreateState.collectAsStateWithLifecycle()
     DisposableEffect(viewModel) {
         viewModel.setAuthorityAvailable(true)
         onDispose { viewModel.setAuthorityAvailable(false) }
@@ -45,6 +47,11 @@ internal fun ReaderStateHost(
         onRetry = viewModel::retry,
         onAppearanceChanged = viewModel::updateAppearance,
         annotations = annotations,
-        onRetryAnnotations = viewModel::retryAnnotations
+        onRetryAnnotations = viewModel::retryAnnotations,
+        selection = selection,
+        annotationCreate = annotationCreate,
+        onCreateHighlight = viewModel::createHighlight,
+        onRetryHighlight = viewModel::retryHighlight,
+        onDismissSelection = viewModel::dismissSelection
     )
 }

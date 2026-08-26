@@ -75,8 +75,13 @@ internal class ReadiumEpubCfiNavigator(
         operations.runLatest {
             val captured = binding.withNavigator { navigator, runtime ->
                 val before = binding.resourceIdentity(navigator)
+                val locator = navigator.currentLocator.value
                 val value = runtime.generateSelection(navigator)
-                coherentResourceCapture(before, binding.resourceIdentity(navigator), value)
+                coherentResourceCapture(
+                    before,
+                    binding.resourceIdentity(navigator),
+                    SelectionCapture(value, locator.locations.totalProgression)
+                )
             }
             when (captured) {
                 null -> binding.unavailableOutcome()
@@ -90,8 +95,8 @@ internal class ReadiumEpubCfiNavigator(
 
     private suspend fun selectionOutcome(
         resourceHref: String,
-        result: ReadiumCfiJavascriptResult<ReadiumContentSelection?>
-    ): EpubCfiOutcome<EpubCfiSelection?> = when (result) {
+        capture: SelectionCapture
+    ): EpubCfiOutcome<EpubCfiSelection?> = when (val result = capture.result) {
         is ReadiumCfiJavascriptResult.Failure ->
             EpubCfiOutcome.Failure(result.reason)
 
@@ -100,16 +105,19 @@ internal class ReadiumEpubCfiNavigator(
             if (selection == null) {
                 EpubCfiOutcome.Success(null)
             } else {
-                composeSelection(resourceHref, selection)
+                composeSelection(resourceHref, selection, capture.totalProgression)
             }
         }
     }
 
     private suspend fun composeSelection(
         resourceHref: String,
-        selection: ReadiumContentSelection
-    ): EpubCfiOutcome<EpubCfiSelection> =
-        when (val fullCfi = packageCfiMapper.compose(resourceHref, selection.contentCfi)) {
+        selection: ReadiumContentSelection,
+        totalProgression: Double?
+    ): EpubCfiOutcome<EpubCfiSelection> {
+        val chapterOrdinal = packageDocument.spineItemForHref(resourceHref)?.index?.plus(1)
+            ?: return EpubCfiOutcome.Failure(EpubCfiFailure.RESOURCE_NOT_IN_READING_ORDER)
+        return when (val fullCfi = packageCfiMapper.compose(resourceHref, selection.contentCfi)) {
             is EpubCfiOutcome.Failure -> fullCfi
 
             is EpubCfiOutcome.Success -> EpubCfiOutcome.Success(
@@ -117,10 +125,18 @@ internal class ReadiumEpubCfiNavigator(
                     cfi = fullCfi.value,
                     selectedText = selection.selectedText,
                     prefix = selection.prefix,
-                    suffix = selection.suffix
+                    suffix = selection.suffix,
+                    chapterOrdinal = chapterOrdinal,
+                    totalProgression = totalProgression
                 )
             )
         }
+    }
+
+    private data class SelectionCapture(
+        val result: ReadiumCfiJavascriptResult<ReadiumContentSelection?>,
+        val totalProgression: Double?
+    )
 
     override suspend fun resolve(cfi: EpubCfi): EpubCfiOutcome<EpubCfiResolution> =
         operations.runLatest {

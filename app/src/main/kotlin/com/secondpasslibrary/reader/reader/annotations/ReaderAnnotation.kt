@@ -33,7 +33,18 @@ internal enum class ReaderAnnotationColor {
     BLUE,
     PINK,
     PURPLE,
-    ORANGE
+    ORANGE;
+
+    /** Exact Second Pass web Reader palette, kept separate from the server token. */
+    val displayArgb: Long
+        get() = when (this) {
+            YELLOW -> 0xFFFACC15
+            GREEN -> 0xFF22C55E
+            BLUE -> 0xFF3B82F6
+            PINK -> 0xFFEC4899
+            PURPLE -> 0xFFA855F7
+            ORANGE -> 0xFFF97316
+        }
 }
 
 internal fun MarginaliaAnnotation.toReaderAnnotation(): ReaderAnnotation = when (this) {

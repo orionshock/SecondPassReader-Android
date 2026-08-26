@@ -76,6 +76,18 @@ internal class ReaderAnnotationsController(
         load(sessionId, generation)
     }
 
+    /** Reconciles a successful batch response without issuing a redundant collection GET. */
+    fun replaceAuthoritative(sessionId: String, annotations: List<ReaderAnnotation>) {
+        if (state.value.sessionId != sessionId) return
+        loadJob?.cancel()
+        generation += 1
+        mutableState.value = ReaderAnnotationsState(
+            sessionId = sessionId,
+            annotations = annotations,
+            loaded = true
+        )
+    }
+
     fun clear() {
         loadJob?.cancel()
         generation += 1

@@ -235,11 +235,4 @@ private fun EpubCfiFailure.toDecorationFailure(): ReaderAnnotationDecorationFail
 }
 
 private val ReaderAnnotationColor.readiumTint: Int
-    get() = when (this) {
-        ReaderAnnotationColor.YELLOW -> 0xFFE0B94B.toInt()
-        ReaderAnnotationColor.GREEN -> 0xFF62B879.toInt()
-        ReaderAnnotationColor.BLUE -> 0xFF6D9EDB.toInt()
-        ReaderAnnotationColor.PINK -> 0xFFD77CA3.toInt()
-        ReaderAnnotationColor.PURPLE -> 0xFFA886D7.toInt()
-        ReaderAnnotationColor.ORANGE -> 0xFFD98A52.toInt()
-    }
+    get() = displayArgb.toInt()

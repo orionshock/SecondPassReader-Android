@@ -35,8 +35,11 @@ val hygieneFiles =
             ".gradle/**",
             ".idea/**",
             ".kotlin/**",
+            ".linecount/**",
+            ".vscode/**",
             "**/build/**",
-            "gitlog.txt"
+            "gitlog.txt",
+            "local.properties"
         )
     }
 

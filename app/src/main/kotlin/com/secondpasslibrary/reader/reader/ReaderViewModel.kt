@@ -5,9 +5,13 @@ import androidx.lifecycle.viewModelScope
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationCreateController
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationDecorationController
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsController
+import com.secondpasslibrary.reader.reader.annotations.ReaderSelectionController
 import com.secondpasslibrary.reader.reader.annotations.SplReaderAnnotationsLoader
+import com.secondpasslibrary.reader.reader.annotations.SplReaderHighlightWriter
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceStore
 import com.secondpasslibrary.reader.reader.asset.SplReaderBookAssetResolver
 import com.secondpasslibrary.reader.reader.domain.ReaderAppearance
@@ -33,7 +37,8 @@ internal class ReaderViewModel @Inject constructor(
     sessionCoordinator: SplReaderSessionCoordinator,
     progressWriter: SplReaderProgressWriter,
     appearanceStore: ReaderAppearanceStore,
-    annotationsLoader: SplReaderAnnotationsLoader
+    annotationsLoader: SplReaderAnnotationsLoader,
+    highlightWriter: SplReaderHighlightWriter
 ) : ViewModel() {
     private val progressSyncJob = SupervisorJob()
     private val progressSyncScope = CoroutineScope(progressSyncJob + Dispatchers.IO)
@@ -52,6 +57,15 @@ internal class ReaderViewModel @Inject constructor(
         viewModelScope
     )
     private val annotationDecorations = ReaderAnnotationDecorationController()
+    private val selections = ReaderSelectionController(viewModelScope)
+    private val annotationCreate = ReaderAnnotationCreateController(
+        writer = highlightWriter,
+        scope = viewModelScope,
+        onAuthoritativeAnnotations = { sessionId, annotations ->
+            annotationsController.replaceAuthoritative(sessionId, annotations)
+            selections.dismiss()
+        }
+    )
     private var exitJob: Job? = null
     private var activeProfile: ConnectionProfile? = null
     private var entryIdentity: ReaderEntryIdentity? = null
@@ -60,9 +74,14 @@ internal class ReaderViewModel @Inject constructor(
     val progress = controller.progress
     val progressSync = controller.progressSync
     val annotations = annotationsController.state
+    val selection = selections.selection
+    val annotationCreateState = annotationCreate.state
     val connectionEvents = merge(
         controller.connectionEvents,
         annotationsController.authenticationRequiredEvents.map {
+            ReaderConnectionEvent.AuthenticationRejected
+        },
+        annotationCreate.authenticationRequiredEvents.map {
             ReaderConnectionEvent.AuthenticationRejected
         }
     )
@@ -70,9 +89,20 @@ internal class ReaderViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             controller.state.collect { readerState ->
-                val ready = readerState as? ReaderState.Ready ?: return@collect
-                activeProfile?.let { profile ->
-                    annotationsController.select(profile, ready.session.sessionId)
+                val ready = readerState as? ReaderState.Ready
+                if (ready == null) {
+                    selections.detach()
+                    annotationCreate.clear()
+                } else {
+                    selections.attach(ready.engine.selectionEvents, ready.engine.cfiNavigator)
+                    activeProfile?.let { profile ->
+                        annotationsController.select(profile, ready.session.sessionId)
+                        annotationCreate.select(
+                            profile,
+                            ready.session.sessionId,
+                            ready.session.status
+                        )
+                    }
                 }
             }
         }
@@ -118,6 +148,14 @@ internal class ReaderViewModel @Inject constructor(
 
     fun retryAnnotations() = annotationsController.retry()
 
+    fun createHighlight(color: ReaderAnnotationColor) {
+        selection.value?.let { annotationCreate.create(it, color) }
+    }
+
+    fun retryHighlight() = annotationCreate.retry()
+
+    fun dismissSelection() = selections.dismiss()
+
     fun setAuthorityAvailable(available: Boolean) = controller.setAuthorityAvailable(available)
 
     fun flushForBackground() {
@@ -134,6 +172,8 @@ internal class ReaderViewModel @Inject constructor(
 
     override fun onCleared() {
         annotationsController.close()
+        selections.detach()
+        annotationCreate.clear()
         controller.close { progressSyncJob.cancel() }
     }
 }

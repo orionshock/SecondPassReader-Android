@@ -38,6 +38,7 @@ private class ReadiumReaderEngine(
     private val publicationBinding = ReadiumPublicationNavigatorBinding()
     private val appearanceController = ReadiumReaderAppearanceController(initialAppearance)
     private val movements = ReadiumViewportMovements()
+    private val selections = ReadiumSelectionEvents()
     private val readiumCfiNavigator = ReadiumEpubCfiNavigator(
         binding = cfiBinding,
         packageDocument = packageDocument,
@@ -56,11 +57,13 @@ private class ReadiumReaderEngine(
         publicationBinding = publicationBinding,
         appearanceController = appearanceController,
         movements = movements,
+        selectionEvents = selections,
         annotationDecorations = decorations
     )
     override val cfiNavigator = readiumCfiNavigator
     override val annotationDecorations = decorations
     override val viewportMovements = movements
+    override val selectionEvents = selections
     override val appearance = appearanceController
     override val tableOfContents = ReadiumReaderTableOfContents(
         links = publication.tableOfContents,
@@ -70,6 +73,7 @@ private class ReadiumReaderEngine(
 
     override fun close() {
         movements.close()
+        selections.close()
         decorations.close()
         readiumCfiNavigator.close()
         publicationBinding.close()

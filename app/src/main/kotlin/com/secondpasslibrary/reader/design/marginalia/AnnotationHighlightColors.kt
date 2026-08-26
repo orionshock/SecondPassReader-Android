@@ -29,12 +29,12 @@ internal data class AnnotationHighlightPalette(val accent: Color, val background
 @Composable
 internal fun annotationHighlightPalette(tone: AnnotationHighlightTone): AnnotationHighlightPalette {
     val accent = when (tone) {
-        AnnotationHighlightTone.YELLOW -> Color(0xFFE0B94B)
-        AnnotationHighlightTone.GREEN -> Color(0xFF62B879)
-        AnnotationHighlightTone.BLUE -> Color(0xFF6D9EDB)
-        AnnotationHighlightTone.PINK -> Color(0xFFD77CA3)
-        AnnotationHighlightTone.PURPLE -> Color(0xFFA886D7)
-        AnnotationHighlightTone.ORANGE -> Color(0xFFD98A52)
+        AnnotationHighlightTone.YELLOW -> Color(0xFFFACC15)
+        AnnotationHighlightTone.GREEN -> Color(0xFF22C55E)
+        AnnotationHighlightTone.BLUE -> Color(0xFF3B82F6)
+        AnnotationHighlightTone.PINK -> Color(0xFFEC4899)
+        AnnotationHighlightTone.PURPLE -> Color(0xFFA855F7)
+        AnnotationHighlightTone.ORANGE -> Color(0xFFF97316)
     }
     return AnnotationHighlightPalette(accent = accent, background = accent.copy(alpha = 0.10f))
 }

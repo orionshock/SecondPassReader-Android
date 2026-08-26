@@ -18,9 +18,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationCreateState
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsState
+import com.secondpasslibrary.reader.reader.annotations.ReaderSelection
+import com.secondpasslibrary.reader.reader.annotations.ReaderSelectionToolbar
 import com.secondpasslibrary.reader.reader.annotations.navigateToReaderAnnotation
 import com.secondpasslibrary.reader.reader.domain.ReaderAppearance
+import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import com.secondpasslibrary.reader.reader.ui.ReaderOverlayLayout
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,7 +38,12 @@ internal fun ReaderScreen(
     onRetry: () -> Unit,
     onAppearanceChanged: (ReaderAppearance) -> Unit = {},
     annotations: ReaderAnnotationsState = ReaderAnnotationsState(),
-    onRetryAnnotations: () -> Unit = {}
+    onRetryAnnotations: () -> Unit = {},
+    selection: ReaderSelection? = null,
+    annotationCreate: ReaderAnnotationCreateState = ReaderAnnotationCreateState(),
+    onCreateHighlight: (ReaderAnnotationColor) -> Unit = {},
+    onRetryHighlight: () -> Unit = {},
+    onDismissSelection: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     val ready = state as? ReaderState.Ready
@@ -42,6 +52,7 @@ internal fun ReaderScreen(
     val chromeColors = appearance.theme.chromeColors()
     ReaderOverlayLayout(
         onExit = onBack,
+        onOverlayOpened = onDismissSelection,
         tableOfContents = { dismiss ->
             ReaderTocDrawerContent(ready, dismiss, scope, onBack)
         },
@@ -83,6 +94,17 @@ internal fun ReaderScreen(
                 onAppearanceRequested = it.openAppearance,
                 onAnnotationsRequested = it.openAnnotations
             )
+            if (ready?.session?.status == ReaderSessionStatus.ACTIVE && selection != null) {
+                ReaderSelectionToolbar(
+                    selection = selection,
+                    state = annotationCreate,
+                    colors = chromeColors,
+                    onCreate = onCreateHighlight,
+                    onRetry = onRetryHighlight,
+                    onDismiss = onDismissSelection,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp)
+                )
+            }
         }
     }
 }

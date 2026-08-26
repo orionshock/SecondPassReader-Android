@@ -3,6 +3,7 @@ package com.secondpasslibrary.reader.reader
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
@@ -15,6 +16,7 @@ import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsFailure
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsState
+import com.secondpasslibrary.reader.reader.annotations.ReaderSelection
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiFailure
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiNavigator
@@ -182,14 +184,52 @@ class ReaderChromeTest {
         compose.onNodeWithText("No annotations in this reading session.").assertIsDisplayed()
     }
 
+    @Test
+    fun activeSelectionOffersExactColorsWhileClosedSessionRemainsReadOnly() {
+        var createdColor: ReaderAnnotationColor? = null
+        var dismissals = 0
+        val selection = ReaderSelection(
+            EpubCfi(ANNOTATION_CFI),
+            "Selected passage",
+            "Before",
+            "After",
+            "Chapter 03 · 42%"
+        )
+        val status = androidx.compose.runtime.mutableStateOf(ReaderSessionStatus.ACTIVE)
+        compose.setContent {
+            SecondPassTheme {
+                ReaderScreen(
+                    state = readyState(RecordingToc(), status = status.value),
+                    onBack = {},
+                    onRetry = {},
+                    selection = selection,
+                    onCreateHighlight = { createdColor = it },
+                    onDismissSelection = { dismissals += 1 }
+                )
+            }
+        }
+
+        compose.onNodeWithContentDescription("Yellow highlight").assertIsSelected()
+        compose.onNodeWithContentDescription("Blue highlight").performClick()
+        compose.onNodeWithText("Highlight").performClick()
+        compose.runOnIdle { assertEquals(ReaderAnnotationColor.BLUE, createdColor) }
+        compose.onNodeWithContentDescription("Reading annotations").performClick()
+        compose.runOnIdle { assertEquals(1, dismissals) }
+
+        compose.runOnUiThread { status.value = ReaderSessionStatus.CLOSED }
+        compose.waitForIdle()
+        assertEquals(0, compose.onAllNodesWithText("Highlight").fetchSemanticsNodes().size)
+    }
+
     private fun readyState(
         toc: ReaderTableOfContents,
         appearance: ReaderAppearanceController = RecordingAppearance(),
-        navigator: EpubCfiNavigator = UnusedCfiNavigator
+        navigator: EpubCfiNavigator = UnusedCfiNavigator,
+        status: ReaderSessionStatus = ReaderSessionStatus.ACTIVE
     ) = ReaderState.Ready(
         title = BOOK_TITLE,
         engine = FakeEngine(toc, appearance, navigator),
-        session = ReaderSessionContext("session-1", ReaderSessionStatus.ACTIVE, null),
+        session = ReaderSessionContext("session-1", status, null),
         restore = ReaderProgressRestore.NOT_NEEDED
     )
 
