@@ -26,6 +26,7 @@ import com.secondpasslibrary.reader.reader.annotations.ReaderSelectionToolbar
 import com.secondpasslibrary.reader.reader.annotations.navigateToReaderAnnotation
 import com.secondpasslibrary.reader.reader.domain.ReaderAppearance
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
+import com.secondpasslibrary.reader.reader.ui.ReaderOverlayHost
 import com.secondpasslibrary.reader.reader.ui.ReaderOverlayLayout
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,8 +42,9 @@ internal fun ReaderScreen(
     onRetryAnnotations: () -> Unit = {},
     selection: ReaderSelection? = null,
     annotationCreate: ReaderAnnotationCreateState = ReaderAnnotationCreateState(),
-    onCreateHighlight: (ReaderAnnotationColor) -> Unit = {},
-    onRetryHighlight: () -> Unit = {},
+    onHighlightColorChanged: (ReaderAnnotationColor) -> Unit = {},
+    onHighlightNoteChanged: (String) -> Unit = {},
+    onSubmitHighlight: () -> Unit = {},
     onDismissSelection: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
@@ -50,9 +52,14 @@ internal fun ReaderScreen(
     val appearanceFlow = remember(ready?.engine) { readyAppearance(ready) }
     val appearance by appearanceFlow.collectAsState()
     val chromeColors = appearance.theme.chromeColors()
+    val highlightSelection = selection?.takeIf {
+        ready?.session?.status == ReaderSessionStatus.ACTIVE &&
+            annotationCreate.pending?.selection?.cfi == it.cfi
+    }
     ReaderOverlayLayout(
         onExit = onBack,
-        onOverlayOpened = onDismissSelection,
+        transientOverlayVisible = highlightSelection != null,
+        onDismissTransientOverlay = onDismissSelection,
         tableOfContents = { dismiss ->
             ReaderTocDrawerContent(ready, dismiss, scope, onBack)
         },
@@ -72,39 +79,71 @@ internal fun ReaderScreen(
             )
         }
     ) {
-        Box(Modifier.fillMaxSize().background(chromeColors.background)) {
-            when (state) {
-                ReaderState.Resolving -> ReaderLoading("Preparing book…")
+        ReaderReadingSurface(
+            state,
+            ready,
+            it,
+            chromeColors,
+            highlightSelection,
+            annotationCreate,
+            onBack,
+            onRetry,
+            onHighlightColorChanged,
+            onHighlightNoteChanged,
+            onSubmitHighlight,
+            onDismissSelection
+        )
+    }
+}
 
-                ReaderState.Downloading -> ReaderLoading("Downloading book…")
+@Composable
+private fun ReaderReadingSurface(
+    state: ReaderState,
+    ready: ReaderState.Ready?,
+    overlays: ReaderOverlayHost,
+    colors: ReaderChromeColors,
+    selection: ReaderSelection?,
+    createState: ReaderAnnotationCreateState,
+    onBack: () -> Unit,
+    onRetry: () -> Unit,
+    onColorChanged: (ReaderAnnotationColor) -> Unit,
+    onNoteChanged: (String) -> Unit,
+    onSubmit: () -> Unit,
+    onDismissSelection: () -> Unit
+) {
+    Box(Modifier.fillMaxSize().background(colors.background)) {
+        when (state) {
+            ReaderState.Resolving -> ReaderLoading("Preparing book…")
 
-                ReaderState.Opening -> ReaderLoading("Opening EPUB…")
+            ReaderState.Downloading -> ReaderLoading("Downloading book…")
 
-                is ReaderState.Ready -> Box(Modifier.fillMaxSize()) {
-                    state.engine.viewport.Content(Modifier.fillMaxSize())
-                    ReaderCfiProbe(state.engine, Modifier.align(Alignment.TopEnd))
-                }
+            ReaderState.Opening -> ReaderLoading("Opening EPUB…")
 
-                is ReaderState.Failure -> ReaderFailureContent(state.kind, onBack, onRetry)
+            is ReaderState.Ready -> Box(Modifier.fillMaxSize()) {
+                state.engine.viewport.Content(Modifier.fillMaxSize())
+                ReaderCfiProbe(state.engine, Modifier.align(Alignment.TopEnd))
             }
-            ReaderChromeLayer(
-                title = ready?.title ?: "Reader",
-                colors = chromeColors,
-                onNavigationMenuRequested = it.openTableOfContents,
-                onAppearanceRequested = it.openAppearance,
-                onAnnotationsRequested = it.openAnnotations
+
+            is ReaderState.Failure -> ReaderFailureContent(state.kind, onBack, onRetry)
+        }
+        ReaderChromeLayer(
+            title = ready?.title ?: "Reader",
+            colors = colors,
+            onNavigationMenuRequested = overlays.openTableOfContents,
+            onAppearanceRequested = overlays.openAppearance,
+            onAnnotationsRequested = overlays.openAnnotations
+        )
+        selection?.let {
+            ReaderSelectionToolbar(
+                selection = it,
+                state = createState,
+                colors = colors,
+                onColorChanged = onColorChanged,
+                onNoteChanged = onNoteChanged,
+                onSubmit = onSubmit,
+                onDismiss = onDismissSelection,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp)
             )
-            if (ready?.session?.status == ReaderSessionStatus.ACTIVE && selection != null) {
-                ReaderSelectionToolbar(
-                    selection = selection,
-                    state = annotationCreate,
-                    colors = chromeColors,
-                    onCreate = onCreateHighlight,
-                    onRetry = onRetryHighlight,
-                    onDismiss = onDismissSelection,
-                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp)
-                )
-            }
         }
     }
 }

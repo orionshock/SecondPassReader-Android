@@ -3,27 +3,29 @@ package com.secondpasslibrary.reader.reader.annotations
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.secondpasslibrary.client.MAX_HIGHLIGHT_NOTE_LENGTH
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 import com.secondpasslibrary.reader.reader.ReaderChromeColors
@@ -33,16 +35,24 @@ internal fun ReaderSelectionToolbar(
     selection: ReaderSelection,
     state: ReaderAnnotationCreateState,
     colors: ReaderChromeColors,
-    onCreate: (ReaderAnnotationColor) -> Unit,
-    onRetry: () -> Unit,
+    onColorChanged: (ReaderAnnotationColor) -> Unit,
+    onNoteChanged: (String) -> Unit,
+    onSubmit: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var selectedColor by remember(selection.cfi.value) {
-        mutableStateOf(ReaderAnnotationColor.YELLOW)
+    val pending = state.pending?.takeIf { it.selection.cfi == selection.cfi } ?: return
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    val dismiss = {
+        focusManager.clearFocus()
+        keyboard?.hide()
+        onDismiss()
     }
     val submit = {
-        if (state.failure == null) onCreate(selectedColor) else onRetry()
+        focusManager.clearFocus()
+        keyboard?.hide()
+        onSubmit()
     }
     Surface(
         modifier = modifier,
@@ -51,37 +61,58 @@ internal fun ReaderSelectionToolbar(
         contentColor = colors.content,
         tonalElevation = 4.dp
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            ReaderAnnotationColor.entries.forEach { color ->
-                ReaderColorButton(
-                    color = color,
-                    selected = color == selectedColor,
-                    enabled = !state.submitting,
-                    outline = colors.content,
-                    onClick = { selectedColor = color }
-                )
-            }
-            TextButton(
-                enabled = !state.submitting,
-                onClick = submit
+            ReaderHighlightNoteField(pending.note, state.submitting, onNoteChanged)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    when {
-                        state.submitting -> "Saving…"
-                        state.failure != null -> "Retry"
-                        else -> "Highlight"
-                    }
-                )
-            }
-            IconButton(onClick = onDismiss) {
-                AppIconGraphic(AppIcon.Close, "Dismiss highlight toolbar")
+                ReaderAnnotationColor.entries.forEach { color ->
+                    ReaderColorButton(
+                        color = color,
+                        selected = color == pending.color,
+                        enabled = !state.submitting,
+                        outline = colors.content,
+                        onClick = { onColorChanged(color) }
+                    )
+                }
+                TextButton(enabled = !state.submitting, onClick = submit) {
+                    Text(
+                        when {
+                            state.submitting -> "Saving…"
+                            state.failure != null -> "Retry"
+                            else -> "Highlight"
+                        }
+                    )
+                }
+                IconButton(onClick = dismiss) {
+                    AppIconGraphic(AppIcon.Close, "Dismiss highlight toolbar")
+                }
             }
         }
     }
+}
+
+@Composable
+private fun ReaderHighlightNoteField(
+    note: String,
+    submitting: Boolean,
+    onNoteChanged: (String) -> Unit
+) {
+    OutlinedTextField(
+        value = note,
+        onValueChange = { updated ->
+            if (updated.length <= MAX_HIGHLIGHT_NOTE_LENGTH) onNoteChanged(updated)
+        },
+        modifier = Modifier.fillMaxWidth(),
+        enabled = !submitting,
+        label = { Text("Note (optional)") },
+        minLines = 1,
+        maxLines = 3
+    )
 }
 
 @Composable

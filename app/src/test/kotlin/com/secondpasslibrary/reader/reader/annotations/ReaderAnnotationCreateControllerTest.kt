@@ -4,6 +4,7 @@ import com.secondpasslibrary.client.AuthenticatedLibraryClient
 import com.secondpasslibrary.client.AuthenticatedReadingSessionsClient
 import com.secondpasslibrary.client.AuthenticatedSecondPassClient
 import com.secondpasslibrary.client.AuthenticatedShelvesClient
+import com.secondpasslibrary.client.MAX_HIGHLIGHT_NOTE_LENGTH
 import com.secondpasslibrary.client.MarginaliaAnnotationDraft
 import com.secondpasslibrary.client.MarginaliaAnnotationOperation
 import com.secondpasslibrary.client.MarginaliaHighlightColor
@@ -42,7 +43,10 @@ class ReaderAnnotationCreateControllerTest {
         )
         controller.select(profile(), "session", ReaderSessionStatus.ACTIVE)
 
-        controller.create(selection(), ReaderAnnotationColor.PINK)
+        controller.begin(selection())
+        controller.updateColor(ReaderAnnotationColor.PINK)
+        controller.updateNote("Exact note  \n")
+        controller.submit()
         advanceUntilIdle()
 
         val request = requests.single()
@@ -53,6 +57,7 @@ class ReaderAnnotationCreateControllerTest {
         assertEquals("After", request.selection.suffix)
         assertEquals("Chapter 03 · 42%", request.selection.locationLabel)
         assertEquals(ReaderAnnotationColor.PINK, request.color)
+        assertEquals("Exact note  \n", request.note)
         assertTrue(runCatching { UUID.fromString(request.clientId) }.isSuccess)
         assertTrue(request.clientId.length <= 255)
         assertEquals(listOf("server-b", "server-h"), reconciled.map { it.id })
@@ -72,16 +77,26 @@ class ReaderAnnotationCreateControllerTest {
             }
         )
         controller.select(profile(), "session", ReaderSessionStatus.ACTIVE)
-        controller.create(selection(), ReaderAnnotationColor.YELLOW)
+        controller.begin(selection())
+        val originalId = controller.state.value.pending?.clientId
+        controller.updateNote("First draft")
+        controller.submit()
         advanceUntilIdle()
         val pendingId = controller.state.value.pending?.clientId
+        assertEquals("First draft", controller.state.value.pending?.note)
 
         fail = false
-        controller.retry()
+        controller.updateColor(ReaderAnnotationColor.BLUE)
+        controller.updateNote("Latest draft")
+        assertEquals(pendingId, controller.state.value.pending?.clientId)
+        assertEquals(ReaderAnnotationColor.BLUE, controller.state.value.pending?.color)
+        controller.submit()
         advanceUntilIdle()
-        controller.create(selection(), ReaderAnnotationColor.BLUE)
+        controller.begin(selection())
+        controller.submit()
         advanceUntilIdle()
 
+        assertEquals(originalId, pendingId)
         assertEquals(pendingId, ids[0])
         assertEquals(ids[0], ids[1])
         assertNotEquals(ids[1], ids[2])
@@ -98,13 +113,16 @@ class ReaderAnnotationCreateControllerTest {
             }
         )
         controller.select(profile(), "closed", ReaderSessionStatus.CLOSED)
-        controller.create(selection(), ReaderAnnotationColor.YELLOW)
+        controller.begin(selection())
+        controller.submit()
         runCurrent()
         assertEquals(0, calls)
         assertFalse(controller.state.value.submitting)
 
         controller.select(profile(), "active", ReaderSessionStatus.ACTIVE)
-        controller.create(selection(), ReaderAnnotationColor.GREEN)
+        controller.begin(selection())
+        controller.updateColor(ReaderAnnotationColor.GREEN)
+        controller.submit()
         advanceUntilIdle()
         assertEquals(1, calls)
     }
@@ -159,11 +177,22 @@ class ReaderAnnotationCreateControllerTest {
                 "session",
                 "client-create",
                 selection(),
-                ReaderAnnotationColor.PURPLE
+                ReaderAnnotationColor.PURPLE,
+                "  Preserve exactly.\n"
+            )
+        )
+        writer.create(
+            profile(),
+            ReaderHighlightCreateRequest(
+                "session",
+                "client-empty-note",
+                selection(),
+                ReaderAnnotationColor.YELLOW,
+                ""
             )
         )
 
-        val (sessionId, operations) = batches.single()
+        val (sessionId, operations) = batches.first()
         val draft = (operations.single() as MarginaliaAnnotationOperation.Upsert).annotation
             as MarginaliaAnnotationDraft.Highlight
         assertEquals("session", sessionId)
@@ -174,7 +203,35 @@ class ReaderAnnotationCreateControllerTest {
         assertEquals("Before", draft.body.prefix)
         assertEquals("After", draft.body.suffix)
         assertEquals(MarginaliaHighlightColor.PURPLE, draft.body.color)
-        assertEquals("", draft.body.note)
+        assertEquals("  Preserve exactly.\n", draft.body.note)
+        val emptyNoteDraft =
+            (batches.last().second.single() as MarginaliaAnnotationOperation.Upsert)
+                .annotation as MarginaliaAnnotationDraft.Highlight
+        assertEquals("", emptyNoteDraft.body.note)
+    }
+
+    @Test
+    fun `pending draft defaults and edits preserve logical identity`() = runTest {
+        val controller = controller(this, ReaderHighlightWriter { _, _ -> emptyList() })
+        controller.select(profile(), "session", ReaderSessionStatus.ACTIVE)
+        controller.begin(selection())
+        val clientId = controller.state.value.pending?.clientId
+
+        assertEquals(ReaderAnnotationColor.YELLOW, controller.state.value.pending?.color)
+        assertEquals("", controller.state.value.pending?.note)
+
+        controller.updateNote("Reader note")
+        controller.updateColor(ReaderAnnotationColor.ORANGE)
+
+        assertEquals(clientId, controller.state.value.pending?.clientId)
+        assertEquals("Reader note", controller.state.value.pending?.note)
+        assertEquals(ReaderAnnotationColor.ORANGE, controller.state.value.pending?.color)
+
+        controller.updateNote("x".repeat(MAX_HIGHLIGHT_NOTE_LENGTH + 1))
+        assertEquals("Reader note", controller.state.value.pending?.note)
+
+        controller.dismiss()
+        assertNull(controller.state.value.pending)
     }
 
     private fun controller(

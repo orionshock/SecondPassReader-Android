@@ -13,6 +13,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import kotlinx.coroutines.launch
 
 internal class ReaderOverlayHost internal constructor(
@@ -25,7 +27,8 @@ internal class ReaderOverlayHost internal constructor(
 @Composable
 internal fun ReaderOverlayLayout(
     onExit: () -> Unit,
-    onOverlayOpened: () -> Unit = {},
+    transientOverlayVisible: Boolean = false,
+    onDismissTransientOverlay: () -> Unit = {},
     tableOfContents: @Composable (dismiss: () -> Unit) -> Unit,
     appearance: @Composable (dismiss: () -> Unit) -> Unit,
     annotations: @Composable (dismiss: () -> Unit) -> Unit,
@@ -33,27 +36,36 @@ internal fun ReaderOverlayLayout(
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
     var panel by remember { mutableStateOf(ReaderOverlayPanel.NONE) }
     val dismissPanel = { panel = ReaderOverlayPanel.NONE }
     val dismissDrawer = {
         scope.launch { drawerState.close() }
         Unit
     }
+    val dismissTransientOverlay = {
+        if (transientOverlayVisible) {
+            focusManager.clearFocus()
+            keyboard?.hide()
+            onDismissTransientOverlay()
+        }
+    }
     val actions = ReaderOverlayHost(
         openTableOfContents = {
-            onOverlayOpened()
+            dismissTransientOverlay()
             panel = ReaderOverlayPanel.NONE
             scope.launch { drawerState.open() }
         },
         openAppearance = {
-            onOverlayOpened()
+            dismissTransientOverlay()
             scope.launch {
                 drawerState.close()
                 panel = ReaderOverlayPanel.APPEARANCE
             }
         },
         openAnnotations = {
-            onOverlayOpened()
+            dismissTransientOverlay()
             scope.launch {
                 drawerState.close()
                 panel = ReaderOverlayPanel.ANNOTATIONS
@@ -63,6 +75,8 @@ internal fun ReaderOverlayLayout(
 
     BackHandler {
         when {
+            transientOverlayVisible -> dismissTransientOverlay()
+
             panel != ReaderOverlayPanel.NONE -> dismissPanel()
 
             drawerState.currentValue == DrawerValue.Open ||

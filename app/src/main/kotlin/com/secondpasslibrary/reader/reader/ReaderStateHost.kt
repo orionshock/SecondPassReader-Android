@@ -50,8 +50,9 @@ internal fun ReaderStateHost(
         onRetryAnnotations = viewModel::retryAnnotations,
         selection = selection,
         annotationCreate = annotationCreate,
-        onCreateHighlight = viewModel::createHighlight,
-        onRetryHighlight = viewModel::retryHighlight,
+        onHighlightColorChanged = { viewModel.updateHighlightDraft(color = it) },
+        onHighlightNoteChanged = { viewModel.updateHighlightDraft(note = it) },
+        onSubmitHighlight = viewModel::submitHighlight,
         onDismissSelection = viewModel::dismissSelection
     )
 }

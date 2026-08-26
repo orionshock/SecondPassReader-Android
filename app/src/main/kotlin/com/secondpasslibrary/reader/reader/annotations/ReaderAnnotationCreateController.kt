@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.reader.annotations
 
+import com.secondpasslibrary.client.MAX_HIGHLIGHT_NOTE_LENGTH
 import com.secondpasslibrary.client.MarginaliaAnnotationDraft
 import com.secondpasslibrary.client.MarginaliaAnnotationLocationInput
 import com.secondpasslibrary.client.MarginaliaAnnotationOperation
@@ -30,7 +31,8 @@ internal data class ReaderAnnotationCreateState(
 internal data class ReaderPendingHighlight(
     val clientId: String,
     val selection: ReaderSelection,
-    val color: ReaderAnnotationColor
+    val color: ReaderAnnotationColor = ReaderAnnotationColor.YELLOW,
+    val note: String = ""
 )
 
 internal enum class ReaderAnnotationCreateFailure {
@@ -44,7 +46,8 @@ internal data class ReaderHighlightCreateRequest(
     val sessionId: String,
     val clientId: String,
     val selection: ReaderSelection,
-    val color: ReaderAnnotationColor
+    val color: ReaderAnnotationColor,
+    val note: String
 )
 
 internal fun interface ReaderHighlightWriter {
@@ -74,7 +77,7 @@ internal class SplReaderHighlightWriter @Inject constructor(
                     prefix = selection.prefix,
                     suffix = selection.suffix,
                     color = request.color.toSdkColor(),
-                    note = ""
+                    note = request.note
                 )
             )
         )
@@ -108,24 +111,35 @@ internal class ReaderAnnotationCreateController(
         mutableState.value = ReaderAnnotationCreateState()
     }
 
-    fun create(selection: ReaderSelection, color: ReaderAnnotationColor) {
-        val current = owner?.takeIf { it.status == ReaderSessionStatus.ACTIVE } ?: return
-        if (mutableState.value.submitting) return
-        val pending = ReaderPendingHighlight(
-            clientId = clientIdFactory().also(::validateClientId),
-            selection = selection,
-            color = color
+    fun begin(selection: ReaderSelection) {
+        if (owner?.status != ReaderSessionStatus.ACTIVE || state.value.submitting) return
+        if (state.value.pending?.selection?.cfi == selection.cfi) return
+        mutableState.value = ReaderAnnotationCreateState(
+            pending = ReaderPendingHighlight(
+                clientId = clientIdFactory().also(::validateClientId),
+                selection = selection
+            )
         )
-        mutableState.value = ReaderAnnotationCreateState(pending = pending)
-        submit(current, pending, generation)
     }
 
-    fun retry() {
+    fun updateColor(color: ReaderAnnotationColor) = updatePending { copy(color = color) }
+
+    fun updateNote(note: String) {
+        if (note.length <= MAX_HIGHLIGHT_NOTE_LENGTH) updatePending { copy(note = note) }
+    }
+
+    fun submit() {
         val current = owner?.takeIf { it.status == ReaderSessionStatus.ACTIVE }
         val pending = state.value.pending
         if (!state.value.submitting && current != null && pending != null) {
             submit(current, pending, generation)
         }
+    }
+
+    fun dismiss() {
+        submitJob?.cancel()
+        generation += 1
+        mutableState.value = ReaderAnnotationCreateState()
     }
 
     fun clear() {
@@ -145,7 +159,8 @@ internal class ReaderAnnotationCreateController(
                         sessionId = owner.sessionId,
                         clientId = pending.clientId,
                         selection = pending.selection,
-                        color = pending.color
+                        color = pending.color,
+                        note = pending.note
                     )
                 )
             }
@@ -173,6 +188,15 @@ internal class ReaderAnnotationCreateController(
                 }
             )
         }
+    }
+
+    private inline fun updatePending(
+        transform: ReaderPendingHighlight.() -> ReaderPendingHighlight
+    ) {
+        val current = state.value
+        if (current.submitting) return
+        val pending = current.pending ?: return
+        mutableState.value = ReaderAnnotationCreateState(pending = pending.transform())
     }
 
     private data class Owner(

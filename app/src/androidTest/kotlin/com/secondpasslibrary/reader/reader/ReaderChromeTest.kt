@@ -10,12 +10,15 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondpasslibrary.reader.design.SecondPassTheme
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationCreateState
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsFailure
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsState
+import com.secondpasslibrary.reader.reader.annotations.ReaderPendingHighlight
 import com.secondpasslibrary.reader.reader.annotations.ReaderSelection
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiFailure
@@ -187,6 +190,7 @@ class ReaderChromeTest {
     @Test
     fun activeSelectionOffersExactColorsWhileClosedSessionRemainsReadOnly() {
         var createdColor: ReaderAnnotationColor? = null
+        var createdNote: String? = null
         var dismissals = 0
         val selection = ReaderSelection(
             EpubCfi(ANNOTATION_CFI),
@@ -196,6 +200,11 @@ class ReaderChromeTest {
             "Chapter 03 · 42%"
         )
         val status = androidx.compose.runtime.mutableStateOf(ReaderSessionStatus.ACTIVE)
+        val createState = androidx.compose.runtime.mutableStateOf(
+            ReaderAnnotationCreateState(
+                pending = ReaderPendingHighlight("client-id", selection)
+            )
+        )
         compose.setContent {
             SecondPassTheme {
                 ReaderScreen(
@@ -203,22 +212,73 @@ class ReaderChromeTest {
                     onBack = {},
                     onRetry = {},
                     selection = selection,
-                    onCreateHighlight = { createdColor = it },
+                    annotationCreate = createState.value,
+                    onHighlightColorChanged = { color ->
+                        createState.value = createState.value.copy(
+                            pending = createState.value.pending?.copy(color = color)
+                        )
+                    },
+                    onHighlightNoteChanged = { note ->
+                        createState.value = createState.value.copy(
+                            pending = createState.value.pending?.copy(note = note)
+                        )
+                    },
+                    onSubmitHighlight = {
+                        createdColor = createState.value.pending?.color
+                        createdNote = createState.value.pending?.note
+                    },
                     onDismissSelection = { dismissals += 1 }
                 )
             }
         }
 
         compose.onNodeWithContentDescription("Yellow highlight").assertIsSelected()
+        compose.onNodeWithText("Note (optional)").performTextInput("Keep this thought")
         compose.onNodeWithContentDescription("Blue highlight").performClick()
         compose.onNodeWithText("Highlight").performClick()
-        compose.runOnIdle { assertEquals(ReaderAnnotationColor.BLUE, createdColor) }
+        compose.runOnIdle {
+            assertEquals(ReaderAnnotationColor.BLUE, createdColor)
+            assertEquals("Keep this thought", createdNote)
+        }
         compose.onNodeWithContentDescription("Reading annotations").performClick()
         compose.runOnIdle { assertEquals(1, dismissals) }
 
         compose.runOnUiThread { status.value = ReaderSessionStatus.CLOSED }
         compose.waitForIdle()
         assertEquals(0, compose.onAllNodesWithText("Highlight").fetchSemanticsNodes().size)
+    }
+
+    @Test
+    fun `Back dismisses highlight create before Reader exit`() {
+        var dismissals = 0
+        var exits = 0
+        val selection = ReaderSelection(
+            EpubCfi(ANNOTATION_CFI),
+            "Selected passage",
+            null,
+            null,
+            "Chapter 03 · 42%"
+        )
+        compose.setContent {
+            SecondPassTheme {
+                ReaderScreen(
+                    state = readyState(RecordingToc()),
+                    onBack = { exits += 1 },
+                    onRetry = {},
+                    selection = selection,
+                    annotationCreate = ReaderAnnotationCreateState(
+                        pending = ReaderPendingHighlight("client-id", selection)
+                    ),
+                    onDismissSelection = { dismissals += 1 }
+                )
+            }
+        }
+
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.runOnIdle {
+            assertEquals(1, dismissals)
+            assertEquals(0, exits)
+        }
     }
 
     private fun readyState(

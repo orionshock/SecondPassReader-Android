@@ -122,6 +122,15 @@ internal class ReaderViewModel @Inject constructor(
                 }
             }
         }
+        viewModelScope.launch {
+            selections.selection.collect { selection ->
+                if (selection == null) {
+                    annotationCreate.dismiss()
+                } else {
+                    annotationCreate.begin(selection)
+                }
+            }
+        }
     }
 
     fun initialize(
@@ -148,13 +157,17 @@ internal class ReaderViewModel @Inject constructor(
 
     fun retryAnnotations() = annotationsController.retry()
 
-    fun createHighlight(color: ReaderAnnotationColor) {
-        selection.value?.let { annotationCreate.create(it, color) }
+    fun updateHighlightDraft(color: ReaderAnnotationColor? = null, note: String? = null) {
+        color?.let(annotationCreate::updateColor)
+        note?.let(annotationCreate::updateNote)
     }
 
-    fun retryHighlight() = annotationCreate.retry()
+    fun submitHighlight() = annotationCreate.submit()
 
-    fun dismissSelection() = selections.dismiss()
+    fun dismissSelection() {
+        annotationCreate.dismiss()
+        selections.dismiss()
+    }
 
     fun setAuthorityAvailable(available: Boolean) = controller.setAuthorityAvailable(available)
 
