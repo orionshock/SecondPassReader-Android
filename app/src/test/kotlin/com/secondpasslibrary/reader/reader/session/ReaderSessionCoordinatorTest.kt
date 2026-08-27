@@ -56,6 +56,10 @@ class ReaderSessionCoordinatorTest {
             assertEquals(0, api.openCalls)
             assertEquals(ReaderSessionStatus.CLOSED, context.status)
             assertEquals(PROGRESS_CFI, context.savedProgressCfi)
+            assertEquals("start", context.startedAt)
+            assertEquals("closed", context.closedAt)
+            assertEquals("activity", context.lastActivityAt)
+            assertEquals(0, context.annotationCount)
         }
 
     @Test

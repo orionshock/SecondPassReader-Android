@@ -19,6 +19,8 @@ import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceStore
 import com.secondpasslibrary.reader.reader.asset.SplReaderBookAssetResolver
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
+import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayersController
+import com.secondpasslibrary.reader.reader.marginalia.SplReaderMarginaliaLayerHistoryLoader
 import com.secondpasslibrary.reader.reader.progress.SplReaderProgressWriter
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import com.secondpasslibrary.reader.reader.session.SplReaderSessionCoordinator
@@ -42,7 +44,8 @@ internal class ReaderViewModel @Inject constructor(
     progressWriter: SplReaderProgressWriter,
     appearanceStore: ReaderAppearanceStore,
     annotationsLoader: SplReaderAnnotationsLoader,
-    annotationWriter: SplReaderAnnotationWriter
+    annotationWriter: SplReaderAnnotationWriter,
+    marginaliaLayerHistoryLoader: SplReaderMarginaliaLayerHistoryLoader
 ) : ViewModel() {
     private val progressSyncJob = SupervisorJob()
     private val progressSyncScope = CoroutineScope(progressSyncJob + Dispatchers.IO)
@@ -58,6 +61,10 @@ internal class ReaderViewModel @Inject constructor(
         )
     private val annotationsController = ReaderAnnotationsController(
         annotationsLoader,
+        viewModelScope
+    )
+    private val marginaliaLayersController = ReaderMarginaliaLayersController(
+        marginaliaLayerHistoryLoader,
         viewModelScope
     )
     private val annotationDecorations = ReaderAnnotationDecorationController()
@@ -79,6 +86,7 @@ internal class ReaderViewModel @Inject constructor(
     val progress = controller.progress
     val progressSync = controller.progressSync
     val annotations = annotationsController.state
+    val marginaliaLayers = marginaliaLayersController.state
     val selection = selections.selection
     val annotationMutationState = annotationMutations.state
     val connectionEvents = merge(
@@ -87,6 +95,9 @@ internal class ReaderViewModel @Inject constructor(
             ReaderConnectionEvent.AuthenticationRejected
         },
         annotationMutations.authenticationRequiredEvents.map {
+            ReaderConnectionEvent.AuthenticationRejected
+        },
+        marginaliaLayersController.authenticationRequiredEvents.map {
             ReaderConnectionEvent.AuthenticationRejected
         }
     )
@@ -102,6 +113,13 @@ internal class ReaderViewModel @Inject constructor(
                     selections.attach(ready.engine.selectionEvents, ready.engine.cfiNavigator)
                     activeProfile?.let { profile ->
                         annotationsController.select(profile, ready.session.sessionId)
+                        entryIdentity?.let { entry ->
+                            marginaliaLayersController.select(
+                                profile,
+                                entry.bookId,
+                                ready.session
+                            )
+                        }
                         annotationMutations.select(
                             profile,
                             ready.session.sessionId,
@@ -152,7 +170,10 @@ internal class ReaderViewModel @Inject constructor(
             bookId,
             existingSessionId
         )
-        if (entryIdentity != nextIdentity) annotationsController.clear()
+        if (entryIdentity != nextIdentity) {
+            annotationsController.clear()
+            marginaliaLayersController.clear()
+        }
         entryIdentity = nextIdentity
         activeProfile = profile
         controller.initialize(profile, profileId, bookId, existingSessionId)
@@ -211,6 +232,7 @@ internal class ReaderViewModel @Inject constructor(
     override fun onCleared() {
         bookmarkCaptureJob?.cancel()
         annotationsController.close()
+        marginaliaLayersController.close()
         selections.detach()
         annotationMutations.clear()
         controller.close { progressSyncJob.cancel() }
