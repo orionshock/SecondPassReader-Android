@@ -49,6 +49,7 @@ internal fun ReaderScreen(
     onAppearanceChanged: (ReaderAppearance) -> Unit = {},
     annotations: ReaderAnnotationsState = ReaderAnnotationsState(),
     marginaliaLayers: ReaderMarginaliaLayersState = ReaderMarginaliaLayersState(),
+    autoShowPreviousMarginalia: Boolean = true,
     onMarginaliaIntent: (ReaderMarginaliaIntent) -> Unit = {},
     selection: ReaderSelection? = null,
     annotationMutations: ReaderAnnotationMutationState = ReaderAnnotationMutationState(),
@@ -80,6 +81,7 @@ internal fun ReaderScreen(
                 ready = ready,
                 state = annotations,
                 layers = marginaliaLayers,
+                autoShowPrevious = autoShowPreviousMarginalia,
                 drawerState = marginaliaDrawerState,
                 colors = chromeColors,
                 scope = scope,
@@ -197,6 +199,7 @@ private fun ReaderAnnotationsOverlay(
     ready: ReaderState.Ready?,
     state: ReaderAnnotationsState,
     layers: ReaderMarginaliaLayersState,
+    autoShowPrevious: Boolean,
     drawerState: ReaderMarginaliaDrawerState,
     colors: ReaderChromeColors,
     scope: CoroutineScope,
@@ -213,6 +216,7 @@ private fun ReaderAnnotationsOverlay(
         currentSessionId = ready.session.sessionId,
         currentAnnotations = state,
         layers = layers,
+        autoShowPrevious = autoShowPrevious,
         drawerState = drawerState,
         colors = colors,
         onDismiss = onDismiss,
@@ -233,6 +237,9 @@ private fun ReaderAnnotationsOverlay(
         },
         onHideAllPrevious = {
             onMarginaliaIntent(ReaderMarginaliaIntent.HideAllPreviousLayers)
+        },
+        onAutoShowPreviousChanged = {
+            onMarginaliaIntent(ReaderMarginaliaIntent.SetAutoShowPrevious(it))
         },
         onLoadMoreLayers = {
             onMarginaliaIntent(ReaderMarginaliaIntent.LoadMoreLayers)

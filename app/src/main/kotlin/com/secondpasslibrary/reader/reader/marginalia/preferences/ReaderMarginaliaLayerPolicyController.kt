@@ -9,6 +9,8 @@ import com.secondpasslibrary.reader.reader.marginalia.ReaderPreviousMarginaliaLa
 import java.time.Clock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -24,6 +26,9 @@ internal class ReaderMarginaliaLayerPolicyController(
     private val clock: Clock = Clock.systemUTC(),
     concurrency: Int = AUTO_LAYER_LOAD_CONCURRENCY
 ) {
+    private val mutableAutoShowPrevious = MutableStateFlow(DEFAULT_AUTO_SHOW_PREVIOUS)
+    val autoShowPrevious = mutableAutoShowPrevious.asStateFlow()
+
     private val loadPermits = Semaphore(concurrency)
     private val layerJobs = mutableMapOf<String, Job>()
     private val desiredVisibility = mutableMapOf<String, Boolean>()
@@ -46,6 +51,7 @@ internal class ReaderMarginaliaLayerPolicyController(
             val defaultVisible = runCatching { preferenceStore.readAutoShowPrevious() }
                 .getOrDefault(DEFAULT_AUTO_SHOW_PREVIOUS)
             if (activeGeneration != generation) return@launch
+            mutableAutoShowPrevious.value = defaultVisible
             context = next.copy(defaultVisible = defaultVisible, ready = true)
             layersChanged(layers.state.value)
         }
@@ -55,7 +61,11 @@ internal class ReaderMarginaliaLayerPolicyController(
         authorityAvailable = available
     }
 
-    fun loadLayer(sessionId: String) = layers.loadLayer(sessionId)
+    fun setAutoShowPrevious(enabled: Boolean) {
+        mutableAutoShowPrevious.value = enabled
+        context = context?.copy(defaultVisible = enabled)
+        scope.launch { runCatching { preferenceStore.writeAutoShowPrevious(enabled) } }
+    }
 
     fun setVisible(sessionId: String, visible: Boolean) {
         val activeContext = context?.takeIf(PolicyContext::ready) ?: return

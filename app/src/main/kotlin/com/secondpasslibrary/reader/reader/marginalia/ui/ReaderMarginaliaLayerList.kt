@@ -14,6 +14,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -44,16 +45,10 @@ internal fun ReaderMarginaliaLayerList(
         .mapTo(mutableSetOf(), { it.summary.sessionId }) + model.currentSessionId
     LazyColumn(modifier) {
         item(key = model.currentSessionId) {
-            ReaderMarginaliaLayerRow(
-                title = "Current Session",
-                detail = listOfNotNull(
-                    model.layers.currentLayer?.sessionStatus?.displayLabel,
-                    annotationCountLabel(model.currentAnnotations.annotations.size)
-                ).joinToString(" · "),
-                selected = model.state.selectedLayerSessionId == model.currentSessionId,
-                colors = model.colors,
-                onSelect = { model.state.select(model.currentSessionId, availableIds) }
-            )
+            ReaderCurrentMarginaliaLayerRow(model, availableIds)
+        }
+        item(key = "previous-layer-auto-show") {
+            ReaderMarginaliaAutoShowPreference(model, actions)
         }
         if (model.layers.previousLayers.isNotEmpty()) {
             item(key = "previous-layer-bulk-actions") {
@@ -97,6 +92,49 @@ internal fun ReaderMarginaliaLayerList(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ReaderCurrentMarginaliaLayerRow(
+    model: ReaderMarginaliaDrawerModel,
+    availableIds: Set<String>
+) {
+    ReaderMarginaliaLayerRow(
+        title = "Current Session",
+        detail = listOfNotNull(
+            model.layers.currentLayer?.sessionStatus?.displayLabel,
+            annotationCountLabel(model.currentAnnotations.annotations.size)
+        ).joinToString(" · "),
+        selected = model.state.selectedLayerSessionId == model.currentSessionId,
+        colors = model.colors,
+        onSelect = { model.state.select(model.currentSessionId, availableIds) }
+    )
+}
+
+@Composable
+private fun ReaderMarginaliaAutoShowPreference(
+    model: ReaderMarginaliaDrawerModel,
+    actions: ReaderMarginaliaDrawerActions
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            "Show previous marginalia automatically",
+            modifier = Modifier.weight(1f),
+            color = model.colors.secondaryContent,
+            style = MaterialTheme.typography.labelMedium
+        )
+        Switch(
+            checked = model.autoShowPrevious,
+            onCheckedChange = actions.autoShowPreviousChanged,
+            modifier = Modifier.semantics {
+                contentDescription = "Show previous marginalia automatically"
+            }
+        )
     }
 }
 

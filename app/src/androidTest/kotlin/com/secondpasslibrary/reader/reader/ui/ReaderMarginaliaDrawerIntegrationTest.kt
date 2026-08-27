@@ -49,6 +49,7 @@ class ReaderMarginaliaDrawerIntegrationTest {
         val visibilityRequests = mutableListOf<Pair<String, Boolean>>()
         var showAll = 0
         var hideAll = 0
+        var autoShowSetting: Boolean? = null
         var loadMore = 0
         compose.setContent {
             SecondPassTheme {
@@ -74,6 +75,9 @@ class ReaderMarginaliaDrawerIntegrationTest {
 
                             ReaderMarginaliaIntent.HideAllPreviousLayers -> hideAll += 1
 
+                            is ReaderMarginaliaIntent.SetAutoShowPrevious ->
+                                autoShowSetting = intent.enabled
+
                             ReaderMarginaliaIntent.LoadMoreLayers -> loadMore += 1
 
                             else -> Unit
@@ -86,6 +90,13 @@ class ReaderMarginaliaDrawerIntegrationTest {
         compose.onNodeWithContentDescription("Reading annotations").performClick()
         compose.onNodeWithContentDescription("Marginalia layer Current Session")
             .assertIsSelected()
+        compose.onNodeWithContentDescription("Show previous marginalia automatically")
+            .performClick()
+        compose.runOnIdle {
+            assertEquals(false, autoShowSetting)
+            assertEquals(0, showAll)
+            assertEquals(0, hideAll)
+        }
         compose.onNodeWithContentDescription("Show all previous layers").performClick()
         compose.onNodeWithContentDescription("Hide all previous layers").performClick()
         compose.runOnIdle {

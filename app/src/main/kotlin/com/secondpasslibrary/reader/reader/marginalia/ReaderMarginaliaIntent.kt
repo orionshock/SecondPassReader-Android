@@ -7,6 +7,7 @@ internal sealed interface ReaderMarginaliaIntent {
         ReaderMarginaliaIntent
     data object ShowAllPreviousLayers : ReaderMarginaliaIntent
     data object HideAllPreviousLayers : ReaderMarginaliaIntent
+    data class SetAutoShowPrevious(val enabled: Boolean) : ReaderMarginaliaIntent
     data object LoadMoreLayers : ReaderMarginaliaIntent
     data object RetryLayerHistory : ReaderMarginaliaIntent
 }

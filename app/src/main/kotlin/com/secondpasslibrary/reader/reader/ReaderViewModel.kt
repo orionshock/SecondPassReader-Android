@@ -102,6 +102,7 @@ internal class ReaderViewModel @Inject constructor(
     val progressSync = controller.progressSync
     val annotations = annotationsController.state
     val marginaliaLayers = marginaliaLayersController.state
+    val autoShowPreviousMarginalia = marginaliaLayerPolicy.autoShowPrevious
     val selection = selections.selection
     val annotationMutationState = annotationMutations.state
     val connectionEvents = merge(
@@ -223,7 +224,7 @@ internal class ReaderViewModel @Inject constructor(
             ReaderMarginaliaIntent.RetryCurrentAnnotations -> annotationsController.retry()
 
             is ReaderMarginaliaIntent.LoadPreviousLayer ->
-                marginaliaLayerPolicy.loadLayer(intent.sessionId)
+                marginaliaLayersController.loadLayer(intent.sessionId)
 
             is ReaderMarginaliaIntent.SetPreviousLayerVisible ->
                 marginaliaLayerPolicy.setVisible(intent.sessionId, intent.visible)
@@ -233,6 +234,9 @@ internal class ReaderViewModel @Inject constructor(
 
             ReaderMarginaliaIntent.HideAllPreviousLayers ->
                 marginaliaLayerPolicy.setAllVisible(false)
+
+            is ReaderMarginaliaIntent.SetAutoShowPrevious ->
+                marginaliaLayerPolicy.setAutoShowPrevious(intent.enabled)
 
             ReaderMarginaliaIntent.LoadMoreLayers -> marginaliaLayersController.loadMore()
 

@@ -25,6 +25,8 @@ internal fun ReaderStateHost(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val annotations by viewModel.annotations.collectAsStateWithLifecycle()
     val marginaliaLayers by viewModel.marginaliaLayers.collectAsStateWithLifecycle()
+    val autoShowPreviousMarginalia by
+        viewModel.autoShowPreviousMarginalia.collectAsStateWithLifecycle()
     val selection by viewModel.selection.collectAsStateWithLifecycle()
     val annotationMutations by viewModel.annotationMutationState.collectAsStateWithLifecycle()
     DisposableEffect(viewModel) {
@@ -51,6 +53,7 @@ internal fun ReaderStateHost(
         onAppearanceChanged = viewModel::updateAppearance,
         annotations = annotations,
         marginaliaLayers = marginaliaLayers,
+        autoShowPreviousMarginalia = autoShowPreviousMarginalia,
         onMarginaliaIntent = viewModel::acceptMarginalia,
         selection = selection,
         annotationMutations = annotationMutations,

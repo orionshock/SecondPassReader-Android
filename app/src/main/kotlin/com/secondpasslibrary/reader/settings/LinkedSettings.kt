@@ -57,6 +57,7 @@ internal fun LinkedSettings(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         IdentitySections(presentation)
+        ReaderSettingsStateHost()
         TechnicalDetailsSection(
             presentation.technicalDetails,
             technicalDetailsExpanded,

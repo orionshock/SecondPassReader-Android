@@ -90,7 +90,7 @@ class ReaderMarginaliaLayerPolicyControllerTest {
         val fixture = fixture(globalDefault = false)
         discover(fixture, "layer")
 
-        fixture.policy.loadLayer("layer")
+        fixture.layers.loadLayer("layer")
         advanceUntilIdle()
         assertTrue(fixture.visibility.writes.isEmpty())
         assertLayer(fixture, "layer", ReaderMarginaliaLayerLoadState.LOADED, visible = false)
@@ -120,6 +120,27 @@ class ReaderMarginaliaLayerPolicyControllerTest {
         assertFalse(fixture.layer("two").isVisible)
         assertTrue(fixture.layers.state.value.currentLayer != null)
         assertEquals(0, fixture.preferences.writeCount)
+    }
+
+    @Test
+    fun `auto show setting changes future default without changing current visibility`() = runTest {
+        val pages = mutableMapOf(
+            1 to ReaderMarginaliaLayerHistoryPage(listOf(previous("existing")), 1, hasMore = true),
+            2 to ReaderMarginaliaLayerHistoryPage(listOf(previous("later")), 2, hasMore = false)
+        )
+        val fixture = fixture(globalDefault = true, pages = pages)
+        discover(fixture)
+        assertTrue(fixture.layer("existing").isVisible)
+
+        fixture.policy.setAutoShowPrevious(false)
+        advanceUntilIdle()
+        assertTrue(fixture.layer("existing").isVisible)
+        assertEquals(listOf(false), fixture.preferences.writes)
+        assertTrue(fixture.visibility.writes.isEmpty())
+
+        fixture.layers.loadMore()
+        advanceUntilIdle()
+        assertLayer(fixture, "later", ReaderMarginaliaLayerLoadState.NOT_LOADED, visible = false)
     }
 
     @Test
@@ -210,11 +231,13 @@ class ReaderMarginaliaLayerPolicyControllerTest {
     private class FakePreferences(private val value: Boolean) :
         ReaderMarginaliaLayerPreferenceStore {
         var writeCount = 0
+        val writes = mutableListOf<Boolean>()
 
         override suspend fun readAutoShowPrevious() = value
 
         override suspend fun writeAutoShowPrevious(enabled: Boolean) {
             writeCount += 1
+            writes += enabled
         }
     }
 
