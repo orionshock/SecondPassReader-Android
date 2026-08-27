@@ -12,8 +12,6 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.secondpasslibrary.reader.reader.ui.ReaderChromeColors
-import com.secondpasslibrary.reader.reader.ui.chromeColors
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -22,21 +20,21 @@ internal fun ReaderAppearancePanel(
     onAppearanceChanged: (ReaderAppearance) -> Unit,
     onDismissRequest: () -> Unit
 ) {
-    val colors = appearance.theme.chromeColors()
+    val palette = appearance.theme.readerPalette()
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = colors.panelBackground,
-        contentColor = colors.content
+        containerColor = palette.panelSurface,
+        contentColor = palette.primaryForeground
     ) {
-        ReaderAppearancePanelContent(appearance, colors, onAppearanceChanged)
+        ReaderAppearancePanelContent(appearance, palette, onAppearanceChanged)
     }
 }
 
 @Composable
 private fun ReaderAppearancePanelContent(
     appearance: ReaderAppearance,
-    colors: ReaderChromeColors,
+    palette: ReaderPalette,
     onAppearanceChanged: (ReaderAppearance) -> Unit
 ) {
     Column(
@@ -46,9 +44,9 @@ private fun ReaderAppearancePanelContent(
         Text("Reading appearance", style = MaterialTheme.typography.titleMedium)
         ReaderAppearanceControls(
             appearance,
-            colors.content,
-            colors.secondaryContent,
-            colors.selectedBackground,
+            palette.primaryForeground,
+            palette.secondaryForeground,
+            palette.selectedSurface,
             onAppearanceChanged
         )
     }

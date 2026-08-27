@@ -31,6 +31,8 @@ import com.secondpasslibrary.reader.reader.annotations.ui.ReaderHighlightMutatio
 import com.secondpasslibrary.reader.reader.annotations.ui.ReaderSelectionToolbar
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearancePanel
+import com.secondpasslibrary.reader.reader.appearance.ReaderPalette
+import com.secondpasslibrary.reader.reader.appearance.readerPalette
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaIntent
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayersState
 import com.secondpasslibrary.reader.reader.marginalia.ui.ReaderMarginaliaDrawer
@@ -60,7 +62,7 @@ internal fun ReaderScreen(
     val scope = rememberCoroutineScope()
     val ready = state as? ReaderState.Ready
     val appearance by remember(ready?.engine) { readyAppearance(ready) }.collectAsState()
-    val chromeColors = appearance.theme.chromeColors()
+    val palette = appearance.theme.readerPalette()
     val currentSessionId = ready?.session?.sessionId.orEmpty()
     val marginaliaDrawerState = rememberMarginaliaDrawerState(currentSessionId, marginaliaLayers)
     val highlightSelection = writableSelection(ready, selection, annotationMutations)
@@ -69,7 +71,7 @@ internal fun ReaderScreen(
         transientOverlayVisible = highlightSelection != null,
         onDismissTransientOverlay = onDismissSelection,
         tableOfContents = { dismiss ->
-            ReaderTocDrawerContent(ready, dismiss, scope, onBack)
+            ReaderTocDrawerContent(ready, palette, dismiss, scope, onBack)
         },
         appearance = { dismiss ->
             if (ready != null) {
@@ -83,7 +85,7 @@ internal fun ReaderScreen(
                 layers = marginaliaLayers,
                 autoShowPrevious = autoShowPreviousMarginalia,
                 drawerState = marginaliaDrawerState,
-                colors = chromeColors,
+                palette = palette,
                 scope = scope,
                 onDismiss = dismiss,
                 onMarginaliaIntent = onMarginaliaIntent,
@@ -103,7 +105,7 @@ internal fun ReaderScreen(
             state,
             ready,
             it,
-            chromeColors,
+            palette,
             highlightSelection,
             annotationMutations,
             onBack,
@@ -119,7 +121,7 @@ private fun ReaderReadingSurface(
     state: ReaderState,
     ready: ReaderState.Ready?,
     overlays: ReaderOverlayHost,
-    colors: ReaderChromeColors,
+    palette: ReaderPalette,
     selection: ReaderSelection?,
     mutationState: ReaderAnnotationMutationState,
     onBack: () -> Unit,
@@ -127,24 +129,26 @@ private fun ReaderReadingSurface(
     onMutation: (ReaderAnnotationMutationIntent) -> Unit,
     onDismissSelection: () -> Unit
 ) {
-    Box(Modifier.fillMaxSize().background(colors.background)) {
+    Box(Modifier.fillMaxSize().background(palette.publicationBackground)) {
         when (state) {
-            ReaderState.Resolving -> ReaderLoading("Preparing book…")
+            ReaderState.Resolving -> ReaderLoading("Preparing book…", palette)
 
-            ReaderState.Downloading -> ReaderLoading("Downloading book…")
+            ReaderState.Downloading -> ReaderLoading("Downloading book…", palette)
 
-            ReaderState.Opening -> ReaderLoading("Opening EPUB…")
+            ReaderState.Opening -> ReaderLoading("Opening EPUB…", palette)
 
             is ReaderState.Ready -> Box(Modifier.fillMaxSize()) {
-                state.engine.viewport.Content(Modifier.fillMaxSize())
+                state.engine.viewport.Content(
+                    Modifier.fillMaxSize().padding(top = READER_PUBLICATION_TOP_SAFE_INSET)
+                )
                 ReaderCfiProbe(state.engine, Modifier.align(Alignment.TopEnd))
             }
 
-            is ReaderState.Failure -> ReaderFailureContent(state.kind, onBack, onRetry)
+            is ReaderState.Failure -> ReaderFailureContent(state.kind, palette, onBack, onRetry)
         }
         ReaderChromeLayer(
             title = ready?.title ?: "Reader",
-            colors = colors,
+            palette = palette,
             onNavigationMenuRequested = overlays.openTableOfContents,
             onAppearanceRequested = overlays.openAppearance,
             onAnnotationsRequested = overlays.openAnnotations
@@ -152,7 +156,7 @@ private fun ReaderReadingSurface(
         ReaderSelectionAnnotationOverlays(
             selection,
             mutationState,
-            colors,
+            palette,
             onMutation,
             onDismissSelection
         )
@@ -163,7 +167,7 @@ private fun ReaderReadingSurface(
 private fun ReaderSelectionAnnotationOverlays(
     selection: ReaderSelection?,
     mutationState: ReaderAnnotationMutationState,
-    colors: ReaderChromeColors,
+    palette: ReaderPalette,
     onMutation: (ReaderAnnotationMutationIntent) -> Unit,
     onDismissSelection: () -> Unit
 ) {
@@ -171,7 +175,7 @@ private fun ReaderSelectionAnnotationOverlays(
         ReaderSelectionToolbar(
             selection = it,
             state = mutationState,
-            colors = colors,
+            palette = palette,
             onColorChanged = {
                 onMutation(ReaderAnnotationMutationIntent.UpdateCreate(color = it))
             },
@@ -182,7 +186,7 @@ private fun ReaderSelectionAnnotationOverlays(
     }
     ReaderHighlightMutationDialogs(
         state = mutationState,
-        colors = colors,
+        palette = palette,
         onCreateColorChanged = {
             onMutation(ReaderAnnotationMutationIntent.UpdateCreate(color = it))
         },
@@ -223,7 +227,7 @@ private fun ReaderAnnotationsOverlay(
     layers: ReaderMarginaliaLayersState,
     autoShowPrevious: Boolean,
     drawerState: ReaderMarginaliaDrawerState,
-    colors: ReaderChromeColors,
+    palette: ReaderPalette,
     scope: CoroutineScope,
     onDismiss: () -> Unit,
     onMarginaliaIntent: (ReaderMarginaliaIntent) -> Unit,
@@ -240,7 +244,7 @@ private fun ReaderAnnotationsOverlay(
         layers = layers,
         autoShowPrevious = autoShowPrevious,
         drawerState = drawerState,
-        colors = colors,
+        palette = palette,
         onDismiss = onDismiss,
         onRetryCurrent = {
             onMarginaliaIntent(ReaderMarginaliaIntent.RetryCurrentAnnotations)
@@ -283,14 +287,14 @@ private fun ReaderAnnotationsOverlay(
 @Composable
 private fun ReaderChromeLayer(
     title: String,
-    colors: ReaderChromeColors,
+    palette: ReaderPalette,
     onNavigationMenuRequested: () -> Unit,
     onAppearanceRequested: () -> Unit,
     onAnnotationsRequested: () -> Unit
 ) {
     ReaderChrome(
         title = title,
-        colors = colors,
+        palette = palette,
         onNavigationMenuRequested = onNavigationMenuRequested,
         onAppearanceRequested = onAppearanceRequested,
         onAnnotationsRequested = onAnnotationsRequested
@@ -300,6 +304,7 @@ private fun ReaderChromeLayer(
 @Composable
 private fun ReaderTocDrawerContent(
     ready: ReaderState.Ready?,
+    palette: ReaderPalette,
     dismiss: () -> Unit,
     scope: CoroutineScope,
     onBack: () -> Unit
@@ -307,6 +312,7 @@ private fun ReaderTocDrawerContent(
     ReaderTocDrawer(
         bookTitle = ready?.title ?: "Reader",
         entries = ready?.engine?.tableOfContents?.entries.orEmpty(),
+        palette = palette,
         onEntrySelected = { target ->
             dismiss()
             scope.launch {
@@ -336,19 +342,24 @@ private fun ReaderAppearanceOverlay(
 private val DEFAULT_READER_APPEARANCE = MutableStateFlow(ReaderAppearance())
 
 @Composable
-private fun ReaderLoading(label: String) {
+private fun ReaderLoading(label: String, palette: ReaderPalette) {
     Column(
         Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        CircularProgressIndicator()
-        Text(label, Modifier.padding(top = 12.dp))
+        CircularProgressIndicator(color = palette.primaryForeground)
+        Text(label, Modifier.padding(top = 12.dp), color = palette.primaryForeground)
     }
 }
 
 @Composable
-private fun ReaderFailureContent(kind: ReaderFailure, onBack: () -> Unit, onRetry: () -> Unit) {
+private fun ReaderFailureContent(
+    kind: ReaderFailure,
+    palette: ReaderPalette,
+    onBack: () -> Unit,
+    onRetry: () -> Unit
+) {
     val message = when (kind) {
         ReaderFailure.DOWNLOAD -> "Couldn’t download this book."
         ReaderFailure.OPEN -> "Couldn’t open this EPUB."
@@ -360,7 +371,7 @@ private fun ReaderFailureContent(kind: ReaderFailure, onBack: () -> Unit, onRetr
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(message)
+        Text(message, color = palette.primaryForeground)
         if (kind != ReaderFailure.NO_EPUB) TextButton(onClick = onRetry) { Text("Retry") }
         TextButton(onClick = onBack) { Text("Back") }
     }

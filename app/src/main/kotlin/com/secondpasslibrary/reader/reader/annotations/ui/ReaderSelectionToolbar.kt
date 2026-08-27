@@ -36,7 +36,7 @@ import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationState
 import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelection
-import com.secondpasslibrary.reader.reader.ui.ReaderChromeColors
+import com.secondpasslibrary.reader.reader.appearance.ReaderPalette
 import kotlin.math.roundToInt
 
 /** Compact Reader actions positioned from renderer-neutral viewport selection bounds. */
@@ -44,7 +44,7 @@ import kotlin.math.roundToInt
 internal fun ReaderSelectionToolbar(
     selection: ReaderSelection,
     state: ReaderAnnotationMutationState,
-    colors: ReaderChromeColors,
+    palette: ReaderPalette,
     onColorChanged: (ReaderAnnotationColor) -> Unit,
     onQuickHighlight: () -> Unit,
     onNoteRequested: () -> Unit,
@@ -69,8 +69,8 @@ internal fun ReaderSelectionToolbar(
                 .offset { toolbarOffset }
                 .onSizeChanged { toolbarSize = Size(it.width.toFloat(), it.height.toFloat()) },
             shape = RoundedCornerShape(18.dp),
-            color = colors.panelBackground.copy(alpha = 0.97f),
-            contentColor = colors.content,
+            color = palette.floatingSurface.copy(alpha = 0.97f),
+            contentColor = palette.primaryForeground,
             shadowElevation = 8.dp,
             tonalElevation = 3.dp
         ) {
@@ -84,7 +84,7 @@ internal fun ReaderSelectionToolbar(
                         color = color,
                         selected = color == pending.color,
                         enabled = !state.submitting,
-                        outline = colors.content,
+                        outline = palette.primaryForeground,
                         onClick = { onColorChanged(color) }
                     )
                 }

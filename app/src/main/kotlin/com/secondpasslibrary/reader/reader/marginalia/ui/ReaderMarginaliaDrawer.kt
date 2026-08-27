@@ -19,15 +19,14 @@ import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsState
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationState
+import com.secondpasslibrary.reader.reader.appearance.ReaderPalette
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayersState
-import com.secondpasslibrary.reader.reader.ui.ReaderChromeColors
 
 internal data class ReaderMarginaliaDrawerModel(
     val currentSessionId: String,
@@ -35,7 +34,7 @@ internal data class ReaderMarginaliaDrawerModel(
     val layers: ReaderMarginaliaLayersState,
     val autoShowPrevious: Boolean,
     val state: ReaderMarginaliaDrawerState,
-    val colors: ReaderChromeColors,
+    val palette: ReaderPalette,
     val currentEditable: Boolean,
     val mutationState: ReaderAnnotationMutationState
 )
@@ -63,7 +62,7 @@ internal fun ReaderMarginaliaDrawer(
     layers: ReaderMarginaliaLayersState,
     autoShowPrevious: Boolean,
     drawerState: ReaderMarginaliaDrawerState,
-    colors: ReaderChromeColors,
+    palette: ReaderPalette,
     currentEditable: Boolean,
     mutationState: ReaderAnnotationMutationState,
     onDismiss: () -> Unit,
@@ -86,7 +85,7 @@ internal fun ReaderMarginaliaDrawer(
         layers,
         autoShowPrevious,
         drawerState,
-        colors,
+        palette,
         currentEditable,
         mutationState
     )
@@ -124,14 +123,14 @@ private fun ReaderMarginaliaDrawerLayout(
             model.state.showLayerList()
         }
         Box(
-            Modifier.fillMaxSize().background(Color.Black.copy(alpha = SCRIM_ALPHA))
+            Modifier.fillMaxSize().background(model.palette.scrim)
                 .clickable(onClick = actions.dismiss)
                 .semantics { contentDescription = "Close annotations" }
         )
         Surface(
             modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(drawerWidth),
-            color = model.colors.panelBackground,
-            contentColor = model.colors.content
+            color = model.palette.panelSurface,
+            contentColor = model.palette.primaryForeground
         ) {
             ReaderMarginaliaDrawerContent(model, actions, wide)
         }
@@ -151,7 +150,7 @@ private fun ReaderMarginaliaDrawerContent(
             style = MaterialTheme.typography.titleMedium
         )
         HorizontalDivider(
-            color = model.colors.secondaryContent.copy(alpha = MARGINALIA_DIVIDER_ALPHA)
+            color = model.palette.border
         )
         if (wide) {
             ReaderMarginaliaWideContent(model, actions)
@@ -181,7 +180,7 @@ private fun ReaderMarginaliaWideContent(
         )
         VerticalDivider(
             modifier = Modifier.fillMaxHeight().width(1.dp),
-            color = model.colors.secondaryContent.copy(alpha = MARGINALIA_DIVIDER_ALPHA)
+            color = model.palette.border
         )
         ReaderSelectedLayerPane(
             model,
@@ -198,5 +197,3 @@ private val NARROW_DRAWER_MAX_WIDTH = 440.dp
 private val LAYER_PANE_WIDTH = 260.dp
 private const val TABLET_DRAWER_FRACTION = 0.72f
 private const val NARROW_DRAWER_FRACTION = 0.94f
-private const val SCRIM_ALPHA = 0.36f
-internal const val MARGINALIA_DIVIDER_ALPHA = 0.35f

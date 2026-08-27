@@ -1,8 +1,10 @@
 package com.secondpasslibrary.reader.reader.readium
 
+import androidx.compose.ui.graphics.toArgb
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
 import com.secondpasslibrary.reader.reader.appearance.ReaderTheme
+import com.secondpasslibrary.reader.reader.appearance.readerPalette
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -25,6 +27,14 @@ class ReadiumReaderAppearanceControllerTest {
             val preferences = appearance.toReadiumPreferences()
 
             assertEquals(readerTheme.expectedReadiumTheme(), preferences.theme)
+            assertEquals(
+                readerTheme.readerPalette().publicationBackground.toArgb(),
+                preferences.backgroundColor?.int
+            )
+            assertEquals(
+                readerTheme.readerPalette().publicationForeground.toArgb(),
+                preferences.textColor?.int
+            )
             assertEquals(1.3, preferences.fontSize)
             assertEquals(1.7, preferences.lineHeight)
             assertEquals(true, preferences.publisherStyles)

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -22,12 +23,12 @@ import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationState
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderHighlightEditDraft
-import com.secondpasslibrary.reader.reader.ui.ReaderChromeColors
+import com.secondpasslibrary.reader.reader.appearance.ReaderPalette
 
 @Composable
 internal fun ReaderHighlightMutationDialogs(
     state: ReaderAnnotationMutationState,
-    colors: ReaderChromeColors,
+    palette: ReaderPalette,
     onCreateColorChanged: (ReaderAnnotationColor) -> Unit,
     onCreateNoteChanged: (String) -> Unit,
     onSaveCreate: () -> Unit,
@@ -46,7 +47,7 @@ internal fun ReaderHighlightMutationDialogs(
             color = pending.color,
             note = pending.note,
             state = state,
-            colors = colors,
+            palette = palette,
             onColorChanged = onCreateColorChanged,
             onNoteChanged = onCreateNoteChanged,
             onSave = onSaveCreate,
@@ -57,7 +58,7 @@ internal fun ReaderHighlightMutationDialogs(
         ReaderHighlightEditDialog(
             draft,
             state,
-            colors,
+            palette,
             onEditColorChanged,
             onEditNoteChanged,
             onSaveEdit,
@@ -65,7 +66,7 @@ internal fun ReaderHighlightMutationDialogs(
         )
     }
     state.deleting?.let { annotation ->
-        ReaderAnnotationDeleteDialog(annotation, state, onConfirmDelete, onDismiss)
+        ReaderAnnotationDeleteDialog(annotation, state, palette, onConfirmDelete, onDismiss)
     }
 }
 
@@ -73,7 +74,7 @@ internal fun ReaderHighlightMutationDialogs(
 private fun ReaderHighlightEditDialog(
     draft: ReaderHighlightEditDraft,
     state: ReaderAnnotationMutationState,
-    colors: ReaderChromeColors,
+    palette: ReaderPalette,
     onColorChanged: (ReaderAnnotationColor) -> Unit,
     onNoteChanged: (String) -> Unit,
     onSave: () -> Unit,
@@ -86,7 +87,7 @@ private fun ReaderHighlightEditDialog(
         color = draft.color,
         note = draft.note,
         state = state,
-        colors = colors,
+        palette = palette,
         onColorChanged = onColorChanged,
         onNoteChanged = onNoteChanged,
         onSave = onSave,
@@ -102,7 +103,7 @@ private fun ReaderHighlightDraftDialog(
     color: ReaderAnnotationColor,
     note: String,
     state: ReaderAnnotationMutationState,
-    colors: ReaderChromeColors,
+    palette: ReaderPalette,
     onColorChanged: (ReaderAnnotationColor) -> Unit,
     onNoteChanged: (String) -> Unit,
     onSave: () -> Unit,
@@ -129,11 +130,11 @@ private fun ReaderHighlightDraftDialog(
                             option,
                             option == color,
                             !state.submitting,
-                            colors.content
+                            palette.primaryForeground
                         ) { onColorChanged(option) }
                     }
                 }
-                ReaderHighlightNoteField(note, state.submitting, onNoteChanged)
+                ReaderHighlightNoteField(note, state.submitting, palette, onNoteChanged)
                 state.failure?.let { Text("Highlight could not be saved. Try again.") }
             }
         },
@@ -145,9 +146,9 @@ private fun ReaderHighlightDraftDialog(
         dismissButton = {
             TextButton(enabled = !state.submitting, onClick = onDismiss) { Text("Cancel") }
         },
-        containerColor = colors.panelBackground,
-        textContentColor = colors.content,
-        titleContentColor = colors.content
+        containerColor = palette.panelSurface,
+        textContentColor = palette.primaryForeground,
+        titleContentColor = palette.primaryForeground
     )
 }
 
@@ -155,6 +156,7 @@ private fun ReaderHighlightDraftDialog(
 internal fun ReaderHighlightNoteField(
     note: String,
     submitting: Boolean,
+    palette: ReaderPalette,
     onNoteChanged: (String) -> Unit
 ) {
     OutlinedTextField(
@@ -165,6 +167,15 @@ internal fun ReaderHighlightNoteField(
         modifier = Modifier.fillMaxWidth(),
         enabled = !submitting,
         label = { Text("Note (optional)") },
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedTextColor = palette.primaryForeground,
+            unfocusedTextColor = palette.primaryForeground,
+            focusedLabelColor = palette.secondaryForeground,
+            unfocusedLabelColor = palette.secondaryForeground,
+            cursorColor = palette.primaryForeground,
+            focusedBorderColor = palette.primaryForeground,
+            unfocusedBorderColor = palette.border
+        ),
         minLines = 1,
         maxLines = 3
     )
@@ -174,6 +185,7 @@ internal fun ReaderHighlightNoteField(
 private fun ReaderAnnotationDeleteDialog(
     annotation: ReaderAnnotation,
     state: ReaderAnnotationMutationState,
+    palette: ReaderPalette,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -203,6 +215,9 @@ private fun ReaderAnnotationDeleteDialog(
         },
         dismissButton = {
             TextButton(enabled = !state.submitting, onClick = onDismiss) { Text("Cancel") }
-        }
+        },
+        containerColor = palette.panelSurface,
+        textContentColor = palette.primaryForeground,
+        titleContentColor = palette.primaryForeground
     )
 }

@@ -3,10 +3,12 @@ package com.secondpasslibrary.reader.reader.ui
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -27,6 +29,7 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaIntent
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -35,6 +38,32 @@ import org.junit.runner.RunWith
 class ReaderUiIntegrationTest {
     @get:Rule
     val compose = createAndroidComposeRule<ComponentActivity>()
+
+    @Test
+    fun readerChromeUsesSeparatedFloatingClustersAndProtectsPublicationTop() {
+        compose.setContent {
+            SecondPassTheme {
+                ReaderScreen(readerReadyState(), onBack = {}, onRetry = {})
+            }
+        }
+
+        val positioner = compose.onNodeWithTag(READER_CHROME_POSITIONER_TAG)
+            .getUnclippedBoundsInRoot()
+        val left = compose.onNodeWithTag(READER_CHROME_LEFT_CLUSTER_TAG)
+            .getUnclippedBoundsInRoot()
+        val right = compose.onNodeWithTag(READER_CHROME_RIGHT_CLUSTER_TAG)
+            .getUnclippedBoundsInRoot()
+        val publication = compose.onNodeWithTag(TEST_PUBLICATION_CONTENT_TAG)
+            .getUnclippedBoundsInRoot()
+
+        assertTrue(left.right - left.left < positioner.right - positioner.left)
+        assertTrue(right.right - right.left < positioner.right - positioner.left)
+        assertTrue(left.right < right.left)
+        assertTrue(publication.top >= left.bottom)
+        assertTrue(publication.top >= right.bottom)
+        compose.onAllNodesWithText("A deliberately long Reader title that remains one line")[0]
+            .assertIsDisplayed()
+    }
 
     @Test
     fun readerMenuOwnsNestedTocNavigationBackAndReturn() {

@@ -23,13 +23,13 @@ import com.secondpasslibrary.reader.design.marginalia.annotationCountLabel
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsState
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationState
-import com.secondpasslibrary.reader.reader.ui.ReaderChromeColors
+import com.secondpasslibrary.reader.reader.appearance.ReaderPalette
 
 @Composable
 internal fun ReaderAnnotationCollectionHeader(
     title: String,
     annotationCount: Int,
-    colors: ReaderChromeColors,
+    palette: ReaderPalette,
     editable: Boolean = false,
     mutationState: ReaderAnnotationMutationState = ReaderAnnotationMutationState(),
     onCreateBookmark: () -> Unit = {}
@@ -42,13 +42,13 @@ internal fun ReaderAnnotationCollectionHeader(
             Text(title, style = MaterialTheme.typography.titleMedium)
             Text(
                 annotationCountLabel(annotationCount),
-                color = colors.secondaryContent,
+                color = palette.secondaryForeground,
                 style = MaterialTheme.typography.labelMedium
             )
             if (mutationState.pendingBookmark != null && mutationState.failure != null) {
                 Text(
                     "Bookmark could not be saved. Tap retry.",
-                    color = colors.secondaryContent,
+                    color = palette.secondaryForeground,
                     style = MaterialTheme.typography.labelSmall
                 )
             }
@@ -72,7 +72,7 @@ internal fun ReaderAnnotationCollectionHeader(
 @Composable
 internal fun ReaderAnnotationCollectionPane(
     state: ReaderAnnotationsState,
-    colors: ReaderChromeColors,
+    palette: ReaderPalette,
     onRetry: () -> Unit,
     onAnnotationSelected: (ReaderAnnotation) -> Unit,
     editable: Boolean = false,
@@ -90,19 +90,19 @@ internal fun ReaderAnnotationCollectionPane(
         state.loaded && state.annotations.isEmpty() -> Text(
             "No annotations in this reading session.",
             modifier = Modifier.padding(16.dp),
-            color = colors.secondaryContent
+            color = palette.secondaryForeground
         )
 
         else -> LazyColumn(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (state.loading) item { ReaderRefreshingAnnotations(colors) }
+            if (state.loading) item { ReaderRefreshingAnnotations(palette) }
             if (state.failure != null) item { ReaderAnnotationFailure(onRetry) }
             items(state.annotations, key = ReaderAnnotation::id) { annotation ->
                 ReaderAnnotationRow(
                     annotation,
-                    colors,
+                    palette,
                     onAnnotationSelected,
                     editable,
                     onEditHighlight,
@@ -127,10 +127,10 @@ private fun ReaderAnnotationFailure(onRetry: () -> Unit) {
 }
 
 @Composable
-private fun ReaderRefreshingAnnotations(colors: ReaderChromeColors) {
+private fun ReaderRefreshingAnnotations(palette: ReaderPalette) {
     Text(
         "Refreshing annotations\u2026",
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        color = colors.secondaryContent
+        color = palette.secondaryForeground
     )
 }

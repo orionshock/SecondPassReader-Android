@@ -1,8 +1,10 @@
 package com.secondpasslibrary.reader.reader.readium
 
+import androidx.compose.ui.graphics.toArgb
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceController
 import com.secondpasslibrary.reader.reader.appearance.ReaderTheme
+import com.secondpasslibrary.reader.reader.appearance.readerPalette
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -11,6 +13,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.navigator.epub.EpubPreferences
+import org.readium.r2.navigator.preferences.Color
 import org.readium.r2.navigator.preferences.Theme
 import org.readium.r2.shared.ExperimentalReadiumApi
 
@@ -58,14 +61,19 @@ internal class ReadiumReaderAppearanceController(
 }
 
 @OptIn(ExperimentalReadiumApi::class)
-internal fun ReaderAppearance.toReadiumPreferences() = EpubPreferences(
-    theme = when (theme) {
-        ReaderTheme.LIGHT -> Theme.LIGHT
-        ReaderTheme.DARK -> Theme.DARK
-        ReaderTheme.SEPIA -> Theme.SEPIA
-    },
-    fontSize = fontScale,
-    lineHeight = lineHeight,
-    publisherStyles = publisherStylesEnabled,
-    scroll = false
-)
+internal fun ReaderAppearance.toReadiumPreferences(): EpubPreferences {
+    val palette = theme.readerPalette()
+    return EpubPreferences(
+        backgroundColor = Color(palette.publicationBackground.toArgb()),
+        textColor = Color(palette.publicationForeground.toArgb()),
+        theme = when (theme) {
+            ReaderTheme.LIGHT -> Theme.LIGHT
+            ReaderTheme.DARK -> Theme.DARK
+            ReaderTheme.SEPIA -> Theme.SEPIA
+        },
+        fontSize = fontScale,
+        lineHeight = lineHeight,
+        publisherStyles = publisherStylesEnabled,
+        scroll = false
+    )
+}

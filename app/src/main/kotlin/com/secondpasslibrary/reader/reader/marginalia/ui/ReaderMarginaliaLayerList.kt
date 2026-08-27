@@ -29,11 +29,11 @@ import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 import com.secondpasslibrary.reader.design.marginalia.annotationCountLabel
+import com.secondpasslibrary.reader.reader.appearance.ReaderPalette
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayerLoadState
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayerVisibility
 import com.secondpasslibrary.reader.reader.marginalia.ReaderPreviousMarginaliaLayer
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
-import com.secondpasslibrary.reader.reader.ui.ReaderChromeColors
 
 @Composable
 internal fun ReaderMarginaliaLayerList(
@@ -60,7 +60,7 @@ internal fun ReaderMarginaliaLayerList(
                 title = layer.displayName,
                 detail = "Historical · ${annotationCountLabel(layer.summary.annotationCount ?: 0)}",
                 selected = model.state.selectedLayerSessionId == layer.summary.sessionId,
-                colors = model.colors,
+                palette = model.palette,
                 onSelect = { model.state.select(layer.summary.sessionId, availableIds) },
                 action = {
                     ReaderMarginaliaLayerAction(
@@ -107,7 +107,7 @@ private fun ReaderCurrentMarginaliaLayerRow(
             annotationCountLabel(model.currentAnnotations.annotations.size)
         ).joinToString(" · "),
         selected = model.state.selectedLayerSessionId == model.currentSessionId,
-        colors = model.colors,
+        palette = model.palette,
         onSelect = { model.state.select(model.currentSessionId, availableIds) }
     )
 }
@@ -125,7 +125,7 @@ private fun ReaderMarginaliaAutoShowPreference(
         Text(
             "Show previous marginalia automatically",
             modifier = Modifier.weight(1f),
-            color = model.colors.secondaryContent,
+            color = model.palette.secondaryForeground,
             style = MaterialTheme.typography.labelMedium
         )
         Switch(
@@ -160,13 +160,13 @@ private fun ReaderMarginaliaLayerRow(
     title: String,
     detail: String,
     selected: Boolean,
-    colors: ReaderChromeColors,
+    palette: ReaderPalette,
     onSelect: () -> Unit,
     action: @Composable (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier.fillMaxWidth()
-            .background(if (selected) colors.selectedBackground else Color.Transparent)
+            .background(if (selected) palette.selectedSurface else Color.Transparent)
             .semantics {
                 contentDescription = "Marginalia layer $title"
                 this.selected = selected
@@ -180,7 +180,7 @@ private fun ReaderMarginaliaLayerRow(
             Text(title, style = MaterialTheme.typography.bodyMedium)
             Text(
                 detail,
-                color = colors.secondaryContent,
+                color = palette.secondaryForeground,
                 style = MaterialTheme.typography.labelSmall
             )
         }

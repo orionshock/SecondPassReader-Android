@@ -1,6 +1,9 @@
 package com.secondpasslibrary.reader.reader.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import com.secondpasslibrary.reader.reader.ReaderProgressRestore
 import com.secondpasslibrary.reader.reader.ReaderState
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
@@ -25,6 +28,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 
 internal const val TEST_ANNOTATION_CFI = "epubcfi(/6/2!/4/2:3)"
+internal const val TEST_PUBLICATION_CONTENT_TAG = "test_publication_content"
 internal val TEST_CHAPTER_ONE = ReaderPublicationTarget("text/chapter-1.xhtml")
 internal val TEST_CHAPTER_TWO = ReaderPublicationTarget("text/chapter-2.xhtml#section")
 
@@ -88,7 +92,11 @@ private class FakeReaderEngine(
     override val appearance: ReaderAppearanceController,
     override val cfiNavigator: EpubCfiNavigator
 ) : ReaderEngine {
-    override val viewport = ReaderViewport { Box {} }
+    override val viewport = ReaderViewport { modifier ->
+        Box(modifier) {
+            Box(Modifier.fillMaxSize().testTag(TEST_PUBLICATION_CONTENT_TAG))
+        }
+    }
     override val viewportMovements = ReaderViewportMovements { emptyFlow() }
     override fun close() = Unit
 }

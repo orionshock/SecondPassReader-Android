@@ -21,9 +21,9 @@ import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsState
 import com.secondpasslibrary.reader.reader.annotations.ui.ReaderAnnotationCollectionHeader
 import com.secondpasslibrary.reader.reader.annotations.ui.ReaderAnnotationCollectionPane
+import com.secondpasslibrary.reader.reader.appearance.ReaderPalette
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayerLoadState
 import com.secondpasslibrary.reader.reader.marginalia.ReaderPreviousMarginaliaLayer
-import com.secondpasslibrary.reader.reader.ui.ReaderChromeColors
 
 @Composable
 internal fun ReaderSelectedLayerPane(
@@ -44,7 +44,7 @@ internal fun ReaderSelectedLayerPane(
                 title = previous?.displayName ?: "Current Session",
                 annotationCount = previous?.summary?.annotationCount
                     ?: model.currentAnnotations.annotations.size,
-                colors = model.colors,
+                palette = model.palette,
                 editable = previous == null &&
                     model.state.selectedLayerSessionId == model.currentSessionId &&
                     model.currentEditable,
@@ -53,12 +53,12 @@ internal fun ReaderSelectedLayerPane(
             )
         }
         HorizontalDivider(
-            color = model.colors.secondaryContent.copy(alpha = MARGINALIA_DIVIDER_ALPHA)
+            color = model.palette.border
         )
         if (previous == null) {
             ReaderAnnotationCollectionPane(
                 state = model.currentAnnotations,
-                colors = model.colors,
+                palette = model.palette,
                 onRetry = actions.retryCurrent,
                 onAnnotationSelected = actions.selectAnnotation,
                 editable = model.currentEditable,
@@ -68,7 +68,7 @@ internal fun ReaderSelectedLayerPane(
         } else {
             ReaderPreviousLayerContent(
                 previous,
-                model.colors,
+                model.palette,
                 actions.loadLayer,
                 actions.selectAnnotation
             )
@@ -79,7 +79,7 @@ internal fun ReaderSelectedLayerPane(
 @Composable
 private fun ReaderPreviousLayerContent(
     layer: ReaderPreviousMarginaliaLayer,
-    colors: ReaderChromeColors,
+    palette: ReaderPalette,
     onLoadLayer: (String) -> Unit,
     onAnnotationSelected: (ReaderAnnotation) -> Unit
 ) {
@@ -103,7 +103,7 @@ private fun ReaderPreviousLayerContent(
                 annotations = layer.annotations,
                 loaded = true
             ),
-            colors = colors,
+            palette = palette,
             onRetry = {},
             onAnnotationSelected = onAnnotationSelected,
             editable = false

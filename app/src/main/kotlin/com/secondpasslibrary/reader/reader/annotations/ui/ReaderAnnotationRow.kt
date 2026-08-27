@@ -34,13 +34,13 @@ import com.secondpasslibrary.reader.design.marginalia.annotationHighlightPalette
 import com.secondpasslibrary.reader.design.marginalia.formatMarginaliaTimestamp
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
-import com.secondpasslibrary.reader.reader.ui.ReaderChromeColors
+import com.secondpasslibrary.reader.reader.appearance.ReaderPalette
 import java.time.ZoneId
 
 @Composable
 internal fun ReaderAnnotationRow(
     annotation: ReaderAnnotation,
-    colors: ReaderChromeColors,
+    readerPalette: ReaderPalette,
     onAnnotationSelected: (ReaderAnnotation) -> Unit,
     editable: Boolean,
     onEditHighlight: (ReaderAnnotation.Highlight) -> Unit,
@@ -58,7 +58,7 @@ internal fun ReaderAnnotationRow(
             .padding(horizontal = 14.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        AppIconGraphic(annotation.icon(), null, tint = colors.secondaryContent)
+        AppIconGraphic(annotation.icon(), null, tint = readerPalette.secondaryForeground)
         palette?.let {
             Box(Modifier.width(3.dp).heightIn(min = 62.dp).background(it.accent))
         }
@@ -80,7 +80,7 @@ internal fun ReaderAnnotationRow(
                     )
                     annotation.note?.takeIf(String::isNotBlank)?.let { Text(it) }
                     annotation.locationLabel?.let {
-                        Text(it, color = colors.secondaryContent)
+                        Text(it, color = readerPalette.secondaryForeground)
                     }
                 }
             }
@@ -90,7 +90,7 @@ internal fun ReaderAnnotationRow(
                     ZoneId.systemDefault(),
                     locale
                 ),
-                color = colors.secondaryContent
+                color = readerPalette.secondaryForeground
             )
         }
         if (editable) {

@@ -27,23 +27,26 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
+import com.secondpasslibrary.reader.reader.appearance.ReaderPalette
 
 @Composable
 internal fun ReaderTocDrawer(
     bookTitle: String,
     entries: List<ReaderTocEntry>,
+    palette: ReaderPalette,
     onEntrySelected: (ReaderPublicationTarget) -> Unit,
     onReturnToBook: () -> Unit
 ) {
     val rows = remember(entries) { entries.flattenForPresentation() }
     ModalDrawerSheet(
         modifier = Modifier.fillMaxHeight().widthIn(max = DRAWER_MAX_WIDTH),
-        drawerContainerColor = MaterialTheme.colorScheme.surface
+        drawerContainerColor = palette.panelSurface,
+        drawerContentColor = palette.primaryForeground
     ) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
             Text(
                 text = bookTitle,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = palette.secondaryForeground,
                 style = MaterialTheme.typography.titleSmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -60,18 +63,18 @@ internal fun ReaderTocDrawer(
             icon = AppIcon.Book,
             onClick = onReturnToBook
         )
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        HorizontalDivider(color = palette.border)
         if (rows.isEmpty()) {
             Text(
                 text = "No table of contents",
                 modifier = Modifier.padding(16.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = palette.secondaryForeground,
                 style = MaterialTheme.typography.bodyMedium
             )
         } else {
             LazyColumn(Modifier.fillMaxWidth()) {
                 items(rows, key = { it.key }) { row ->
-                    ReaderTocRow(row, onEntrySelected)
+                    ReaderTocRow(row, palette, onEntrySelected)
                 }
             }
         }
@@ -97,6 +100,7 @@ private fun ReaderDrawerAction(label: String, icon: AppIcon, onClick: () -> Unit
 @Composable
 private fun ReaderTocRow(
     row: ReaderTocPresentationRow,
+    palette: ReaderPalette,
     onEntrySelected: (ReaderPublicationTarget) -> Unit
 ) {
     val target = row.entry.target
@@ -122,9 +126,9 @@ private fun ReaderTocRow(
         Text(
             text = row.entry.title,
             color = if (target == null) {
-                MaterialTheme.colorScheme.onSurfaceVariant
+                palette.secondaryForeground
             } else {
-                MaterialTheme.colorScheme.onSurface
+                palette.primaryForeground
             },
             style = MaterialTheme.typography.bodyMedium,
             maxLines = 2,
