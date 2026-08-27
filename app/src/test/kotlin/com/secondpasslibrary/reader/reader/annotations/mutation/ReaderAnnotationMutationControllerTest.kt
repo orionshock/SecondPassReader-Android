@@ -33,6 +33,85 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class ReaderAnnotationMutationControllerTest {
     @Test
+    fun `create and edit normalize quote context only when preparing a write`() = runTest {
+        val requests = mutableListOf<ReaderAnnotationMutationRequest.UpsertHighlight>()
+        val controller = controller(
+            this,
+            ReaderAnnotationWriter { _, request ->
+                requests += request as ReaderAnnotationMutationRequest.UpsertHighlight
+                emptyList()
+            }
+        )
+        controller.select(profile(), SESSION_ID, ReaderSessionStatus.ACTIVE)
+        controller.accept(
+            ReaderAnnotationMutationIntent.BeginCreate(
+                selection().copy(
+                    selectedText = "  One\n\n Apocalypses\t always   kick off...  ",
+                    prefix = "  Before\u00A0 context  ",
+                    suffix = "  After\r\n context  "
+                )
+            )
+        )
+        controller.accept(
+            ReaderAnnotationMutationIntent.UpdateCreate(note = "  first line\n\tsecond line  ")
+        )
+        controller.accept(ReaderAnnotationMutationIntent.SubmitCreate)
+        advanceUntilIdle()
+
+        val existing = highlight("existing").copy(
+            quote = "  Stored\n\n exactly\t as returned  ",
+            prefix = "\u00A0 Old\t prefix ",
+            suffix = " Old\r\n suffix ",
+            note = "old"
+        )
+        controller.accept(ReaderAnnotationMutationIntent.BeginEdit(existing))
+        controller.accept(
+            ReaderAnnotationMutationIntent.UpdateEdit(
+                color = ReaderAnnotationColor.BLUE,
+                note = "  edited\n\tnote  "
+            )
+        )
+        controller.accept(ReaderAnnotationMutationIntent.SaveEdit)
+        advanceUntilIdle()
+
+        assertEquals("One Apocalypses always kick off...", requests[0].text)
+        assertEquals("Before context", requests[0].prefix)
+        assertEquals("After context", requests[0].suffix)
+        assertEquals("  first line\n\tsecond line  ", requests[0].note)
+        assertEquals(CFI, requests[0].cfi)
+        assertEquals("Stored exactly as returned", requests[1].text)
+        assertEquals("Old prefix", requests[1].prefix)
+        assertEquals("Old suffix", requests[1].suffix)
+        assertEquals("  edited\n\tnote  ", requests[1].note)
+        assertEquals(existing.clientId, requests[1].clientId)
+        assertEquals(existing.cfi, requests[1].cfi)
+        assertEquals(existing.locationLabel, requests[1].locationLabel)
+    }
+
+    @Test
+    fun `normalized blank quote does not submit a highlight`() = runTest {
+        var calls = 0
+        val controller = controller(
+            this,
+            ReaderAnnotationWriter { _, _ ->
+                calls += 1
+                emptyList()
+            }
+        )
+        controller.select(profile(), SESSION_ID, ReaderSessionStatus.ACTIVE)
+        controller.accept(
+            ReaderAnnotationMutationIntent.BeginCreate(
+                selection().copy(selectedText = " \t\n\u00A0\uFEFF")
+            )
+        )
+        controller.accept(ReaderAnnotationMutationIntent.SubmitCreate)
+        advanceUntilIdle()
+
+        assertEquals(0, calls)
+        assertFalse(controller.state.value.submitting)
+    }
+
+    @Test
     fun `note editor keeps create identity and cancel returns to empty quick highlight`() =
         runTest {
             val controller = controller(this, ReaderAnnotationWriter { _, _ -> emptyList() })

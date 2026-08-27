@@ -4,6 +4,7 @@ import com.secondpasslibrary.client.MAX_HIGHLIGHT_NOTE_LENGTH
 import com.secondpasslibrary.client.ReadingSessionLifecycleRejection
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
+import com.secondpasslibrary.reader.reader.annotations.ReaderQuoteContextPolicy
 
 internal fun ReaderPendingHighlight.updated(color: ReaderAnnotationColor?, note: String?) = copy(
     color = color ?: this.color,
@@ -18,31 +19,47 @@ internal fun ReaderHighlightEditDraft.updated(color: ReaderAnnotationColor?, not
 private fun String?.validNoteOr(fallback: String) =
     if (this != null && length <= MAX_HIGHLIGHT_NOTE_LENGTH) this else fallback
 
-internal fun ReaderPendingHighlight.toRequest(sessionId: String) =
-    ReaderAnnotationMutationRequest.UpsertHighlight(
+internal fun ReaderPendingHighlight.toRequest(
+    sessionId: String
+): ReaderAnnotationMutationRequest.UpsertHighlight? {
+    val quote = ReaderQuoteContextPolicy.prepare(
+        selection.selectedText,
+        selection.prefix,
+        selection.suffix
+    ) ?: return null
+    return ReaderAnnotationMutationRequest.UpsertHighlight(
         sessionId = sessionId,
         clientId = clientId,
         cfi = selection.cfi.value,
         locationLabel = selection.locationLabel,
-        text = selection.selectedText,
-        prefix = selection.prefix,
-        suffix = selection.suffix,
+        text = quote.exact,
+        prefix = quote.prefix,
+        suffix = quote.suffix,
         color = color,
         note = note
     )
+}
 
-internal fun ReaderHighlightEditDraft.toRequest(sessionId: String) =
-    ReaderAnnotationMutationRequest.UpsertHighlight(
+internal fun ReaderHighlightEditDraft.toRequest(
+    sessionId: String
+): ReaderAnnotationMutationRequest.UpsertHighlight? {
+    val quote = ReaderQuoteContextPolicy.prepare(
+        annotation.quote,
+        annotation.prefix,
+        annotation.suffix
+    ) ?: return null
+    return ReaderAnnotationMutationRequest.UpsertHighlight(
         sessionId = sessionId,
         clientId = annotation.clientId,
         cfi = annotation.cfi,
         locationLabel = annotation.locationLabel,
-        text = annotation.quote,
-        prefix = annotation.prefix,
-        suffix = annotation.suffix,
+        text = quote.exact,
+        prefix = quote.prefix,
+        suffix = quote.suffix,
         color = color,
         note = note
     )
+}
 
 internal fun ReaderPendingBookmark.toRequest(sessionId: String) =
     ReaderAnnotationMutationRequest.UpsertBookmark(

@@ -1,8 +1,9 @@
 (function installSecondPassEpubCfiRuntime(global) {
     "use strict";
 
-    const RUNTIME_VERSION = "1.12.5";
+    const RUNTIME_VERSION = "1.12.6";
     const CONTEXT_LENGTH = 64;
+    const SELECTION_CONTEXT_LENGTH = 2000;
     const MOVEMENT_QUOTE_LENGTH = 128;
     const MAX_SELECTED_TEXT_LENGTH = 64 * 1024;
     const MIN_VISIBLE_EXTENT_PIXELS = 0.5;
@@ -565,7 +566,8 @@
         return codeUnit >= 0xdc00 && codeUnit <= 0xdfff;
     }
 
-    function textContext(range, publicationDocument) {
+    function textContext(range, publicationDocument, contextLength) {
+        contextLength = contextLength || CONTEXT_LENGTH;
         validateTextBoundary(range.startContainer, range.startOffset);
         validateTextBoundary(range.endContainer, range.endOffset);
         const body = publicationBody(publicationDocument);
@@ -584,14 +586,14 @@
                 range.startOffset,
                 body,
                 publicationDocument,
-                CONTEXT_LENGTH
+                contextLength
             ),
             suffix: textAfterPosition(
                 range.endContainer,
                 range.endOffset,
                 body,
                 publicationDocument,
-                CONTEXT_LENGTH
+                contextLength
             )
         };
     }
@@ -980,7 +982,11 @@
         if (snapshotRange.collapsed) {
             throw new Error("SELECTION_UNAVAILABLE");
         }
-        const context = textContext(snapshotRange, snapshot.document);
+        const context = textContext(
+            snapshotRange,
+            snapshot.document,
+            SELECTION_CONTEXT_LENGTH
+        );
         if (context.selectedText === null) {
             throw new Error("SELECTION_UNAVAILABLE");
         }

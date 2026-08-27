@@ -10,8 +10,9 @@ import org.json.JSONObject
 import org.json.JSONTokener
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 
-private const val RUNTIME_VERSION = "1.12.5"
+private const val RUNTIME_VERSION = "1.12.6"
 private const val CONTEXT_LENGTH = 64
+private const val SELECTION_CONTEXT_LENGTH = 2_000
 private const val MOVEMENT_QUOTE_LENGTH = 128
 private const val MAX_SELECTED_TEXT_LENGTH = 64 * 1024
 private const val MAX_RUNTIME_ENVELOPE_LENGTH = 256 * 1024
@@ -148,8 +149,8 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
             selectedText = selection.getString("selectedText").also {
                 require(it.length <= MAX_SELECTED_TEXT_LENGTH)
             },
-            prefix = selection.boundedContext("prefix"),
-            suffix = selection.boundedContext("suffix")
+            prefix = selection.boundedSelectionContext("prefix"),
+            suffix = selection.boundedSelectionContext("suffix")
         )
     }
 
@@ -451,4 +452,8 @@ private fun readContentResolution(value: Any?): ReadiumContentResolution {
 
 private fun JSONObject.boundedContext(name: String): String? = nullableString(name)?.also {
     require(it.length <= CONTEXT_LENGTH)
+}
+
+private fun JSONObject.boundedSelectionContext(name: String): String? = nullableString(name)?.also {
+    require(it.length <= SELECTION_CONTEXT_LENGTH)
 }

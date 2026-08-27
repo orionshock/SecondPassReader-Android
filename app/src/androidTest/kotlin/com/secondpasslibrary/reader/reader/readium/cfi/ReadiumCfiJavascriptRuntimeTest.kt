@@ -39,14 +39,14 @@ class ReadiumCfiJavascriptRuntimeTest {
             harness.evaluate("typeof SecondPassColibrio.EpubCfiParser.parse").jsonString()
         )
         assertEquals(
-            "1.12.5",
+            "1.12.6",
             harness.evaluate("__secondPassEpubCfi.runtimeVersion()").jsonString()
         )
 
         harness.evaluate(asset("reader/cfi/secondpass-epub-cfi-runtime.js"))
 
         assertEquals(
-            "1.12.5",
+            "1.12.6",
             harness.evaluate("__secondPassEpubCfi.runtimeVersion()").jsonString()
         )
     }
@@ -119,8 +119,8 @@ class ReadiumCfiJavascriptRuntimeTest {
             )
             val single = successObject(harness.runtime("generateSelectionContentCfi"))
             assertEquals("repeated phrase", single.getString("selectedText"))
-            assertTrue(single.getString("prefix").length <= 64)
-            assertTrue(single.getString("suffix").length <= 64)
+            assertTrue(single.getString("prefix").length <= 2_000)
+            assertTrue(single.getString("suffix").length <= 2_000)
 
             harness.selectNestedInlineRange()
             val nested = successObject(harness.runtime("generateSelectionContentCfi"))
@@ -128,6 +128,32 @@ class ReadiumCfiJavascriptRuntimeTest {
             assertTrue(nested.getString("prefix").endsWith("Before "))
             assertTrue(nested.getString("suffix").startsWith(" markup"))
         }
+
+    @Test
+    fun selectionCaptureProvidesRawContextForMutationBudgeting() = withHarness { harness ->
+        harness.evaluate(
+            """
+            (() => {
+              document.body.innerHTML = '<p id="context"></p>';
+              const node = document.getElementById("context");
+              node.textContent = "p".repeat(2500) + "selected" + "s".repeat(2500);
+              const text = node.firstChild;
+              const range = document.createRange();
+              range.setStart(text, 2500);
+              range.setEnd(text, 2508);
+              const selection = window.getSelection();
+              selection.removeAllRanges();
+              selection.addRange(range);
+            })()
+            """.trimIndent()
+        )
+
+        val selection = successObject(harness.runtime("generateSelectionContentCfi"))
+
+        assertEquals("selected", selection.getString("selectedText"))
+        assertEquals("p".repeat(2_000), selection.getString("prefix"))
+        assertEquals("s".repeat(2_000), selection.getString("suffix"))
+    }
 
     @Test
     fun preservesUtf16OffsetsWithoutSplittingSurrogatePairs() = withHarness { harness ->

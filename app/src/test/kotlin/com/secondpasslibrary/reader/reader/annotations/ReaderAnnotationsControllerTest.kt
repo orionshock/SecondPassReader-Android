@@ -124,6 +124,29 @@ class ReaderAnnotationsControllerTest {
         assertEquals(CFI, highlight.cfi)
     }
 
+    @Test
+    fun `SDK annotation read projection preserves quote context and note verbatim`() {
+        val projected = MarginaliaAnnotation.Highlight(
+            id = "verbatim",
+            clientId = "client-verbatim",
+            location = MarginaliaAnnotationLocation(CFI, "Chapter 3"),
+            createdAt = CREATED_AT,
+            updatedAt = UPDATED_AT,
+            body = MarginaliaHighlightBody(
+                text = "  Stored\n\n exactly\t as returned  ",
+                prefix = "\u00A0 Before\t ",
+                suffix = " After\r\n ",
+                color = MarginaliaHighlightColor.YELLOW,
+                note = "  first line\n    indented\nlast line  "
+            )
+        ).toReaderAnnotation() as ReaderAnnotation.Highlight
+
+        assertEquals("  Stored\n\n exactly\t as returned  ", projected.quote)
+        assertEquals("\u00A0 Before\t ", projected.prefix)
+        assertEquals(" After\r\n ", projected.suffix)
+        assertEquals("  first line\n    indented\nlast line  ", projected.note)
+    }
+
     private fun bookmark(id: String) = MarginaliaAnnotation.Bookmark(
         id = id,
         clientId = "client-$id",

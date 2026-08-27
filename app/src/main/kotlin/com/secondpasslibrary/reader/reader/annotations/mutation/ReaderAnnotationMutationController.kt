@@ -114,7 +114,7 @@ internal class ReaderAnnotationMutationController(
                 val currentOwner = activeOwner
                 val pending = state.value.pendingCreate
                 if (currentOwner != null && pending != null) {
-                    submit(currentOwner, pending.toRequest(currentOwner.sessionId))
+                    pending.toRequest(currentOwner.sessionId)?.let { submit(currentOwner, it) }
                 }
             }
 
@@ -147,7 +147,9 @@ internal class ReaderAnnotationMutationController(
                     if (draft.unchanged) {
                         mutableState.value = ReaderAnnotationMutationState()
                     } else {
-                        submit(currentOwner, draft.toRequest(currentOwner.sessionId))
+                        draft.toRequest(currentOwner.sessionId)?.let {
+                            submit(currentOwner, it)
+                        }
                     }
                 }
             }
