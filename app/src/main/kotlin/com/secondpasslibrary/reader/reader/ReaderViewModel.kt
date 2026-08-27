@@ -65,6 +65,7 @@ internal class ReaderViewModel @Inject constructor(
     )
     private val marginaliaLayersController = ReaderMarginaliaLayersController(
         marginaliaLayerHistoryLoader,
+        annotationsLoader,
         viewModelScope
     )
     private val annotationDecorations = ReaderAnnotationDecorationController()

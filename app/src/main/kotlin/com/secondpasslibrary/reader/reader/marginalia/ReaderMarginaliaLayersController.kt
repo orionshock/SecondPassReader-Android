@@ -4,6 +4,7 @@ import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsLoader
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -30,7 +31,8 @@ internal enum class ReaderMarginaliaLayersFailure {
 }
 
 internal class ReaderMarginaliaLayersController(
-    private val loader: ReaderMarginaliaLayerHistoryLoader,
+    private val historyLoader: ReaderMarginaliaLayerHistoryLoader,
+    private val annotationsLoader: ReaderAnnotationsLoader,
     private val scope: CoroutineScope
 ) {
     private val mutableState = MutableStateFlow(ReaderMarginaliaLayersState())
@@ -44,6 +46,7 @@ internal class ReaderMarginaliaLayersController(
     private var bookId: String? = null
     private var generation = 0L
     private var loadJob: Job? = null
+    private val layerLoadJobs = mutableMapOf<String, Job>()
 
     fun select(profile: ConnectionProfile, bookId: String, currentSession: ReaderSessionContext) {
         require(bookId.isNotBlank()) { "Book ID must not be blank." }
@@ -56,6 +59,7 @@ internal class ReaderMarginaliaLayersController(
         this.bookId = bookId
         connectionIdentity = identity
         loadJob?.cancel()
+        cancelLayerLoads()
         generation += 1
         mutableState.value = ReaderMarginaliaLayersState(
             currentLayer = currentSession.toCurrentMarginaliaLayer(),
@@ -80,8 +84,57 @@ internal class ReaderMarginaliaLayersController(
         }
     }
 
+    fun loadLayer(sessionId: String) {
+        val activeProfile = profile
+        val layer = state.value.previousLayers.find { it.summary.sessionId == sessionId }
+        if (activeProfile == null || layer == null || !layer.canLoadAnnotations) {
+            return
+        }
+        updateLayer(sessionId) {
+            it.copy(
+                loadState = ReaderMarginaliaLayerLoadState.LOADING,
+                loadFailure = null
+            )
+        }
+        val activeGeneration = generation
+        layerLoadJobs[sessionId] = scope.launch {
+            val result = runCatching { annotationsLoader.load(activeProfile, sessionId) }
+            (result.exceptionOrNull() as? CancellationException)?.let { throw it }
+            if (activeGeneration != generation) return@launch
+            result.fold(
+                onSuccess = { annotations ->
+                    updateLayer(sessionId) {
+                        it.copy(
+                            loadState = ReaderMarginaliaLayerLoadState.LOADED,
+                            annotations = annotations,
+                            loadFailure = null
+                        )
+                    }
+                },
+                onFailure = { failure ->
+                    val kind = if (failure is SplClientException.AuthenticationRejected) {
+                        ReaderMarginaliaLayerAnnotationsFailure.AUTHENTICATION_REQUIRED
+                    } else {
+                        ReaderMarginaliaLayerAnnotationsFailure.UNAVAILABLE
+                    }
+                    updateLayer(sessionId) {
+                        it.copy(
+                            loadState = ReaderMarginaliaLayerLoadState.FAILED,
+                            loadFailure = kind
+                        )
+                    }
+                    if (kind == ReaderMarginaliaLayerAnnotationsFailure.AUTHENTICATION_REQUIRED) {
+                        authenticationRequired.trySend(Unit)
+                    }
+                }
+            )
+            layerLoadJobs.remove(sessionId)
+        }
+    }
+
     fun clear() {
         loadJob?.cancel()
+        cancelLayerLoads()
         generation += 1
         profile = null
         connectionIdentity = null
@@ -103,7 +156,7 @@ internal class ReaderMarginaliaLayersController(
             failure = null
         )
         loadJob = scope.launch {
-            val result = runCatching { loader.load(activeProfile, activeBookId, page) }
+            val result = runCatching { historyLoader.load(activeProfile, activeBookId, page) }
             (result.exceptionOrNull() as? CancellationException)?.let { throw it }
             if (activeGeneration != generation) return@launch
             result.fold(
@@ -150,4 +203,25 @@ internal class ReaderMarginaliaLayersController(
             authenticationRequired.trySend(Unit)
         }
     }
+
+    private fun updateLayer(
+        sessionId: String,
+        transform: (ReaderPreviousMarginaliaLayer) -> ReaderPreviousMarginaliaLayer
+    ) {
+        val current = state.value
+        val index = current.previousLayers.indexOfFirst { it.summary.sessionId == sessionId }
+        if (index < 0) return
+        val layers = current.previousLayers.toMutableList()
+        layers[index] = transform(layers[index])
+        mutableState.value = current.copy(previousLayers = layers)
+    }
+
+    private fun cancelLayerLoads() {
+        layerLoadJobs.values.forEach(Job::cancel)
+        layerLoadJobs.clear()
+    }
 }
+
+private val ReaderPreviousMarginaliaLayer.canLoadAnnotations: Boolean
+    get() = loadState == ReaderMarginaliaLayerLoadState.NOT_LOADED ||
+        loadState == ReaderMarginaliaLayerLoadState.FAILED

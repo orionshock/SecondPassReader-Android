@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.reader.marginalia
 
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 
@@ -22,7 +23,9 @@ internal enum class ReaderMarginaliaLayerRole {
 internal data class ReaderPreviousMarginaliaLayer(
     val summary: ReaderMarginaliaLayerSummary,
     val loadState: ReaderMarginaliaLayerLoadState = ReaderMarginaliaLayerLoadState.NOT_LOADED,
-    val visibility: ReaderMarginaliaLayerVisibility = ReaderMarginaliaLayerVisibility.HIDDEN
+    val visibility: ReaderMarginaliaLayerVisibility = ReaderMarginaliaLayerVisibility.HIDDEN,
+    val annotations: List<ReaderAnnotation> = emptyList(),
+    val loadFailure: ReaderMarginaliaLayerAnnotationsFailure? = null
 ) {
     init {
         require(summary.role == ReaderMarginaliaLayerRole.PREVIOUS) {
@@ -41,6 +44,11 @@ internal enum class ReaderMarginaliaLayerLoadState {
 internal enum class ReaderMarginaliaLayerVisibility {
     HIDDEN,
     VISIBLE
+}
+
+internal enum class ReaderMarginaliaLayerAnnotationsFailure {
+    AUTHENTICATION_REQUIRED,
+    UNAVAILABLE
 }
 
 internal fun ReaderSessionContext.toCurrentMarginaliaLayer() = ReaderMarginaliaLayerSummary(

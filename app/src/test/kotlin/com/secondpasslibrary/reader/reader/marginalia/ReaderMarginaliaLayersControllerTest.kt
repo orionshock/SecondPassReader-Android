@@ -1,6 +1,7 @@
 package com.secondpasslibrary.reader.reader.marginalia
 
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsLoader
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -136,7 +137,13 @@ class ReaderMarginaliaLayersControllerTest {
     }
 
     private fun TestScope.controller(loader: ReaderMarginaliaLayerHistoryLoader) =
-        ReaderMarginaliaLayersController(loader, this)
+        ReaderMarginaliaLayersController(
+            loader,
+            ReaderAnnotationsLoader { _, _ ->
+                error("Previous annotations must not load during layer discovery.")
+            },
+            this
+        )
 
     private fun layerIds(controller: ReaderMarginaliaLayersController) =
         controller.state.value.previousLayers.map { it.summary.sessionId }
