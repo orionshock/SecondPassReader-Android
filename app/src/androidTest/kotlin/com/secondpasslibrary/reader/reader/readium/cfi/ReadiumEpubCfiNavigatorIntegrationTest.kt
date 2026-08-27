@@ -7,6 +7,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecoration
+import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecorationGroupId
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationKind
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
 import com.secondpasslibrary.reader.reader.appearance.ReaderTheme
@@ -224,6 +225,7 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
             val host = scenario.awaitReadyHost()
             runBlocking {
                 host.engine.annotationDecorations.replace(
+                    ReaderAnnotationDecorationGroupId.Current,
                     listOf(
                         annotationDecoration("valid", EpubCfi(CROSS_MARKUP_RANGE_CFI)),
                         annotationDecoration("cross-spine", EpubCfi(CROSS_SPINE_RANGE_CFI)),
@@ -247,6 +249,42 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
             scenario.recreate()
             val recreated = scenario.awaitReadyHost()
             runBlocking { awaitDecoration(recreated.navigator) }
+            assertSame(host.engine, recreated.engine)
+        }
+    }
+
+    @Test
+    fun previousSessionDecorationGroupsHideIndependentlyAndReapply() = withFixture(
+        "annotation-decorations.epub"
+    ) { fixture ->
+        val first = ReaderAnnotationDecorationGroupId.Previous("session-a")
+        val second = ReaderAnnotationDecorationGroupId.Previous("session-b")
+        launchHost(fixture).use { scenario ->
+            val host = scenario.awaitReadyHost()
+            runBlocking {
+                val sameIdentity = annotationDecoration(
+                    "same-client",
+                    EpubCfi(CROSS_MARKUP_RANGE_CFI)
+                )
+                host.engine.annotationDecorations.replace(first, listOf(sameIdentity))
+                host.engine.annotationDecorations.replace(second, listOf(sameIdentity))
+                awaitDecorationGroup(host.navigator, "second-pass-previous-session-session-a")
+                awaitDecorationGroup(host.navigator, "second-pass-previous-session-session-b")
+
+                host.engine.annotationDecorations.clear(first)
+                awaitDecorationGroup(
+                    host.navigator,
+                    "second-pass-previous-session-session-a",
+                    expected = false
+                )
+                awaitDecorationGroup(host.navigator, "second-pass-previous-session-session-b")
+            }
+
+            scenario.recreate()
+            val recreated = scenario.awaitReadyHost()
+            runBlocking {
+                awaitDecorationGroup(recreated.navigator, "second-pass-previous-session-session-b")
+            }
             assertSame(host.engine, recreated.engine)
         }
     }
@@ -380,6 +418,25 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
                     ) == "true"
                 }
                 if (!installed) delay(50)
+            }
+        }
+    }
+
+    private suspend fun awaitDecorationGroup(
+        navigator: EpubNavigatorFragment,
+        group: String,
+        expected: Boolean = true
+    ) {
+        withTimeout(HOST_TIMEOUT_MILLIS) {
+            var matches = false
+            while (!matches) {
+                matches = withContext(Dispatchers.Main) {
+                    val present = navigator.evaluateJavascript(
+                        "Boolean(document.querySelector('div[data-group=\"$group\"]'))"
+                    ) == "true"
+                    present == expected
+                }
+                if (!matches) delay(50)
             }
         }
     }

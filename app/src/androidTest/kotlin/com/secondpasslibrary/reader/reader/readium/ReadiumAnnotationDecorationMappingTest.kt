@@ -56,6 +56,27 @@ class ReadiumAnnotationDecorationMappingTest {
         assertNull(annotation(cfi).toReadiumDecoration(target(), point))
     }
 
+    @Test
+    fun previousHighlightPreservesRgbWithSubordinateOpacity() {
+        val cfi = EpubCfi("epubcfi(/6/4!/4/2,/1:0,/1:4)")
+        val current = requireNotNull(
+            annotation(cfi).toReadiumDecoration(
+                target(),
+                resolution(cfi, EpubCfiTargetKind.RANGE)
+            )
+        )
+        val previous = requireNotNull(
+            annotation(cfi).toReadiumDecoration(
+                target(),
+                resolution(cfi, EpubCfiTargetKind.RANGE),
+                historical = true
+            )
+        )
+
+        assertEquals(0xFF3B82F6.toInt(), (current.style as Decoration.Style.Highlight).tint)
+        assertEquals(0x663B82F6, (previous.style as Decoration.Style.Highlight).tint)
+    }
+
     private fun annotation(cfi: EpubCfi) = ReaderAnnotationDecoration(
         annotationId = "annotation-1",
         cfi = cfi,

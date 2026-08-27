@@ -3,6 +3,7 @@ package com.secondpasslibrary.reader.reader.readium
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecoration
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecorationFailure
+import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecorationGroupId
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecorations
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationKind
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiFailure
@@ -30,7 +31,10 @@ import org.readium.r2.navigator.Decoration
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.shared.publication.Locator
 
-private const val ANNOTATION_DECORATION_GROUP = "second-pass-current-session-annotations"
+private const val CURRENT_ANNOTATION_DECORATION_GROUP = "second-pass-current-session-annotations"
+private const val PREVIOUS_HIGHLIGHT_ALPHA = 0x66
+private const val RGB_MASK = 0x00FFFFFFL
+private const val ARGB_ALPHA_SHIFT = 24
 
 /** Resolves canonical CFIs only in their live resource, then gives Readium ordinary locators. */
 internal class ReadiumReaderAnnotationDecorations(
@@ -43,42 +47,49 @@ internal class ReadiumReaderAnnotationDecorations(
     private val mutableFailures = MutableStateFlow(
         emptyMap<String, ReaderAnnotationDecorationFailure>()
     )
-    private var desired = emptyMap<String, ReaderAnnotationDecoration>()
-    private val targets = mutableMapOf<String, ReadiumEpubPackageTarget>()
-    private val resolved = mutableMapOf<String, Decoration>()
+    private var desired = emptyMap<DecorationKey, ReaderAnnotationDecoration>()
+    private val targets = mutableMapOf<DecorationKey, ReadiumEpubPackageTarget>()
+    private val resolved = mutableMapOf<DecorationKey, Decoration>()
+    private var appliedGroups = emptySet<ReaderAnnotationDecorationGroupId>()
     private var navigator: EpubNavigatorFragment? = null
     private var resourceJob: Job? = null
 
     override val failures = mutableFailures.asStateFlow()
 
-    override suspend fun replace(decorations: List<ReaderAnnotationDecoration>) {
+    override suspend fun replace(
+        groupId: ReaderAnnotationDecorationGroupId,
+        decorations: List<ReaderAnnotationDecoration>
+    ) {
         val next = decorations
             .filter { it.kind == ReaderAnnotationKind.HIGHLIGHT }
-            .associateBy(ReaderAnnotationDecoration::annotationId)
+            .associateBy { DecorationKey(groupId, it.annotationId) }
         stateMutex.withLock {
-            val changed = (desired.keys + next.keys).filter { desired[it] != next[it] }
+            val previous = desired.filterKeys { it.group == groupId }
+            val changed = (previous.keys + next.keys).filter { desired[it] != next[it] }
             changed.forEach {
                 targets.remove(it)
                 resolved.remove(it)
             }
-            mutableFailures.value = mutableFailures.value - changed.toSet()
-            desired = next
+            mutableFailures.value = mutableFailures.value - changed.map { it.failureKey }.toSet()
+            desired = desired.filterKeys { it.group != groupId } + next
         }
         refreshCurrentResource()
     }
 
-    override suspend fun clear() {
+    override suspend fun clear(groupId: ReaderAnnotationDecorationGroupId) {
         stateMutex.withLock {
-            desired = emptyMap()
-            targets.clear()
-            resolved.clear()
-            mutableFailures.value = emptyMap()
+            val keys = desired.keys.filter { it.group == groupId }.toSet()
+            desired = desired - keys
+            targets.keys.removeAll(keys)
+            resolved.keys.removeAll(keys)
+            mutableFailures.value = mutableFailures.value - keys.map { it.failureKey }.toSet()
         }
         applyResolved()
     }
 
     fun bind(value: EpubNavigatorFragment) {
         navigator = value
+        appliedGroups = emptySet()
         resourceJob?.cancel()
         resourceJob = scope.launch {
             value.currentLocator
@@ -105,65 +116,77 @@ internal class ReadiumReaderAnnotationDecorations(
             val bound = navigator ?: return@withLock
             val activeHref = bound.currentLocator.value.href.toString().canonicalHrefOrNull()
                 ?: return@withLock
-            val snapshot = stateMutex.withLock { desired.values.toList() }
-            snapshot.forEach { decoration -> resolveIfCurrent(decoration, activeHref) }
+            val snapshot = stateMutex.withLock { desired.toList() }
+            snapshot.forEach { (key, decoration) -> resolveIfCurrent(key, decoration, activeHref) }
             applyResolved()
         }
     }
 
     private suspend fun resolveIfCurrent(
+        key: DecorationKey,
         decoration: ReaderAnnotationDecoration,
         activeHref: String
     ) {
-        val target = stateMutex.withLock { targets[decoration.annotationId] }
+        val target = stateMutex.withLock { targets[key] }
         val alreadyResolved = stateMutex.withLock {
-            resolved.containsKey(decoration.annotationId)
+            resolved.containsKey(key)
         }
         if (target != null && target.resourceHref != activeHref) return
         if (alreadyResolved) return
 
         when (val outcome = cfiNavigator.resolveDecoration(decoration.cfi, activeHref)) {
             is EpubCfiOutcome.Failure -> recordFailure(
-                decoration.annotationId,
+                key,
                 outcome.reason.toDecorationFailure()
             )
 
             is EpubCfiOutcome.Success -> {
                 stateMutex.withLock {
-                    targets[decoration.annotationId] = outcome.value.packageTarget
+                    targets[key] = outcome.value.packageTarget
                 }
                 outcome.value.resolution?.let {
-                    installResolved(decoration, outcome.value.packageTarget, it)
+                    installResolved(key, decoration, outcome.value.packageTarget, it)
                 }
             }
         }
     }
 
     private suspend fun installResolved(
+        key: DecorationKey,
         decoration: ReaderAnnotationDecoration,
         target: ReadiumEpubPackageTarget,
         resolution: EpubCfiResolution
     ) {
-        val readiumDecoration = decoration.toReadiumDecoration(target, resolution)
+        val readiumDecoration = decoration.toReadiumDecoration(
+            target,
+            resolution,
+            historical = key.group is ReaderAnnotationDecorationGroupId.Previous
+        )
         if (readiumDecoration == null) {
-            recordFailure(decoration.annotationId, ReaderAnnotationDecorationFailure.UNSUPPORTED)
+            recordFailure(key, ReaderAnnotationDecorationFailure.UNSUPPORTED)
             return
         }
         stateMutex.withLock {
-            if (desired[decoration.annotationId] == decoration) {
-                resolved[decoration.annotationId] = readiumDecoration
-                mutableFailures.value = mutableFailures.value - decoration.annotationId
+            if (desired[key] == decoration) {
+                resolved[key] = readiumDecoration
+                mutableFailures.value = mutableFailures.value - key.failureKey
             }
         }
     }
 
     private suspend fun applyResolved() {
         val bound = navigator ?: return
-        val values = stateMutex.withLock { resolved.values.toList() }
+        val values = stateMutex.withLock {
+            resolved.entries.groupBy({ it.key.group }, { it.value })
+        }
+        val groups = appliedGroups + values.keys
         try {
             withContext(Dispatchers.Main.immediate) {
                 if (navigator === bound) {
-                    bound.applyDecorations(values, ANNOTATION_DECORATION_GROUP)
+                    groups.forEach { group ->
+                        bound.applyDecorations(values[group].orEmpty(), group.readiumName)
+                    }
+                    appliedGroups = values.keys
                 }
             }
         } catch (cancelled: CancellationException) {
@@ -174,11 +197,11 @@ internal class ReadiumReaderAnnotationDecorations(
     }
 
     private suspend fun recordFailure(
-        annotationId: String,
+        key: DecorationKey,
         failure: ReaderAnnotationDecorationFailure
     ) = stateMutex.withLock {
-        if (annotationId in desired) {
-            mutableFailures.value = mutableFailures.value + (annotationId to failure)
+        if (key in desired) {
+            mutableFailures.value = mutableFailures.value + (key.failureKey to failure)
         }
     }
 
@@ -191,7 +214,8 @@ internal class ReadiumReaderAnnotationDecorations(
 
 internal fun ReaderAnnotationDecoration.toReadiumDecoration(
     target: ReadiumEpubPackageTarget,
-    resolution: EpubCfiResolution
+    resolution: EpubCfiResolution,
+    historical: Boolean = false
 ): Decoration? = when {
     kind != ReaderAnnotationKind.HIGHLIGHT || color == null -> null
 
@@ -210,7 +234,10 @@ internal fun ReaderAnnotationDecoration.toReadiumDecoration(
                     after = resolution.suffix
                 )
             ),
-            style = Decoration.Style.Highlight(tint = color.readiumTint, isActive = false)
+            style = Decoration.Style.Highlight(
+                tint = color.readiumTint(historical),
+                isActive = false
+            )
         )
     }
 }
@@ -234,5 +261,28 @@ private fun EpubCfiFailure.toDecorationFailure(): ReaderAnnotationDecorationFail
     else -> ReaderAnnotationDecorationFailure.UNAVAILABLE
 }
 
-private val ReaderAnnotationColor.readiumTint: Int
-    get() = displayArgb.toInt()
+private fun ReaderAnnotationColor.readiumTint(historical: Boolean): Int = if (historical) {
+    (displayArgb and RGB_MASK or (PREVIOUS_HIGHLIGHT_ALPHA.toLong() shl ARGB_ALPHA_SHIFT)).toInt()
+} else {
+    displayArgb.toInt()
+}
+
+private data class DecorationKey(
+    val group: ReaderAnnotationDecorationGroupId,
+    val annotationId: String
+) {
+    val failureKey: String
+        get() = if (group is ReaderAnnotationDecorationGroupId.Current) {
+            annotationId
+        } else {
+            "${group.readiumName}:$annotationId"
+        }
+}
+
+private val ReaderAnnotationDecorationGroupId.readiumName: String
+    get() = when (this) {
+        ReaderAnnotationDecorationGroupId.Current -> CURRENT_ANNOTATION_DECORATION_GROUP
+
+        is ReaderAnnotationDecorationGroupId.Previous ->
+            "second-pass-previous-session-$sessionId"
+    }

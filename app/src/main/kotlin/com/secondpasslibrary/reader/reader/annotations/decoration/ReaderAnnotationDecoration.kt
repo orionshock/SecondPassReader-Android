@@ -12,6 +12,16 @@ internal data class ReaderAnnotationDecoration(
     val color: ReaderAnnotationColor?
 )
 
+internal sealed interface ReaderAnnotationDecorationGroupId {
+    data object Current : ReaderAnnotationDecorationGroupId
+
+    data class Previous(val sessionId: String) : ReaderAnnotationDecorationGroupId {
+        init {
+            require(sessionId.isNotBlank()) { "Decoration group Session ID must not be blank." }
+        }
+    }
+}
+
 internal enum class ReaderAnnotationKind { BOOKMARK, HIGHLIGHT }
 
 internal enum class ReaderAnnotationDecorationFailure {
@@ -23,9 +33,12 @@ internal enum class ReaderAnnotationDecorationFailure {
 internal interface ReaderAnnotationDecorations {
     val failures: StateFlow<Map<String, ReaderAnnotationDecorationFailure>>
 
-    suspend fun replace(decorations: List<ReaderAnnotationDecoration>)
+    suspend fun replace(
+        groupId: ReaderAnnotationDecorationGroupId,
+        decorations: List<ReaderAnnotationDecoration>
+    )
 
-    suspend fun clear()
+    suspend fun clear(groupId: ReaderAnnotationDecorationGroupId)
 }
 
 internal object EmptyReaderAnnotationDecorations : ReaderAnnotationDecorations {
@@ -33,20 +46,18 @@ internal object EmptyReaderAnnotationDecorations : ReaderAnnotationDecorations {
         emptyMap<String, ReaderAnnotationDecorationFailure>()
     )
 
-    override suspend fun replace(decorations: List<ReaderAnnotationDecoration>) = Unit
+    override suspend fun replace(
+        groupId: ReaderAnnotationDecorationGroupId,
+        decorations: List<ReaderAnnotationDecoration>
+    ) = Unit
 
-    override suspend fun clear() = Unit
+    override suspend fun clear(groupId: ReaderAnnotationDecorationGroupId) = Unit
 }
 
 internal fun ReaderAnnotation.toDecoration(): ReaderAnnotationDecoration? {
     val canonicalCfi = runCatching { EpubCfi(cfi) }.getOrNull() ?: return null
     return when (this) {
-        is ReaderAnnotation.Bookmark -> ReaderAnnotationDecoration(
-            annotationId = id,
-            cfi = canonicalCfi,
-            kind = ReaderAnnotationKind.BOOKMARK,
-            color = null
-        )
+        is ReaderAnnotation.Bookmark -> null
 
         is ReaderAnnotation.Highlight -> ReaderAnnotationDecoration(
             annotationId = id,

@@ -30,6 +30,13 @@ internal enum class ReaderMarginaliaLayersFailure {
     UNAVAILABLE
 }
 
+internal enum class ReaderMarginaliaLayerVisibilityResult {
+    UPDATED,
+    UNCHANGED,
+    NOT_FOUND,
+    NOT_LOADED
+}
+
 internal class ReaderMarginaliaLayersController(
     private val historyLoader: ReaderMarginaliaLayerHistoryLoader,
     private val annotationsLoader: ReaderAnnotationsLoader,
@@ -132,6 +139,31 @@ internal class ReaderMarginaliaLayersController(
         }
     }
 
+    fun setLayerVisible(
+        sessionId: String,
+        visible: Boolean
+    ): ReaderMarginaliaLayerVisibilityResult {
+        val layer = state.value.previousLayers.find { it.summary.sessionId == sessionId }
+        val visibility = if (visible) {
+            ReaderMarginaliaLayerVisibility.VISIBLE
+        } else {
+            ReaderMarginaliaLayerVisibility.HIDDEN
+        }
+        return when {
+            layer == null -> ReaderMarginaliaLayerVisibilityResult.NOT_FOUND
+
+            visible && layer.loadState != ReaderMarginaliaLayerLoadState.LOADED ->
+                ReaderMarginaliaLayerVisibilityResult.NOT_LOADED
+
+            layer.visibility == visibility -> ReaderMarginaliaLayerVisibilityResult.UNCHANGED
+
+            else -> {
+                updateLayer(sessionId) { it.copy(visibility = visibility) }
+                ReaderMarginaliaLayerVisibilityResult.UPDATED
+            }
+        }
+    }
+
     fun clear() {
         loadJob?.cancel()
         cancelLayerLoads()
@@ -140,11 +172,6 @@ internal class ReaderMarginaliaLayersController(
         connectionIdentity = null
         bookId = null
         mutableState.value = ReaderMarginaliaLayersState()
-    }
-
-    fun close() {
-        clear()
-        authenticationRequired.close()
     }
 
     private fun load(page: Int, append: Boolean, activeGeneration: Long) {

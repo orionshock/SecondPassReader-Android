@@ -19,6 +19,7 @@ import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceStore
 import com.secondpasslibrary.reader.reader.asset.SplReaderBookAssetResolver
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
+import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayerDecorationController
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayersController
 import com.secondpasslibrary.reader.reader.marginalia.SplReaderMarginaliaLayerHistoryLoader
 import com.secondpasslibrary.reader.reader.progress.SplReaderProgressWriter
@@ -68,6 +69,7 @@ internal class ReaderViewModel @Inject constructor(
         annotationsLoader,
         viewModelScope
     )
+    private val marginaliaLayerDecorations = ReaderMarginaliaLayerDecorationController()
     private val annotationDecorations = ReaderAnnotationDecorationController()
     private val selections = ReaderSelectionController(viewModelScope)
     private val annotationMutations = ReaderAnnotationMutationController(
@@ -175,6 +177,22 @@ internal class ReaderViewModel @Inject constructor(
             annotationsController.clear()
             marginaliaLayersController.clear()
         }
+        viewModelScope.launch {
+            combine(controller.state, marginaliaLayersController.state) { reader, layers ->
+                reader to layers
+            }.collectLatest { (reader, layers) ->
+                val ready = reader as? ReaderState.Ready
+                if (ready != null && layers.currentLayer?.sessionId == ready.session.sessionId) {
+                    marginaliaLayerDecorations.replace(
+                        readerSessionId = ready.session.sessionId,
+                        target = ready.engine.annotationDecorations,
+                        layers = layers.previousLayers
+                    )
+                } else {
+                    marginaliaLayerDecorations.clear()
+                }
+            }
+        }
         entryIdentity = nextIdentity
         activeProfile = profile
         controller.initialize(profile, profileId, bookId, existingSessionId)
@@ -233,7 +251,7 @@ internal class ReaderViewModel @Inject constructor(
     override fun onCleared() {
         bookmarkCaptureJob?.cancel()
         annotationsController.close()
-        marginaliaLayersController.close()
+        marginaliaLayersController.clear()
         selections.detach()
         annotationMutations.clear()
         controller.close { progressSyncJob.cancel() }

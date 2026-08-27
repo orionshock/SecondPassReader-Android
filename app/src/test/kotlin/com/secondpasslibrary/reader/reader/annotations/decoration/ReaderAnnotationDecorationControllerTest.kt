@@ -24,8 +24,7 @@ class ReaderAnnotationDecorationControllerTest {
             ),
             highlight.toDecoration()
         )
-        assertEquals(ReaderAnnotationKind.BOOKMARK, bookmark.toDecoration()?.kind)
-        assertEquals(bookmark.cfi, bookmark.toDecoration()?.cfi?.value)
+        assertNull(bookmark.toDecoration())
     }
 
     @Test
@@ -65,12 +64,17 @@ class ReaderAnnotationDecorationControllerTest {
         val replacements = mutableListOf<List<ReaderAnnotationDecoration>>()
         var clearCount = 0
 
-        override suspend fun replace(decorations: List<ReaderAnnotationDecoration>) {
-            replacements += decorations
+        override suspend fun replace(
+            groupId: ReaderAnnotationDecorationGroupId,
+            decorations: List<ReaderAnnotationDecoration>
+        ) {
+            if (groupId == ReaderAnnotationDecorationGroupId.Current) {
+                replacements += decorations
+            }
         }
 
-        override suspend fun clear() {
-            clearCount += 1
+        override suspend fun clear(groupId: ReaderAnnotationDecorationGroupId) {
+            if (groupId == ReaderAnnotationDecorationGroupId.Current) clearCount += 1
         }
     }
 }

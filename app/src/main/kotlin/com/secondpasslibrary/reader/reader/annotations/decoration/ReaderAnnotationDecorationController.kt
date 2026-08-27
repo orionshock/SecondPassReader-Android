@@ -15,13 +15,18 @@ internal class ReaderAnnotationDecorationController {
         annotations: List<ReaderAnnotation>
     ) = mutex.withLock {
         val next = DecorationOwner(sessionId, target)
-        if (owner != null && owner != next) owner?.target?.clear()
+        if (owner != null && owner != next) {
+            owner?.target?.clear(ReaderAnnotationDecorationGroupId.Current)
+        }
         owner = next
-        target.replace(annotations.mapNotNull(ReaderAnnotation::toDecoration))
+        target.replace(
+            ReaderAnnotationDecorationGroupId.Current,
+            annotations.mapNotNull(ReaderAnnotation::toDecoration)
+        )
     }
 
     suspend fun clear() = mutex.withLock {
-        owner?.target?.clear()
+        owner?.target?.clear(ReaderAnnotationDecorationGroupId.Current)
         owner = null
     }
 
