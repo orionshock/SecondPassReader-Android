@@ -220,6 +220,19 @@ class ReaderUiIntegrationTest {
                                 createdNote = createState.value.pendingCreate?.note
                             }
 
+                            ReaderAnnotationMutationIntent.OpenCreateNote -> {
+                                createState.value = createState.value.copy(
+                                    createNoteEditorVisible = true
+                                )
+                            }
+
+                            ReaderAnnotationMutationIntent.CancelCreateNote -> {
+                                createState.value = createState.value.copy(
+                                    createNoteEditorVisible = false,
+                                    pendingCreate = createState.value.pendingCreate?.copy(note = "")
+                                )
+                            }
+
                             else -> Unit
                         }
                     },
@@ -229,13 +242,17 @@ class ReaderUiIntegrationTest {
         }
 
         compose.onNodeWithContentDescription("Yellow highlight").assertIsSelected()
-        compose.onNodeWithText("Note (optional)").performTextInput("Keep this thought")
         compose.onNodeWithContentDescription("Blue highlight").performClick()
         compose.onNodeWithText("Highlight").performClick()
         compose.runOnIdle {
             assertEquals(ReaderAnnotationColor.BLUE, createdColor)
-            assertEquals("Keep this thought", createdNote)
+            assertEquals("", createdNote)
         }
+        compose.onNodeWithText("Note").performClick()
+        compose.onNodeWithText("Selected passage").assertIsDisplayed()
+        compose.onNodeWithText("Note (optional)").performTextInput("Keep this thought")
+        compose.onNodeWithText("Create").performClick()
+        compose.runOnIdle { assertEquals("Keep this thought", createdNote) }
         compose.onNodeWithContentDescription("Reading annotations").performClick()
         compose.runOnIdle { assertEquals(1, dismissals) }
 

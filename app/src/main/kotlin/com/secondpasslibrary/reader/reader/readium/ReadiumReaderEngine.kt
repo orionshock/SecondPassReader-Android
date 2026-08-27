@@ -20,6 +20,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.readium.r2.navigator.epub.EpubNavigatorFactory
+import org.readium.r2.navigator.epub.EpubNavigatorFragment
+import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Publication
 import org.readium.r2.shared.util.asset.Asset
 import org.readium.r2.shared.util.asset.AssetRetriever
@@ -27,6 +29,7 @@ import org.readium.r2.shared.util.http.DefaultHttpClient
 import org.readium.r2.streamer.PublicationOpener
 import org.readium.r2.streamer.parser.DefaultPublicationParser
 
+@OptIn(ExperimentalReadiumApi::class)
 private class ReadiumReaderEngine(
     private val publication: Publication,
     packageDocument: EpubPackageDocument,
@@ -38,7 +41,7 @@ private class ReadiumReaderEngine(
     private val publicationBinding = ReadiumPublicationNavigatorBinding()
     private val appearanceController = ReadiumReaderAppearanceController(initialAppearance)
     private val movements = ReadiumViewportMovements()
-    private val selections = ReadiumSelectionEvents()
+    private val selections = ReadiumSelectionEvents(cfiBinding)
     private val readiumCfiNavigator = ReadiumEpubCfiNavigator(
         binding = cfiBinding,
         packageDocument = packageDocument,
@@ -50,7 +53,12 @@ private class ReadiumReaderEngine(
         fragmentFactory = {
             navigatorFactory.createFragmentFactory(
                 initialLocator = null,
-                initialPreferences = appearanceController.initialPreferences()
+                initialPreferences = appearanceController.initialPreferences(),
+                configuration = EpubNavigatorFragment.Configuration().apply {
+                    registerJavascriptInterface(SELECTION_JAVASCRIPT_INTERFACE) {
+                        selections.javascriptInterface()
+                    }
+                }
             )
         },
         cfiBinding = cfiBinding,

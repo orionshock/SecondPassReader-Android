@@ -42,6 +42,8 @@ internal class ReaderAnnotationMutationController(
         when (intent) {
             is ReaderAnnotationMutationIntent.BeginCreate,
             is ReaderAnnotationMutationIntent.UpdateCreate,
+            ReaderAnnotationMutationIntent.OpenCreateNote,
+            ReaderAnnotationMutationIntent.CancelCreateNote,
             ReaderAnnotationMutationIntent.SubmitCreate -> acceptCreate(intent)
 
             is ReaderAnnotationMutationIntent.BeginEdit,
@@ -89,6 +91,21 @@ internal class ReaderAnnotationMutationController(
             is ReaderAnnotationMutationIntent.UpdateCreate -> updateStateDraft { current ->
                 current.copy(
                     pendingCreate = current.pendingCreate?.updated(intent.color, intent.note),
+                    failure = null
+                )
+            }
+
+            ReaderAnnotationMutationIntent.OpenCreateNote -> updateStateDraft { current ->
+                current.copy(
+                    createNoteEditorVisible = current.pendingCreate != null,
+                    failure = null
+                )
+            }
+
+            ReaderAnnotationMutationIntent.CancelCreateNote -> updateStateDraft { current ->
+                current.copy(
+                    pendingCreate = current.pendingCreate?.copy(note = ""),
+                    createNoteEditorVisible = false,
                     failure = null
                 )
             }

@@ -9,6 +9,7 @@ import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecoration
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecorationGroupId
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationKind
+import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelectionController
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
 import com.secondpasslibrary.reader.reader.appearance.ReaderTheme
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
@@ -23,6 +24,7 @@ import com.secondpasslibrary.reader.reader.cfi.normalizeEpubHref
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
@@ -254,6 +256,69 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
     }
 
     @Test
+    fun liveDocumentSelectionObserverTracksSelectionClearAndNavigatorRecreation() = withFixture(
+        "live-selection-observer.epub"
+    ) { fixture ->
+        launchHost(fixture).use { scenario ->
+            val first = scenario.awaitReadyHost()
+            val eventScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+            val selectionController = ReaderSelectionController(eventScope).also {
+                it.attach(first.engine.selectionEvents, first.engine.cfiNavigator)
+            }
+            runBlocking { awaitSelectionObserver(first.navigator) }
+
+            val selected = eventScope.async(start = CoroutineStart.UNDISPATCHED) {
+                withTimeout(HOST_TIMEOUT_MILLIS) {
+                    selectionController.selection.first { it != null }
+                }
+            }
+            runBlocking {
+                withContext(Dispatchers.Main) {
+                    first.navigator.evaluateJavascript(CROSS_MARKUP_SELECTION_SCRIPT)
+                }
+                selected.await()
+            }
+            val captured = selectionController.selection.value
+            assertNotNull(captured)
+            assertNotNull(requireNotNull(captured).bounds)
+            assertTrue(requireNotNull(captured.bounds).right >= captured.bounds.left)
+
+            val cleared = eventScope.async(start = CoroutineStart.UNDISPATCHED) {
+                withTimeout(HOST_TIMEOUT_MILLIS) {
+                    selectionController.selection.first { it == null }
+                }
+            }
+            runBlocking {
+                withContext(Dispatchers.Main) {
+                    first.navigator.evaluateJavascript(
+                        "window.getSelection().removeAllRanges(); true;"
+                    )
+                }
+                cleared.await()
+            }
+            assertNull(selectionController.selection.value)
+
+            scenario.recreate()
+            val recreated = scenario.awaitReadyHost()
+            runBlocking { awaitSelectionObserver(recreated.navigator) }
+            val rebound = eventScope.async(start = CoroutineStart.UNDISPATCHED) {
+                withTimeout(HOST_TIMEOUT_MILLIS) {
+                    selectionController.selection.first { it != null }
+                }
+            }
+            runBlocking {
+                withContext(Dispatchers.Main) {
+                    recreated.navigator.evaluateJavascript(CROSS_MARKUP_SELECTION_SCRIPT)
+                }
+                rebound.await()
+            }
+            assertNotNull(selectionController.selection.value)
+            selectionController.detach()
+            eventScope.cancel()
+        }
+    }
+
+    @Test
     fun previousSessionDecorationGroupsHideIndependentlyAndReapply() = withFixture(
         "annotation-decorations.epub"
     ) { fixture ->
@@ -415,6 +480,20 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
                     navigator.evaluateJavascript(
                         "Boolean(document.querySelector(" +
                             "'div[data-group=\\\"second-pass-current-session-annotations\\\"]'))"
+                    ) == "true"
+                }
+                if (!installed) delay(50)
+            }
+        }
+    }
+
+    private suspend fun awaitSelectionObserver(navigator: EpubNavigatorFragment) {
+        withTimeout(HOST_TIMEOUT_MILLIS) {
+            var installed = false
+            while (!installed) {
+                installed = withContext(Dispatchers.Main) {
+                    navigator.evaluateJavascript(
+                        "Boolean(window.__secondPassSelectionObserver)"
                     ) == "true"
                 }
                 if (!installed) delay(50)

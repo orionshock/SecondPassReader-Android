@@ -71,8 +71,22 @@ internal data class EpubCfiSelection(
     val prefix: String?,
     val suffix: String?,
     val chapterOrdinal: Int,
-    val totalProgression: Double?
+    val totalProgression: Double?,
+    val bounds: EpubSelectionBounds? = null
 )
+
+/** Viewport-relative physical pixels for positioning Reader-owned selection affordances. */
+internal data class EpubSelectionBounds(
+    val left: Float,
+    val top: Float,
+    val right: Float,
+    val bottom: Float
+) {
+    init {
+        require(listOf(left, top, right, bottom).all(Float::isFinite))
+        require(right >= left && bottom >= top)
+    }
+}
 
 /**
  * Renderer-neutral evidence for a durable CFI target. [originalCfi] remains canonical; the text

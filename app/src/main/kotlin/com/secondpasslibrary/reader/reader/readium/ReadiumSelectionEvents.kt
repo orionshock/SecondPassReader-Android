@@ -1,6 +1,7 @@
 package com.secondpasslibrary.reader.reader.readium
 
 import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelectionEvents
+import com.secondpasslibrary.reader.reader.readium.cfi.ReadiumCfiNavigatorBinding
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -14,13 +15,16 @@ import org.readium.r2.navigator.input.InputListener
 import org.readium.r2.navigator.input.TapEvent
 import org.readium.r2.shared.ExperimentalReadiumApi
 
-/** Turns Readium input completion into a bounded selection-state probe trigger. */
+/** Combines real DOM selection events with Readium input completion as a bounded fallback. */
 @OptIn(ExperimentalReadiumApi::class, FlowPreview::class)
-internal class ReadiumSelectionEvents :
+internal class ReadiumSelectionEvents(cfiBinding: ReadiumCfiNavigatorBinding) :
     ReaderSelectionEvents,
     InputListener,
     AutoCloseable {
     private val signals = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private val documentObserver = ReadiumSelectionDocumentObserver(cfiBinding) {
+        signals.tryEmit(Unit)
+    }
     private var navigator: EpubNavigatorFragment? = null
 
     override fun changes(): Flow<Unit> = signals.debounce(SELECTION_SETTLE_DELAY)
@@ -37,16 +41,20 @@ internal class ReadiumSelectionEvents :
 
     fun bind(next: EpubNavigatorFragment) {
         if (navigator === next) return
-        navigator?.removeInputListener(this)
+        navigator?.let(::unbind)
         navigator = next
         next.addInputListener(this)
+        documentObserver.bind(next)
     }
 
     fun unbind(current: EpubNavigatorFragment) {
         if (navigator !== current) return
+        documentObserver.unbind(current)
         current.removeInputListener(this)
         navigator = null
     }
+
+    fun javascriptInterface(): Any = documentObserver.javascriptInterface()
 
     override suspend fun clear() {
         val current = navigator ?: return
@@ -54,8 +62,9 @@ internal class ReadiumSelectionEvents :
     }
 
     override fun close() {
-        navigator?.removeInputListener(this)
+        navigator?.let(::unbind)
         navigator = null
+        documentObserver.close()
     }
 
     private companion object {

@@ -10,6 +10,7 @@ internal data class ReaderAnnotationMutationState(
     val pendingBookmark: ReaderPendingBookmark? = null,
     val editing: ReaderHighlightEditDraft? = null,
     val deleting: ReaderAnnotation? = null,
+    val createNoteEditorVisible: Boolean = false,
     val submitting: Boolean = false,
     val failure: ReaderAnnotationMutationFailure? = null
 )
@@ -20,6 +21,8 @@ internal sealed interface ReaderAnnotationMutationIntent {
     data class UpdateCreate(val color: ReaderAnnotationColor? = null, val note: String? = null) :
         ReaderAnnotationMutationIntent
 
+    data object OpenCreateNote : ReaderAnnotationMutationIntent
+    data object CancelCreateNote : ReaderAnnotationMutationIntent
     data object SubmitCreate : ReaderAnnotationMutationIntent
     data class BeginEdit(val annotation: ReaderAnnotation.Highlight) :
         ReaderAnnotationMutationIntent

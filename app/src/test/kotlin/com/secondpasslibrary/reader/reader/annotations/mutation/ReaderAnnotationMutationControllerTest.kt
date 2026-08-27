@@ -33,6 +33,28 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class ReaderAnnotationMutationControllerTest {
     @Test
+    fun `note editor keeps create identity and cancel returns to empty quick highlight`() =
+        runTest {
+            val controller = controller(this, ReaderAnnotationWriter { _, _ -> emptyList() })
+            controller.select(profile(), SESSION_ID, ReaderSessionStatus.ACTIVE)
+            controller.accept(ReaderAnnotationMutationIntent.BeginCreate(selection()))
+            val clientId = controller.state.value.pendingCreate?.clientId
+
+            controller.accept(ReaderAnnotationMutationIntent.OpenCreateNote)
+            controller.accept(ReaderAnnotationMutationIntent.UpdateCreate(note = "Draft note"))
+
+            assertTrue(controller.state.value.createNoteEditorVisible)
+            assertEquals(clientId, controller.state.value.pendingCreate?.clientId)
+            assertEquals("Draft note", controller.state.value.pendingCreate?.note)
+
+            controller.accept(ReaderAnnotationMutationIntent.CancelCreateNote)
+
+            assertFalse(controller.state.value.createNoteEditorVisible)
+            assertEquals(clientId, controller.state.value.pendingCreate?.clientId)
+            assertEquals("", controller.state.value.pendingCreate?.note)
+        }
+
+    @Test
     fun `create keeps one identity and sends latest exact draft`() = runTest {
         val requests = mutableListOf<ReaderAnnotationMutationRequest>()
         var fail = true

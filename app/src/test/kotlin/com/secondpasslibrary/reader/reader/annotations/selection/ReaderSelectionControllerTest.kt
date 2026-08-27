@@ -7,6 +7,7 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiReadiness
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiResolution
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiSelection
+import com.secondpasslibrary.reader.reader.cfi.EpubSelectionBounds
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -29,7 +30,8 @@ class ReaderSelectionControllerTest {
                 "Before",
                 "After",
                 chapterOrdinal = 3,
-                totalProgression = 0.427
+                totalProgression = 0.427,
+                bounds = EpubSelectionBounds(12f, 34f, 56f, 78f)
             )
         )
         val controller = ReaderSelectionController(backgroundScope)
@@ -42,6 +44,7 @@ class ReaderSelectionControllerTest {
         assertEquals("Selected text", controller.selection.value?.selectedText)
         assertEquals("Before", controller.selection.value?.prefix)
         assertEquals("After", controller.selection.value?.suffix)
+        assertEquals(EpubSelectionBounds(12f, 34f, 56f, 78f), controller.selection.value?.bounds)
         assertEquals("Chapter 03 · 43%", controller.selection.value?.locationLabel)
     }
 

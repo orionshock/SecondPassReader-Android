@@ -149,36 +149,58 @@ private fun ReaderReadingSurface(
             onAppearanceRequested = overlays.openAppearance,
             onAnnotationsRequested = overlays.openAnnotations
         )
-        selection?.let {
-            ReaderSelectionToolbar(
-                selection = it,
-                state = mutationState,
-                colors = colors,
-                onColorChanged = {
-                    onMutation(ReaderAnnotationMutationIntent.UpdateCreate(color = it))
-                },
-                onNoteChanged = {
-                    onMutation(ReaderAnnotationMutationIntent.UpdateCreate(note = it))
-                },
-                onSubmit = { onMutation(ReaderAnnotationMutationIntent.SubmitCreate) },
-                onDismiss = onDismissSelection,
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp)
-            )
-        }
-        ReaderHighlightMutationDialogs(
-            state = mutationState,
-            colors = colors,
-            onEditColorChanged = {
-                onMutation(ReaderAnnotationMutationIntent.UpdateEdit(color = it))
-            },
-            onEditNoteChanged = {
-                onMutation(ReaderAnnotationMutationIntent.UpdateEdit(note = it))
-            },
-            onSaveEdit = { onMutation(ReaderAnnotationMutationIntent.SaveEdit) },
-            onConfirmDelete = { onMutation(ReaderAnnotationMutationIntent.ConfirmDelete) },
-            onDismiss = { onMutation(ReaderAnnotationMutationIntent.DismissTransient) }
+        ReaderSelectionAnnotationOverlays(
+            selection,
+            mutationState,
+            colors,
+            onMutation,
+            onDismissSelection
         )
     }
+}
+
+@Composable
+private fun ReaderSelectionAnnotationOverlays(
+    selection: ReaderSelection?,
+    mutationState: ReaderAnnotationMutationState,
+    colors: ReaderChromeColors,
+    onMutation: (ReaderAnnotationMutationIntent) -> Unit,
+    onDismissSelection: () -> Unit
+) {
+    selection?.takeUnless { mutationState.createNoteEditorVisible }?.let {
+        ReaderSelectionToolbar(
+            selection = it,
+            state = mutationState,
+            colors = colors,
+            onColorChanged = {
+                onMutation(ReaderAnnotationMutationIntent.UpdateCreate(color = it))
+            },
+            onQuickHighlight = { onMutation(ReaderAnnotationMutationIntent.SubmitCreate) },
+            onNoteRequested = { onMutation(ReaderAnnotationMutationIntent.OpenCreateNote) },
+            onDismiss = onDismissSelection
+        )
+    }
+    ReaderHighlightMutationDialogs(
+        state = mutationState,
+        colors = colors,
+        onCreateColorChanged = {
+            onMutation(ReaderAnnotationMutationIntent.UpdateCreate(color = it))
+        },
+        onCreateNoteChanged = {
+            onMutation(ReaderAnnotationMutationIntent.UpdateCreate(note = it))
+        },
+        onSaveCreate = { onMutation(ReaderAnnotationMutationIntent.SubmitCreate) },
+        onCancelCreateNote = { onMutation(ReaderAnnotationMutationIntent.CancelCreateNote) },
+        onEditColorChanged = {
+            onMutation(ReaderAnnotationMutationIntent.UpdateEdit(color = it))
+        },
+        onEditNoteChanged = {
+            onMutation(ReaderAnnotationMutationIntent.UpdateEdit(note = it))
+        },
+        onSaveEdit = { onMutation(ReaderAnnotationMutationIntent.SaveEdit) },
+        onConfirmDelete = { onMutation(ReaderAnnotationMutationIntent.ConfirmDelete) },
+        onDismiss = { onMutation(ReaderAnnotationMutationIntent.DismissTransient) }
+    )
 }
 
 private fun readyAppearance(ready: ReaderState.Ready?) =

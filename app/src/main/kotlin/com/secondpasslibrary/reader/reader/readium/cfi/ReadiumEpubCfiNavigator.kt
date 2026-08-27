@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.reader.readium.cfi
 
+import android.graphics.RectF
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiFailure
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiNavigator
@@ -11,6 +12,7 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfiSelection
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiTargetKind
 import com.secondpasslibrary.reader.reader.cfi.EpubLayout
 import com.secondpasslibrary.reader.reader.cfi.EpubPackageDocument
+import com.secondpasslibrary.reader.reader.cfi.EpubSelectionBounds
 import kotlinx.coroutines.flow.StateFlow
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.shared.publication.Link
@@ -61,11 +63,12 @@ internal class ReadiumEpubCfiNavigator(
             val captured = binding.withNavigator { navigator, runtime ->
                 val before = binding.resourceIdentity(navigator)
                 val locator = navigator.currentLocator.value
+                val bounds = navigator.currentSelection()?.rect?.toSelectionBounds()
                 val value = runtime.generateSelection(navigator)
                 coherentResourceCapture(
                     before,
                     binding.resourceIdentity(navigator),
-                    SelectionCapture(value, locator.locations.totalProgression)
+                    SelectionCapture(value, locator.locations.totalProgression, bounds)
                 )
             }
             when (captured) {
@@ -90,7 +93,12 @@ internal class ReadiumEpubCfiNavigator(
             if (selection == null) {
                 EpubCfiOutcome.Success(null)
             } else {
-                composeSelection(resourceHref, selection, capture.totalProgression)
+                composeSelection(
+                    resourceHref,
+                    selection,
+                    capture.totalProgression,
+                    capture.selectionBounds
+                )
             }
         }
     }
@@ -98,7 +106,8 @@ internal class ReadiumEpubCfiNavigator(
     private suspend fun composeSelection(
         resourceHref: String,
         selection: ReadiumContentSelection,
-        totalProgression: Double?
+        totalProgression: Double?,
+        selectionBounds: EpubSelectionBounds?
     ): EpubCfiOutcome<EpubCfiSelection> {
         val chapterOrdinal = packageDocument.spineItemForHref(resourceHref)?.index?.plus(1)
             ?: return EpubCfiOutcome.Failure(EpubCfiFailure.RESOURCE_NOT_IN_READING_ORDER)
@@ -112,7 +121,8 @@ internal class ReadiumEpubCfiNavigator(
                     prefix = selection.prefix,
                     suffix = selection.suffix,
                     chapterOrdinal = chapterOrdinal,
-                    totalProgression = totalProgression
+                    totalProgression = totalProgression,
+                    bounds = selectionBounds
                 )
             )
         }
@@ -120,7 +130,8 @@ internal class ReadiumEpubCfiNavigator(
 
     private data class SelectionCapture(
         val result: ReadiumCfiJavascriptResult<ReadiumContentSelection?>,
-        val totalProgression: Double?
+        val totalProgression: Double?,
+        val selectionBounds: EpubSelectionBounds?
     )
 
     override suspend fun resolve(cfi: EpubCfi): EpubCfiOutcome<EpubCfiResolution> =
@@ -170,6 +181,16 @@ internal class ReadiumEpubCfiNavigator(
         operations.close()
         binding.close()
     }
+}
+
+private fun RectF.toSelectionBounds(): EpubSelectionBounds? {
+    if (!listOf(left, top, right, bottom).all(Float::isFinite)) return null
+    return EpubSelectionBounds(
+        left = minOf(left, right),
+        top = minOf(top, bottom),
+        right = maxOf(left, right),
+        bottom = maxOf(top, bottom)
+    )
 }
 
 private data class PositionCapture(

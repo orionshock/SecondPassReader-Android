@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.reader.annotations.selection
 
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiSelection
+import com.secondpasslibrary.reader.reader.cfi.EpubSelectionBounds
 import kotlin.math.roundToInt
 
 internal data class ReaderSelection(
@@ -9,7 +10,8 @@ internal data class ReaderSelection(
     val selectedText: String,
     val prefix: String?,
     val suffix: String?,
-    val locationLabel: String
+    val locationLabel: String,
+    val bounds: EpubSelectionBounds? = null
 )
 
 internal fun EpubCfiSelection.toReaderSelection(): ReaderSelection? {
@@ -19,7 +21,8 @@ internal fun EpubCfiSelection.toReaderSelection(): ReaderSelection? {
         selectedText = selectedText,
         prefix = prefix,
         suffix = suffix,
-        locationLabel = readerLocationLabel(chapterOrdinal, totalProgression)
+        locationLabel = readerLocationLabel(chapterOrdinal, totalProgression),
+        bounds = bounds
     )
 }
 
