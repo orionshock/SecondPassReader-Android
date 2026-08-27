@@ -19,6 +19,7 @@ import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceStore
 import com.secondpasslibrary.reader.reader.asset.SplReaderBookAssetResolver
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
+import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaIntent
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayerDecorationController
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayersController
 import com.secondpasslibrary.reader.reader.marginalia.SplReaderMarginaliaLayerHistoryLoader
@@ -202,7 +203,21 @@ internal class ReaderViewModel @Inject constructor(
 
     fun updateAppearance(appearance: ReaderAppearance) = controller.updateAppearance(appearance)
 
-    fun retryAnnotations() = annotationsController.retry()
+    fun acceptMarginalia(intent: ReaderMarginaliaIntent) {
+        when (intent) {
+            ReaderMarginaliaIntent.RetryCurrentAnnotations -> annotationsController.retry()
+
+            is ReaderMarginaliaIntent.LoadPreviousLayer ->
+                marginaliaLayersController.loadLayer(intent.sessionId)
+
+            is ReaderMarginaliaIntent.SetPreviousLayerVisible ->
+                marginaliaLayersController.setLayerVisible(intent.sessionId, intent.visible)
+
+            ReaderMarginaliaIntent.LoadMoreLayers -> marginaliaLayersController.loadMore()
+
+            ReaderMarginaliaIntent.RetryLayerHistory -> marginaliaLayersController.retry()
+        }
+    }
 
     fun mutateAnnotation(intent: ReaderAnnotationMutationIntent) {
         annotationMutations.accept(intent)

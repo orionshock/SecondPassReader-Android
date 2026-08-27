@@ -129,7 +129,7 @@ class ReaderUiIntegrationTest {
         }
 
         compose.onNodeWithContentDescription("Reading annotations").performClick()
-        compose.onNodeWithText("1 annotation").assertIsDisplayed()
+        compose.onAllNodesWithText("1 annotation")[0].assertIsDisplayed()
         compose.onNodeWithText("A selected passage").assertIsDisplayed()
         compose.onNodeWithContentDescription("Open annotation").performClick()
         compose.waitUntil { navigator.destinations.isNotEmpty() }

@@ -27,11 +27,13 @@ import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationState
 import com.secondpasslibrary.reader.reader.annotations.navigateToReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelection
-import com.secondpasslibrary.reader.reader.annotations.ui.ReaderAnnotationsDrawer
 import com.secondpasslibrary.reader.reader.annotations.ui.ReaderHighlightMutationDialogs
 import com.secondpasslibrary.reader.reader.annotations.ui.ReaderSelectionToolbar
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearancePanel
+import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayersState
+import com.secondpasslibrary.reader.reader.marginalia.ui.ReaderMarginaliaDrawer
+import com.secondpasslibrary.reader.reader.marginalia.ui.ReaderMarginaliaDrawerState
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import com.secondpasslibrary.reader.reader.toc.ReaderTocDrawer
 import kotlinx.coroutines.CoroutineScope
@@ -46,6 +48,11 @@ internal fun ReaderScreen(
     onAppearanceChanged: (ReaderAppearance) -> Unit = {},
     annotations: ReaderAnnotationsState = ReaderAnnotationsState(),
     onRetryAnnotations: () -> Unit = {},
+    marginaliaLayers: ReaderMarginaliaLayersState = ReaderMarginaliaLayersState(),
+    onLoadMarginaliaLayer: (String) -> Unit = {},
+    onSetMarginaliaLayerVisible: (String, Boolean) -> Unit = { _, _ -> },
+    onLoadMoreMarginaliaLayers: () -> Unit = {},
+    onRetryMarginaliaLayers: () -> Unit = {},
     selection: ReaderSelection? = null,
     annotationMutations: ReaderAnnotationMutationState = ReaderAnnotationMutationState(),
     onAnnotationMutation: (ReaderAnnotationMutationIntent) -> Unit = {},
@@ -54,13 +61,11 @@ internal fun ReaderScreen(
 ) {
     val scope = rememberCoroutineScope()
     val ready = state as? ReaderState.Ready
-    val appearanceFlow = remember(ready?.engine) { readyAppearance(ready) }
-    val appearance by appearanceFlow.collectAsState()
+    val appearance by remember(ready?.engine) { readyAppearance(ready) }.collectAsState()
     val chromeColors = appearance.theme.chromeColors()
-    val highlightSelection = selection?.takeIf {
-        ready?.session?.status == ReaderSessionStatus.ACTIVE &&
-            annotationMutations.pendingCreate?.selection?.cfi == it.cfi
-    }
+    val currentSessionId = ready?.session?.sessionId.orEmpty()
+    val marginaliaDrawerState = rememberMarginaliaDrawerState(currentSessionId, marginaliaLayers)
+    val highlightSelection = writableSelection(ready, selection, annotationMutations)
     ReaderOverlayLayout(
         onExit = onBack,
         transientOverlayVisible = highlightSelection != null,
@@ -77,10 +82,16 @@ internal fun ReaderScreen(
             ReaderAnnotationsOverlay(
                 ready = ready,
                 state = annotations,
+                layers = marginaliaLayers,
+                drawerState = marginaliaDrawerState,
                 colors = chromeColors,
                 scope = scope,
                 onDismiss = dismiss,
                 onRetry = onRetryAnnotations,
+                onLoadLayer = onLoadMarginaliaLayer,
+                onSetLayerVisible = onSetMarginaliaLayerVisible,
+                onLoadMoreLayers = onLoadMoreMarginaliaLayers,
+                onRetryLayers = onRetryMarginaliaLayers,
                 editable = ready?.session?.status == ReaderSessionStatus.ACTIVE,
                 mutationState = annotationMutations,
                 onCreateBookmark = onCreateBookmark,
@@ -192,10 +203,16 @@ private fun navigateToAnnotation(
 private fun ReaderAnnotationsOverlay(
     ready: ReaderState.Ready?,
     state: ReaderAnnotationsState,
+    layers: ReaderMarginaliaLayersState,
+    drawerState: ReaderMarginaliaDrawerState,
     colors: ReaderChromeColors,
     scope: CoroutineScope,
     onDismiss: () -> Unit,
     onRetry: () -> Unit,
+    onLoadLayer: (String) -> Unit,
+    onSetLayerVisible: (String, Boolean) -> Unit,
+    onLoadMoreLayers: () -> Unit,
+    onRetryLayers: () -> Unit,
     editable: Boolean,
     mutationState: ReaderAnnotationMutationState,
     onCreateBookmark: () -> Unit,
@@ -203,12 +220,19 @@ private fun ReaderAnnotationsOverlay(
     onDeleteAnnotation: (ReaderAnnotation) -> Unit
 ) {
     if (ready == null) return
-    ReaderAnnotationsDrawer(
-        state = state,
+    ReaderMarginaliaDrawer(
+        currentSessionId = ready.session.sessionId,
+        currentAnnotations = state,
+        layers = layers,
+        drawerState = drawerState,
         colors = colors,
         onDismiss = onDismiss,
-        onRetry = onRetry,
-        editable = editable,
+        onRetryCurrent = onRetry,
+        currentEditable = editable,
+        onLoadLayer = onLoadLayer,
+        onSetLayerVisible = onSetLayerVisible,
+        onLoadMoreLayers = onLoadMoreLayers,
+        onRetryLayers = onRetryLayers,
         mutationState = mutationState,
         onCreateBookmark = onCreateBookmark,
         onEditHighlight = onEditHighlight,
