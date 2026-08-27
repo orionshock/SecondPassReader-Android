@@ -87,7 +87,7 @@ internal fun ReaderOverlayLayout(
     }
     ModalNavigationDrawer(
         drawerState = drawerState,
-        gesturesEnabled = false,
+        gesturesEnabled = drawerState.isOpen,
         drawerContent = { tableOfContents(dismissDrawer) }
     ) {
         Box(Modifier.fillMaxSize()) {

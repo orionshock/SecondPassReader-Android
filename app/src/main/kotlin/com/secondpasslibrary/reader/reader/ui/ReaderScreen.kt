@@ -319,7 +319,8 @@ private fun ReaderTocDrawerContent(
                 ready?.engine?.tableOfContents?.goTo(target)
             }
         },
-        onReturnToBook = {
+        onDismiss = dismiss,
+        onCloseBook = {
             dismiss()
             onBack()
         }

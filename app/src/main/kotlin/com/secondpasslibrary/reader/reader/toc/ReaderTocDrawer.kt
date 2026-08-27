@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.Text
@@ -35,7 +36,8 @@ internal fun ReaderTocDrawer(
     entries: List<ReaderTocEntry>,
     palette: ReaderPalette,
     onEntrySelected: (ReaderPublicationTarget) -> Unit,
-    onReturnToBook: () -> Unit
+    onDismiss: () -> Unit,
+    onCloseBook: () -> Unit
 ) {
     val rows = remember(entries) { entries.flattenForPresentation() }
     ModalDrawerSheet(
@@ -43,25 +45,33 @@ internal fun ReaderTocDrawer(
         drawerContainerColor = palette.panelSurface,
         drawerContentColor = palette.primaryForeground
     ) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-            Text(
-                text = bookTitle,
-                color = palette.secondaryForeground,
-                style = MaterialTheme.typography.titleSmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = "Table of Contents",
-                modifier = Modifier.padding(top = 4.dp),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f).padding(bottom = 8.dp)) {
+                Text(
+                    text = bookTitle,
+                    color = palette.secondaryForeground,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "Table of Contents",
+                    modifier = Modifier.padding(top = 4.dp),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            IconButton(onClick = onDismiss) {
+                AppIconGraphic(AppIcon.Close, "Close table of contents")
+            }
         }
         ReaderDrawerAction(
-            label = "Return to Book",
+            label = "Close book",
             icon = AppIcon.Book,
-            onClick = onReturnToBook
+            onClick = onCloseBook
         )
         HorizontalDivider(color = palette.border)
         if (rows.isEmpty()) {

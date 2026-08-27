@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.reader.ui
 
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -66,7 +67,7 @@ class ReaderUiIntegrationTest {
     }
 
     @Test
-    fun readerMenuOwnsNestedTocNavigationBackAndReturn() {
+    fun readerMenuOwnsNestedTocNavigationDismissalAndCloseBook() {
         val toc = RecordingReaderToc()
         var exits = 0
         compose.setContent {
@@ -82,6 +83,12 @@ class ReaderUiIntegrationTest {
         )
         compose.onNodeWithContentDescription("Reader menu").performClick()
         compose.onNodeWithText("Part One").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Close table of contents").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Close table of contents").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Part One").assertIsNotDisplayed()
+
+        compose.onNodeWithContentDescription("Reader menu").performClick()
         compose.onNodeWithContentDescription("Open Chapter Two").performClick()
         compose.waitForIdle()
         assertEquals(listOf(TEST_CHAPTER_TWO), toc.destinations)
@@ -92,7 +99,7 @@ class ReaderUiIntegrationTest {
         assertEquals(0, exits)
 
         compose.onNodeWithContentDescription("Reader menu").performClick()
-        compose.onNodeWithText("Return to Book").performClick()
+        compose.onNodeWithText("Close book").performClick()
         compose.runOnIdle { assertEquals(1, exits) }
     }
 
