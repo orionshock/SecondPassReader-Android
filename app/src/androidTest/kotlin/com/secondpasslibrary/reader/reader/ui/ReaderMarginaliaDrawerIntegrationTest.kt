@@ -15,6 +15,7 @@ import com.secondpasslibrary.reader.design.SecondPassTheme
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsState
+import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaIntent
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayerLoadState
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayerRole
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayerSummary
@@ -46,6 +47,8 @@ class ReaderMarginaliaDrawerIntegrationTest {
         )
         val loadRequests = mutableListOf<String>()
         val visibilityRequests = mutableListOf<Pair<String, Boolean>>()
+        var showAll = 0
+        var hideAll = 0
         var loadMore = 0
         compose.setContent {
             SecondPassTheme {
@@ -59,11 +62,23 @@ class ReaderMarginaliaDrawerIntegrationTest {
                         loaded = true
                     ),
                     marginaliaLayers = layerState.value,
-                    onLoadMarginaliaLayer = { loadRequests += it },
-                    onSetMarginaliaLayerVisible = { id, visible ->
-                        visibilityRequests += id to visible
-                    },
-                    onLoadMoreMarginaliaLayers = { loadMore += 1 }
+                    onMarginaliaIntent = { intent ->
+                        when (intent) {
+                            is ReaderMarginaliaIntent.LoadPreviousLayer ->
+                                loadRequests += intent.sessionId
+
+                            is ReaderMarginaliaIntent.SetPreviousLayerVisible ->
+                                visibilityRequests += intent.sessionId to intent.visible
+
+                            ReaderMarginaliaIntent.ShowAllPreviousLayers -> showAll += 1
+
+                            ReaderMarginaliaIntent.HideAllPreviousLayers -> hideAll += 1
+
+                            ReaderMarginaliaIntent.LoadMoreLayers -> loadMore += 1
+
+                            else -> Unit
+                        }
+                    }
                 )
             }
         }
@@ -71,6 +86,12 @@ class ReaderMarginaliaDrawerIntegrationTest {
         compose.onNodeWithContentDescription("Reading annotations").performClick()
         compose.onNodeWithContentDescription("Marginalia layer Current Session")
             .assertIsSelected()
+        compose.onNodeWithContentDescription("Show all previous layers").performClick()
+        compose.onNodeWithContentDescription("Hide all previous layers").performClick()
+        compose.runOnIdle {
+            assertEquals(1, showAll)
+            assertEquals(1, hideAll)
+        }
         compose.onNodeWithText("Current passage").assertIsDisplayed()
         assertEquals(0, compose.onAllNodesWithText("Earlier passage").fetchSemanticsNodes().size)
 

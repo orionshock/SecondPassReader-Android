@@ -23,6 +23,9 @@ import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaIntent
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayerDecorationController
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayersController
 import com.secondpasslibrary.reader.reader.marginalia.SplReaderMarginaliaLayerHistoryLoader
+import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginaliaLayerPolicyController
+import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginaliaLayerPreferenceStore
+import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginaliaLayerVisibilityStore
 import com.secondpasslibrary.reader.reader.progress.SplReaderProgressWriter
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import com.secondpasslibrary.reader.reader.session.SplReaderSessionCoordinator
@@ -47,7 +50,9 @@ internal class ReaderViewModel @Inject constructor(
     appearanceStore: ReaderAppearanceStore,
     annotationsLoader: SplReaderAnnotationsLoader,
     annotationWriter: SplReaderAnnotationWriter,
-    marginaliaLayerHistoryLoader: SplReaderMarginaliaLayerHistoryLoader
+    marginaliaLayerHistoryLoader: SplReaderMarginaliaLayerHistoryLoader,
+    marginaliaLayerPreferenceStore: ReaderMarginaliaLayerPreferenceStore,
+    marginaliaLayerVisibilityStore: ReaderMarginaliaLayerVisibilityStore
 ) : ViewModel() {
     private val progressSyncJob = SupervisorJob()
     private val progressSyncScope = CoroutineScope(progressSyncJob + Dispatchers.IO)
@@ -71,6 +76,12 @@ internal class ReaderViewModel @Inject constructor(
         viewModelScope
     )
     private val marginaliaLayerDecorations = ReaderMarginaliaLayerDecorationController()
+    private val marginaliaLayerPolicy = ReaderMarginaliaLayerPolicyController(
+        marginaliaLayerPreferenceStore,
+        marginaliaLayerVisibilityStore,
+        marginaliaLayersController,
+        viewModelScope
+    )
     private val annotationDecorations = ReaderAnnotationDecorationController()
     private val selections = ReaderSelectionController(viewModelScope)
     private val annotationMutations = ReaderAnnotationMutationController(
@@ -122,6 +133,10 @@ internal class ReaderViewModel @Inject constructor(
                                 profile,
                                 entry.bookId,
                                 ready.session
+                            )
+                            marginaliaLayerPolicy.select(
+                                profile.authenticatedConnectionIdentity,
+                                entry.bookId
                             )
                         }
                         annotationMutations.select(
@@ -208,10 +223,16 @@ internal class ReaderViewModel @Inject constructor(
             ReaderMarginaliaIntent.RetryCurrentAnnotations -> annotationsController.retry()
 
             is ReaderMarginaliaIntent.LoadPreviousLayer ->
-                marginaliaLayersController.loadLayer(intent.sessionId)
+                marginaliaLayerPolicy.loadLayer(intent.sessionId)
 
             is ReaderMarginaliaIntent.SetPreviousLayerVisible ->
-                marginaliaLayersController.setLayerVisible(intent.sessionId, intent.visible)
+                marginaliaLayerPolicy.setVisible(intent.sessionId, intent.visible)
+
+            ReaderMarginaliaIntent.ShowAllPreviousLayers ->
+                marginaliaLayerPolicy.setAllVisible(true)
+
+            ReaderMarginaliaIntent.HideAllPreviousLayers ->
+                marginaliaLayerPolicy.setAllVisible(false)
 
             ReaderMarginaliaIntent.LoadMoreLayers -> marginaliaLayersController.loadMore()
 
@@ -249,7 +270,10 @@ internal class ReaderViewModel @Inject constructor(
         selections.dismiss()
     }
 
-    fun setAuthorityAvailable(available: Boolean) = controller.setAuthorityAvailable(available)
+    fun setAuthorityAvailable(available: Boolean) {
+        controller.setAuthorityAvailable(available)
+        marginaliaLayerPolicy.setAuthorityAvailable(available)
+    }
 
     fun flushForBackground() {
         viewModelScope.launch { controller.flushLatestProgress() }
@@ -266,6 +290,7 @@ internal class ReaderViewModel @Inject constructor(
     override fun onCleared() {
         bookmarkCaptureJob?.cancel()
         annotationsController.close()
+        marginaliaLayerPolicy.clear()
         marginaliaLayersController.clear()
         selections.detach()
         annotationMutations.clear()

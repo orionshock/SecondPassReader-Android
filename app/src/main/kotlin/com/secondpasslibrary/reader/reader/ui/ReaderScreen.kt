@@ -31,6 +31,7 @@ import com.secondpasslibrary.reader.reader.annotations.ui.ReaderHighlightMutatio
 import com.secondpasslibrary.reader.reader.annotations.ui.ReaderSelectionToolbar
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearancePanel
+import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaIntent
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayersState
 import com.secondpasslibrary.reader.reader.marginalia.ui.ReaderMarginaliaDrawer
 import com.secondpasslibrary.reader.reader.marginalia.ui.ReaderMarginaliaDrawerState
@@ -47,12 +48,8 @@ internal fun ReaderScreen(
     onRetry: () -> Unit,
     onAppearanceChanged: (ReaderAppearance) -> Unit = {},
     annotations: ReaderAnnotationsState = ReaderAnnotationsState(),
-    onRetryAnnotations: () -> Unit = {},
     marginaliaLayers: ReaderMarginaliaLayersState = ReaderMarginaliaLayersState(),
-    onLoadMarginaliaLayer: (String) -> Unit = {},
-    onSetMarginaliaLayerVisible: (String, Boolean) -> Unit = { _, _ -> },
-    onLoadMoreMarginaliaLayers: () -> Unit = {},
-    onRetryMarginaliaLayers: () -> Unit = {},
+    onMarginaliaIntent: (ReaderMarginaliaIntent) -> Unit = {},
     selection: ReaderSelection? = null,
     annotationMutations: ReaderAnnotationMutationState = ReaderAnnotationMutationState(),
     onAnnotationMutation: (ReaderAnnotationMutationIntent) -> Unit = {},
@@ -87,11 +84,7 @@ internal fun ReaderScreen(
                 colors = chromeColors,
                 scope = scope,
                 onDismiss = dismiss,
-                onRetry = onRetryAnnotations,
-                onLoadLayer = onLoadMarginaliaLayer,
-                onSetLayerVisible = onSetMarginaliaLayerVisible,
-                onLoadMoreLayers = onLoadMoreMarginaliaLayers,
-                onRetryLayers = onRetryMarginaliaLayers,
+                onMarginaliaIntent = onMarginaliaIntent,
                 editable = ready?.session?.status == ReaderSessionStatus.ACTIVE,
                 mutationState = annotationMutations,
                 onCreateBookmark = onCreateBookmark,
@@ -208,11 +201,7 @@ private fun ReaderAnnotationsOverlay(
     colors: ReaderChromeColors,
     scope: CoroutineScope,
     onDismiss: () -> Unit,
-    onRetry: () -> Unit,
-    onLoadLayer: (String) -> Unit,
-    onSetLayerVisible: (String, Boolean) -> Unit,
-    onLoadMoreLayers: () -> Unit,
-    onRetryLayers: () -> Unit,
+    onMarginaliaIntent: (ReaderMarginaliaIntent) -> Unit,
     editable: Boolean,
     mutationState: ReaderAnnotationMutationState,
     onCreateBookmark: () -> Unit,
@@ -227,12 +216,30 @@ private fun ReaderAnnotationsOverlay(
         drawerState = drawerState,
         colors = colors,
         onDismiss = onDismiss,
-        onRetryCurrent = onRetry,
+        onRetryCurrent = {
+            onMarginaliaIntent(ReaderMarginaliaIntent.RetryCurrentAnnotations)
+        },
         currentEditable = editable,
-        onLoadLayer = onLoadLayer,
-        onSetLayerVisible = onSetLayerVisible,
-        onLoadMoreLayers = onLoadMoreLayers,
-        onRetryLayers = onRetryLayers,
+        onLoadLayer = {
+            onMarginaliaIntent(ReaderMarginaliaIntent.LoadPreviousLayer(it))
+        },
+        onSetLayerVisible = { sessionId, visible ->
+            onMarginaliaIntent(
+                ReaderMarginaliaIntent.SetPreviousLayerVisible(sessionId, visible)
+            )
+        },
+        onShowAllPrevious = {
+            onMarginaliaIntent(ReaderMarginaliaIntent.ShowAllPreviousLayers)
+        },
+        onHideAllPrevious = {
+            onMarginaliaIntent(ReaderMarginaliaIntent.HideAllPreviousLayers)
+        },
+        onLoadMoreLayers = {
+            onMarginaliaIntent(ReaderMarginaliaIntent.LoadMoreLayers)
+        },
+        onRetryLayers = {
+            onMarginaliaIntent(ReaderMarginaliaIntent.RetryLayerHistory)
+        },
         mutationState = mutationState,
         onCreateBookmark = onCreateBookmark,
         onEditHighlight = onEditHighlight,

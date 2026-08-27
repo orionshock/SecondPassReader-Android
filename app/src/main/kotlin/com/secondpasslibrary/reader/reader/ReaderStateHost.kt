@@ -10,7 +10,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationIntent
-import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaIntent
 import com.secondpasslibrary.reader.reader.ui.ReaderScreen
 
 @Composable
@@ -51,24 +50,8 @@ internal fun ReaderStateHost(
         onRetry = viewModel::retry,
         onAppearanceChanged = viewModel::updateAppearance,
         annotations = annotations,
-        onRetryAnnotations = {
-            viewModel.acceptMarginalia(ReaderMarginaliaIntent.RetryCurrentAnnotations)
-        },
         marginaliaLayers = marginaliaLayers,
-        onLoadMarginaliaLayer = {
-            viewModel.acceptMarginalia(ReaderMarginaliaIntent.LoadPreviousLayer(it))
-        },
-        onSetMarginaliaLayerVisible = { sessionId, visible ->
-            viewModel.acceptMarginalia(
-                ReaderMarginaliaIntent.SetPreviousLayerVisible(sessionId, visible)
-            )
-        },
-        onLoadMoreMarginaliaLayers = {
-            viewModel.acceptMarginalia(ReaderMarginaliaIntent.LoadMoreLayers)
-        },
-        onRetryMarginaliaLayers = {
-            viewModel.acceptMarginalia(ReaderMarginaliaIntent.RetryLayerHistory)
-        },
+        onMarginaliaIntent = viewModel::acceptMarginalia,
         selection = selection,
         annotationMutations = annotationMutations,
         onAnnotationMutation = viewModel::mutateAnnotation,

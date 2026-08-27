@@ -24,6 +24,7 @@ import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderPendingHig
 import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelection
 import com.secondpasslibrary.reader.reader.appearance.ReaderTheme
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
+import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaIntent
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -152,7 +153,9 @@ class ReaderUiIntegrationTest {
                     onBack = {},
                     onRetry = {},
                     annotations = state.value,
-                    onRetryAnnotations = { retries += 1 }
+                    onMarginaliaIntent = {
+                        if (it == ReaderMarginaliaIntent.RetryCurrentAnnotations) retries += 1
+                    }
                 )
             }
         }

@@ -15,6 +15,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +55,11 @@ internal fun ReaderMarginaliaLayerList(
                 onSelect = { model.state.select(model.currentSessionId, availableIds) }
             )
         }
+        if (model.layers.previousLayers.isNotEmpty()) {
+            item(key = "previous-layer-bulk-actions") {
+                ReaderMarginaliaBulkVisibilityActions(actions)
+            }
+        }
         items(model.layers.previousLayers, key = { it.summary.sessionId }) { layer ->
             ReaderMarginaliaLayerRow(
                 title = layer.displayName,
@@ -91,6 +97,23 @@ internal fun ReaderMarginaliaLayerList(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ReaderMarginaliaBulkVisibilityActions(actions: ReaderMarginaliaDrawerActions) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        TextButton(
+            onClick = actions.showAllPrevious,
+            modifier = Modifier.semantics { contentDescription = "Show all previous layers" }
+        ) { Text("Show all") }
+        TextButton(
+            onClick = actions.hideAllPrevious,
+            modifier = Modifier.semantics { contentDescription = "Hide all previous layers" }
+        ) { Text("Hide all") }
     }
 }
 

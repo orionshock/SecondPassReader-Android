@@ -5,6 +5,8 @@ internal sealed interface ReaderMarginaliaIntent {
     data class LoadPreviousLayer(val sessionId: String) : ReaderMarginaliaIntent
     data class SetPreviousLayerVisible(val sessionId: String, val visible: Boolean) :
         ReaderMarginaliaIntent
+    data object ShowAllPreviousLayers : ReaderMarginaliaIntent
+    data object HideAllPreviousLayers : ReaderMarginaliaIntent
     data object LoadMoreLayers : ReaderMarginaliaIntent
     data object RetryLayerHistory : ReaderMarginaliaIntent
 }
