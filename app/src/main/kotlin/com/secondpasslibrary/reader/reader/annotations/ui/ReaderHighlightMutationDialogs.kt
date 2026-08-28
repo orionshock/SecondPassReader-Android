@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -41,7 +42,7 @@ internal fun ReaderHighlightMutationDialogs(
 ) {
     state.pendingCreate?.takeIf { state.createNoteEditorVisible }?.let { pending ->
         ReaderHighlightDraftDialog(
-            title = "Add note",
+            title = "Create highlight",
             confirmLabel = "Create",
             quote = pending.selection.selectedText,
             color = pending.color,
@@ -121,6 +122,17 @@ private fun ReaderHighlightDraftDialog(
                     overflow = TextOverflow.Ellipsis,
                     fontStyle = FontStyle.Italic
                 )
+                ReaderHighlightNoteField(note, state.submitting, palette, onNoteChanged)
+                state.failure?.let {
+                    Text(
+                        "Highlight could not be saved. Try again.",
+                        color = palette.secondaryForeground
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Column(Modifier.fillMaxWidth()) {
                 Row(
                     Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(2.dp)
@@ -134,22 +146,43 @@ private fun ReaderHighlightDraftDialog(
                         ) { onColorChanged(option) }
                     }
                 }
-                ReaderHighlightNoteField(note, state.submitting, palette, onNoteChanged)
-                state.failure?.let { Text("Highlight could not be saved. Try again.") }
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    ReaderDialogTextButton("Cancel", !state.submitting, palette, onDismiss)
+                    ReaderDialogTextButton(
+                        if (state.failure == null) confirmLabel else "Retry",
+                        !state.submitting,
+                        palette,
+                        onSave
+                    )
+                }
             }
-        },
-        confirmButton = {
-            TextButton(enabled = !state.submitting, onClick = onSave) {
-                Text(if (state.failure == null) confirmLabel else "Retry")
-            }
-        },
-        dismissButton = {
-            TextButton(enabled = !state.submitting, onClick = onDismiss) { Text("Cancel") }
         },
         containerColor = palette.panelSurface,
         textContentColor = palette.primaryForeground,
         titleContentColor = palette.primaryForeground
     )
+}
+
+@Composable
+private fun ReaderDialogTextButton(
+    label: String,
+    enabled: Boolean,
+    palette: ReaderPalette,
+    onClick: () -> Unit
+) {
+    TextButton(
+        enabled = enabled,
+        onClick = onClick,
+        colors = ButtonDefaults.textButtonColors(
+            contentColor = palette.primaryForeground,
+            disabledContentColor = palette.secondaryForeground.copy(alpha = 0.5f)
+        )
+    ) {
+        Text(label)
+    }
 }
 
 @Composable

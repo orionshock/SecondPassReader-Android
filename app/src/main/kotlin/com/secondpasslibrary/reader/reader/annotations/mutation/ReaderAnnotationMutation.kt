@@ -21,6 +21,9 @@ internal sealed interface ReaderAnnotationMutationIntent {
     data class UpdateCreate(val color: ReaderAnnotationColor? = null, val note: String? = null) :
         ReaderAnnotationMutationIntent
 
+    data class SubmitQuickCreate(val color: ReaderAnnotationColor) :
+        ReaderAnnotationMutationIntent
+
     data object OpenCreateNote : ReaderAnnotationMutationIntent
     data object CancelCreateNote : ReaderAnnotationMutationIntent
     data object SubmitCreate : ReaderAnnotationMutationIntent

@@ -13,8 +13,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,13 +43,12 @@ internal fun ReaderSelectionToolbar(
     selection: ReaderSelection,
     state: ReaderAnnotationMutationState,
     palette: ReaderPalette,
-    onColorChanged: (ReaderAnnotationColor) -> Unit,
-    onQuickHighlight: () -> Unit,
+    onQuickHighlight: (ReaderAnnotationColor) -> Unit,
     onNoteRequested: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val pending = state.pendingCreate?.takeIf { it.selection.cfi == selection.cfi } ?: return
+    if (state.pendingCreate?.selection?.cfi != selection.cfi) return
     BoxWithConstraints(modifier.fillMaxSize()) {
         val density = LocalDensity.current
         var toolbarSize by remember { mutableStateOf(Size.Zero) }
@@ -82,23 +79,14 @@ internal fun ReaderSelectionToolbar(
                 ReaderAnnotationColor.entries.forEach { color ->
                     ReaderColorButton(
                         color = color,
-                        selected = color == pending.color,
+                        selected = false,
                         enabled = !state.submitting,
                         outline = palette.primaryForeground,
-                        onClick = { onColorChanged(color) }
+                        onClick = { onQuickHighlight(color) }
                     )
                 }
-                TextButton(enabled = !state.submitting, onClick = onQuickHighlight) {
-                    Text(
-                        when {
-                            state.submitting -> "Saving…"
-                            state.failure != null -> "Retry"
-                            else -> "Highlight"
-                        }
-                    )
-                }
-                TextButton(enabled = !state.submitting, onClick = onNoteRequested) {
-                    Text("Note")
+                IconButton(enabled = !state.submitting, onClick = onNoteRequested) {
+                    AppIconGraphic(AppIcon.HighlightWithNote, "Add note")
                 }
                 IconButton(onClick = onDismiss) {
                     AppIconGraphic(AppIcon.Close, "Dismiss highlight toolbar")

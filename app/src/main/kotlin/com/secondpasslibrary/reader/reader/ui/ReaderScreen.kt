@@ -176,10 +176,9 @@ private fun ReaderSelectionAnnotationOverlays(
             selection = it,
             state = mutationState,
             palette = palette,
-            onColorChanged = {
-                onMutation(ReaderAnnotationMutationIntent.UpdateCreate(color = it))
+            onQuickHighlight = {
+                onMutation(ReaderAnnotationMutationIntent.SubmitQuickCreate(it))
             },
-            onQuickHighlight = { onMutation(ReaderAnnotationMutationIntent.SubmitCreate) },
             onNoteRequested = { onMutation(ReaderAnnotationMutationIntent.OpenCreateNote) },
             onDismiss = onDismissSelection
         )

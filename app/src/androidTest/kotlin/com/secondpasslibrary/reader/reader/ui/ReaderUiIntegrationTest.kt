@@ -3,7 +3,6 @@ package com.secondpasslibrary.reader.reader.ui
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
-import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -217,7 +216,6 @@ class ReaderUiIntegrationTest {
     fun activeSelectionOffersExactColorsWhileClosedSessionRemainsReadOnly() {
         var createdColor: ReaderAnnotationColor? = null
         var createdNote: String? = null
-        var dismissals = 0
         val selection = ReaderSelection(
             EpubCfi(TEST_ANNOTATION_CFI),
             "Selected passage",
@@ -254,6 +252,18 @@ class ReaderUiIntegrationTest {
                             ReaderAnnotationMutationIntent.SubmitCreate -> {
                                 createdColor = createState.value.pendingCreate?.color
                                 createdNote = createState.value.pendingCreate?.note
+                                createState.value = ReaderAnnotationMutationState()
+                            }
+
+                            is ReaderAnnotationMutationIntent.SubmitQuickCreate -> {
+                                createdColor = intent.color
+                                createdNote = ""
+                                createState.value = createState.value.copy(
+                                    pendingCreate = createState.value.pendingCreate?.copy(
+                                        color = intent.color,
+                                        note = ""
+                                    )
+                                )
                             }
 
                             ReaderAnnotationMutationIntent.OpenCreateNote -> {
@@ -264,37 +274,48 @@ class ReaderUiIntegrationTest {
 
                             ReaderAnnotationMutationIntent.CancelCreateNote -> {
                                 createState.value = createState.value.copy(
-                                    createNoteEditorVisible = false,
-                                    pendingCreate = createState.value.pendingCreate?.copy(note = "")
+                                    createNoteEditorVisible = false
                                 )
                             }
 
                             else -> Unit
                         }
-                    },
-                    onDismissSelection = { dismissals += 1 }
+                    }
                 )
             }
         }
 
-        compose.onNodeWithContentDescription("Yellow highlight").assertIsSelected()
         compose.onNodeWithContentDescription("Blue highlight").performClick()
-        compose.onNodeWithText("Highlight").performClick()
         compose.runOnIdle {
             assertEquals(ReaderAnnotationColor.BLUE, createdColor)
             assertEquals("", createdNote)
         }
-        compose.onNodeWithText("Note").performClick()
+        assertEquals(0, compose.onAllNodesWithText("Highlight").fetchSemanticsNodes().size)
+        compose.onNodeWithContentDescription("Add note").performClick()
         compose.onNodeWithText("Selected passage").assertIsDisplayed()
         compose.onNodeWithText("Note (optional)").performTextInput("Keep this thought")
+        compose.onNodeWithText("Cancel").performClick()
+        compose.onNodeWithContentDescription("Add note").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Add note").performClick()
+        compose.onNodeWithText("Keep this thought").assertIsDisplayed()
         compose.onNodeWithText("Create").performClick()
         compose.runOnIdle { assertEquals("Keep this thought", createdNote) }
-        compose.onNodeWithContentDescription("Reading annotations").performClick()
-        compose.runOnIdle { assertEquals(1, dismissals) }
 
-        compose.runOnUiThread { status.value = ReaderSessionStatus.CLOSED }
+        compose.runOnUiThread {
+            createState.value = ReaderAnnotationMutationState(
+                pendingCreate = ReaderPendingHighlight("closed-client-id", selection)
+            )
+            status.value = ReaderSessionStatus.CLOSED
+        }
         compose.waitForIdle()
-        assertEquals(0, compose.onAllNodesWithText("Highlight").fetchSemanticsNodes().size)
+        assertEquals(
+            0,
+            compose.onAllNodesWithContentDescription("Yellow highlight").fetchSemanticsNodes().size
+        )
+        assertEquals(
+            0,
+            compose.onAllNodesWithContentDescription("Add note").fetchSemanticsNodes().size
+        )
     }
 
     @Test

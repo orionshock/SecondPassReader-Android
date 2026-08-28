@@ -112,26 +112,59 @@ class ReaderAnnotationMutationControllerTest {
     }
 
     @Test
-    fun `note editor keeps create identity and cancel returns to empty quick highlight`() =
-        runTest {
-            val controller = controller(this, ReaderAnnotationWriter { _, _ -> emptyList() })
+    fun `note editor cancel keeps create identity and draft`() = runTest {
+        val controller = controller(this, ReaderAnnotationWriter { _, _ -> emptyList() })
+        controller.select(profile(), SESSION_ID, ReaderSessionStatus.ACTIVE)
+        controller.accept(ReaderAnnotationMutationIntent.BeginCreate(selection()))
+        val clientId = controller.state.value.pendingCreate?.clientId
+
+        controller.accept(ReaderAnnotationMutationIntent.OpenCreateNote)
+        controller.accept(ReaderAnnotationMutationIntent.UpdateCreate(note = "Draft note"))
+
+        assertTrue(controller.state.value.createNoteEditorVisible)
+        assertEquals(clientId, controller.state.value.pendingCreate?.clientId)
+        assertEquals("Draft note", controller.state.value.pendingCreate?.note)
+
+        controller.accept(ReaderAnnotationMutationIntent.CancelCreateNote)
+
+        assertFalse(controller.state.value.createNoteEditorVisible)
+        assertEquals(clientId, controller.state.value.pendingCreate?.clientId)
+        assertEquals("Draft note", controller.state.value.pendingCreate?.note)
+    }
+
+    @Test
+    fun `each quick color submits immediately with empty note and stable identity`() = runTest {
+        ReaderAnnotationColor.entries.forEach { color ->
+            val requests = mutableListOf<ReaderAnnotationMutationRequest>()
+            val controller = controller(
+                this,
+                ReaderAnnotationWriter { _, request ->
+                    requests += request
+                    error("offline")
+                }
+            )
             controller.select(profile(), SESSION_ID, ReaderSessionStatus.ACTIVE)
             controller.accept(ReaderAnnotationMutationIntent.BeginCreate(selection()))
             val clientId = controller.state.value.pendingCreate?.clientId
+            controller.accept(ReaderAnnotationMutationIntent.UpdateCreate(note = "discarded"))
 
-            controller.accept(ReaderAnnotationMutationIntent.OpenCreateNote)
-            controller.accept(ReaderAnnotationMutationIntent.UpdateCreate(note = "Draft note"))
+            controller.accept(ReaderAnnotationMutationIntent.SubmitQuickCreate(color))
+            advanceUntilIdle()
 
-            assertTrue(controller.state.value.createNoteEditorVisible)
+            val submitted = requests.single() as ReaderAnnotationMutationRequest.UpsertHighlight
+            assertEquals(color, submitted.color)
+            assertEquals("", submitted.note)
+            assertEquals(clientId, submitted.clientId)
             assertEquals(clientId, controller.state.value.pendingCreate?.clientId)
-            assertEquals("Draft note", controller.state.value.pendingCreate?.note)
 
-            controller.accept(ReaderAnnotationMutationIntent.CancelCreateNote)
-
-            assertFalse(controller.state.value.createNoteEditorVisible)
-            assertEquals(clientId, controller.state.value.pendingCreate?.clientId)
-            assertEquals("", controller.state.value.pendingCreate?.note)
+            controller.accept(ReaderAnnotationMutationIntent.SubmitQuickCreate(color))
+            advanceUntilIdle()
+            assertEquals(
+                clientId,
+                (requests.last() as ReaderAnnotationMutationRequest.UpsertHighlight).clientId
+            )
         }
+    }
 
     @Test
     fun `create keeps one identity and sends latest exact draft`() = runTest {

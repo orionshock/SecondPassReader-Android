@@ -42,6 +42,7 @@ internal class ReaderAnnotationMutationController(
         when (intent) {
             is ReaderAnnotationMutationIntent.BeginCreate,
             is ReaderAnnotationMutationIntent.UpdateCreate,
+            is ReaderAnnotationMutationIntent.SubmitQuickCreate,
             ReaderAnnotationMutationIntent.OpenCreateNote,
             ReaderAnnotationMutationIntent.CancelCreateNote,
             ReaderAnnotationMutationIntent.SubmitCreate -> acceptCreate(intent)
@@ -76,17 +77,11 @@ internal class ReaderAnnotationMutationController(
 
     private fun acceptCreate(intent: ReaderAnnotationMutationIntent) {
         when (intent) {
-            is ReaderAnnotationMutationIntent.BeginCreate -> if (
-                canMutate && !state.value.submitting &&
-                state.value.pendingCreate?.selection?.cfi != intent.selection.cfi
-            ) {
-                mutableState.value = ReaderAnnotationMutationState(
-                    pendingCreate = ReaderPendingHighlight(
-                        clientIdFactory().also(::validateClientId),
-                        intent.selection
-                    )
-                )
-            }
+            is ReaderAnnotationMutationIntent.BeginCreate ->
+                state.value
+                    .beginCreate(intent, canMutate) {
+                        clientIdFactory().also(::validateClientId)
+                    }?.let { mutableState.value = it }
 
             is ReaderAnnotationMutationIntent.UpdateCreate -> updateStateDraft { current ->
                 current.copy(
@@ -94,6 +89,8 @@ internal class ReaderAnnotationMutationController(
                     failure = null
                 )
             }
+
+            is ReaderAnnotationMutationIntent.SubmitQuickCreate -> submitQuickCreate(intent)
 
             ReaderAnnotationMutationIntent.OpenCreateNote -> updateStateDraft { current ->
                 current.copy(
@@ -104,7 +101,6 @@ internal class ReaderAnnotationMutationController(
 
             ReaderAnnotationMutationIntent.CancelCreateNote -> updateStateDraft { current ->
                 current.copy(
-                    pendingCreate = current.pendingCreate?.copy(note = ""),
                     createNoteEditorVisible = false,
                     failure = null
                 )
@@ -119,6 +115,19 @@ internal class ReaderAnnotationMutationController(
             }
 
             else -> Unit
+        }
+    }
+
+    private fun submitQuickCreate(intent: ReaderAnnotationMutationIntent.SubmitQuickCreate) {
+        val currentOwner = activeOwner
+        val pending = state.value.pendingCreate?.copy(color = intent.color, note = "")
+        if (currentOwner != null && pending != null && !state.value.submitting) {
+            mutableState.value = state.value.copy(
+                pendingCreate = pending,
+                createNoteEditorVisible = false,
+                failure = null
+            )
+            pending.toRequest(currentOwner.sessionId)?.let { submit(currentOwner, it) }
         }
     }
 
@@ -263,5 +272,18 @@ internal class ReaderAnnotationMutationController(
         val profile: ConnectionProfile,
         val sessionId: String,
         val status: ReaderSessionStatus
+    )
+}
+
+private fun ReaderAnnotationMutationState.beginCreate(
+    intent: ReaderAnnotationMutationIntent.BeginCreate,
+    canMutate: Boolean,
+    clientIdFactory: () -> String
+): ReaderAnnotationMutationState? {
+    if (!canMutate || submitting || pendingCreate?.selection?.cfi == intent.selection.cfi) {
+        return null
+    }
+    return ReaderAnnotationMutationState(
+        pendingCreate = ReaderPendingHighlight(clientIdFactory(), intent.selection)
     )
 }
