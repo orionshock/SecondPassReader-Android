@@ -34,6 +34,15 @@ internal class ReadiumViewportMovements(
         tracker.unbind(current.currentLocator)
     }
 
+    suspend fun suppressSettledMovement(block: suspend () -> Unit) {
+        tracker.suppress()
+        try {
+            block()
+        } finally {
+            tracker.resumeWithCurrentAsBaseline()
+        }
+    }
+
     override fun close() {
         tracker.close()
     }
@@ -47,11 +56,13 @@ internal class ReadiumViewportMovements(
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 internal class SettledViewportMovementTracker<T : Any>(private val settleDelayMillis: Long) :
     AutoCloseable {
-    private val location = MutableStateFlow<StateFlow<T>?>(null)
+    private val location = MutableStateFlow<Attachment<T>?>(null)
     private val sequences = AtomicLong()
+    private val attachmentSequences = AtomicLong()
 
-    fun settled(): Flow<ReaderViewportMovement> = location.flatMapLatest { current ->
-        current
+    fun settled(): Flow<ReaderViewportMovement> = location.flatMapLatest { attachment ->
+        attachment?.source
+            ?.takeIf { attachment.reporting }
             // A newly attached navigator's current location is its baseline, not a movement.
             ?.drop(1)
             ?.debounce(settleDelayMillis)
@@ -60,14 +71,38 @@ internal class SettledViewportMovementTracker<T : Any>(private val settleDelayMi
     }
 
     fun bind(next: StateFlow<T>) {
-        location.value = next
+        location.value = next.attachment(reporting = true)
     }
 
     fun unbind(current: StateFlow<T>) {
-        location.compareAndSet(current, null)
+        location.value?.takeIf { it.source === current }?.let { location.compareAndSet(it, null) }
+    }
+
+    fun suppress() {
+        location.value?.let { current ->
+            location.value = current.source.attachment(reporting = false)
+        }
+    }
+
+    fun resumeWithCurrentAsBaseline() {
+        location.value?.let { current ->
+            location.value = current.source.attachment(reporting = true)
+        }
     }
 
     override fun close() {
         location.value = null
     }
+
+    private fun StateFlow<T>.attachment(reporting: Boolean) = Attachment(
+        source = this,
+        generation = attachmentSequences.incrementAndGet(),
+        reporting = reporting
+    )
+
+    private data class Attachment<T>(
+        val source: StateFlow<T>,
+        val generation: Long,
+        val reporting: Boolean
+    )
 }

@@ -22,6 +22,7 @@ import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
 import com.secondpasslibrary.reader.reader.domain.ReaderViewport
 import com.secondpasslibrary.reader.reader.domain.ReaderViewportMovement
 import com.secondpasslibrary.reader.reader.domain.ReaderViewportMovements
+import com.secondpasslibrary.reader.reader.lifecycle.ReaderPositionRetention
 import com.secondpasslibrary.reader.reader.progress.ReaderProgressWriteOutcome
 import com.secondpasslibrary.reader.reader.progress.ReaderProgressWriter
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
@@ -113,6 +114,7 @@ class ReaderControllerTest {
         val restored = controller.state.value as ReaderState.Ready
         assertEquals(ReaderProgressRestore.RESTORED, restored.restore)
         assertEquals(listOf(EpubCfi(PROGRESS_CFI)), engine.navigator.destinations)
+        assertEquals(listOf(EpubCfi(PROGRESS_CFI)), engine.startupRetentionPositions)
         controller.close()
     }
 
@@ -379,6 +381,16 @@ class ReaderControllerTest {
         override val cfiNavigator: EpubCfiNavigator = navigator
         override val tableOfContents = EmptyReaderTableOfContents
         override val appearance = TestAppearanceController()
+        val startupRetentionPositions = mutableListOf<EpubCfi?>()
+        override val positionRetention = object : ReaderPositionRetention {
+            override fun completeStartupRestore(restoredPosition: EpubCfi?) {
+                startupRetentionPositions += restoredPosition
+            }
+
+            override fun captureBeforeNavigatorLoss() = Unit
+
+            override fun retainPosition(position: EpubCfi) = Unit
+        }
 
         fun move(sequence: Long) {
             check(movements.tryEmit(ReaderViewportMovement(sequence)))

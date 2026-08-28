@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -252,6 +253,39 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
             val recreated = scenario.awaitReadyHost()
             runBlocking { awaitDecoration(recreated.navigator) }
             assertSame(host.engine, recreated.engine)
+        }
+    }
+
+    @Test
+    fun activityRecreationRestoresExactTransientReadingPosition() = withFixture(
+        "position-retention.epub"
+    ) { fixture ->
+        launchHost(fixture).use { scenario ->
+            val initial = scenario.awaitReadyHost()
+            initial.engine.positionRetention.completeStartupRestore(null)
+            runBlocking {
+                initial.engine.cfiNavigator.goTo(EpubCfi(CROSS_SPINE_POINT_CFI))
+                    .requireSuccess()
+            }
+            val before = runBlocking {
+                initial.engine.cfiNavigator.currentPosition().requireSuccess()
+            }
+            assertTrue(runBlocking { scenario.isPassageVisible("cross-spine-target") })
+            initial.engine.positionRetention.retainPosition(before)
+
+            scenario.recreate()
+            val recreated = scenario.awaitReadyHost()
+            assertSame(initial.engine, recreated.engine)
+            runBlocking {
+                repeat(100) {
+                    if (scenario.isPassageVisible("cross-spine-target")) return@runBlocking
+                    delay(50)
+                }
+            }
+            assertTrue(
+                "The cross-spine passage was not restored after Activity recreation.",
+                runBlocking { scenario.isPassageVisible("cross-spine-target") }
+            )
         }
     }
 
@@ -551,6 +585,28 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
             navigator = requireNotNull(activity.currentNavigator())
         }
         return ReadyHost(engine, navigator)
+    }
+
+    private suspend fun ActivityScenario<ReadiumCfiTestActivity>.isPassageVisible(
+        id: String
+    ): Boolean {
+        lateinit var navigator: EpubNavigatorFragment
+        onActivity { activity ->
+            navigator = requireNotNull(activity.currentNavigator())
+        }
+        return withContext(Dispatchers.Main) {
+            navigator.evaluateJavascript(
+                """
+                (() => {
+                  const element = document.getElementById(${JSONObject.quote(id)});
+                  if (!element) return false;
+                  const rect = element.getBoundingClientRect();
+                  return rect.right > 0 && rect.bottom > 0 &&
+                    rect.left < window.innerWidth && rect.top < window.innerHeight;
+                })();
+                """.trimIndent()
+            ) == "true"
+        }
     }
 
     private fun withFixture(fileName: String, block: (File) -> Unit) {

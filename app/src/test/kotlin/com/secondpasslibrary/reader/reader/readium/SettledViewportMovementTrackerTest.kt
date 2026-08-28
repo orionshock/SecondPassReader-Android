@@ -61,4 +61,29 @@ class SettledViewportMovementTrackerTest {
             runCurrent()
             assertEquals(listOf(1L), events)
         }
+
+    @Test
+    fun `recreation restoration is suppressed and resumed from the restored baseline`() = runTest {
+        val tracker = SettledViewportMovementTracker<String>(settleDelayMillis = 250)
+        val location = MutableStateFlow("cover")
+        val events = mutableListOf<Long>()
+        backgroundScope.launch {
+            tracker.settled().collect { events += it.sequence }
+        }
+        tracker.bind(location)
+        runCurrent()
+
+        tracker.suppress()
+        location.value = "restored-page"
+        advanceTimeBy(250)
+        tracker.resumeWithCurrentAsBaseline()
+        runCurrent()
+        advanceTimeBy(250)
+        assertEquals(emptyList<Long>(), events)
+
+        location.value = "user-page"
+        advanceTimeBy(250)
+        runCurrent()
+        assertEquals(listOf(1L), events)
+    }
 }

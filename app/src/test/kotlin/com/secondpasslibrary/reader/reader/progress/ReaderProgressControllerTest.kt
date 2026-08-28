@@ -13,6 +13,7 @@ import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import com.secondpasslibrary.reader.reader.domain.ReaderViewport
 import com.secondpasslibrary.reader.reader.domain.ReaderViewportMovement
 import com.secondpasslibrary.reader.reader.domain.ReaderViewportMovements
+import com.secondpasslibrary.reader.reader.lifecycle.ReaderPositionRetention
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import com.secondpasslibrary.reader.reader.toc.EmptyReaderTableOfContents
@@ -52,24 +53,28 @@ class ReaderProgressControllerTest {
         advanceUntilIdle()
 
         assertEquals(CFI_A, controller.state.value?.latestCandidate)
+        assertEquals(CFI_A, engine.retainedPosition)
         controller.reset()
     }
 
     @Test
-    fun `closed historical Session never captures progress`() = runTest {
-        val engine = FakeEngine { EpubCfiOutcome.Success(CFI_A) }
-        val controller = ReaderProgressController(this)
-        controller.prepare(activeSession(status = ReaderSessionStatus.CLOSED), engine)
+    fun `closed historical Session retains lifecycle position without publishing progress`() =
+        runTest {
+            val engine = FakeEngine { EpubCfiOutcome.Success(CFI_A) }
+            val controller = ReaderProgressController(this)
+            controller.prepare(activeSession(status = ReaderSessionStatus.CLOSED), engine)
 
-        controller.enableAfterStartupRestore()
-        engine.move(1)
-        advanceUntilIdle()
+            controller.enableAfterStartupRestore()
+            runCurrent()
+            engine.move(1)
+            advanceUntilIdle()
 
-        assertFalse(requireNotNull(controller.state.value).captureEnabled)
-        assertEquals(0, engine.positionRequests)
-        assertNull(controller.state.value?.latestCandidate)
-        controller.reset()
-    }
+            assertFalse(requireNotNull(controller.state.value).captureEnabled)
+            assertEquals(1, engine.positionRequests)
+            assertEquals(CFI_A, engine.retainedPosition)
+            assertNull(controller.state.value?.latestCandidate)
+            controller.reset()
+        }
 
     @Test
     fun `rapid movement cannot publish a stale earlier capture`() = runTest {
@@ -153,6 +158,16 @@ class ReaderProgressControllerTest {
         override val viewportMovements = ReaderViewportMovements { movementEvents }
         override val tableOfContents = EmptyReaderTableOfContents
         override val appearance = TestAppearanceController()
+        var retainedPosition: EpubCfi? = null
+        override val positionRetention = object : ReaderPositionRetention {
+            override fun completeStartupRestore(restoredPosition: EpubCfi?) = Unit
+
+            override fun captureBeforeNavigatorLoss() = Unit
+
+            override fun retainPosition(position: EpubCfi) {
+                retainedPosition = position
+            }
+        }
         override val cfiNavigator = object : EpubCfiNavigator {
             override val readiness = MutableStateFlow<EpubCfiReadiness>(
                 EpubCfiReadiness.Available

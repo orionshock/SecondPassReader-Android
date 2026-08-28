@@ -6,14 +6,21 @@ import android.view.ViewGroup
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.fragment.app.FragmentActivity
 import androidx.fragment.app.FragmentContainerView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.secondpasslibrary.reader.R
 import com.secondpasslibrary.reader.reader.domain.ReaderViewport
+import com.secondpasslibrary.reader.reader.lifecycle.ReaderPositionRetentionController
 import com.secondpasslibrary.reader.reader.readium.cfi.ReadiumCfiNavigatorBinding
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.launch
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 
 private const val NAVIGATOR_TAG = "reader.epub.navigator"
@@ -37,11 +44,14 @@ internal class ReadiumReaderViewport(
     private val appearanceController: ReadiumReaderAppearanceController,
     private val movements: ReadiumViewportMovements,
     private val selectionEvents: ReadiumSelectionEvents,
-    private val annotationDecorations: ReadiumReaderAnnotationDecorations
+    private val annotationDecorations: ReadiumReaderAnnotationDecorations,
+    private val positionRetention: ReaderPositionRetentionController
 ) : ReaderViewport {
     @Composable
     override fun Content(modifier: Modifier) {
         val activity = LocalContext.current.requireFragmentActivity()
+        val lifecycleOwner = LocalLifecycleOwner.current
+        val viewportScope = rememberCoroutineScope()
         AndroidView(
             factory = { context ->
                 FragmentContainerView(context).apply {
@@ -54,44 +64,66 @@ internal class ReadiumReaderViewport(
             },
             modifier = modifier.fillMaxSize()
         )
-        DisposableEffect(activity, this) {
-            val fragments = activity.supportFragmentManager
-            fragments.findFragmentByTag(NAVIGATOR_TAG)?.let { existing ->
-                (existing as? EpubNavigatorFragment)?.let(cfiBinding::unbind)
-                (existing as? EpubNavigatorFragment)?.let(appearanceController::unbind)
-                fragments.beginTransaction().remove(existing).commitNowAllowingStateLoss()
+        DisposableEffect(activity, lifecycleOwner, this) {
+            val lifecycleObserver = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_PAUSE) {
+                    positionRetention.captureBeforeNavigatorLoss()
+                }
             }
-            fragments.fragmentFactory = fragmentFactory.create()
-            fragments.beginTransaction()
-                .replace(
-                    R.id.reader_navigator_container,
-                    EpubNavigatorFragment::class.java,
-                    null,
-                    NAVIGATOR_TAG
-                )
-                .commitNowAllowingStateLoss()
-            val navigator = requireNotNull(
-                fragments.findFragmentByTag(NAVIGATOR_TAG) as? EpubNavigatorFragment
-            )
-            cfiBinding.bind(navigator)
-            publicationBinding.bind(navigator)
-            appearanceController.bind(navigator)
-            movements.bind(navigator)
-            selectionEvents.bind(navigator)
-            annotationDecorations.bind(navigator)
+            lifecycleOwner.lifecycle.addObserver(lifecycleObserver)
+            val navigator = installNavigator(activity)
+            var attached = false
+            var retentionAttachment: Long? = null
+            val attachJob = viewportScope.launch(start = CoroutineStart.UNDISPATCHED) {
+                positionRetention.awaitPendingCapture()
+                cfiBinding.bind(navigator)
+                publicationBinding.bind(navigator)
+                appearanceController.bind(navigator)
+                movements.bind(navigator)
+                selectionEvents.bind(navigator)
+                annotationDecorations.bind(navigator)
+                attached = true
+                retentionAttachment = positionRetention.navigatorAttached()
+            }
             onDispose {
-                annotationDecorations.unbind(navigator)
-                selectionEvents.unbind(navigator)
-                movements.unbind(navigator)
-                publicationBinding.unbind(navigator)
-                appearanceController.unbind(navigator)
-                cfiBinding.unbind(navigator)
+                lifecycleOwner.lifecycle.removeObserver(lifecycleObserver)
+                attachJob.cancel()
+                retentionAttachment?.let(positionRetention::navigatorDetached)
+                if (attached) {
+                    annotationDecorations.unbind(navigator)
+                    selectionEvents.unbind(navigator)
+                    movements.unbind(navigator)
+                    publicationBinding.unbind(navigator)
+                    appearanceController.unbind(navigator)
+                }
+                val fragments = activity.supportFragmentManager
                 fragments.findFragmentByTag(NAVIGATOR_TAG)?.let { navigator ->
                     fragments.beginTransaction().remove(navigator).commitNowAllowingStateLoss()
                 }
                 fragments.fragmentFactory = EpubNavigatorFragment.createDummyFactory()
             }
         }
+    }
+
+    private fun installNavigator(activity: FragmentActivity): EpubNavigatorFragment {
+        val fragments = activity.supportFragmentManager
+        fragments.findFragmentByTag(NAVIGATOR_TAG)?.let { existing ->
+            (existing as? EpubNavigatorFragment)?.let(cfiBinding::unbind)
+            (existing as? EpubNavigatorFragment)?.let(appearanceController::unbind)
+            fragments.beginTransaction().remove(existing).commitNowAllowingStateLoss()
+        }
+        fragments.fragmentFactory = fragmentFactory.create()
+        fragments.beginTransaction()
+            .replace(
+                R.id.reader_navigator_container,
+                EpubNavigatorFragment::class.java,
+                null,
+                NAVIGATOR_TAG
+            )
+            .commitNowAllowingStateLoss()
+        return requireNotNull(
+            fragments.findFragmentByTag(NAVIGATOR_TAG) as? EpubNavigatorFragment
+        )
     }
 }
 

@@ -9,6 +9,7 @@ import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpenException
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
 import com.secondpasslibrary.reader.reader.domain.ReaderViewport
+import com.secondpasslibrary.reader.reader.lifecycle.ReaderPositionRetentionController
 import com.secondpasslibrary.reader.reader.readium.cfi.ReadiumCfiJavascriptRuntime
 import com.secondpasslibrary.reader.reader.readium.cfi.ReadiumCfiNavigatorBinding
 import com.secondpasslibrary.reader.reader.readium.cfi.ReadiumEpubCfiNavigator
@@ -17,7 +18,9 @@ import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.withContext
 import org.readium.r2.navigator.epub.EpubNavigatorFactory
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
@@ -48,6 +51,11 @@ private class ReadiumReaderEngine(
         readingOrder = publication.readingOrder
     )
     private val decorations = ReadiumReaderAnnotationDecorations(readiumCfiNavigator)
+    private val positionRetentionController = ReaderPositionRetentionController(
+        navigator = readiumCfiNavigator,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        suppressMovementCapture = movements::suppressSettledMovement
+    )
 
     override val viewport: ReaderViewport = ReadiumReaderViewport(
         fragmentFactory = {
@@ -66,12 +74,14 @@ private class ReadiumReaderEngine(
         appearanceController = appearanceController,
         movements = movements,
         selectionEvents = selections,
-        annotationDecorations = decorations
+        annotationDecorations = decorations,
+        positionRetention = positionRetentionController
     )
     override val cfiNavigator = readiumCfiNavigator
     override val annotationDecorations = decorations
     override val viewportMovements = movements
     override val selectionEvents = selections
+    override val positionRetention = positionRetentionController
     override val appearance = appearanceController
     override val tableOfContents = ReadiumReaderTableOfContents(
         links = publication.tableOfContents,
@@ -80,6 +90,7 @@ private class ReadiumReaderEngine(
     )
 
     override fun close() {
+        positionRetentionController.close()
         movements.close()
         selections.close()
         decorations.close()

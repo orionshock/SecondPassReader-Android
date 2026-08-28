@@ -49,22 +49,22 @@ internal class ReaderProgressController(private val scope: CoroutineScope) {
     /** Starts capture only after saved-location restoration has reached a terminal state. */
     fun enableAfterStartupRestore() {
         val capture = prepared ?: return
-        if (capture.session.status != ReaderSessionStatus.ACTIVE || captureJob?.isActive == true) {
-            return
-        }
-        mutableState.update { current -> current?.copy(captureEnabled = true) }
+        if (captureJob?.isActive == true) return
+        val writesProgress = capture.session.status == ReaderSessionStatus.ACTIVE
+        mutableState.update { current -> current?.copy(captureEnabled = writesProgress) }
         captureJob = scope.launch(start = CoroutineStart.UNDISPATCHED) {
             capture.engine.viewportMovements.settled().collectLatest {
-                captureCurrentPosition(capture)
+                captureCurrentPosition(capture, writesProgress)
             }
         }
     }
 
-    private suspend fun captureCurrentPosition(capture: PreparedCapture) {
+    private suspend fun captureCurrentPosition(capture: PreparedCapture, writesProgress: Boolean) {
         val cfi = capturePosition(capture.engine)
         currentCoroutineContext().ensureActive()
         if (capture.generation == generation && cfi != null) {
-            publishCandidate(capture.session.sessionId, cfi)
+            capture.engine.positionRetention.retainPosition(cfi)
+            if (writesProgress) publishCandidate(capture.session.sessionId, cfi)
         }
     }
 

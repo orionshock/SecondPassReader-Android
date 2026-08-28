@@ -9,6 +9,8 @@ import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelection
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceController
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiNavigator
+import com.secondpasslibrary.reader.reader.lifecycle.EmptyReaderPositionRetention
+import com.secondpasslibrary.reader.reader.lifecycle.ReaderPositionRetention
 import com.secondpasslibrary.reader.reader.toc.ReaderTableOfContents
 import java.io.File
 import kotlinx.coroutines.flow.Flow
@@ -27,6 +29,8 @@ internal interface ReaderEngine : AutoCloseable {
         get() = EmptyReaderAnnotationDecorations
     val selectionEvents: ReaderSelectionEvents
         get() = EmptyReaderSelectionEvents
+    val positionRetention: ReaderPositionRetention
+        get() = EmptyReaderPositionRetention
 }
 
 /** Renderer-neutral notification that the visible reading position has settled after movement. */

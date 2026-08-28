@@ -228,30 +228,54 @@ internal class ReaderController(
         )
     }
 
-    private suspend fun restoreProgress(ready: ReaderState.Ready): ReaderState.Ready = try {
-        val rawCfi = ready.session.savedProgressCfi ?: return ready
-        val cfi = runCatching { EpubCfi(rawCfi) }.getOrNull()
-            ?: return ready.copy(restore = ReaderProgressRestore.SKIPPED)
-        val navigator = ready.engine.cfiNavigator
-        val firstAttempt = navigator.awaitNavigationAvailable().then { navigator.goTo(cfi) }
-        val outcome = if (firstAttempt.isTransientRestoreFailure()) {
-            navigator.awaitNavigationAvailable().then { navigator.goTo(cfi) }
-        } else {
-            firstAttempt
+    private suspend fun restoreProgress(ready: ReaderState.Ready): ReaderState.Ready {
+        val restored = try {
+            restoreSavedProgress(ready)
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Exception) {
+            ready.copy(restore = ReaderProgressRestore.SKIPPED)
         }
-        ready.copy(
-            restore = if (outcome is EpubCfiOutcome.Success) {
-                ReaderProgressRestore.RESTORED
-            } else {
-                ReaderProgressRestore.SKIPPED
-            }
+        restored.engine.positionRetention.completeStartupRestore(
+            restored.restoredStartupPosition()
         )
-    } catch (cancellation: CancellationException) {
-        throw cancellation
-    } catch (_: Exception) {
-        ready.copy(restore = ReaderProgressRestore.SKIPPED)
+        return restored
     }
 }
+
+private suspend fun restoreSavedProgress(ready: ReaderState.Ready): ReaderState.Ready {
+    val rawCfi = ready.session.savedProgressCfi
+    val cfi = rawCfi?.let { runCatching { EpubCfi(it) }.getOrNull() }
+    return when {
+        rawCfi == null -> ready
+        cfi == null -> ready.copy(restore = ReaderProgressRestore.SKIPPED)
+        else -> restoreValidProgress(ready, cfi)
+    }
+}
+
+private suspend fun restoreValidProgress(
+    ready: ReaderState.Ready,
+    cfi: EpubCfi
+): ReaderState.Ready {
+    val navigator = ready.engine.cfiNavigator
+    val firstAttempt = navigator.awaitNavigationAvailable().then { navigator.goTo(cfi) }
+    val outcome = if (firstAttempt.isTransientRestoreFailure()) {
+        navigator.awaitNavigationAvailable().then { navigator.goTo(cfi) }
+    } else {
+        firstAttempt
+    }
+    return ready.copy(
+        restore = if (outcome is EpubCfiOutcome.Success) {
+            ReaderProgressRestore.RESTORED
+        } else {
+            ReaderProgressRestore.SKIPPED
+        }
+    )
+}
+
+private fun ReaderState.Ready.restoredStartupPosition(): EpubCfi? = session.savedProgressCfi
+    ?.takeIf { restore == ReaderProgressRestore.RESTORED }
+    ?.let { runCatching { EpubCfi(it) }.getOrNull() }
 
 private data object DefaultReaderAppearanceStore : ReaderAppearanceStore {
     override suspend fun read() = ReaderAppearance()
