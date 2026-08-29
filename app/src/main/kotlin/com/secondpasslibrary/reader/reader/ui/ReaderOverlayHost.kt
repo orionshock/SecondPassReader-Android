@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import kotlinx.coroutines.CoroutineScope
@@ -30,6 +31,7 @@ internal class ReaderOverlayHost internal constructor(
 @Composable
 internal fun ReaderOverlayLayout(
     onExit: () -> Unit,
+    drawerScrimColor: Color,
     transientOverlayVisible: Boolean = false,
     onDismissTransientOverlay: () -> Unit = {},
     onOverlayVisibilityChanged: (Boolean) -> Unit = {},
@@ -79,6 +81,7 @@ internal fun ReaderOverlayLayout(
     ModalNavigationDrawer(
         drawerState = drawerState,
         gesturesEnabled = drawerState.isOpen,
+        scrimColor = drawerScrimColor,
         drawerContent = { tableOfContents(dismissDrawer) }
     ) {
         Box(Modifier.fillMaxSize()) {

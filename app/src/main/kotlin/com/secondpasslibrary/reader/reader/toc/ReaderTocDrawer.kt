@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.reader.toc
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -20,8 +21,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -34,6 +38,7 @@ import com.secondpasslibrary.reader.reader.appearance.ReaderPalette
 internal fun ReaderTocDrawer(
     bookTitle: String,
     entries: List<ReaderTocEntry>,
+    currentResource: ReaderPublicationResource?,
     palette: ReaderPalette,
     onEntrySelected: (ReaderPublicationTarget) -> Unit,
     onDismiss: () -> Unit,
@@ -45,49 +50,87 @@ internal fun ReaderTocDrawer(
         drawerContainerColor = palette.panelSurface,
         drawerContentColor = palette.primaryForeground
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(Modifier.fillMaxHeight()) {
+            ReaderTocHeader(bookTitle, palette, onDismiss)
+            HorizontalDivider(color = palette.border)
+            ReaderTocBody(rows, currentResource, palette, onEntrySelected)
+            ReaderTocFooter(palette, onCloseBook)
+        }
+    }
+}
+
+@Composable
+private fun ReaderTocHeader(bookTitle: String, palette: ReaderPalette, onDismiss: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 10.dp)
+            .testTag(READER_TOC_HEADER_TAG),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f).padding(bottom = 10.dp)) {
+            Text(
+                text = "Table of Contents",
+                modifier = Modifier.testTag(READER_TOC_EYEBROW_TAG),
+                color = palette.secondaryForeground,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1
+            )
+            Text(
+                text = bookTitle,
+                modifier = Modifier.padding(top = 3.dp).testTag(READER_TOC_TITLE_TAG),
+                color = palette.primaryForeground,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        IconButton(onClick = onDismiss) {
+            AppIconGraphic(AppIcon.Close, "Close table of contents")
+        }
+    }
+}
+
+@Composable
+private fun androidx.compose.foundation.layout.ColumnScope.ReaderTocBody(
+    rows: List<ReaderTocPresentationRow>,
+    currentResource: ReaderPublicationResource?,
+    palette: ReaderPalette,
+    onEntrySelected: (ReaderPublicationTarget) -> Unit
+) {
+    if (rows.isEmpty()) {
+        Text(
+            text = "No table of contents",
+            modifier = Modifier.weight(1f).fillMaxWidth().padding(16.dp)
+                .testTag(READER_TOC_BODY_TAG),
+            color = palette.secondaryForeground,
+            style = MaterialTheme.typography.bodyMedium
+        )
+    } else {
+        LazyColumn(
+            Modifier.weight(1f).fillMaxWidth().testTag(READER_TOC_BODY_TAG)
         ) {
-            Column(Modifier.weight(1f).padding(bottom = 8.dp)) {
-                Text(
-                    text = bookTitle,
-                    color = palette.secondaryForeground,
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+            items(rows, key = { it.key }) { row ->
+                ReaderTocRow(
+                    row,
+                    current = row.entry.resource == currentResource && currentResource != null,
+                    palette,
+                    onEntrySelected
                 )
-                Text(
-                    text = "Table of Contents",
-                    modifier = Modifier.padding(top = 4.dp),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-            IconButton(onClick = onDismiss) {
-                AppIconGraphic(AppIcon.Close, "Close table of contents")
             }
         }
+    }
+}
+
+@Composable
+private fun ReaderTocFooter(palette: ReaderPalette, onCloseBook: () -> Unit) {
+    Column(Modifier.fillMaxWidth().testTag(READER_TOC_FOOTER_TAG)) {
+        HorizontalDivider(color = palette.border)
         ReaderDrawerAction(
             label = "Close book",
             icon = AppIcon.Book,
             onClick = onCloseBook
         )
-        HorizontalDivider(color = palette.border)
-        if (rows.isEmpty()) {
-            Text(
-                text = "No table of contents",
-                modifier = Modifier.padding(16.dp),
-                color = palette.secondaryForeground,
-                style = MaterialTheme.typography.bodyMedium
-            )
-        } else {
-            LazyColumn(Modifier.fillMaxWidth()) {
-                items(rows, key = { it.key }) { row ->
-                    ReaderTocRow(row, palette, onEntrySelected)
-                }
-            }
-        }
     }
 }
 
@@ -110,6 +153,7 @@ private fun ReaderDrawerAction(label: String, icon: AppIcon, onClick: () -> Unit
 @Composable
 private fun ReaderTocRow(
     row: ReaderTocPresentationRow,
+    current: Boolean,
     palette: ReaderPalette,
     onEntrySelected: (ReaderPublicationTarget) -> Unit
 ) {
@@ -124,6 +168,8 @@ private fun ReaderTocRow(
     Row(
         modifier = interaction
             .fillMaxWidth()
+            .background(if (current) palette.selectedSurface else Color.Transparent)
+            .semantics { selected = current }
             .heightIn(min = 48.dp)
             .padding(
                 start = (16 + row.depth.coerceAtMost(MAX_INDENT_DEPTH) * 18).dp,
@@ -168,3 +214,9 @@ private fun List<ReaderTocEntry>.flattenForPresentation(): List<ReaderTocPresent
 
 private val DRAWER_MAX_WIDTH = 380.dp
 private const val MAX_INDENT_DEPTH = 5
+
+internal const val READER_TOC_HEADER_TAG = "reader_toc_header"
+internal const val READER_TOC_EYEBROW_TAG = "reader_toc_eyebrow"
+internal const val READER_TOC_TITLE_TAG = "reader_toc_title"
+internal const val READER_TOC_BODY_TAG = "reader_toc_body"
+internal const val READER_TOC_FOOTER_TAG = "reader_toc_footer"

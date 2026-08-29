@@ -23,6 +23,7 @@ import com.secondpasslibrary.reader.reader.domain.ReaderViewportMovements
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import com.secondpasslibrary.reader.reader.toc.ReaderPublicationNavigationResult
+import com.secondpasslibrary.reader.reader.toc.ReaderPublicationResource
 import com.secondpasslibrary.reader.reader.toc.ReaderPublicationTarget
 import com.secondpasslibrary.reader.reader.toc.ReaderTableOfContents
 import com.secondpasslibrary.reader.reader.toc.ReaderTocEntry
@@ -35,6 +36,8 @@ internal const val TEST_ANNOTATION_CFI = "epubcfi(/6/2!/4/2:3)"
 internal const val TEST_PUBLICATION_CONTENT_TAG = "test_publication_content"
 internal val TEST_CHAPTER_ONE = ReaderPublicationTarget("text/chapter-1.xhtml")
 internal val TEST_CHAPTER_TWO = ReaderPublicationTarget("text/chapter-2.xhtml#section")
+internal val TEST_RESOURCE_ONE = ReaderPublicationResource("text/chapter-1.xhtml")
+internal val TEST_RESOURCE_TWO = ReaderPublicationResource("text/chapter-2.xhtml")
 
 internal fun readerReadyState(
     toc: ReaderTableOfContents = RecordingReaderToc(),
@@ -49,14 +52,24 @@ internal fun readerReadyState(
     restore = ReaderProgressRestore.NOT_NEEDED
 )
 
-internal class RecordingReaderToc : ReaderTableOfContents {
-    override val entries = listOf(
+internal class RecordingReaderToc(
+    override val entries: List<ReaderTocEntry> = listOf(
         ReaderTocEntry(
             title = "Part One",
             target = TEST_CHAPTER_ONE,
-            children = listOf(ReaderTocEntry("Chapter Two", TEST_CHAPTER_TWO))
+            children = listOf(
+                ReaderTocEntry(
+                    "Chapter Two",
+                    TEST_CHAPTER_TWO,
+                    resource = TEST_RESOURCE_TWO
+                )
+            ),
+            resource = TEST_RESOURCE_ONE
         )
-    )
+    ),
+    resource: ReaderPublicationResource? = TEST_RESOURCE_ONE
+) : ReaderTableOfContents {
+    override val currentResource = MutableStateFlow(resource)
     val destinations = mutableListOf<ReaderPublicationTarget>()
 
     override suspend fun goTo(target: ReaderPublicationTarget): ReaderPublicationNavigationResult {

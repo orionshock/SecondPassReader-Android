@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.reader.readium
 
 import com.secondpasslibrary.reader.reader.cfi.normalizeEpubHref
 import com.secondpasslibrary.reader.reader.toc.ReaderPublicationNavigationResult
+import com.secondpasslibrary.reader.reader.toc.ReaderPublicationResource
 import com.secondpasslibrary.reader.reader.toc.ReaderPublicationTarget
 import com.secondpasslibrary.reader.reader.toc.ReaderTableOfContents
 import com.secondpasslibrary.reader.reader.toc.ReaderTocEntry
@@ -18,6 +19,7 @@ internal class ReadiumReaderTableOfContents(
     }
 
     override val entries: List<ReaderTocEntry> = links.mapNotNull(::mapEntry)
+    override val currentResource = binding.currentResource
 
     override suspend fun goTo(target: ReaderPublicationTarget): ReaderPublicationNavigationResult {
         val link = targets[target] ?: return ReaderPublicationNavigationResult.REJECTED
@@ -33,8 +35,14 @@ internal class ReadiumReaderTableOfContents(
         val title = link.title?.trim().orEmpty().ifBlank {
             if (children.isEmpty()) return null else UNTITLED_SECTION
         }
+        val resource = link.href.normalizedReadingOrderHref()?.let(::ReaderPublicationResource)
         val target = link.toPublicationTarget()?.also { targets[it] = link }
-        return ReaderTocEntry(title = title, target = target, children = children)
+        return ReaderTocEntry(
+            title = title,
+            target = target,
+            children = children,
+            resource = resource
+        )
     }
 
     private fun Link.toPublicationTarget(): ReaderPublicationTarget? {

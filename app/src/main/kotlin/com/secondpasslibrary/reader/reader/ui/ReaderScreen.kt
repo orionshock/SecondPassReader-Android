@@ -40,6 +40,7 @@ import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaIntent
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayersState
 import com.secondpasslibrary.reader.reader.marginalia.ui.ReaderMarginaliaDrawer
 import com.secondpasslibrary.reader.reader.marginalia.ui.ReaderMarginaliaDrawerState
+import com.secondpasslibrary.reader.reader.toc.ReaderPublicationResource
 import com.secondpasslibrary.reader.reader.toc.ReaderTocDrawer
 import com.secondpasslibrary.reader.reader.ui.hud.ReaderAmbientHud
 import com.secondpasslibrary.reader.reader.ui.hud.ReaderHudPresentation
@@ -76,6 +77,7 @@ internal fun ReaderScreen(
     )
     ReaderOverlayLayout(
         onExit = onBack,
+        drawerScrimColor = palette.scrim,
         transientOverlayVisible = highlightSelection != null,
         onDismissTransientOverlay = onDismissSelection,
         onOverlayVisibilityChanged = { overlayVisible = it },
@@ -325,9 +327,13 @@ private fun ReaderTocDrawerContent(
     scope: CoroutineScope,
     onBack: () -> Unit
 ) {
+    val currentResource by remember(ready?.engine) {
+        ready?.engine?.tableOfContents?.currentResource ?: EMPTY_READER_RESOURCE
+    }.collectAsState()
     ReaderTocDrawer(
         bookTitle = ready?.title ?: "Reader",
         entries = ready?.engine?.tableOfContents?.entries.orEmpty(),
+        currentResource = currentResource,
         palette = palette,
         onEntrySelected = { target ->
             dismiss()
@@ -357,6 +363,7 @@ private fun ReaderAppearanceOverlay(
 }
 
 private val DEFAULT_READER_APPEARANCE = MutableStateFlow(ReaderAppearance())
+private val EMPTY_READER_RESOURCE = MutableStateFlow<ReaderPublicationResource?>(null)
 private val READER_PUBLICATION_BOTTOM_SAFE_INSET = 28.dp
 
 @Composable

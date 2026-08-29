@@ -1,18 +1,25 @@
 package com.secondpasslibrary.reader.reader.ui
 
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondpasslibrary.reader.design.SecondPassTheme
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
@@ -30,6 +37,13 @@ import com.secondpasslibrary.reader.reader.domain.ReaderReadingStatus
 import com.secondpasslibrary.reader.reader.domain.ReaderReadingStatusScope
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaIntent
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
+import com.secondpasslibrary.reader.reader.toc.READER_TOC_BODY_TAG
+import com.secondpasslibrary.reader.reader.toc.READER_TOC_EYEBROW_TAG
+import com.secondpasslibrary.reader.reader.toc.READER_TOC_FOOTER_TAG
+import com.secondpasslibrary.reader.reader.toc.READER_TOC_HEADER_TAG
+import com.secondpasslibrary.reader.reader.toc.READER_TOC_TITLE_TAG
+import com.secondpasslibrary.reader.reader.toc.ReaderPublicationTarget
+import com.secondpasslibrary.reader.reader.toc.ReaderTocEntry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -86,13 +100,13 @@ class ReaderUiIntegrationTest {
         compose.onNodeWithTag(com.secondpasslibrary.reader.reader.ui.hud.READER_HUD_CLOCK_TAG)
             .assertIsDisplayed()
         compose.onNodeWithText("8 pages left in section").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Reader menu").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Open table of contents").assertIsDisplayed()
 
         compose.mainClock.advanceTimeBy(3_500)
-        compose.onNodeWithContentDescription("Reader menu").assertIsNotDisplayed()
+        compose.onNodeWithContentDescription("Open table of contents").assertIsNotDisplayed()
         compose.runOnIdle { hud.tap() }
         compose.mainClock.advanceTimeBy(500)
-        compose.onNodeWithContentDescription("Reader menu").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Open table of contents").assertIsDisplayed()
     }
 
     @Test
@@ -110,26 +124,81 @@ class ReaderUiIntegrationTest {
             compose.onAllNodesWithContentDescription("Open navigation drawer")
                 .fetchSemanticsNodes().size
         )
-        compose.onNodeWithContentDescription("Reader menu").performClick()
+        compose.onNodeWithContentDescription("Open table of contents").performClick()
         compose.onNodeWithText("Part One").assertIsDisplayed()
+        compose.onNodeWithText("Part One").assertIsSelected()
+        val eyebrow = compose.onNodeWithTag(READER_TOC_EYEBROW_TAG).getUnclippedBoundsInRoot()
+        val title = compose.onNodeWithTag(READER_TOC_TITLE_TAG).getUnclippedBoundsInRoot()
+        assertTrue(eyebrow.bottom <= title.top)
         compose.onNodeWithContentDescription("Close table of contents").assertIsDisplayed()
         compose.onNodeWithContentDescription("Close table of contents").performClick()
         compose.waitForIdle()
         compose.onNodeWithText("Part One").assertIsNotDisplayed()
 
-        compose.onNodeWithContentDescription("Reader menu").performClick()
+        compose.onNodeWithTag(READER_CHROME_LEFT_CLUSTER_TAG).performTouchInput {
+            down(Offset(width - 12f, height / 2f))
+            up()
+        }
         compose.onNodeWithContentDescription("Open Chapter Two").performClick()
         compose.waitForIdle()
         assertEquals(listOf(TEST_CHAPTER_TWO), toc.destinations)
 
-        compose.onNodeWithContentDescription("Reader menu").performClick()
+        compose.onNodeWithTag(READER_CHROME_LEFT_CLUSTER_TAG).performTouchInput {
+            down(Offset(width * 0.1f, height / 2f))
+            up()
+        }
+        compose.onNodeWithText("Part One").assertIsDisplayed()
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
         compose.waitForIdle()
         assertEquals(0, exits)
 
-        compose.onNodeWithContentDescription("Reader menu").performClick()
+        compose.onNodeWithContentDescription("Open table of contents").performClick()
+        compose.onRoot().performTouchInput {
+            down(Offset(width - 4f, height / 2f))
+            up()
+        }
+        compose.waitForIdle()
+        compose.onNodeWithText("Part One").assertIsNotDisplayed()
+        assertEquals(0, exits)
+
+        compose.onNodeWithContentDescription("Open table of contents").performClick()
         compose.onNodeWithText("Close book").performClick()
         compose.runOnIdle { assertEquals(1, exits) }
+    }
+
+    @Test
+    fun longTocKeepsHeaderAndExitFooterFixedWhileBodyScrolls() {
+        val entries = (1..60).map { chapter ->
+            ReaderTocEntry(
+                title = "Chapter $chapter",
+                target = ReaderPublicationTarget("text/chapter-$chapter.xhtml")
+            )
+        }
+        compose.setContent {
+            SecondPassTheme {
+                ReaderScreen(
+                    readerReadyState(RecordingReaderToc(entries, resource = null)),
+                    onBack = {},
+                    onRetry = {}
+                )
+            }
+        }
+
+        compose.onNodeWithContentDescription("Open table of contents").performClick()
+        val headerBefore = compose.onNodeWithTag(READER_TOC_HEADER_TAG).getUnclippedBoundsInRoot()
+        val footerBefore = compose.onNodeWithTag(READER_TOC_FOOTER_TAG).getUnclippedBoundsInRoot()
+        compose.onNodeWithTag(READER_TOC_BODY_TAG).performScrollToNode(hasText("Chapter 60"))
+        compose.onNodeWithText("Chapter 60").assertIsDisplayed().assertIsNotSelected()
+        compose.onNodeWithText("Close book").assertIsDisplayed()
+
+        assertEquals(
+            headerBefore,
+            compose.onNodeWithTag(READER_TOC_HEADER_TAG).getUnclippedBoundsInRoot()
+        )
+        assertEquals(
+            footerBefore,
+            compose.onNodeWithTag(READER_TOC_FOOTER_TAG).getUnclippedBoundsInRoot()
+        )
     }
 
     @Test
@@ -160,7 +229,7 @@ class ReaderUiIntegrationTest {
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
         compose.waitForIdle()
         assertEquals(0, compose.onAllNodesWithText("Theme").fetchSemanticsNodes().size)
-        compose.onNodeWithContentDescription("Reader menu").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Open table of contents").assertIsDisplayed()
     }
 
     @Test

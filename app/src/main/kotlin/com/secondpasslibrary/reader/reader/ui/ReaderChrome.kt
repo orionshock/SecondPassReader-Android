@@ -3,6 +3,7 @@ package com.secondpasslibrary.reader.reader.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,6 +26,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.design.icons.AppIcon
@@ -57,14 +61,15 @@ internal fun ReaderChrome(
                 ReaderChromeSurface(
                     palette,
                     Modifier.widthIn(max = leftClusterMaxWidth)
-                        .testTag(READER_CHROME_LEFT_CLUSTER_TAG)
+                        .testTag(READER_CHROME_LEFT_CLUSTER_TAG),
+                    onClick = onNavigationMenuRequested,
+                    contentDescription = "Open table of contents"
                 ) {
-                    IconButton(
-                        modifier = Modifier.size(READER_CHROME_CONTROL_SIZE),
-                        onClick = onNavigationMenuRequested
-                    ) {
-                        AppIconGraphic(AppIcon.NavigationMenu, "Reader menu")
-                    }
+                    AppIconGraphic(
+                        AppIcon.NavigationMenu,
+                        contentDescription = null,
+                        modifier = Modifier.size(READER_CHROME_CONTROL_SIZE).padding(12.dp)
+                    )
                     Text(
                         text = title,
                         modifier = Modifier.widthIn(
@@ -103,9 +108,21 @@ internal fun ReaderChrome(
 private fun ReaderChromeSurface(
     palette: ReaderPalette,
     modifier: Modifier,
+    onClick: (() -> Unit)? = null,
+    contentDescription: String? = null,
     content: @Composable () -> Unit
 ) = Row(
-    modifier = modifier.height(READER_CHROME_TOUCH_HEIGHT).drawBehind {
+    modifier = modifier.height(READER_CHROME_TOUCH_HEIGHT).then(
+        if (onClick == null) {
+            Modifier
+        } else {
+            Modifier.clickable(role = Role.Button, onClick = onClick).semantics(
+                mergeDescendants = true
+            ) {
+                this.contentDescription = checkNotNull(contentDescription)
+            }
+        }
+    ).drawBehind {
         val inset = READER_CHROME_VISUAL_INSET.toPx()
         val surfaceSize = Size(size.width, size.height - inset * 2)
         val corner = CornerRadius(surfaceSize.height / 2, surfaceSize.height / 2)
