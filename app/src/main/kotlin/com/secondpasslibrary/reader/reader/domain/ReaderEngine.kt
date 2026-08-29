@@ -2,6 +2,8 @@ package com.secondpasslibrary.reader.reader.domain
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import com.secondpasslibrary.reader.reader.annotations.bookmark.EmptyReaderVisiblePageBookmarksResolver
+import com.secondpasslibrary.reader.reader.annotations.bookmark.ReaderVisiblePageBookmarksResolver
 import com.secondpasslibrary.reader.reader.annotations.decoration.EmptyReaderAnnotationDecorations
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecorations
 import com.secondpasslibrary.reader.reader.annotations.selection.EmptyReaderSelectionEvents
@@ -30,6 +32,8 @@ internal interface ReaderEngine : AutoCloseable {
     val appearance: ReaderAppearanceController
     val annotationDecorations: ReaderAnnotationDecorations
         get() = EmptyReaderAnnotationDecorations
+    val visiblePageBookmarks: ReaderVisiblePageBookmarksResolver
+        get() = EmptyReaderVisiblePageBookmarksResolver
     val selectionEvents: ReaderSelectionEvents
         get() = EmptyReaderSelectionEvents
     val positionRetention: ReaderPositionRetention

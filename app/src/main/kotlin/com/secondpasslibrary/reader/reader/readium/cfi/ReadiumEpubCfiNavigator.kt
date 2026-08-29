@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.shared.publication.Link
 
+@Suppress("TooManyFunctions") // One cohesive serialized CFI/navigation boundary.
 internal class ReadiumEpubCfiNavigator(
     private val binding: ReadiumCfiNavigatorBinding,
     private val packageDocument: EpubPackageDocument,
@@ -176,6 +177,39 @@ internal class ReadiumEpubCfiNavigator(
         resourceHref: String,
         contentCfi: EpubCfi
     ): EpubCfiOutcome<EpubCfi> = packageCfiMapper.compose(resourceHref, contentCfi)
+
+    internal suspend fun visiblePointCfis(
+        candidates: Map<String, EpubCfi>
+    ): EpubCfiOutcome<Set<String>> = operations.runSerialized {
+        if (candidates.isEmpty()) return@runSerialized EpubCfiOutcome.Success(emptySet())
+        val captured = binding.withNavigator { navigator, runtime ->
+            val before = binding.resourceIdentity(navigator)
+            val href = before?.href
+            val spineItem = href?.let(packageDocument::spineItemForHref)
+            val result = if (spineItem == null || spineItem.layout == EpubLayout.FIXED) {
+                ReadiumCfiJavascriptResult.Failure(EpubCfiFailure.RESOURCE_NOT_IN_READING_ORDER)
+            } else {
+                runtime.visiblePointTargets(
+                    navigator = navigator,
+                    candidates = candidates,
+                    packageDocument = packageDocument,
+                    spineIndex = spineItem.index,
+                    idref = spineItem.idref,
+                    itemrefId = spineItem.id,
+                    resourceHref = spineItem.resourceHref
+                )
+            }
+            coherentResourceCapture(before, binding.resourceIdentity(navigator), result)
+        } ?: return@runSerialized binding.unavailableOutcome()
+        when (captured) {
+            ReadiumCfiResourceCapture.Changed -> resourceChanged()
+
+            is ReadiumCfiResourceCapture.Stable -> when (val result = captured.value) {
+                is ReadiumCfiJavascriptResult.Failure -> EpubCfiOutcome.Failure(result.reason)
+                is ReadiumCfiJavascriptResult.Success -> EpubCfiOutcome.Success(result.value)
+            }
+        }
+    }
 
     override fun close() {
         operations.close()

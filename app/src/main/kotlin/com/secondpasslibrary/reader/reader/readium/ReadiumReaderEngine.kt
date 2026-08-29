@@ -52,6 +52,7 @@ private class ReadiumReaderEngine(
         readingOrder = publication.readingOrder
     )
     private val decorations = ReadiumReaderAnnotationDecorations(readiumCfiNavigator)
+    private val visibleBookmarks = ReadiumVisiblePageBookmarks(readiumCfiNavigator, hud, movements)
     private val positionRetentionController = ReaderPositionRetentionController(
         navigator = readiumCfiNavigator,
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
@@ -82,6 +83,7 @@ private class ReadiumReaderEngine(
     )
     override val cfiNavigator = readiumCfiNavigator
     override val annotationDecorations = decorations
+    override val visiblePageBookmarks = visibleBookmarks
     override val viewportMovements = movements
     override val selectionEvents = selections
     override val hudEvents = hud

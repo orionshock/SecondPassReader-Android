@@ -21,6 +21,7 @@ internal class ReadiumReaderHudEvents :
     AutoCloseable {
     private val pagination = ReadiumSectionPaginationTracker()
     private val taps = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private val paginationChanges = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     private var navigator: EpubNavigatorFragment? = null
 
     override val readingStatus = pagination.status
@@ -32,6 +33,11 @@ internal class ReadiumReaderHudEvents :
         return object : EpubNavigatorFragment.PaginationListener {
             override fun onPageChanged(pageIndex: Int, totalPages: Int, locator: Locator) {
                 pagination.publish(generation, pageIndex, totalPages)
+                paginationChanges.tryEmit(Unit)
+            }
+
+            override fun onPageLoaded() {
+                paginationChanges.tryEmit(Unit)
             }
         }
     }
@@ -41,11 +47,14 @@ internal class ReadiumReaderHudEvents :
         return false
     }
 
+    fun paginationChanges(): Flow<Unit> = paginationChanges
+
     fun bind(next: EpubNavigatorFragment) {
         if (navigator === next) return
         navigator?.let(::unbind)
         navigator = next
         next.addInputListener(this)
+        paginationChanges.tryEmit(Unit)
     }
 
     fun unbind(current: EpubNavigatorFragment) {

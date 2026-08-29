@@ -6,11 +6,12 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfiFailure
 import com.secondpasslibrary.reader.reader.cfi.EpubPackageDocument
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withTimeoutOrNull
+import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 
-private const val RUNTIME_VERSION = "1.12.6"
+private const val RUNTIME_VERSION = "1.12.7"
 private const val CONTEXT_LENGTH = 64
 private const val SELECTION_CONTEXT_LENGTH = 2_000
 private const val MOVEMENT_QUOTE_LENGTH = 128
@@ -161,6 +162,43 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
         method = "generateVisiblePositionContentCfi",
         arguments = emptyList()
     ).mapValue { value -> EpubCfi(value as String) }
+
+    suspend fun visiblePointTargets(
+        navigator: EpubNavigatorFragment,
+        candidates: Map<String, EpubCfi>,
+        packageDocument: EpubPackageDocument,
+        spineIndex: Int,
+        idref: String,
+        itemrefId: String?,
+        resourceHref: String
+    ): ReadiumCfiJavascriptResult<Set<String>> = bridge.invoke(
+        navigator = navigator,
+        method = "visiblePointTargets",
+        arguments = listOf(
+            JavascriptArgument.StringValue(
+                JSONArray().apply {
+                    candidates.forEach { (id, cfi) ->
+                        put(JSONObject().put("id", id).put("cfi", cfi.value))
+                    }
+                }.toString()
+            ),
+            JavascriptArgument.StringValue(packageDocument.packageXml),
+            JavascriptArgument.StringValue(packageDocument.packagePath),
+            JavascriptArgument.NumberValue(spineIndex),
+            JavascriptArgument.StringValue(idref),
+            itemrefId?.let(JavascriptArgument::StringValue) ?: JavascriptArgument.NullValue,
+            JavascriptArgument.StringValue(resourceHref)
+        )
+    ).mapValue { value ->
+        val results = value as? JSONArray
+            ?: error("CFI runtime point-visibility result is invalid.")
+        buildSet {
+            repeat(results.length()) { index ->
+                val result = results.getJSONObject(index)
+                if (result.getBoolean("visible")) add(result.getString("id"))
+            }
+        }
+    }
 }
 
 private class ReadiumCfiJavascriptBridge(private val context: Context) {

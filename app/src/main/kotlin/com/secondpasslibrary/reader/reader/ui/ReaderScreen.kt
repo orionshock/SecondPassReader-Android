@@ -26,6 +26,7 @@ import com.secondpasslibrary.reader.reader.ReaderState
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsState
+import com.secondpasslibrary.reader.reader.annotations.bookmark.ReaderVisiblePageBookmarks
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationIntent
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationState
 import com.secondpasslibrary.reader.reader.annotations.navigateToReaderAnnotation
@@ -41,6 +42,7 @@ import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayersStat
 import com.secondpasslibrary.reader.reader.marginalia.ui.ReaderMarginaliaDrawer
 import com.secondpasslibrary.reader.reader.marginalia.ui.ReaderMarginaliaDrawerState
 import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadataState
+import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import com.secondpasslibrary.reader.reader.toc.ReaderPublicationResource
 import com.secondpasslibrary.reader.reader.toc.ReaderTocDrawer
 import com.secondpasslibrary.reader.reader.ui.hud.ReaderAmbientHud
@@ -51,12 +53,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 @Composable
+// Root layout composes established Reader owners without owning their behavior.
+@Suppress("LongMethod")
 internal fun ReaderScreen(
     state: ReaderState,
     onBack: () -> Unit,
     onRetry: () -> Unit,
     onAppearanceChanged: (ReaderAppearance) -> Unit = {},
     annotations: ReaderAnnotationsState = ReaderAnnotationsState(),
+    pageBookmarks: ReaderVisiblePageBookmarks = ReaderVisiblePageBookmarks(),
     marginaliaLayers: ReaderMarginaliaLayersState = ReaderMarginaliaLayersState(),
     autoShowPreviousMarginalia: Boolean = true,
     onMarginaliaIntent: (ReaderMarginaliaIntent) -> Unit = {},
@@ -65,6 +70,8 @@ internal fun ReaderScreen(
     sessionMetadata: ReaderSessionMetadataState = ReaderSessionMetadataState(),
     onAnnotationMutation: (ReaderAnnotationMutationIntent) -> Unit = {},
     onCreateBookmark: () -> Unit = {},
+    onNavigateBookmark: (ReaderAnnotation.Bookmark) -> Unit = {},
+    onRemoveBookmark: (ReaderAnnotation.Bookmark) -> Unit = {},
     onDismissSelection: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
@@ -73,9 +80,10 @@ internal fun ReaderScreen(
     val palette = appearance.theme.readerPalette()
     val highlightSelection = writableSelection(ready, selection, annotationMutations)
     var overlayVisible by remember { mutableStateOf(false) }
+    var bookmarkMenuVisible by remember { mutableStateOf(false) }
     val hud = rememberReaderHudPresentation(
         ready?.engine,
-        selection != null || overlayVisible
+        selection != null || overlayVisible || bookmarkMenuVisible
     )
     ReaderOverlayLayout(
         onExit = onBack,
@@ -114,9 +122,14 @@ internal fun ReaderScreen(
             highlightSelection,
             annotationMutations,
             hud,
+            pageBookmarks,
             onBack,
             onRetry,
             onAnnotationMutation,
+            onCreateBookmark,
+            onNavigateBookmark,
+            onRemoveBookmark,
+            { bookmarkMenuVisible = it },
             onDismissSelection
         )
     }
@@ -131,9 +144,14 @@ private fun ReaderReadingSurface(
     selection: ReaderSelection?,
     mutationState: ReaderAnnotationMutationState,
     hud: ReaderHudPresentation,
+    pageBookmarks: ReaderVisiblePageBookmarks,
     onBack: () -> Unit,
     onRetry: () -> Unit,
     onMutation: (ReaderAnnotationMutationIntent) -> Unit,
+    onCreateBookmark: () -> Unit,
+    onNavigateBookmark: (ReaderAnnotation.Bookmark) -> Unit,
+    onRemoveBookmark: (ReaderAnnotation.Bookmark) -> Unit,
+    onBookmarkMenuVisibilityChanged: (Boolean) -> Unit,
     onDismissSelection: () -> Unit
 ) {
     Box(Modifier.fillMaxSize().background(palette.publicationBackground)) {
@@ -168,6 +186,12 @@ private fun ReaderReadingSurface(
                 hud.reveal()
                 overlays.openAppearance()
             },
+            bookmarks = pageBookmarks.bookmarks,
+            bookmarksWritable = ready?.session?.status == ReaderSessionStatus.ACTIVE,
+            onCreateBookmark = onCreateBookmark,
+            onNavigateBookmark = onNavigateBookmark,
+            onRemoveBookmark = onRemoveBookmark,
+            onBookmarkMenuVisibilityChanged = onBookmarkMenuVisibilityChanged,
             onAnnotationsRequested = {
                 hud.reveal()
                 overlays.openAnnotations()
@@ -315,6 +339,12 @@ private fun ReaderChromeLayer(
     visible: Boolean,
     onNavigationMenuRequested: () -> Unit,
     onAppearanceRequested: () -> Unit,
+    bookmarks: List<ReaderAnnotation.Bookmark>,
+    bookmarksWritable: Boolean,
+    onCreateBookmark: () -> Unit,
+    onNavigateBookmark: (ReaderAnnotation.Bookmark) -> Unit,
+    onRemoveBookmark: (ReaderAnnotation.Bookmark) -> Unit,
+    onBookmarkMenuVisibilityChanged: (Boolean) -> Unit,
     onAnnotationsRequested: () -> Unit
 ) {
     ReaderChrome(
@@ -323,6 +353,12 @@ private fun ReaderChromeLayer(
         visible = visible,
         onNavigationMenuRequested = onNavigationMenuRequested,
         onAppearanceRequested = onAppearanceRequested,
+        bookmarks = bookmarks,
+        bookmarksWritable = bookmarksWritable,
+        onCreateBookmark = onCreateBookmark,
+        onNavigateBookmark = onNavigateBookmark,
+        onRemoveBookmark = onRemoveBookmark,
+        onBookmarkMenuVisibilityChanged = onBookmarkMenuVisibilityChanged,
         onAnnotationsRequested = onAnnotationsRequested
     )
 }

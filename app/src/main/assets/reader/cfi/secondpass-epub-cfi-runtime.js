@@ -1,7 +1,7 @@
 (function installSecondPassEpubCfiRuntime(global) {
     "use strict";
 
-    const RUNTIME_VERSION = "1.12.6";
+    const RUNTIME_VERSION = "1.12.7";
     const CONTEXT_LENGTH = 64;
     const SELECTION_CONTEXT_LENGTH = 2000;
     const MOVEMENT_QUOTE_LENGTH = 128;
@@ -202,7 +202,8 @@
         expectedSpineIndex,
         expectedIdref,
         expectedItemrefId,
-        expectedResourceHref
+        expectedResourceHref,
+        geometryOnly
     ) {
         const itemrefId = packageTarget.itemref.getAttribute("id") || null;
         if (packageTarget.spineIndex !== expectedSpineIndex ||
@@ -682,7 +683,8 @@
         expectedSpineIndex,
         expectedIdref,
         expectedItemrefId,
-        expectedResourceHref
+        expectedResourceHref,
+        geometryOnly
     ) {
         requireReflowableCfiDocument();
         const packageTarget = resolvePackageTarget(
@@ -741,6 +743,13 @@
         validateResolvedRange(liveRange, resolvedTarget, expectedKind);
         if (liveRange.toString() !== snapshotRange.toString()) {
             throw new Error("DOM_TARGET_NOT_FOUND");
+        }
+
+        if (geometryOnly === true) {
+            return {
+                liveRange: liveRange,
+                resolution: { kind: expectedKind }
+            };
         }
 
         const context = textContext(snapshotRange, snapshot.document);
@@ -828,13 +837,59 @@
         const probe = visibilityProbeRange(range, publicationDocument);
         const viewportWidth = publicationViewportWidth(publicationDocument);
         const viewportHeight = publicationViewportHeight(publicationDocument);
-        return Array.from(probe.getClientRects()).some(function (rectangle) {
+        const rectangles = Array.from(probe.getClientRects());
+        if (rectangles.length === 0) {
+            rectangles.push(probe.getBoundingClientRect());
+        }
+        return rectangles.some(function (rectangle) {
             const visibleWidth = Math.min(rectangle.right, viewportWidth) -
                 Math.max(rectangle.left, 0);
             const visibleHeight = Math.min(rectangle.bottom, viewportHeight) -
                 Math.max(rectangle.top, 0);
             return visibleWidth > 0.5 && visibleHeight > 0.5 &&
                 rectangle.width > 0 && rectangle.height > 0;
+        });
+    }
+
+    function visiblePointTargets(
+        serializedCandidates,
+        packageDocumentXml,
+        packagePath,
+        expectedSpineIndex,
+        expectedIdref,
+        expectedItemrefId,
+        expectedResourceHref
+    ) {
+        const candidates = JSON.parse(serializedCandidates);
+        if (!Array.isArray(candidates) || candidates.length > 1000) {
+            throw new Error("INVALID_CFI");
+        }
+        return candidates.map(function (candidate) {
+            try {
+                if (!candidate || typeof candidate.id !== "string" ||
+                    typeof candidate.cfi !== "string") {
+                    return null;
+                }
+                const details = resolveContentTargetDetails(
+                    candidate.cfi,
+                    packageDocumentXml,
+                    packagePath,
+                    expectedSpineIndex,
+                    expectedIdref,
+                    expectedItemrefId,
+                    expectedResourceHref,
+                    true
+                );
+                return {
+                    id: candidate.id,
+                    visible: details.resolution.kind === "point" &&
+                        isTargetRangeVisible(details.liveRange, document)
+                };
+            } catch (error) {
+                return { id: candidate && candidate.id, visible: false };
+            }
+        }).filter(function (result) {
+            return result && typeof result.id === "string";
         });
     }
 
@@ -856,12 +911,15 @@
         while (node) {
             if (node === container) {
                 foundContainer = true;
-            } else if (foundContainer && node.length > 0 && !isInsideRuntimeNode(node)) {
+            } else if (foundContainer && hasDurableCharacter(node) && !isInsideRuntimeNode(node)) {
                 probe.setStart(node, 0);
                 probe.setEnd(node, nextCodeUnitBoundary(node.data, 0));
                 return probe;
             }
             node = walker.nextNode();
+        }
+        if (isCharacterData(container) && offset > 0) {
+            probe.setStart(container, previousCodeUnitBoundary(container.data, offset));
         }
         return probe;
     }
@@ -870,6 +928,16 @@
         const first = text.charCodeAt(offset);
         const second = text.charCodeAt(offset + 1);
         return offset + (isHighSurrogate(first) && isLowSurrogate(second) ? 2 : 1);
+    }
+
+    function previousCodeUnitBoundary(text, offset) {
+        const previous = text.charCodeAt(offset - 1);
+        const beforePrevious = text.charCodeAt(offset - 2);
+        return offset - (isLowSurrogate(previous) && isHighSurrogate(beforePrevious) ? 2 : 1);
+    }
+
+    function hasDurableCharacter(node) {
+        return isCharacterData(node) && /\S/u.test(node.data);
     }
 
     function isInsideRuntimeNode(node) {
@@ -1456,6 +1524,13 @@
                     expectedBefore,
                     expectedAfter
                 );
+            });
+        },
+
+        visiblePointTargets: function findVisiblePointTargets() {
+            const argumentsValue = arguments;
+            return safely(function () {
+                return visiblePointTargets.apply(null, argumentsValue);
             });
         },
 

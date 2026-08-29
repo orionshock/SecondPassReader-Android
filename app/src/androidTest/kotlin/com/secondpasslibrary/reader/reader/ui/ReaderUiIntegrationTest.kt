@@ -1,9 +1,11 @@
 package com.secondpasslibrary.reader.reader.ui
 
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
@@ -26,6 +28,7 @@ import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsFailure
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsState
+import com.secondpasslibrary.reader.reader.annotations.bookmark.ReaderVisiblePageBookmarks
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationIntent
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationState
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderHighlightEditDraft
@@ -109,6 +112,64 @@ class ReaderUiIntegrationTest {
         compose.runOnIdle { hud.tap() }
         compose.mainClock.advanceTimeBy(500)
         compose.onNodeWithContentDescription("Open table of contents").assertIsDisplayed()
+    }
+
+    @Test
+    fun bookmarkHudCreatesFromEmptyAndListsVisibleBookmarksWithoutImmediateDelete() {
+        var creates = 0
+        val navigated = mutableListOf<String>()
+        val removed = mutableListOf<String>()
+        val first = testBookmark("first", "Chapter 01 · 12%")
+        val second = testBookmark("second", "Chapter 01 · 13%")
+        val visibleBookmarks = mutableStateOf(ReaderVisiblePageBookmarks())
+        compose.setContent {
+            SecondPassTheme {
+                ReaderScreen(
+                    state = readerReadyState(),
+                    onBack = {},
+                    onRetry = {},
+                    pageBookmarks = visibleBookmarks.value,
+                    onCreateBookmark = { creates += 1 },
+                    onNavigateBookmark = { navigated += it.id },
+                    onRemoveBookmark = { removed += it.id }
+                )
+            }
+        }
+        compose.onNodeWithContentDescription("Bookmark current page").performClick()
+        compose.runOnIdle { assertEquals(1, creates) }
+
+        compose.runOnIdle {
+            visibleBookmarks.value = ReaderVisiblePageBookmarks(listOf(first, second))
+        }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("2 bookmarks on current page").performClick()
+        compose.onNodeWithText("Chapter 01 · 12%").assertIsDisplayed()
+        compose.onNodeWithText("Chapter 01 · 13%").assertIsDisplayed()
+        compose.runOnIdle { assertTrue(removed.isEmpty()) }
+        compose.onAllNodesWithContentDescription("Go to bookmark")[0].performClick()
+        compose.runOnIdle { assertEquals(listOf("first"), navigated) }
+
+        compose.onNodeWithContentDescription("2 bookmarks on current page").performClick()
+        compose.onAllNodesWithContentDescription("Remove bookmark")[1].performClick()
+        compose.runOnIdle { assertEquals(listOf("second"), removed) }
+    }
+
+    @Test
+    fun closedSessionBookmarkHudIsReadOnly() {
+        var creates = 0
+        compose.setContent {
+            SecondPassTheme {
+                ReaderScreen(
+                    state = readerReadyState(status = ReaderSessionStatus.CLOSED),
+                    onBack = {},
+                    onRetry = {},
+                    onCreateBookmark = { creates += 1 }
+                )
+            }
+        }
+
+        compose.onNodeWithContentDescription("Bookmark current page").assertIsNotEnabled()
+        compose.runOnIdle { assertEquals(0, creates) }
     }
 
     @Test
@@ -637,4 +698,12 @@ class ReaderUiIntegrationTest {
 
         else -> state
     }
+
+    private fun testBookmark(id: String, label: String) = ReaderAnnotation.Bookmark(
+        id = id,
+        clientId = "client-$id",
+        cfi = TEST_ANNOTATION_CFI,
+        locationLabel = label,
+        updatedAt = "2026-08-28T00:00:00Z"
+    )
 }

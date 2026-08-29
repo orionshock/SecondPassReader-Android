@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondpasslibrary.reader.reader.cfi.SyntheticEpubCfiSources
 import kotlinx.coroutines.runBlocking
+import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
 import org.junit.Assert.assertEquals
@@ -39,14 +40,14 @@ class ReadiumCfiJavascriptRuntimeTest {
             harness.evaluate("typeof SecondPassColibrio.EpubCfiParser.parse").jsonString()
         )
         assertEquals(
-            "1.12.6",
+            "1.12.7",
             harness.evaluate("__secondPassEpubCfi.runtimeVersion()").jsonString()
         )
 
         harness.evaluate(asset("reader/cfi/secondpass-epub-cfi-runtime.js"))
 
         assertEquals(
-            "1.12.6",
+            "1.12.7",
             harness.evaluate("__secondPassEpubCfi.runtimeVersion()").jsonString()
         )
     }
@@ -398,6 +399,57 @@ class ReadiumCfiJavascriptRuntimeTest {
             )
 
             harness.assertCurrentPositionStartsWith(packageCfi, "Inline")
+        }
+
+    @Test
+    fun pointVisibilityBatchesCandidatesAndUsesTerminalCharacterFallback() =
+        withHarness { harness ->
+            val packageCfi = harness.packageCfi()
+            harness.prepareGeometry(
+                direction = "ltr",
+                body =
+                    """
+                    <p id="visible" style="position:absolute;left:8px;top:8px">Visible point</p>
+                    <p id="offscreen" style="position:absolute;left:10000px;top:8px">Offscreen</p>
+                    <p id="terminal" style="position:absolute;left:8px;top:48px">Terminal point</p>
+                    """.trimIndent()
+            )
+            suspend fun point(selector: String, terminal: Boolean = false): String {
+                val content = harness.generateContentCfi(
+                    """
+                    const node = document.querySelector(${JSONObject.quote(selector)}).firstChild;
+                    builder.appendTerminalDomPosition(node, ${if (terminal) "node.length" else "0"});
+                    """.trimIndent()
+                )
+                return harness.compose(packageCfi, content)
+            }
+            val candidates = JSONArray()
+                .put(JSONObject().put("id", "visible").put("cfi", point("#visible")))
+                .put(JSONObject().put("id", "offscreen").put("cfi", point("#offscreen")))
+                .put(JSONObject().put("id", "terminal").put("cfi", point("#terminal", true)))
+                .put(JSONObject().put("id", "malformed").put("cfi", "not-a-cfi"))
+
+            val result = harness.runtime(
+                "visiblePointTargets",
+                candidates.toString(),
+                SyntheticEpubCfiSources.packageDocument,
+                SyntheticEpubCfiSources.PACKAGE_PATH,
+                0,
+                "chapter-one",
+                "spine-chapter-one",
+                SyntheticEpubCfiSources.CHAPTER_ONE_PATH
+            )
+            assertTrue(result.toString(), result.getBoolean("ok"))
+            val visible = result.getJSONArray("value").let { values ->
+                buildSet {
+                    repeat(values.length()) { index ->
+                        values.getJSONObject(index).takeIf { it.getBoolean("visible") }
+                            ?.let { add(it.getString("id")) }
+                    }
+                }
+            }
+
+            assertEquals(result.toString(), setOf("visible", "terminal"), visible)
         }
 
     @Test

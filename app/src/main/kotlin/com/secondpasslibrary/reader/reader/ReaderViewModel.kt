@@ -5,14 +5,18 @@ import androidx.lifecycle.viewModelScope
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsController
 import com.secondpasslibrary.reader.reader.annotations.SplReaderAnnotationsLoader
+import com.secondpasslibrary.reader.reader.annotations.bookmark.ReaderBookmarkHudIntent
+import com.secondpasslibrary.reader.reader.annotations.bookmark.ReaderVisiblePageBookmarksController
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecorationController
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationController
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationIntent
 import com.secondpasslibrary.reader.reader.annotations.mutation.SplReaderAnnotationWriter
 import com.secondpasslibrary.reader.reader.annotations.mutation.captureReaderBookmarkPosition
+import com.secondpasslibrary.reader.reader.annotations.navigateToReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelectionController
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceStore
@@ -86,6 +90,7 @@ internal class ReaderViewModel @Inject constructor(
         viewModelScope
     )
     private val annotationDecorations = ReaderAnnotationDecorationController()
+    private val visiblePageBookmarks = ReaderVisiblePageBookmarksController(viewModelScope)
     private val selections = ReaderSelectionController(viewModelScope)
     private val sessionMetadata = ReaderSessionMetadataController(
         sessionMetadataWriter,
@@ -109,6 +114,7 @@ internal class ReaderViewModel @Inject constructor(
     val progress = controller.progress
     val progressSync = controller.progressSync
     val annotations = annotationsController.state
+    val pageBookmarks = visiblePageBookmarks.state
     val marginaliaLayers = marginaliaLayersController.state
     val autoShowPreviousMarginalia = marginaliaLayerPolicy.autoShowPrevious
     val selection = selections.selection
@@ -137,6 +143,7 @@ internal class ReaderViewModel @Inject constructor(
                 if (ready == null) {
                     selections.detach()
                     annotationMutations.clear()
+                    visiblePageBookmarks.clear()
                 } else {
                     selections.attach(ready.engine.selectionEvents, ready.engine.cfiNavigator)
                     activeProfile?.let { profile ->
@@ -167,13 +174,27 @@ internal class ReaderViewModel @Inject constructor(
                 reader to annotations
             }.collectLatest { (reader, annotations) ->
                 val ready = reader as? ReaderState.Ready
-                if (ready != null && annotations.sessionId == ready.session.sessionId) {
-                    annotationDecorations.replace(
-                        sessionId = ready.session.sessionId,
-                        target = ready.engine.annotationDecorations,
-                        annotations = annotations.annotations
+                if (ready != null) {
+                    visiblePageBookmarks.select(
+                        ready.session.sessionId,
+                        ready.engine.visiblePageBookmarks
                     )
+                    if (annotations.sessionId == ready.session.sessionId) {
+                        visiblePageBookmarks.replace(
+                            ready.session.sessionId,
+                            annotations.annotations
+                        )
+                        annotationDecorations.replace(
+                            sessionId = ready.session.sessionId,
+                            target = ready.engine.annotationDecorations,
+                            annotations = annotations.annotations
+                        )
+                    } else {
+                        visiblePageBookmarks.replace(ready.session.sessionId, emptyList())
+                        annotationDecorations.clear()
+                    }
                 } else {
+                    visiblePageBookmarks.clear()
                     annotationDecorations.clear()
                 }
             }
@@ -274,24 +295,35 @@ internal class ReaderViewModel @Inject constructor(
         annotationMutations.accept(intent)
     }
 
-    fun createBookmark() {
-        val ready = controller.state.value as? ReaderState.Ready
-        when {
-            ready == null || ready.session.status != ReaderSessionStatus.ACTIVE -> Unit
+    fun acceptBookmark(intent: ReaderBookmarkHudIntent) {
+        val ready = controller.state.value as? ReaderState.Ready ?: return
+        when (intent) {
+            ReaderBookmarkHudIntent.Create -> when {
+                ready.session.status != ReaderSessionStatus.ACTIVE -> Unit
 
-            annotationMutationState.value.pendingBookmark != null ->
-                annotationMutations.accept(ReaderAnnotationMutationIntent.RetryBookmark)
+                annotationMutationState.value.pendingBookmark != null ->
+                    annotationMutations.accept(ReaderAnnotationMutationIntent.RetryBookmark)
 
-            bookmarkCaptureJob?.isActive == true -> Unit
+                bookmarkCaptureJob?.isActive == true -> Unit
 
-            else -> bookmarkCaptureJob = viewModelScope.launch {
-                val position = captureReaderBookmarkPosition(ready.engine.cfiNavigator)
-                if (controller.state.value === ready && position is EpubCfiOutcome.Success) {
-                    annotationMutations.accept(
-                        ReaderAnnotationMutationIntent.CreateBookmark(position.value)
-                    )
+                else -> bookmarkCaptureJob = viewModelScope.launch {
+                    val position = captureReaderBookmarkPosition(ready.engine.cfiNavigator)
+                    if (controller.state.value === ready && position is EpubCfiOutcome.Success) {
+                        annotationMutations.accept(
+                            ReaderAnnotationMutationIntent.CreateBookmark(position.value)
+                        )
+                    }
                 }
             }
+
+            is ReaderBookmarkHudIntent.Navigate -> viewModelScope.launch {
+                navigateToReaderAnnotation(intent.bookmark, ready.engine.cfiNavigator)
+            }
+
+            is ReaderBookmarkHudIntent.Remove ->
+                annotationMutations.accept(
+                    ReaderAnnotationMutationIntent.RequestDelete(intent.bookmark)
+                )
         }
     }
 
@@ -320,6 +352,7 @@ internal class ReaderViewModel @Inject constructor(
     override fun onCleared() {
         bookmarkCaptureJob?.cancel()
         annotationsController.close()
+        visiblePageBookmarks.clear()
         marginaliaLayerPolicy.clear()
         marginaliaLayersController.clear()
         selections.detach()

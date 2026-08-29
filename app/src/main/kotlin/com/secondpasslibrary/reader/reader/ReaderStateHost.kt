@@ -9,6 +9,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.reader.annotations.bookmark.ReaderBookmarkHudIntent
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationIntent
 import com.secondpasslibrary.reader.reader.ui.ReaderScreen
 
@@ -24,6 +25,7 @@ internal fun ReaderStateHost(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val annotations by viewModel.annotations.collectAsStateWithLifecycle()
+    val pageBookmarks by viewModel.pageBookmarks.collectAsStateWithLifecycle()
     val marginaliaLayers by viewModel.marginaliaLayers.collectAsStateWithLifecycle()
     val autoShowPreviousMarginalia by
         viewModel.autoShowPreviousMarginalia.collectAsStateWithLifecycle()
@@ -53,6 +55,7 @@ internal fun ReaderStateHost(
         onRetry = viewModel::retry,
         onAppearanceChanged = viewModel::updateAppearance,
         annotations = annotations,
+        pageBookmarks = pageBookmarks,
         marginaliaLayers = marginaliaLayers,
         autoShowPreviousMarginalia = autoShowPreviousMarginalia,
         onMarginaliaIntent = viewModel::acceptMarginalia,
@@ -60,7 +63,9 @@ internal fun ReaderStateHost(
         annotationMutations = annotationMutations,
         sessionMetadata = sessionMetadata,
         onAnnotationMutation = viewModel::mutateAnnotation,
-        onCreateBookmark = viewModel::createBookmark,
+        onCreateBookmark = { viewModel.acceptBookmark(ReaderBookmarkHudIntent.Create) },
+        onNavigateBookmark = { viewModel.acceptBookmark(ReaderBookmarkHudIntent.Navigate(it)) },
+        onRemoveBookmark = { viewModel.acceptBookmark(ReaderBookmarkHudIntent.Remove(it)) },
         onDismissSelection = viewModel::dismissSelection
     )
 }
