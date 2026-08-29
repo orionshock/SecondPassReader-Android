@@ -44,6 +44,9 @@ internal fun ReaderMarginaliaLayerList(
     val availableIds = model.layers.previousLayers
         .mapTo(mutableSetOf(), { it.summary.sessionId }) + model.currentSessionId
     LazyColumn(modifier) {
+        item(key = "marginalia-heading") {
+            ReaderMarginaliaHeading(model.palette)
+        }
         item(key = model.currentSessionId) {
             ReaderCurrentMarginaliaLayerRow(model, availableIds)
         }
@@ -96,12 +99,23 @@ internal fun ReaderMarginaliaLayerList(
 }
 
 @Composable
+private fun ReaderMarginaliaHeading(palette: ReaderPalette) {
+    Text(
+        "MARGINALIA",
+        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+        color = palette.secondaryForeground,
+        style = MaterialTheme.typography.labelSmall
+    )
+}
+
+@Composable
 private fun ReaderCurrentMarginaliaLayerRow(
     model: ReaderMarginaliaDrawerModel,
     availableIds: Set<String>
 ) {
     ReaderMarginaliaLayerRow(
-        title = "Current Session",
+        title = model.sessionMetadata.metadata?.name?.takeIf(String::isNotBlank)
+            ?: "Current Session",
         detail = listOfNotNull(
             model.layers.currentLayer?.sessionStatus?.displayLabel,
             annotationCountLabel(model.currentAnnotations.annotations.size)

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -17,13 +18,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
+import com.secondpasslibrary.reader.design.marginalia.annotationCountLabel
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsState
-import com.secondpasslibrary.reader.reader.annotations.ui.ReaderAnnotationCollectionHeader
 import com.secondpasslibrary.reader.reader.annotations.ui.ReaderAnnotationCollectionPane
 import com.secondpasslibrary.reader.reader.appearance.ReaderPalette
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayerLoadState
 import com.secondpasslibrary.reader.reader.marginalia.ReaderPreviousMarginaliaLayer
+import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 
 @Composable
 internal fun ReaderSelectedLayerPane(
@@ -40,17 +42,7 @@ internal fun ReaderSelectedLayerPane(
             onNavigateBack?.let {
                 IconButton(onClick = it) { AppIconGraphic(AppIcon.Back, "Back to layers") }
             }
-            ReaderAnnotationCollectionHeader(
-                title = previous?.displayName ?: "Current Session",
-                annotationCount = previous?.summary?.annotationCount
-                    ?: model.currentAnnotations.annotations.size,
-                palette = model.palette,
-                editable = previous == null &&
-                    model.state.selectedLayerSessionId == model.currentSessionId &&
-                    model.currentEditable,
-                mutationState = model.mutationState,
-                onCreateBookmark = actions.createBookmark
-            )
+            ReaderSelectedSessionHeader(previous, model, actions)
         }
         HorizontalDivider(
             color = model.palette.border
@@ -60,8 +52,8 @@ internal fun ReaderSelectedLayerPane(
                 state = model.currentAnnotations,
                 palette = model.palette,
                 onRetry = actions.retryCurrent,
-                onAnnotationSelected = actions.selectAnnotation,
-                editable = model.currentEditable,
+                onNavigateAnnotation = actions.navigateAnnotation,
+                writable = model.currentEditable,
                 onEditHighlight = actions.editHighlight,
                 onDeleteAnnotation = actions.deleteAnnotation
             )
@@ -70,8 +62,60 @@ internal fun ReaderSelectedLayerPane(
                 previous,
                 model.palette,
                 actions.loadLayer,
-                actions.selectAnnotation
+                actions.navigateAnnotation
             )
+        }
+    }
+}
+
+@Composable
+private fun ReaderSelectedSessionHeader(
+    previous: ReaderPreviousMarginaliaLayer?,
+    model: ReaderMarginaliaDrawerModel,
+    actions: ReaderMarginaliaDrawerActions
+) {
+    val current = previous == null && model.state.selectedLayerSessionId == model.currentSessionId
+    val title = if (current) {
+        model.sessionMetadata.metadata?.name?.takeIf(String::isNotBlank) ?: "Current Session"
+    } else {
+        checkNotNull(previous).displayName
+    }
+    val count = previous?.summary?.annotationCount ?: model.currentAnnotations.annotations.size
+    val status = when {
+        previous != null -> "Historical"
+        model.layers.currentLayer?.sessionStatus == ReaderSessionStatus.ACTIVE -> "Active"
+        else -> "Closed"
+    }
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleLarge)
+            Text(
+                "$status · ${annotationCountLabel(count)}",
+                color = model.palette.secondaryForeground,
+                style = MaterialTheme.typography.labelMedium
+            )
+        }
+        if (current && model.currentEditable) {
+            IconButton(onClick = actions.editCurrentSessionMetadata) {
+                AppIconGraphic(AppIcon.Edit, "Edit current session")
+            }
+            IconButton(
+                enabled = !model.mutationState.submitting,
+                onClick = actions.createBookmark
+            ) {
+                AppIconGraphic(
+                    AppIcon.AddBookmark,
+                    if (model.mutationState.pendingBookmark == null) {
+                        "Bookmark current location"
+                    } else {
+                        "Retry bookmark"
+                    }
+                )
+            }
         }
     }
 }
@@ -81,7 +125,7 @@ private fun ReaderPreviousLayerContent(
     layer: ReaderPreviousMarginaliaLayer,
     palette: ReaderPalette,
     onLoadLayer: (String) -> Unit,
-    onAnnotationSelected: (ReaderAnnotation) -> Unit
+    onNavigateAnnotation: (ReaderAnnotation) -> Unit
 ) {
     when (layer.loadState) {
         ReaderMarginaliaLayerLoadState.NOT_LOADED -> LayerMessage(
@@ -105,8 +149,10 @@ private fun ReaderPreviousLayerContent(
             ),
             palette = palette,
             onRetry = {},
-            onAnnotationSelected = onAnnotationSelected,
-            editable = false
+            onNavigateAnnotation = onNavigateAnnotation,
+            writable = false,
+            onEditHighlight = {},
+            onDeleteAnnotation = {}
         )
     }
 }

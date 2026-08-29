@@ -6,6 +6,7 @@ import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsLoader
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
+import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadata
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -37,6 +38,7 @@ internal enum class ReaderMarginaliaLayerVisibilityResult {
     NOT_LOADED
 }
 
+@Suppress("TooManyFunctions")
 internal class ReaderMarginaliaLayersController(
     private val historyLoader: ReaderMarginaliaLayerHistoryLoader,
     private val annotationsLoader: ReaderAnnotationsLoader,
@@ -162,6 +164,13 @@ internal class ReaderMarginaliaLayersController(
                 ReaderMarginaliaLayerVisibilityResult.UPDATED
             }
         }
+    }
+
+    fun updateCurrentSessionMetadata(metadata: ReaderSessionMetadata) {
+        val current = state.value
+        val layer = current.currentLayer ?: return
+        if (layer.sessionId != metadata.sessionId) return
+        mutableState.value = current.copy(currentLayer = layer.copy(sessionName = metadata.name))
     }
 
     fun clear() {

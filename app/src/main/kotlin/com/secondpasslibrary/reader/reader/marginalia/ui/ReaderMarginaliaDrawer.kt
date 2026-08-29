@@ -27,6 +27,7 @@ import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsState
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationState
 import com.secondpasslibrary.reader.reader.appearance.ReaderPalette
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayersState
+import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadataState
 
 internal data class ReaderMarginaliaDrawerModel(
     val currentSessionId: String,
@@ -36,7 +37,8 @@ internal data class ReaderMarginaliaDrawerModel(
     val state: ReaderMarginaliaDrawerState,
     val palette: ReaderPalette,
     val currentEditable: Boolean,
-    val mutationState: ReaderAnnotationMutationState
+    val mutationState: ReaderAnnotationMutationState,
+    val sessionMetadata: ReaderSessionMetadataState
 )
 
 internal data class ReaderMarginaliaDrawerActions(
@@ -49,10 +51,15 @@ internal data class ReaderMarginaliaDrawerActions(
     val autoShowPreviousChanged: (Boolean) -> Unit,
     val loadMoreLayers: () -> Unit,
     val retryLayers: () -> Unit,
-    val selectAnnotation: (ReaderAnnotation) -> Unit,
+    val navigateAnnotation: (ReaderAnnotation) -> Unit,
     val createBookmark: () -> Unit,
     val editHighlight: (ReaderAnnotation.Highlight) -> Unit,
-    val deleteAnnotation: (ReaderAnnotation) -> Unit
+    val deleteAnnotation: (ReaderAnnotation) -> Unit,
+    val editCurrentSessionMetadata: () -> Unit,
+    val currentSessionNameChanged: (String) -> Unit,
+    val currentSessionNotesChanged: (String) -> Unit,
+    val saveCurrentSessionMetadata: () -> Unit,
+    val dismissCurrentSessionMetadataEditor: () -> Unit
 )
 
 @Composable
@@ -65,6 +72,7 @@ internal fun ReaderMarginaliaDrawer(
     palette: ReaderPalette,
     currentEditable: Boolean,
     mutationState: ReaderAnnotationMutationState,
+    sessionMetadata: ReaderSessionMetadataState,
     onDismiss: () -> Unit,
     onRetryCurrent: () -> Unit,
     onLoadLayer: (String) -> Unit,
@@ -74,10 +82,15 @@ internal fun ReaderMarginaliaDrawer(
     onAutoShowPreviousChanged: (Boolean) -> Unit,
     onLoadMoreLayers: () -> Unit,
     onRetryLayers: () -> Unit,
-    onAnnotationSelected: (ReaderAnnotation) -> Unit,
+    onNavigateAnnotation: (ReaderAnnotation) -> Unit,
     onCreateBookmark: () -> Unit,
     onEditHighlight: (ReaderAnnotation.Highlight) -> Unit,
-    onDeleteAnnotation: (ReaderAnnotation) -> Unit
+    onDeleteAnnotation: (ReaderAnnotation) -> Unit,
+    onEditCurrentSessionMetadata: () -> Unit,
+    onCurrentSessionNameChanged: (String) -> Unit,
+    onCurrentSessionNotesChanged: (String) -> Unit,
+    onSaveCurrentSessionMetadata: () -> Unit,
+    onDismissCurrentSessionMetadataEditor: () -> Unit
 ) {
     val model = ReaderMarginaliaDrawerModel(
         currentSessionId,
@@ -87,7 +100,8 @@ internal fun ReaderMarginaliaDrawer(
         drawerState,
         palette,
         currentEditable,
-        mutationState
+        mutationState,
+        sessionMetadata
     )
     val actions = ReaderMarginaliaDrawerActions(
         onDismiss,
@@ -99,12 +113,25 @@ internal fun ReaderMarginaliaDrawer(
         onAutoShowPreviousChanged,
         onLoadMoreLayers,
         onRetryLayers,
-        onAnnotationSelected,
+        onNavigateAnnotation,
         onCreateBookmark,
         onEditHighlight,
-        onDeleteAnnotation
+        onDeleteAnnotation,
+        onEditCurrentSessionMetadata,
+        onCurrentSessionNameChanged,
+        onCurrentSessionNotesChanged,
+        onSaveCurrentSessionMetadata,
+        onDismissCurrentSessionMetadataEditor
     )
     ReaderMarginaliaDrawerLayout(model, actions)
+    ReaderSessionMetadataDialog(
+        state = model.sessionMetadata,
+        palette = model.palette,
+        onNameChanged = actions.currentSessionNameChanged,
+        onNotesChanged = actions.currentSessionNotesChanged,
+        onSave = actions.saveCurrentSessionMetadata,
+        onDismiss = actions.dismissCurrentSessionMetadataEditor
+    )
 }
 
 @Composable
@@ -144,14 +171,6 @@ private fun ReaderMarginaliaDrawerContent(
     wide: Boolean
 ) {
     Column {
-        Text(
-            "Marginalia",
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            style = MaterialTheme.typography.titleMedium
-        )
-        HorizontalDivider(
-            color = model.palette.border
-        )
         if (wide) {
             ReaderMarginaliaWideContent(model, actions)
         } else if (model.state.showingLayerContent) {

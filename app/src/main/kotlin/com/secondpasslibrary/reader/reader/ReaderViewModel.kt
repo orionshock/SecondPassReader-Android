@@ -27,8 +27,10 @@ import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginal
 import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginaliaLayerPreferenceStore
 import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginaliaLayerVisibilityStore
 import com.secondpasslibrary.reader.reader.progress.SplReaderProgressWriter
+import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadataController
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import com.secondpasslibrary.reader.reader.session.SplReaderSessionCoordinator
+import com.secondpasslibrary.reader.reader.session.SplReaderSessionMetadataWriter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -52,7 +54,8 @@ internal class ReaderViewModel @Inject constructor(
     annotationWriter: SplReaderAnnotationWriter,
     marginaliaLayerHistoryLoader: SplReaderMarginaliaLayerHistoryLoader,
     marginaliaLayerPreferenceStore: ReaderMarginaliaLayerPreferenceStore,
-    marginaliaLayerVisibilityStore: ReaderMarginaliaLayerVisibilityStore
+    marginaliaLayerVisibilityStore: ReaderMarginaliaLayerVisibilityStore,
+    sessionMetadataWriter: SplReaderSessionMetadataWriter
 ) : ViewModel() {
     private val progressSyncJob = SupervisorJob()
     private val progressSyncScope = CoroutineScope(progressSyncJob + Dispatchers.IO)
@@ -84,6 +87,11 @@ internal class ReaderViewModel @Inject constructor(
     )
     private val annotationDecorations = ReaderAnnotationDecorationController()
     private val selections = ReaderSelectionController(viewModelScope)
+    private val sessionMetadata = ReaderSessionMetadataController(
+        sessionMetadataWriter,
+        viewModelScope,
+        marginaliaLayersController::updateCurrentSessionMetadata
+    )
     private val annotationMutations = ReaderAnnotationMutationController(
         writer = annotationWriter,
         scope = viewModelScope,
@@ -105,6 +113,7 @@ internal class ReaderViewModel @Inject constructor(
     val autoShowPreviousMarginalia = marginaliaLayerPolicy.autoShowPrevious
     val selection = selections.selection
     val annotationMutationState = annotationMutations.state
+    val sessionMetadataState = sessionMetadata.state
     val connectionEvents = merge(
         controller.connectionEvents,
         annotationsController.authenticationRequiredEvents.map {
@@ -114,6 +123,9 @@ internal class ReaderViewModel @Inject constructor(
             ReaderConnectionEvent.AuthenticationRejected
         },
         marginaliaLayersController.authenticationRequiredEvents.map {
+            ReaderConnectionEvent.AuthenticationRejected
+        },
+        sessionMetadata.authenticationRequiredEvents.map {
             ReaderConnectionEvent.AuthenticationRejected
         }
     )
@@ -145,6 +157,7 @@ internal class ReaderViewModel @Inject constructor(
                             ready.session.sessionId,
                             ready.session.status
                         )
+                        sessionMetadata.select(profile, ready.session)
                     }
                 }
             }
@@ -241,6 +254,19 @@ internal class ReaderViewModel @Inject constructor(
             ReaderMarginaliaIntent.LoadMoreLayers -> marginaliaLayersController.loadMore()
 
             ReaderMarginaliaIntent.RetryLayerHistory -> marginaliaLayersController.retry()
+
+            ReaderMarginaliaIntent.EditCurrentSessionMetadata -> sessionMetadata.beginEdit()
+
+            is ReaderMarginaliaIntent.ChangeCurrentSessionName ->
+                sessionMetadata.updateName(intent.name)
+
+            is ReaderMarginaliaIntent.ChangeCurrentSessionNotes ->
+                sessionMetadata.updateNotes(intent.notes)
+
+            ReaderMarginaliaIntent.SaveCurrentSessionMetadata -> sessionMetadata.submit()
+
+            ReaderMarginaliaIntent.DismissCurrentSessionMetadataEditor ->
+                sessionMetadata.dismissEditor()
         }
     }
 
@@ -298,6 +324,7 @@ internal class ReaderViewModel @Inject constructor(
         marginaliaLayersController.clear()
         selections.detach()
         annotationMutations.clear()
+        sessionMetadata.clear()
         controller.close { progressSyncJob.cancel() }
     }
 }

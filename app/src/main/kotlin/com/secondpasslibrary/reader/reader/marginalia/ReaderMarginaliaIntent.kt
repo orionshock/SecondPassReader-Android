@@ -10,4 +10,9 @@ internal sealed interface ReaderMarginaliaIntent {
     data class SetAutoShowPrevious(val enabled: Boolean) : ReaderMarginaliaIntent
     data object LoadMoreLayers : ReaderMarginaliaIntent
     data object RetryLayerHistory : ReaderMarginaliaIntent
+    data object EditCurrentSessionMetadata : ReaderMarginaliaIntent
+    data class ChangeCurrentSessionName(val name: String) : ReaderMarginaliaIntent
+    data class ChangeCurrentSessionNotes(val notes: String) : ReaderMarginaliaIntent
+    data object SaveCurrentSessionMetadata : ReaderMarginaliaIntent
+    data object DismissCurrentSessionMetadataEditor : ReaderMarginaliaIntent
 }

@@ -142,10 +142,10 @@ class ReaderMarginaliaDrawerIntegrationTest {
 
         compose.onNodeWithText("Load more sessions").performClick()
         compose.runOnIdle { assertEquals(1, loadMore) }
-        assertEquals(
-            0,
-            compose.onAllNodesWithContentDescription("Highlight actions").fetchSemanticsNodes().size
-        )
+        compose.onNodeWithContentDescription("Highlight actions").performClick()
+        compose.onNodeWithText("Go to").assertIsDisplayed()
+        assertEquals(0, compose.onAllNodesWithText("Edit").fetchSemanticsNodes().size)
+        assertEquals(0, compose.onAllNodesWithText("Delete").fetchSemanticsNodes().size)
     }
 }
 

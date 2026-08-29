@@ -8,6 +8,7 @@ import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.appearance.ReaderPalette
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaIntent
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayersState
+import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadataState
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import kotlinx.coroutines.CoroutineScope
 
@@ -23,6 +24,7 @@ internal fun ReaderAnnotationsOverlayContent(
     dismiss: () -> Unit,
     onMarginaliaIntent: (ReaderMarginaliaIntent) -> Unit,
     mutationState: ReaderAnnotationMutationState,
+    sessionMetadata: ReaderSessionMetadataState,
     onCreateBookmark: () -> Unit,
     onMutation: (ReaderAnnotationMutationIntent) -> Unit
 ) {
@@ -41,6 +43,7 @@ internal fun ReaderAnnotationsOverlayContent(
         onMarginaliaIntent = onMarginaliaIntent,
         editable = ready?.session?.status == ReaderSessionStatus.ACTIVE,
         mutationState = mutationState,
+        sessionMetadata = sessionMetadata,
         onCreateBookmark = onCreateBookmark,
         onEditHighlight = {
             onMutation(ReaderAnnotationMutationIntent.BeginEdit(it))

@@ -40,6 +40,7 @@ import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaIntent
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayersState
 import com.secondpasslibrary.reader.reader.marginalia.ui.ReaderMarginaliaDrawer
 import com.secondpasslibrary.reader.reader.marginalia.ui.ReaderMarginaliaDrawerState
+import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadataState
 import com.secondpasslibrary.reader.reader.toc.ReaderPublicationResource
 import com.secondpasslibrary.reader.reader.toc.ReaderTocDrawer
 import com.secondpasslibrary.reader.reader.ui.hud.ReaderAmbientHud
@@ -61,6 +62,7 @@ internal fun ReaderScreen(
     onMarginaliaIntent: (ReaderMarginaliaIntent) -> Unit = {},
     selection: ReaderSelection? = null,
     annotationMutations: ReaderAnnotationMutationState = ReaderAnnotationMutationState(),
+    sessionMetadata: ReaderSessionMetadataState = ReaderSessionMetadataState(),
     onAnnotationMutation: (ReaderAnnotationMutationIntent) -> Unit = {},
     onCreateBookmark: () -> Unit = {},
     onDismissSelection: () -> Unit = {}
@@ -98,6 +100,7 @@ internal fun ReaderScreen(
                 dismiss,
                 onMarginaliaIntent,
                 annotationMutations,
+                sessionMetadata,
                 onCreateBookmark,
                 onAnnotationMutation
             )
@@ -249,6 +252,7 @@ internal fun ReaderAnnotationsOverlay(
     onMarginaliaIntent: (ReaderMarginaliaIntent) -> Unit,
     editable: Boolean,
     mutationState: ReaderAnnotationMutationState,
+    sessionMetadata: ReaderSessionMetadataState,
     onCreateBookmark: () -> Unit,
     onEditHighlight: (ReaderAnnotation.Highlight) -> Unit,
     onDeleteAnnotation: (ReaderAnnotation) -> Unit
@@ -262,40 +266,44 @@ internal fun ReaderAnnotationsOverlay(
         drawerState = drawerState,
         palette = palette,
         onDismiss = onDismiss,
-        onRetryCurrent = {
-            onMarginaliaIntent(ReaderMarginaliaIntent.RetryCurrentAnnotations)
-        },
+        onRetryCurrent = { onMarginaliaIntent(ReaderMarginaliaIntent.RetryCurrentAnnotations) },
         currentEditable = editable,
-        onLoadLayer = {
-            onMarginaliaIntent(ReaderMarginaliaIntent.LoadPreviousLayer(it))
-        },
+        onLoadLayer = { onMarginaliaIntent(ReaderMarginaliaIntent.LoadPreviousLayer(it)) },
         onSetLayerVisible = { sessionId, visible ->
             onMarginaliaIntent(
                 ReaderMarginaliaIntent.SetPreviousLayerVisible(sessionId, visible)
             )
         },
-        onShowAllPrevious = {
-            onMarginaliaIntent(ReaderMarginaliaIntent.ShowAllPreviousLayers)
-        },
-        onHideAllPrevious = {
-            onMarginaliaIntent(ReaderMarginaliaIntent.HideAllPreviousLayers)
-        },
+        onShowAllPrevious = { onMarginaliaIntent(ReaderMarginaliaIntent.ShowAllPreviousLayers) },
+        onHideAllPrevious = { onMarginaliaIntent(ReaderMarginaliaIntent.HideAllPreviousLayers) },
         onAutoShowPreviousChanged = {
             onMarginaliaIntent(ReaderMarginaliaIntent.SetAutoShowPrevious(it))
         },
-        onLoadMoreLayers = {
-            onMarginaliaIntent(ReaderMarginaliaIntent.LoadMoreLayers)
-        },
-        onRetryLayers = {
-            onMarginaliaIntent(ReaderMarginaliaIntent.RetryLayerHistory)
-        },
+        onLoadMoreLayers = { onMarginaliaIntent(ReaderMarginaliaIntent.LoadMoreLayers) },
+        onRetryLayers = { onMarginaliaIntent(ReaderMarginaliaIntent.RetryLayerHistory) },
         mutationState = mutationState,
+        sessionMetadata = sessionMetadata,
         onCreateBookmark = onCreateBookmark,
         onEditHighlight = onEditHighlight,
         onDeleteAnnotation = onDeleteAnnotation,
-        onAnnotationSelected = { annotation ->
+        onNavigateAnnotation = { annotation ->
             onDismiss()
             navigateToAnnotation(scope, ready, annotation)
+        },
+        onEditCurrentSessionMetadata = {
+            onMarginaliaIntent(ReaderMarginaliaIntent.EditCurrentSessionMetadata)
+        },
+        onCurrentSessionNameChanged = {
+            onMarginaliaIntent(ReaderMarginaliaIntent.ChangeCurrentSessionName(it))
+        },
+        onCurrentSessionNotesChanged = {
+            onMarginaliaIntent(ReaderMarginaliaIntent.ChangeCurrentSessionNotes(it))
+        },
+        onSaveCurrentSessionMetadata = {
+            onMarginaliaIntent(ReaderMarginaliaIntent.SaveCurrentSessionMetadata)
+        },
+        onDismissCurrentSessionMetadataEditor = {
+            onMarginaliaIntent(ReaderMarginaliaIntent.DismissCurrentSessionMetadataEditor)
         }
     )
 }

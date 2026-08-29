@@ -36,6 +36,8 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.domain.ReaderReadingStatus
 import com.secondpasslibrary.reader.reader.domain.ReaderReadingStatusScope
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaIntent
+import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadata
+import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadataState
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import com.secondpasslibrary.reader.reader.toc.READER_TOC_BODY_TAG
 import com.secondpasslibrary.reader.reader.toc.READER_TOC_EYEBROW_TAG
@@ -266,7 +268,9 @@ class ReaderUiIntegrationTest {
         compose.onNodeWithContentDescription("Reading annotations").performClick()
         compose.onAllNodesWithText("1 annotation")[0].assertIsDisplayed()
         compose.onNodeWithText("A selected passage").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Open annotation").performClick()
+        compose.onNodeWithContentDescription("Highlight actions").performClick()
+        assertEquals(emptyList<EpubCfi>(), navigator.destinations)
+        compose.onNodeWithText("Go to").performClick()
         compose.waitUntil { navigator.destinations.isNotEmpty() }
 
         assertEquals(listOf(EpubCfi(TEST_ANNOTATION_CFI)), navigator.destinations)
@@ -540,19 +544,76 @@ class ReaderUiIntegrationTest {
             status.value = ReaderSessionStatus.CLOSED
         }
         compose.waitForIdle()
-        assertEquals(
-            0,
-            compose.onAllNodesWithContentDescription("Highlight actions").fetchSemanticsNodes().size
-        )
-        assertEquals(
-            0,
-            compose.onAllNodesWithContentDescription("Bookmark actions").fetchSemanticsNodes().size
-        )
+        compose.onNodeWithContentDescription("Highlight actions").performClick()
+        compose.onNodeWithText("Go to").assertIsDisplayed()
+        assertEquals(0, compose.onAllNodesWithText("Edit").fetchSemanticsNodes().size)
+        assertEquals(0, compose.onAllNodesWithText("Delete").fetchSemanticsNodes().size)
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithContentDescription("Bookmark actions").performClick()
+        compose.onNodeWithText("Go to").assertIsDisplayed()
+        assertEquals(0, compose.onAllNodesWithText("Delete").fetchSemanticsNodes().size)
         assertEquals(
             0,
             compose.onAllNodesWithContentDescription("Bookmark current location")
                 .fetchSemanticsNodes().size
         )
+    }
+
+    @Test
+    fun `active current Session metadata editor preserves explicit name and note intents`() {
+        val metadata = androidx.compose.runtime.mutableStateOf(
+            ReaderSessionMetadataState(
+                metadata = ReaderSessionMetadata("session-1", "Morning read", "Original note")
+            )
+        )
+        val intents = mutableListOf<ReaderMarginaliaIntent>()
+        compose.setContent {
+            SecondPassTheme {
+                ReaderScreen(
+                    state = readerReadyState(status = ReaderSessionStatus.ACTIVE),
+                    onBack = {},
+                    onRetry = {},
+                    annotations = ReaderAnnotationsState(sessionId = "session-1", loaded = true),
+                    sessionMetadata = metadata.value,
+                    onMarginaliaIntent = { intent ->
+                        intents += intent
+                        metadata.value = when (intent) {
+                            ReaderMarginaliaIntent.EditCurrentSessionMetadata ->
+                                metadata.value.copy(
+                                    editorOpen = true,
+                                    draftName = metadata.value.metadata?.name.orEmpty(),
+                                    draftNotes = metadata.value.metadata?.notes.orEmpty()
+                                )
+
+                            is ReaderMarginaliaIntent.ChangeCurrentSessionName ->
+                                metadata.value.copy(draftName = intent.name)
+
+                            is ReaderMarginaliaIntent.ChangeCurrentSessionNotes ->
+                                metadata.value.copy(draftNotes = intent.notes)
+
+                            else -> metadata.value
+                        }
+                    }
+                )
+            }
+        }
+
+        compose.onNodeWithContentDescription("Reading annotations").performClick()
+        compose.onAllNodesWithText("Morning read")[1].assertIsDisplayed()
+        compose.onNodeWithContentDescription("Edit current session").performClick()
+        compose.onNodeWithText("Session name").performTextReplacement("Evening read")
+        compose.onNodeWithText("Session note").performTextReplacement("  exact\n note  ")
+        compose.onNodeWithText("Save").performClick()
+
+        assertEquals(
+            ReaderMarginaliaIntent.ChangeCurrentSessionName("Evening read"),
+            intents.filterIsInstance<ReaderMarginaliaIntent.ChangeCurrentSessionName>().last()
+        )
+        assertEquals(
+            ReaderMarginaliaIntent.ChangeCurrentSessionNotes("  exact\n note  "),
+            intents.filterIsInstance<ReaderMarginaliaIntent.ChangeCurrentSessionNotes>().last()
+        )
+        assertEquals(ReaderMarginaliaIntent.SaveCurrentSessionMetadata, intents.last())
     }
 
     private fun reduceMutationUiState(

@@ -30,7 +30,8 @@ internal data class ReaderSessionContext(
     val startedAt: String? = null,
     val closedAt: String? = null,
     val lastActivityAt: String? = null,
-    val annotationCount: Int? = null
+    val annotationCount: Int? = null,
+    val sessionNotes: String = ""
 )
 
 internal enum class ReaderSessionStatus {
@@ -79,6 +80,7 @@ internal class SplReaderSessionCoordinator @Inject constructor(
             savedProgressCfi = progress.cfi,
             progressFailure = progress.failure,
             sessionName = session.summary.name,
+            sessionNotes = session.summary.notes,
             startedAt = session.summary.startedAt,
             closedAt = session.summary.closedAt,
             lastActivityAt = session.summary.lastActivityAt,
