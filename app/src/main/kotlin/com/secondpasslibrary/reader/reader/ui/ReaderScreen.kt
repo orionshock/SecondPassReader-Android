@@ -5,19 +5,22 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.secondpasslibrary.reader.reader.ReaderCfiProbe
 import com.secondpasslibrary.reader.reader.ReaderFailure
 import com.secondpasslibrary.reader.reader.ReaderState
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
@@ -37,8 +40,10 @@ import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaIntent
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayersState
 import com.secondpasslibrary.reader.reader.marginalia.ui.ReaderMarginaliaDrawer
 import com.secondpasslibrary.reader.reader.marginalia.ui.ReaderMarginaliaDrawerState
-import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import com.secondpasslibrary.reader.reader.toc.ReaderTocDrawer
+import com.secondpasslibrary.reader.reader.ui.hud.ReaderAmbientHud
+import com.secondpasslibrary.reader.reader.ui.hud.ReaderHudPresentation
+import com.secondpasslibrary.reader.reader.ui.hud.rememberReaderHudPresentation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -63,41 +68,36 @@ internal fun ReaderScreen(
     val ready = state as? ReaderState.Ready
     val appearance by remember(ready?.engine) { readyAppearance(ready) }.collectAsState()
     val palette = appearance.theme.readerPalette()
-    val currentSessionId = ready?.session?.sessionId.orEmpty()
-    val marginaliaDrawerState = rememberMarginaliaDrawerState(currentSessionId, marginaliaLayers)
     val highlightSelection = writableSelection(ready, selection, annotationMutations)
+    var overlayVisible by remember { mutableStateOf(false) }
+    val hud = rememberReaderHudPresentation(
+        ready?.engine,
+        selection != null || overlayVisible
+    )
     ReaderOverlayLayout(
         onExit = onBack,
         transientOverlayVisible = highlightSelection != null,
         onDismissTransientOverlay = onDismissSelection,
+        onOverlayVisibilityChanged = { overlayVisible = it },
         tableOfContents = { dismiss ->
             ReaderTocDrawerContent(ready, palette, dismiss, scope, onBack)
         },
         appearance = { dismiss ->
-            if (ready != null) {
-                ReaderAppearanceOverlay(appearance, onAppearanceChanged, dismiss)
-            }
+            if (ready != null) ReaderAppearanceOverlay(appearance, onAppearanceChanged, dismiss)
         },
         annotations = { dismiss ->
-            ReaderAnnotationsOverlay(
-                ready = ready,
-                state = annotations,
-                layers = marginaliaLayers,
-                autoShowPrevious = autoShowPreviousMarginalia,
-                drawerState = marginaliaDrawerState,
-                palette = palette,
-                scope = scope,
-                onDismiss = dismiss,
-                onMarginaliaIntent = onMarginaliaIntent,
-                editable = ready?.session?.status == ReaderSessionStatus.ACTIVE,
-                mutationState = annotationMutations,
-                onCreateBookmark = onCreateBookmark,
-                onEditHighlight = {
-                    onAnnotationMutation(ReaderAnnotationMutationIntent.BeginEdit(it))
-                },
-                onDeleteAnnotation = {
-                    onAnnotationMutation(ReaderAnnotationMutationIntent.RequestDelete(it))
-                }
+            ReaderAnnotationsOverlayContent(
+                ready,
+                annotations,
+                marginaliaLayers,
+                autoShowPreviousMarginalia,
+                palette,
+                scope,
+                dismiss,
+                onMarginaliaIntent,
+                annotationMutations,
+                onCreateBookmark,
+                onAnnotationMutation
             )
         }
     ) {
@@ -108,6 +108,7 @@ internal fun ReaderScreen(
             palette,
             highlightSelection,
             annotationMutations,
+            hud,
             onBack,
             onRetry,
             onAnnotationMutation,
@@ -124,6 +125,7 @@ private fun ReaderReadingSurface(
     palette: ReaderPalette,
     selection: ReaderSelection?,
     mutationState: ReaderAnnotationMutationState,
+    hud: ReaderHudPresentation,
     onBack: () -> Unit,
     onRetry: () -> Unit,
     onMutation: (ReaderAnnotationMutationIntent) -> Unit,
@@ -139,19 +141,32 @@ private fun ReaderReadingSurface(
 
             is ReaderState.Ready -> Box(Modifier.fillMaxSize()) {
                 state.engine.viewport.Content(
-                    Modifier.fillMaxSize().padding(top = READER_PUBLICATION_TOP_SAFE_INSET)
+                    Modifier.fillMaxSize().statusBarsPadding()
+                        .padding(top = READER_PUBLICATION_TOP_SAFE_INSET)
+                        .navigationBarsPadding()
+                        .padding(bottom = READER_PUBLICATION_BOTTOM_SAFE_INSET)
                 )
-                ReaderCfiProbe(state.engine, Modifier.align(Alignment.TopEnd))
             }
 
             is ReaderState.Failure -> ReaderFailureContent(state.kind, palette, onBack, onRetry)
         }
+        ReaderAmbientHud(hud.visible, hud.readingStatus, palette)
         ReaderChromeLayer(
             title = ready?.title ?: "Reader",
             palette = palette,
-            onNavigationMenuRequested = overlays.openTableOfContents,
-            onAppearanceRequested = overlays.openAppearance,
-            onAnnotationsRequested = overlays.openAnnotations
+            visible = hud.visible,
+            onNavigationMenuRequested = {
+                hud.reveal()
+                overlays.openTableOfContents()
+            },
+            onAppearanceRequested = {
+                hud.reveal()
+                overlays.openAppearance()
+            },
+            onAnnotationsRequested = {
+                hud.reveal()
+                overlays.openAnnotations()
+            }
         )
         ReaderSelectionAnnotationOverlays(
             selection,
@@ -220,7 +235,7 @@ private fun navigateToAnnotation(
 }
 
 @Composable
-private fun ReaderAnnotationsOverlay(
+internal fun ReaderAnnotationsOverlay(
     ready: ReaderState.Ready?,
     state: ReaderAnnotationsState,
     layers: ReaderMarginaliaLayersState,
@@ -287,6 +302,7 @@ private fun ReaderAnnotationsOverlay(
 private fun ReaderChromeLayer(
     title: String,
     palette: ReaderPalette,
+    visible: Boolean,
     onNavigationMenuRequested: () -> Unit,
     onAppearanceRequested: () -> Unit,
     onAnnotationsRequested: () -> Unit
@@ -294,6 +310,7 @@ private fun ReaderChromeLayer(
     ReaderChrome(
         title = title,
         palette = palette,
+        visible = visible,
         onNavigationMenuRequested = onNavigationMenuRequested,
         onAppearanceRequested = onAppearanceRequested,
         onAnnotationsRequested = onAnnotationsRequested
@@ -340,6 +357,7 @@ private fun ReaderAppearanceOverlay(
 }
 
 private val DEFAULT_READER_APPEARANCE = MutableStateFlow(ReaderAppearance())
+private val READER_PUBLICATION_BOTTOM_SAFE_INSET = 28.dp
 
 @Composable
 private fun ReaderLoading(label: String, palette: ReaderPalette) {

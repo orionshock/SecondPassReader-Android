@@ -26,6 +26,8 @@ import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderPendingHig
 import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelection
 import com.secondpasslibrary.reader.reader.appearance.ReaderTheme
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
+import com.secondpasslibrary.reader.reader.domain.ReaderReadingStatus
+import com.secondpasslibrary.reader.reader.domain.ReaderReadingStatusScope
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaIntent
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import org.junit.Assert.assertEquals
@@ -63,6 +65,34 @@ class ReaderUiIntegrationTest {
         assertTrue(publication.top >= right.bottom)
         compose.onAllNodesWithText("A deliberately long Reader title that remains one line")[0]
             .assertIsDisplayed()
+    }
+
+    @Test
+    fun readerHudShowsAmbientStatusAutoHidesAndReturnsOnPublicationTap() {
+        val hud = RecordingReaderHudEvents(
+            ReaderReadingStatus(8, ReaderReadingStatusScope.SECTION)
+        )
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            SecondPassTheme {
+                ReaderScreen(
+                    readerReadyState(hudEvents = hud),
+                    onBack = {},
+                    onRetry = {}
+                )
+            }
+        }
+
+        compose.onNodeWithTag(com.secondpasslibrary.reader.reader.ui.hud.READER_HUD_CLOCK_TAG)
+            .assertIsDisplayed()
+        compose.onNodeWithText("8 pages left in section").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Reader menu").assertIsDisplayed()
+
+        compose.mainClock.advanceTimeBy(3_500)
+        compose.onNodeWithContentDescription("Reader menu").assertIsNotDisplayed()
+        compose.runOnIdle { hud.tap() }
+        compose.mainClock.advanceTimeBy(500)
+        compose.onNodeWithContentDescription("Reader menu").assertIsDisplayed()
     }
 
     @Test

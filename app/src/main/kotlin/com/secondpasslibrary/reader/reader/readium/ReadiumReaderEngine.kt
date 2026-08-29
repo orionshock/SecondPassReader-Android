@@ -45,6 +45,7 @@ private class ReadiumReaderEngine(
     private val appearanceController = ReadiumReaderAppearanceController(initialAppearance)
     private val movements = ReadiumViewportMovements()
     private val selections = ReadiumSelectionEvents(cfiBinding)
+    private val hud = ReadiumReaderHudEvents()
     private val readiumCfiNavigator = ReadiumEpubCfiNavigator(
         binding = cfiBinding,
         packageDocument = packageDocument,
@@ -62,6 +63,7 @@ private class ReadiumReaderEngine(
             navigatorFactory.createFragmentFactory(
                 initialLocator = null,
                 initialPreferences = appearanceController.initialPreferences(),
+                paginationListener = hud.paginationListener(),
                 configuration = EpubNavigatorFragment.Configuration().apply {
                     registerJavascriptInterface(SELECTION_JAVASCRIPT_INTERFACE) {
                         selections.javascriptInterface()
@@ -73,6 +75,7 @@ private class ReadiumReaderEngine(
         publicationBinding = publicationBinding,
         appearanceController = appearanceController,
         movements = movements,
+        hudEvents = hud,
         selectionEvents = selections,
         annotationDecorations = decorations,
         positionRetention = positionRetentionController
@@ -81,6 +84,7 @@ private class ReadiumReaderEngine(
     override val annotationDecorations = decorations
     override val viewportMovements = movements
     override val selectionEvents = selections
+    override val hudEvents = hud
     override val positionRetention = positionRetentionController
     override val appearance = appearanceController
     override val tableOfContents = ReadiumReaderTableOfContents(
@@ -93,6 +97,7 @@ private class ReadiumReaderEngine(
         positionRetentionController.close()
         movements.close()
         selections.close()
+        hud.close()
         decorations.close()
         readiumCfiNavigator.close()
         publicationBinding.close()

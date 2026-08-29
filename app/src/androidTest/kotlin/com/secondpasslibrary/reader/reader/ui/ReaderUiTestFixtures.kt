@@ -16,6 +16,8 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfiReadiness
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiResolution
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiSelection
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
+import com.secondpasslibrary.reader.reader.domain.ReaderHudEvents
+import com.secondpasslibrary.reader.reader.domain.ReaderReadingStatus
 import com.secondpasslibrary.reader.reader.domain.ReaderViewport
 import com.secondpasslibrary.reader.reader.domain.ReaderViewportMovements
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
@@ -24,6 +26,8 @@ import com.secondpasslibrary.reader.reader.toc.ReaderPublicationNavigationResult
 import com.secondpasslibrary.reader.reader.toc.ReaderPublicationTarget
 import com.secondpasslibrary.reader.reader.toc.ReaderTableOfContents
 import com.secondpasslibrary.reader.reader.toc.ReaderTocEntry
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 
@@ -36,10 +40,11 @@ internal fun readerReadyState(
     toc: ReaderTableOfContents = RecordingReaderToc(),
     appearance: ReaderAppearanceController = RecordingReaderAppearance(),
     navigator: EpubCfiNavigator = UnusedReaderCfiNavigator,
-    status: ReaderSessionStatus = ReaderSessionStatus.ACTIVE
+    status: ReaderSessionStatus = ReaderSessionStatus.ACTIVE,
+    hudEvents: ReaderHudEvents = RecordingReaderHudEvents()
 ) = ReaderState.Ready(
     title = "A deliberately long Reader title that remains one line",
-    engine = FakeReaderEngine(toc, appearance, navigator),
+    engine = FakeReaderEngine(toc, appearance, navigator, hudEvents),
     session = ReaderSessionContext("session-1", status, null),
     restore = ReaderProgressRestore.NOT_NEEDED
 )
@@ -87,10 +92,22 @@ internal class RecordingReaderCfiNavigator : EpubCfiNavigator {
     override suspend fun resolve(cfi: EpubCfi) = unavailable<EpubCfiResolution>()
 }
 
+internal class RecordingReaderHudEvents(status: ReaderReadingStatus? = null) : ReaderHudEvents {
+    override val readingStatus = MutableStateFlow(status)
+    private val taps = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    override fun publicationTaps(): Flow<Unit> = taps
+
+    fun tap() {
+        taps.tryEmit(Unit)
+    }
+}
+
 private class FakeReaderEngine(
     override val tableOfContents: ReaderTableOfContents,
     override val appearance: ReaderAppearanceController,
-    override val cfiNavigator: EpubCfiNavigator
+    override val cfiNavigator: EpubCfiNavigator,
+    override val hudEvents: ReaderHudEvents
 ) : ReaderEngine {
     override val viewport = ReaderViewport { modifier ->
         Box(modifier) {

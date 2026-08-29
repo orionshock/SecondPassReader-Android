@@ -14,6 +14,9 @@ import com.secondpasslibrary.reader.reader.lifecycle.ReaderPositionRetention
 import com.secondpasslibrary.reader.reader.toc.ReaderTableOfContents
 import java.io.File
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.emptyFlow
 
 internal class ReaderEngineOpenException(message: String, cause: Throwable? = null) :
     Exception(message, cause)
@@ -31,6 +34,8 @@ internal interface ReaderEngine : AutoCloseable {
         get() = EmptyReaderSelectionEvents
     val positionRetention: ReaderPositionRetention
         get() = EmptyReaderPositionRetention
+    val hudEvents: ReaderHudEvents
+        get() = EmptyReaderHudEvents
 }
 
 /** Renderer-neutral notification that the visible reading position has settled after movement. */
@@ -38,6 +43,27 @@ internal data class ReaderViewportMovement(val sequence: Long)
 
 internal fun interface ReaderViewportMovements {
     fun settled(): Flow<ReaderViewportMovement>
+}
+
+internal enum class ReaderReadingStatusScope { SECTION }
+
+/** Exact rendered-page status for the currently active publication scope. */
+internal data class ReaderReadingStatus(
+    val pagesRemaining: Int,
+    val scope: ReaderReadingStatusScope
+)
+
+/** Renderer-neutral Reader HUD input and pagination events. */
+internal interface ReaderHudEvents {
+    val readingStatus: StateFlow<ReaderReadingStatus?>
+
+    fun publicationTaps(): Flow<Unit>
+}
+
+private object EmptyReaderHudEvents : ReaderHudEvents {
+    override val readingStatus = MutableStateFlow<ReaderReadingStatus?>(null)
+
+    override fun publicationTaps(): Flow<Unit> = emptyFlow()
 }
 
 /**

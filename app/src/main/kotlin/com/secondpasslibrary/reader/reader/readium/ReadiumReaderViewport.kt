@@ -43,6 +43,7 @@ internal class ReadiumReaderViewport(
     private val publicationBinding: ReadiumPublicationNavigatorBinding,
     private val appearanceController: ReadiumReaderAppearanceController,
     private val movements: ReadiumViewportMovements,
+    private val hudEvents: ReadiumReaderHudEvents,
     private val selectionEvents: ReadiumSelectionEvents,
     private val annotationDecorations: ReadiumReaderAnnotationDecorations,
     private val positionRetention: ReaderPositionRetentionController
@@ -80,6 +81,7 @@ internal class ReadiumReaderViewport(
                 publicationBinding.bind(navigator)
                 appearanceController.bind(navigator)
                 movements.bind(navigator)
+                hudEvents.bind(navigator)
                 selectionEvents.bind(navigator)
                 annotationDecorations.bind(navigator)
                 attached = true
@@ -92,6 +94,7 @@ internal class ReadiumReaderViewport(
                 if (attached) {
                     annotationDecorations.unbind(navigator)
                     selectionEvents.unbind(navigator)
+                    hudEvents.unbind(navigator)
                     movements.unbind(navigator)
                     publicationBinding.unbind(navigator)
                     appearanceController.unbind(navigator)
