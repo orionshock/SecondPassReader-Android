@@ -25,6 +25,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
+@Suppress("MagicNumber")
+private val OBSOLETE_DEVELOPMENT_SCHEMA_VERSIONS = intArrayOf(1, 2, 3, 4, 5)
+
 @Module
 @InstallIn(SingletonComponent::class)
 internal abstract class HomeProjectionStorageModule {
@@ -74,6 +77,9 @@ internal abstract class HomeProjectionStorageModule {
                 context,
                 SecondPassReaderDatabase::class.java,
                 "second_pass_reader.db"
+            ).fallbackToDestructiveMigrationFrom(
+                true,
+                *OBSOLETE_DEVELOPMENT_SCHEMA_VERSIONS
             ).build()
 
         @Provides
