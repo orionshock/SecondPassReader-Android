@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.reader
 
+import android.util.Log
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.connection.ConnectionProfile
@@ -24,7 +25,9 @@ import com.secondpasslibrary.reader.reader.session.ReaderSessionCoordinator
 import com.secondpasslibrary.reader.reader.session.ReaderSessionRequest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -34,6 +37,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 internal sealed interface ReaderState {
@@ -129,8 +133,13 @@ internal class ReaderController(
         mutableState.value = ready.copy(session = session, localOnly = false)
     }
 
-    suspend fun flushLatestProgress() =
-        progressPersistence?.flushLatest() ?: ReaderProgressFlushResult.CLEAN
+    suspend fun flushLatestProgress(): ReaderProgressFlushResult {
+        val result = progressPersistence?.flushLatestLocal() ?: ReaderProgressFlushResult.CLEAN
+        if (result == ReaderProgressFlushResult.TIMED_OUT) {
+            Log.w(LOG_TAG, "Timed out while durably flushing local Reader progress.")
+        }
+        return result
+    }
 
     fun updateAppearance(appearance: ReaderAppearance) {
         val engine = (state.value as? ReaderState.Ready)?.engine ?: return
@@ -143,14 +152,16 @@ internal class ReaderController(
     fun close(onProgressSyncClosed: () -> Unit = {}) {
         job?.cancel()
         progressCaptureFallbackJob?.cancel()
-        closeEngine()
+        progressCaptureFallbackJob = null
+        progressController.stopCapture()
         connectionEventChannel.close()
-        progressPersistenceScope.launch {
+        progressPersistenceScope.launch(start = CoroutineStart.UNDISPATCHED) {
             try {
-                progressPersistence?.flushLatest()
+                flushLatestProgress()
             } finally {
                 progressController.reset()
                 progressPersistence?.close()
+                closeEngine()
                 onProgressSyncClosed()
             }
         }
@@ -161,14 +172,22 @@ internal class ReaderController(
         job?.cancel()
         progressCaptureFallbackJob?.cancel()
         progressCaptureFallbackJob = null
-        progressPersistence?.reset()
-        progressController.reset()
-        closeEngine()
+        progressController.stopCapture()
+        val previousEngine = (mutableState.value as? ReaderState.Ready)?.engine
         mutableState.value = ReaderState.Resolving
         job = scope.launch {
             var openedEngine: ReaderEngine? = null
             var failureKind = ReaderFailure.DOWNLOAD
             try {
+                withContext(NonCancellable) {
+                    try {
+                        flushLatestProgress()
+                    } finally {
+                        progressPersistence?.reset()
+                        progressController.reset()
+                        previousEngine?.close()
+                    }
+                }
                 val result = runCatching {
                     val initialAppearance = async { appearanceStore.readOrDefault() }
                     val resolved = resolveReaderBook(launchPolicy, assetResolver, request) {
@@ -340,6 +359,7 @@ internal class ReaderController(
     }
 
     private companion object {
+        const val LOG_TAG = "ReaderController"
         const val STARTUP_PROGRESS_RESTORE_TIMEOUT_MILLIS = 15_000L
     }
 }

@@ -15,12 +15,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 
 internal enum class ReaderProgressFlushResult {
     PERSISTED,
     CLEAN,
     NOT_WRITABLE,
     FAILED,
+    TIMED_OUT,
     OWNERSHIP_CHANGED,
     DISPOSED
 }
@@ -56,14 +58,15 @@ internal class ReaderProgressPersistenceController(
         }
     }
 
-    suspend fun flushLatest(): ReaderProgressFlushResult {
-        val selected = owner
-        return when {
-            disposed.get() -> ReaderProgressFlushResult.DISPOSED
-            selected == null -> ReaderProgressFlushResult.CLEAN
-            else -> flush(selected, generation.get())
-        }
-    }
+    suspend fun flushLatestLocal(): ReaderProgressFlushResult =
+        withTimeoutOrNull(LOCAL_FLUSH_TIMEOUT_MILLIS) {
+            val selected = owner
+            when {
+                disposed.get() -> ReaderProgressFlushResult.DISPOSED
+                selected == null -> ReaderProgressFlushResult.CLEAN
+                else -> flush(selected, generation.get())
+            }
+        } ?: ReaderProgressFlushResult.TIMED_OUT
 
     private suspend fun flush(selected: Owner, activeGeneration: Long): ReaderProgressFlushResult =
         try {
@@ -77,7 +80,7 @@ internal class ReaderProgressPersistenceController(
                         ReaderProgressFlushResult.NOT_WRITABLE
 
                     candidate.candidateVersion <= selected.persistedVersion.get() ->
-                        requestSyncAndReportPersisted()
+                        ReaderProgressFlushResult.CLEAN
 
                     else -> {
                         store.writeProgress(
@@ -90,7 +93,7 @@ internal class ReaderProgressPersistenceController(
                             ReaderProgressFlushResult.OWNERSHIP_CHANGED
                         } else {
                             selected.persistedVersion.set(candidate.candidateVersion)
-                            requestSyncAndReportPersisted()
+                            ReaderProgressFlushResult.PERSISTED
                         }
                     }
                 }
@@ -100,13 +103,6 @@ internal class ReaderProgressPersistenceController(
         } catch (_: Exception) {
             ReaderProgressFlushResult.FAILED
         }
-
-    private fun requestSyncAndReportPersisted(): ReaderProgressFlushResult {
-        timerJob?.cancel()
-        timerJob = null
-        onSyncRequested()
-        return ReaderProgressFlushResult.PERSISTED
-    }
 
     fun reset() {
         generation.incrementAndGet()
@@ -183,6 +179,7 @@ internal class ReaderProgressPersistenceController(
     )
 
     private companion object {
+        const val LOCAL_FLUSH_TIMEOUT_MILLIS = 750L
         const val PROGRESS_SYNC_WINDOW_MILLIS = 3_000L
     }
 }

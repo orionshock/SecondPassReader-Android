@@ -91,11 +91,16 @@ internal class ReaderProgressController(private val scope: CoroutineScope) {
         }
     }
 
-    fun reset() {
+    /** Stops renderer capture while retaining the latest candidate for a local durability flush. */
+    fun stopCapture() {
         generation += 1
         captureJob?.cancel()
         captureJob = null
         prepared = null
+    }
+
+    fun reset() {
+        stopCapture()
         mutableState.value = null
     }
 

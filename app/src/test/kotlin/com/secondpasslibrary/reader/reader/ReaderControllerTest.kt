@@ -135,6 +135,54 @@ class ReaderControllerTest {
         }
 
     @Test
+    fun `close waits for latest local progress commit before releasing engine`() = runTest {
+        val file = Files.createTempFile("reader-close-progress", ".epub").toFile()
+        val engine = FakeEngine()
+        val writeStarted = CompletableDeferred<Unit>()
+        val releaseWrite = CompletableDeferred<Unit>()
+        val closeCompleted = CompletableDeferred<Unit>()
+        val persisted = mutableListOf<String>()
+        val controller = ReaderController(
+            assetResolver = ReaderBookAssetResolver { _, _ ->
+                ResolvedReaderBook("Cached title", file, reused = true)
+            },
+            engineOpener = ReaderEngineOpener { engine },
+            sessionCoordinator = ReaderSessionCoordinator { _, _ -> error("server call") },
+            scope = this,
+            progressPersistenceScope = backgroundScope,
+            launchPolicy = ReaderLaunchAdmission { _, _, _, _ ->
+                ReaderLaunchDecision.LOCAL_AVAILABLE
+            },
+            localStateStore = fakeLocalStore {
+                writeStarted.complete(Unit)
+                releaseWrite.await()
+                persisted += it
+            }
+        )
+        controller.initialize(
+            profile(),
+            "profile-1",
+            "book-1",
+            null,
+            "Cached title",
+            AppAvailability.Offline(AppAvailabilityReason.UNREACHABLE)
+        )
+        advanceUntilIdle()
+        engine.navigator.currentPositionOutcome = EpubCfiOutcome.Success(EpubCfi(NEXT_CFI))
+        engine.move(1)
+        writeStarted.await()
+
+        controller.close { closeCompleted.complete(Unit) }
+        runCurrent()
+
+        assertTrue(!engine.closed)
+        releaseWrite.complete(Unit)
+        closeCompleted.await()
+        assertTrue(engine.closed)
+        assertEquals(listOf(NEXT_CFI), persisted)
+    }
+
+    @Test
     fun `reconciliation binding does not deliver pending progress`() = runTest {
         val file = Files.createTempFile("reader-bind-only", ".epub").toFile()
         val engine = FakeEngine()
@@ -635,9 +683,12 @@ class ReaderControllerTest {
         )
     }
 
-    private fun fakeLocalStore(onProgress: (String) -> Unit = {}) = object : LocalReaderStateStore {
-        override suspend fun selectOfflineSession(account: LocalReaderAccountKey, bookId: String) =
-            ReaderSessionContext(
+    private fun fakeLocalStore(onProgress: suspend (String) -> Unit = {}) =
+        object : LocalReaderStateStore {
+            override suspend fun selectOfflineSession(
+                account: LocalReaderAccountKey,
+                bookId: String
+            ) = ReaderSessionContext(
                 "local-session",
                 ReaderSessionStatus.ACTIVE,
                 null,
@@ -645,45 +696,45 @@ class ReaderControllerTest {
                 identityKind = ReaderSessionIdentityKind.PROVISIONAL
             )
 
-        override suspend fun retainServerSession(
-            account: LocalReaderAccountKey,
-            bookId: String,
-            session: ReaderSessionContext
-        ) = session
+            override suspend fun retainServerSession(
+                account: LocalReaderAccountKey,
+                bookId: String,
+                session: ReaderSessionContext
+            ) = session
 
-        override suspend fun writeProgress(
-            account: LocalReaderAccountKey,
-            localSessionId: String,
-            cfi: String,
-            provenance: LocalReaderWriteProvenance
-        ) = onProgress(cfi)
+            override suspend fun writeProgress(
+                account: LocalReaderAccountKey,
+                localSessionId: String,
+                cfi: String,
+                provenance: LocalReaderWriteProvenance
+            ) = onProgress(cfi)
 
-        override suspend fun acknowledgeProgress(
-            account: LocalReaderAccountKey,
-            localSessionId: String,
-            cfi: String
-        ) = Unit
+            override suspend fun acknowledgeProgress(
+                account: LocalReaderAccountKey,
+                localSessionId: String,
+                cfi: String
+            ) = Unit
 
-        override suspend fun readAnnotations(
-            account: LocalReaderAccountKey,
-            localSessionId: String
-        ) = emptyList<ReaderAnnotation>()
+            override suspend fun readAnnotations(
+                account: LocalReaderAccountKey,
+                localSessionId: String
+            ) = emptyList<ReaderAnnotation>()
 
-        override suspend fun applyAnnotationMutation(
-            account: LocalReaderAccountKey,
-            localSessionId: String,
-            request: ReaderAnnotationMutationRequest
-        ) = emptyList<ReaderAnnotation>()
+            override suspend fun applyAnnotationMutation(
+                account: LocalReaderAccountKey,
+                localSessionId: String,
+                request: ReaderAnnotationMutationRequest
+            ) = emptyList<ReaderAnnotation>()
 
-        override suspend fun replaceAuthoritativeAnnotations(
-            account: LocalReaderAccountKey,
-            localSessionId: String,
-            annotations: List<ReaderAnnotation>,
-            acknowledgedMutation: ReaderAnnotationMutationRequest?
-        ) = Unit
+            override suspend fun replaceAuthoritativeAnnotations(
+                account: LocalReaderAccountKey,
+                localSessionId: String,
+                annotations: List<ReaderAnnotation>,
+                acknowledgedMutation: ReaderAnnotationMutationRequest?
+            ) = Unit
 
-        override suspend fun purgeAccount(account: LocalReaderAccountKey) = Unit
-    }
+            override suspend fun purgeAccount(account: LocalReaderAccountKey) = Unit
+        }
 
     private companion object {
         const val PROGRESS_CFI = "epubcfi(/6/2!/4/2:3)"

@@ -7,7 +7,16 @@ import com.secondpasslibrary.reader.home.projection.SecondPassReaderDatabase
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationRequest
+import com.secondpasslibrary.reader.reader.cfi.EpubCfi
+import com.secondpasslibrary.reader.reader.progress.ReaderProgressPersistenceController
+import com.secondpasslibrary.reader.reader.progress.ReaderProgressState
+import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import java.util.UUID
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -24,9 +33,27 @@ class LocalReaderProcessRecreationTest {
         firstStore.writeProgress(
             account,
             session.sessionId,
-            CFI,
+            CFI_A,
             LocalReaderWriteProvenance.LOCAL_PENDING
         )
+        val progressScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val progress = MutableStateFlow<ReaderProgressState?>(
+            ReaderProgressState(
+                session.sessionId,
+                ReaderSessionStatus.ACTIVE,
+                captureEnabled = true,
+                EpubCfi(CFI_B),
+                candidateVersion = 1
+            )
+        )
+        val progressPersistence = ReaderProgressPersistenceController(
+            progressScope,
+            firstStore
+        ) {}
+        progressPersistence.start(account, session, progress)
+        progressPersistence.flushLatestLocal()
+        progressPersistence.close()
+        progressScope.cancel()
         firstStore.applyAnnotationMutation(
             account,
             session.sessionId,
@@ -56,13 +83,13 @@ class LocalReaderProcessRecreationTest {
                 as ReaderAnnotation.Highlight
 
             assertEquals(session.sessionId, reopenedSession.sessionId)
-            assertEquals(CFI, reopenedSession.savedProgressCfi)
+            assertEquals(CFI_B, reopenedSession.savedProgressCfi)
             assertEquals("offline note", annotation.note)
             val intents = reopenedOutbox.pendingReaderIntents(account, reopenedSession.sessionId)
             assertEquals(3, intents.size)
             assertEquals(1, intents.count { it is ReaderOutboxIntent.EstablishSession })
             assertEquals(
-                CFI,
+                CFI_B,
                 (
                     intents.single { it is ReaderOutboxIntent.Progress } as
                         ReaderOutboxIntent.Progress
@@ -89,7 +116,8 @@ class LocalReaderProcessRecreationTest {
     ).build()
 
     private companion object {
-        const val CFI = "epubcfi(/6/2!/4/2:3)"
+        const val CFI_A = "epubcfi(/6/2!/4/2:3)"
+        const val CFI_B = "epubcfi(/6/4!/4/2:7)"
         const val RANGE_CFI = "epubcfi(/6/2!/4/2,:3,:9)"
     }
 }
