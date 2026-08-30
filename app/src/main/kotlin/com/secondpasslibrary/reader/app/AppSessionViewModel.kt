@@ -6,10 +6,10 @@ import com.secondpasslibrary.reader.connection.ConnectionUiState
 import com.secondpasslibrary.reader.connection.LocalAccountContext
 import com.secondpasslibrary.reader.home.HomeProjectionRepository
 import com.secondpasslibrary.reader.home.HomeRefreshAvailability
-import com.secondpasslibrary.reader.reader.persistence.ReaderOutboxStore
-import com.secondpasslibrary.reader.reader.session.ReaderSessionReconciler
-import com.secondpasslibrary.reader.reader.sync.ReaderOutboxSynchronizer
+import com.secondpasslibrary.reader.reader.sync.ReaderReconnectController
 import com.secondpasslibrary.reader.reader.sync.ReaderReconnectOrchestrator
+import com.secondpasslibrary.reader.reader.sync.ReaderSyncScheduler
+import com.secondpasslibrary.reader.reader.sync.ReaderSyncWakeupController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
@@ -21,20 +21,18 @@ class AppSessionViewModel
 @Inject
 internal constructor(
     homeRepository: HomeProjectionRepository,
-    sessionReconciler: ReaderSessionReconciler,
-    readerOutboxStore: ReaderOutboxStore,
-    outboxSynchronizer: ReaderOutboxSynchronizer
+    reconnectOrchestrator: ReaderReconnectOrchestrator,
+    readerSyncScheduler: ReaderSyncScheduler
 ) : ViewModel() {
     private val controller = AppSessionController(homeRepository, viewModelScope)
     private val connectionEventChannel = Channel<AppConnectionEvent>(Channel.BUFFERED)
-    private val reconnect = ReaderReconnectOrchestrator(
-        sessionReconciler,
-        readerOutboxStore,
-        outboxSynchronizer,
+    private val reconnect = ReaderReconnectController(
+        reconnectOrchestrator,
         viewModelScope
     ) {
         connectionEventChannel.trySend(AppConnectionEvent.AuthenticationRejected)
     }
+    private val readerSyncWakeup = ReaderSyncWakeupController(readerSyncScheduler, viewModelScope)
 
     internal val state = controller.state
     internal val connectionEvents = connectionEventChannel.receiveAsFlow()
@@ -43,6 +41,7 @@ internal constructor(
         viewModelScope.launch {
             state.collect { current ->
                 val shell = current as? AppSessionState.AccountShell
+                readerSyncWakeup.update(shell?.profile, shell?.profileId)
                 reconnect.update(shell?.profile, shell?.profileId, shell?.availability)
             }
         }
@@ -57,6 +56,7 @@ internal constructor(
         controller.updateHomeRefreshAvailability(availability)
 
     override fun onCleared() {
+        readerSyncWakeup.clear()
         reconnect.clear()
         connectionEventChannel.close()
     }

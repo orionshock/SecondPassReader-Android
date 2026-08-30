@@ -6,6 +6,7 @@ import com.secondpasslibrary.reader.reader.persistence.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
 import com.secondpasslibrary.reader.reader.persistence.ReaderSessionBindingStore
 import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
 
 internal sealed interface ReaderSessionReconciliationResult {
@@ -32,6 +33,7 @@ internal fun interface ReaderSessionReconciliation {
 }
 
 /** Reconciles cached Reader Session identity with current server authority without delivering work. */
+@Singleton
 internal class ReaderSessionReconciler @Inject constructor(
     private val coordinator: ReaderSessionCoordinator,
     private val localStore: LocalReaderStateStore,

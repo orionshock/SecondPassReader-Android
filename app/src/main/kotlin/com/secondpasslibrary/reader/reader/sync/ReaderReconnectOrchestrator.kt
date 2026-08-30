@@ -10,21 +10,126 @@ import com.secondpasslibrary.reader.reader.session.ReaderSessionReconciliation
 import com.secondpasslibrary.reader.reader.session.ReaderSessionReconciliationFailure
 import com.secondpasslibrary.reader.reader.session.ReaderSessionReconciliationResult
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
-/** Account-scoped foreground reconnect flow: server authority first, durable intent second. */
-internal class ReaderReconnectOrchestrator(
+internal data class ReaderReconnectReport(
+    val hadPendingWork: Boolean,
+    val remainingPendingWork: Boolean,
+    val authenticationRequired: Boolean = false,
+    val transientFailure: Boolean = false
+)
+
+internal fun interface ReaderReconnectOperation {
+    suspend fun reconnect(
+        profile: ConnectionProfile,
+        account: LocalReaderAccountKey
+    ): ReaderReconnectReport
+}
+
+/** The account-scoped reconcile-then-drain operation shared by foreground and WorkManager. */
+@Singleton
+internal class ReaderReconnectOrchestrator @Inject constructor(
     private val reconciliation: ReaderSessionReconciliation,
     private val outbox: ReaderOutboxStore,
-    private val synchronizer: ReaderOutboxSynchronizer,
+    private val synchronizer: ReaderOutboxSynchronizer
+) : ReaderReconnectOperation {
+    private val mutex = Mutex()
+
+    override suspend fun reconnect(
+        profile: ConnectionProfile,
+        account: LocalReaderAccountKey
+    ): ReaderReconnectReport = mutex.withLock {
+        val hadPending = outbox.hasPendingWork(account)
+        var authenticationRequired = false
+        var transientFailure = false
+        if (hadPending) {
+            for (pending in outbox.pendingSessions(account)) {
+                when (reconcile(profile, account, pending)) {
+                    ReconcileOutcome.AUTHENTICATION_REQUIRED -> {
+                        authenticationRequired = true
+                        break
+                    }
+
+                    ReconcileOutcome.TRANSIENT_FAILURE -> transientFailure = true
+
+                    ReconcileOutcome.SETTLED -> Unit
+                }
+            }
+        }
+        ReaderReconnectReport(
+            hadPending,
+            outbox.hasPendingWork(account),
+            authenticationRequired,
+            transientFailure
+        )
+    }
+
+    private suspend fun reconcile(
+        profile: ConnectionProfile,
+        account: LocalReaderAccountKey,
+        pending: ReaderPendingOutboxSession
+    ): ReconcileOutcome = when (
+        val result = reconciliation.reconcile(
+            profile,
+            account,
+            pending.bookId,
+            pending.session
+        )
+    ) {
+        is ReaderSessionReconciliationResult.Failed -> when (result.reason) {
+            ReaderSessionReconciliationFailure.AUTHENTICATION_REQUIRED ->
+                ReconcileOutcome.AUTHENTICATION_REQUIRED
+
+            ReaderSessionReconciliationFailure.UNAVAILABLE -> ReconcileOutcome.TRANSIENT_FAILURE
+        }
+
+        is ReaderSessionReconciliationResult.Resolved ->
+            drainResolved(profile, account, pending.session.sessionId, result.session)
+    }
+
+    private suspend fun drainResolved(
+        profile: ConnectionProfile,
+        account: LocalReaderAccountKey,
+        pendingLocalSessionId: String,
+        resolved: ReaderSessionContext
+    ): ReconcileOutcome {
+        val eligible = resolved.sessionId == pendingLocalSessionId &&
+            resolved.status == ReaderSessionStatus.ACTIVE &&
+            resolved.serverSessionId != null
+        if (!eligible) return ReconcileOutcome.SETTLED
+        val report = synchronizer.syncBoundSession(profile, account, resolved.sessionId)
+        return when {
+            report.authenticationRequired -> ReconcileOutcome.AUTHENTICATION_REQUIRED
+
+            report.unavailable || report.reconciliationSessionIds.isNotEmpty() ->
+                ReconcileOutcome.TRANSIENT_FAILURE
+
+            else -> ReconcileOutcome.SETTLED
+        }
+    }
+
+    private enum class ReconcileOutcome {
+        SETTLED,
+        TRANSIENT_FAILURE,
+        AUTHENTICATION_REQUIRED
+    }
+}
+
+/** Foreground availability/generation adapter around the durable reconnect operation. */
+internal class ReaderReconnectController(
+    private val orchestrator: ReaderReconnectOrchestrator,
     private val scope: CoroutineScope,
     private val onAuthenticationRequired: () -> Unit
 ) {
     private var owner: Owner? = null
     private var availability: AppAvailability? = null
-    private var runGeneration = 0L
+    private var generation = 0L
     private var job: Job? = null
 
     fun update(
@@ -40,9 +145,7 @@ internal class ReaderReconnectOrchestrator(
         val recovered = nextAvailability is AppAvailability.Online &&
             availability !is AppAvailability.Online
         val accountChanged = nextOwner != owner
-        if (accountChanged || nextAvailability !is AppAvailability.Online) {
-            cancelRun()
-        }
+        if (accountChanged || nextAvailability !is AppAvailability.Online) cancelRun()
         owner = nextOwner
         availability = nextAvailability
         if (nextAvailability is AppAvailability.Online && (recovered || accountChanged)) {
@@ -58,81 +161,23 @@ internal class ReaderReconnectOrchestrator(
 
     private fun start(selected: Owner) {
         if (job?.isActive == true) return
-        val generation = ++runGeneration
-        job = scope.launch { reconnect(selected, generation) }
-    }
-
-    private suspend fun reconnect(selected: Owner, generation: Long) {
-        if (outbox.hasPendingWork(selected.account)) {
-            val pending = outbox.pendingSessions(selected.account).iterator()
-            var keepRunning = true
-            while (keepRunning && pending.hasNext()) {
-                keepRunning = isCurrent(selected, generation) &&
-                    reconcilePending(selected, generation, pending.next())
+        val runGeneration = ++generation
+        job = scope.launch {
+            val report = orchestrator.reconnect(selected.profile, selected.account)
+            if (isCurrent(selected, runGeneration) && report.authenticationRequired) {
+                onAuthenticationRequired()
             }
         }
     }
 
-    private suspend fun reconcilePending(
-        selected: Owner,
-        generation: Long,
-        pending: ReaderPendingOutboxSession
-    ): Boolean {
-        val result = reconciliation.reconcile(
-            selected.profile,
-            selected.account,
-            pending.bookId,
-            pending.session
-        )
-        return when (result) {
-            is ReaderSessionReconciliationResult.Failed ->
-                handleReconciliationFailure(selected, generation, result)
-
-            is ReaderSessionReconciliationResult.Resolved ->
-                drainResolved(selected, generation, pending.session.sessionId, result.session)
-        }
-    }
-
-    private fun handleReconciliationFailure(
-        selected: Owner,
-        generation: Long,
-        result: ReaderSessionReconciliationResult.Failed
-    ): Boolean {
-        if (result.reason != ReaderSessionReconciliationFailure.AUTHENTICATION_REQUIRED) {
-            return true
-        }
-        if (isCurrent(selected, generation)) onAuthenticationRequired()
-        return false
-    }
-
-    private suspend fun drainResolved(
-        selected: Owner,
-        generation: Long,
-        pendingLocalSessionId: String,
-        resolved: ReaderSessionContext
-    ): Boolean {
-        val eligible = resolved.sessionId == pendingLocalSessionId &&
-            resolved.status == ReaderSessionStatus.ACTIVE &&
-            resolved.serverSessionId != null
-        if (!eligible) return true
-        val report = synchronizer.syncBoundSession(
-            selected.profile,
-            selected.account,
-            resolved.sessionId
-        )
-        val current = isCurrent(selected, generation)
-        if (current && report.authenticationRequired) onAuthenticationRequired()
-        return current && !report.authenticationRequired
-    }
-
     private fun cancelRun() {
-        runGeneration += 1
+        generation += 1
         job?.cancel()
         job = null
     }
 
-    private fun isCurrent(selected: Owner, generation: Long) =
-        owner == selected && availability is AppAvailability.Online && runGeneration == generation
+    private fun isCurrent(selected: Owner, runGeneration: Long) =
+        owner == selected && availability is AppAvailability.Online && generation == runGeneration
 
     private data class Owner(val profile: ConnectionProfile, val account: LocalReaderAccountKey)
 }

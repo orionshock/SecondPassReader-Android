@@ -118,10 +118,8 @@ class ReaderReconnectOrchestratorTest {
                 ReaderProgressWriteOutcome.Failure(ReaderProgressSyncFailure.UNAVAILABLE)
             }
         )
-        val orchestrator = ReaderReconnectOrchestrator(
-            reconciliation,
-            store,
-            synchronizer,
+        val orchestrator = ReaderReconnectController(
+            ReaderReconnectOrchestrator(reconciliation, store, synchronizer),
             this
         ) {}
 
@@ -207,7 +205,7 @@ class ReaderReconnectOrchestratorTest {
         store: Store,
         reconciliation: ReaderSessionReconciliation,
         events: MutableList<String> = mutableListOf()
-    ): ReaderReconnectOrchestrator {
+    ): ReaderReconnectController {
         val annotationWriter = ReaderAnnotationBatchWriter { _, _, _ ->
             events += "annotations"
             emptyList()
@@ -216,10 +214,12 @@ class ReaderReconnectOrchestratorTest {
             events += "progress"
             ReaderProgressWriteOutcome.Success
         }
-        return ReaderReconnectOrchestrator(
-            reconciliation,
-            store,
-            ReaderOutboxSynchronizer(store, annotationWriter, progressWriter),
+        return ReaderReconnectController(
+            ReaderReconnectOrchestrator(
+                reconciliation,
+                store,
+                ReaderOutboxSynchronizer(store, annotationWriter, progressWriter)
+            ),
             this
         ) {}
     }

@@ -9,6 +9,7 @@ import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationRequest
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
+import com.secondpasslibrary.reader.reader.sync.ReaderSyncScheduler
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -345,6 +346,23 @@ class ReaderOutboxStoreTest {
     }
 
     @Test
+    fun localPendingWritesRequestOneAccountScopedWorkReplacement() = runBlocking {
+        val scheduler = RecordingSyncScheduler()
+        val scheduledStore = RoomLocalReaderStateStore(database.localReaderDao(), scheduler)
+        val account = account("one")
+        val session = scheduledStore.selectOfflineSession(account, "book-1")
+        scheduledStore.writeProgress(
+            account,
+            session.sessionId,
+            CFI,
+            LocalReaderWriteProvenance.LOCAL_PENDING
+        )
+        scheduledStore.applyAnnotationMutation(account, session.sessionId, highlight("pending"))
+
+        assertEquals(listOf(account, account, account), scheduler.scheduled)
+    }
+
+    @Test
     fun sameClientIdAndCleanupRemainAccountAndSessionScoped() = runBlocking {
         val firstAccount = account("one")
         val secondAccount = account("two")
@@ -402,6 +420,16 @@ class ReaderOutboxStoreTest {
 
     private fun serverSession(id: String) =
         ReaderSessionContext(id, ReaderSessionStatus.ACTIVE, CFI)
+
+    private class RecordingSyncScheduler : ReaderSyncScheduler {
+        val scheduled = mutableListOf<LocalReaderAccountKey>()
+
+        override suspend fun scheduleIfPending(account: LocalReaderAccountKey) {
+            scheduled += account
+        }
+
+        override fun cancel(account: LocalReaderAccountKey) = Unit
+    }
 
     private companion object {
         const val CLIENT_ID = "client-1"

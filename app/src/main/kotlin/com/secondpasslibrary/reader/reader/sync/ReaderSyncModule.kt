@@ -13,6 +13,19 @@ import dagger.hilt.components.SingletonComponent
 @InstallIn(SingletonComponent::class)
 internal abstract class ReaderSyncModule {
     @Binds
+    abstract fun bindReaderSyncWorkQueue(queue: WorkManagerReaderSyncWorkQueue): ReaderSyncWorkQueue
+
+    @Binds
+    abstract fun bindReaderReconnectOperation(
+        orchestrator: ReaderReconnectOrchestrator
+    ): ReaderReconnectOperation
+
+    @Binds
+    abstract fun bindReaderSyncAccountResolution(
+        resolver: ReaderSyncAccountResolver
+    ): ReaderSyncAccountResolution
+
+    @Binds
     abstract fun bindReaderAnnotationBatchWriter(
         writer: SplReaderAnnotationWriter
     ): ReaderAnnotationBatchWriter

@@ -14,4 +14,10 @@ internal abstract class ReaderSessionModule {
     abstract fun bindReaderSessionCoordinator(
         coordinator: SplReaderSessionCoordinator
     ): ReaderSessionCoordinator
+
+    @Binds
+    @Singleton
+    abstract fun bindReaderSessionReconciliation(
+        reconciler: ReaderSessionReconciler
+    ): ReaderSessionReconciliation
 }

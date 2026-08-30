@@ -5,6 +5,7 @@ import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionIdentityKind
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
+import com.secondpasslibrary.reader.reader.sync.ReaderSyncScheduler
 import java.security.MessageDigest
 import java.time.Instant
 import java.util.Locale
@@ -15,6 +16,13 @@ import javax.inject.Singleton
 @JvmInline
 internal value class LocalReaderAccountKey private constructor(val value: String) {
     companion object {
+        internal fun fromPersistedValue(value: String): LocalReaderAccountKey {
+            require(value.length == ACCOUNT_KEY_HEX_LENGTH && value.all { it in HEX_DIGITS }) {
+                "Invalid persisted Reader account scope."
+            }
+            return LocalReaderAccountKey(value)
+        }
+
         fun from(serverOrigin: String, profileId: String): LocalReaderAccountKey {
             val origin = serverOrigin.trim().trimEnd('/').lowercase(Locale.ROOT)
             val account = profileId.trim()
@@ -25,6 +33,9 @@ internal value class LocalReaderAccountKey private constructor(val value: String
                 .joinToString("") { byte -> "%02x".format(byte) }
             return LocalReaderAccountKey(digest)
         }
+
+        private const val ACCOUNT_KEY_HEX_LENGTH = 64
+        private const val HEX_DIGITS = "0123456789abcdef"
     }
 }
 
@@ -77,8 +88,12 @@ internal interface LocalReaderStateStore {
 }
 
 @Singleton
-internal class RoomLocalReaderStateStore @Inject constructor(private val dao: LocalReaderDao) :
-    LocalReaderStateStore {
+internal class RoomLocalReaderStateStore @Inject constructor(
+    private val dao: LocalReaderDao,
+    private val syncScheduler: ReaderSyncScheduler
+) : LocalReaderStateStore {
+    constructor(dao: LocalReaderDao) : this(dao, NoOpReaderSyncScheduler)
+
     override suspend fun selectOfflineSession(
         account: LocalReaderAccountKey,
         bookId: String
@@ -89,6 +104,7 @@ internal class RoomLocalReaderStateStore @Inject constructor(private val dao: Lo
             ?: createProvisional(account, bookId, now)
         if (selected.identityKind == ReaderSessionIdentityKind.PROVISIONAL.name) {
             dao.upsertOutbox(selected.toEstablishmentOutbox(now))
+            schedule(account)
         }
         dao.touchSession(account.value, selected.localSessionId, now)
         return selected.toContext(dao.progress(account.value, selected.localSessionId)?.cfi)
@@ -148,6 +164,7 @@ internal class RoomLocalReaderStateStore @Inject constructor(private val dao: Lo
                 null
             }
         )
+        if (provenance == LocalReaderWriteProvenance.LOCAL_PENDING) schedule(account)
     }
 
     override suspend fun acknowledgeProgress(
@@ -213,6 +230,7 @@ internal class RoomLocalReaderStateStore @Inject constructor(private val dao: Lo
                 )
             }
         }
+        schedule(account)
         return readAnnotations(account, localSessionId)
     }
 
@@ -239,6 +257,16 @@ internal class RoomLocalReaderStateStore @Inject constructor(private val dao: Lo
         dao.purgeAccount(account.value)
     }
 
+    private suspend fun schedule(account: LocalReaderAccountKey) {
+        try {
+            syncScheduler.scheduleIfPending(account)
+        } catch (cancellation: kotlinx.coroutines.CancellationException) {
+            throw cancellation
+        } catch (_: Exception) {
+            // Local state remains durable; foreground reconnect can schedule another wakeup.
+        }
+    }
+
     private suspend fun createProvisional(
         account: LocalReaderAccountKey,
         bookId: String,
@@ -263,4 +291,10 @@ internal class RoomLocalReaderStateStore @Inject constructor(private val dao: Lo
         )
         return dao.ensureProvisionalSession(candidate, candidate.toEstablishmentOutbox(now))
     }
+}
+
+private data object NoOpReaderSyncScheduler : ReaderSyncScheduler {
+    override suspend fun scheduleIfPending(account: LocalReaderAccountKey) = Unit
+
+    override fun cancel(account: LocalReaderAccountKey) = Unit
 }

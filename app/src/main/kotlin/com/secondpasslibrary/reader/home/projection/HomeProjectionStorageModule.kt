@@ -11,6 +11,8 @@ import com.secondpasslibrary.reader.reader.persistence.ReaderSessionBindingStore
 import com.secondpasslibrary.reader.reader.persistence.RoomLocalReaderStateStore
 import com.secondpasslibrary.reader.reader.persistence.RoomReaderOutboxStore
 import com.secondpasslibrary.reader.reader.persistence.RoomReaderSessionBindingStore
+import com.secondpasslibrary.reader.reader.sync.ReaderSyncScheduler
+import com.secondpasslibrary.reader.reader.sync.WorkManagerReaderSyncScheduler
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -43,6 +45,12 @@ internal abstract class HomeProjectionStorageModule {
     abstract fun bindReaderSessionBindingStore(
         store: RoomReaderSessionBindingStore
     ): ReaderSessionBindingStore
+
+    @Binds
+    @Singleton
+    abstract fun bindReaderSyncScheduler(
+        scheduler: WorkManagerReaderSyncScheduler
+    ): ReaderSyncScheduler
 
     companion object {
         @Provides
