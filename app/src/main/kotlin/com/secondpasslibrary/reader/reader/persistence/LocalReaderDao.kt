@@ -410,18 +410,6 @@ internal abstract class LocalReaderDao {
         )
     }
 
-    @Transaction
-    open suspend fun replaceAnnotations(
-        accountKey: String,
-        localSessionId: String,
-        annotations: List<LocalReaderAnnotationEntity>,
-        acknowledgedOutboxId: String? = null
-    ) {
-        deleteSessionAnnotations(accountKey, localSessionId)
-        upsertAnnotations(annotations)
-        acknowledgedOutboxId?.let { deleteOutbox(accountKey, it) }
-    }
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertOutbox(intent: LocalReaderOutboxEntity)
 
@@ -466,15 +454,15 @@ internal abstract class LocalReaderDao {
     abstract suspend fun boundPendingSessions(accountKey: String): List<LocalReaderSessionEntity>
 
     @Transaction
-    open suspend fun acceptAnnotationDelivery(
+    open suspend fun mergeAuthoritativeAnnotations(
         accountKey: String,
         localSessionId: String,
-        sent: List<ReaderOutboxIntent>,
+        acknowledgementCandidates: List<ReaderOutboxIntent>,
         authoritative: List<LocalReaderAnnotationEntity>
     ) {
         val currentIntents = pendingReaderIntents(accountKey, localSessionId)
             .associateBy(LocalReaderOutboxEntity::outboxId)
-        val acknowledged = sent.filter { intent ->
+        val acknowledged = acknowledgementCandidates.filter { intent ->
             currentIntents[intent.id]?.toIntent() == intent
         }
         val acknowledgedClientIds = acknowledged.mapNotNull { intent ->

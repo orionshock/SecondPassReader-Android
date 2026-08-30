@@ -13,6 +13,7 @@ import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -263,18 +264,254 @@ class LocalReaderStateStoreTest {
             )?.syncState
         )
 
-        store.replaceAuthoritativeAnnotations(
-            account,
-            session.sessionId,
-            emptyList(),
-            confirmedClientId = "client-1"
-        )
-        assertNull(
+        assertTrue(
             database.localReaderDao().annotation(
                 account.value,
                 session.sessionId,
                 "client-1"
+            ) != null
+        )
+    }
+
+    @Test
+    fun authoritativeRefreshReplacesConfirmedProjectionWithoutPendingState() = runBlocking {
+        val account = account("profile-1")
+        val session = serverSession("server-active")
+        store.retainServerSession(account, "book-1", session)
+        store.replaceAuthoritativeAnnotations(
+            account,
+            session.sessionId,
+            listOf(serverHighlight("client-1", "old"))
+        )
+
+        store.replaceAuthoritativeAnnotations(
+            account,
+            session.sessionId,
+            listOf(serverHighlight("client-1", "new"))
+        )
+
+        assertEquals(
+            "new",
+            (
+                store.readAnnotations(account, session.sessionId).single() as
+                    ReaderAnnotation.Highlight
+                ).note
+        )
+        assertFalse(
+            database.localReaderDao().hasPendingWorkForSession(
+                account.value,
+                session.sessionId
             )
+        )
+    }
+
+    @Test
+    fun pendingCreateAndEditRemainVisibleAcrossAuthoritativeRefresh() = runBlocking {
+        val account = account("profile-1")
+        val session = serverSession("server-active")
+        store.retainServerSession(account, "book-1", session)
+        store.replaceAuthoritativeAnnotations(
+            account,
+            session.sessionId,
+            listOf(serverHighlight("edited-client", "server"))
+        )
+        store.applyAnnotationMutation(
+            account,
+            session.sessionId,
+            highlightMutation("new-client", "new local")
+        )
+        store.applyAnnotationMutation(
+            account,
+            session.sessionId,
+            highlightMutation("edited-client", "edited local")
+        )
+
+        store.replaceAuthoritativeAnnotations(
+            account,
+            session.sessionId,
+            listOf(serverHighlight("edited-client", "stale server"))
+        )
+
+        val highlights = store.readAnnotations(account, session.sessionId)
+            .filterIsInstance<ReaderAnnotation.Highlight>()
+            .associateBy { it.clientId }
+        assertEquals("new local", highlights.getValue("new-client").note)
+        assertEquals("edited local", highlights.getValue("edited-client").note)
+    }
+
+    @Test
+    fun localEditCommittedAfterLegacyPendingSnapshotSurvivesRefresh() = runBlocking {
+        val account = account("profile-1")
+        val session = serverSession("server-active")
+        store.retainServerSession(account, "book-1", session)
+        val authoritative = serverHighlight("client-1", "server")
+        store.replaceAuthoritativeAnnotations(account, session.sessionId, listOf(authoritative))
+
+        val legacySnapshot = database.localReaderDao().pendingAnnotations(
+            account.value,
+            session.sessionId
+        )
+        store.applyAnnotationMutation(
+            account,
+            session.sessionId,
+            highlightMutation("client-1", "committed after snapshot")
+        )
+        store.replaceAuthoritativeAnnotations(account, session.sessionId, listOf(authoritative))
+
+        assertTrue(legacySnapshot.isEmpty())
+        assertEquals(
+            "committed after snapshot",
+            (
+                store.readAnnotations(account, session.sessionId).single() as
+                    ReaderAnnotation.Highlight
+                ).note
+        )
+    }
+
+    @Test
+    fun localDeleteCommittedAfterLegacyPendingSnapshotSurvivesRefresh() = runBlocking {
+        val account = account("profile-1")
+        val session = serverSession("server-active")
+        store.retainServerSession(account, "book-1", session)
+        val authoritative = ReaderAnnotation.Bookmark(
+            "server-bookmark",
+            "client-1",
+            CFI,
+            "Chapter 1",
+            "now"
+        )
+        store.replaceAuthoritativeAnnotations(account, session.sessionId, listOf(authoritative))
+
+        val legacySnapshot = database.localReaderDao().pendingAnnotations(
+            account.value,
+            session.sessionId
+        )
+        store.applyAnnotationMutation(
+            account,
+            session.sessionId,
+            ReaderAnnotationMutationRequest.Delete(
+                session.sessionId,
+                authoritative.clientId,
+                authoritative
+            )
+        )
+        store.replaceAuthoritativeAnnotations(account, session.sessionId, listOf(authoritative))
+
+        assertTrue(legacySnapshot.isEmpty())
+        assertTrue(store.readAnnotations(account, session.sessionId).isEmpty())
+        assertEquals(
+            LocalAnnotationSync.LOCAL_DELETED,
+            database.localReaderDao().annotation(
+                account.value,
+                session.sessionId,
+                authoritative.clientId
+            )?.syncState
+        )
+    }
+
+    @Test
+    fun staleAcknowledgementCannotDiscardNewerLocalDesiredState() = runBlocking {
+        val account = account("profile-1")
+        val session = serverSession("server-active")
+        store.retainServerSession(account, "book-1", session)
+        val sent = highlightMutation("client-1", "sent")
+        store.applyAnnotationMutation(account, session.sessionId, sent)
+        store.applyAnnotationMutation(
+            account,
+            session.sessionId,
+            highlightMutation("client-1", "newer")
+        )
+
+        store.replaceAuthoritativeAnnotations(
+            account,
+            session.sessionId,
+            listOf(serverHighlight("client-1", "sent")),
+            acknowledgedMutation = sent
+        )
+
+        assertEquals(
+            "newer",
+            (
+                store.readAnnotations(account, session.sessionId).single() as
+                    ReaderAnnotation.Highlight
+                ).note
+        )
+        val pending = RoomReaderOutboxStore(database.localReaderDao())
+            .pendingReaderIntents(account, session.sessionId)
+            .filterIsInstance<ReaderOutboxIntent.AnnotationUpsert>()
+            .single()
+        assertEquals("newer", pending.note)
+    }
+
+    @Test
+    fun refreshPreservedCreateRemainsEligibleForClosedSessionContinuation() = runBlocking {
+        val account = account("profile-1")
+        val session = serverSession("server-active")
+        store.retainServerSession(account, "book-1", session)
+        database.localReaderDao().pendingAnnotations(account.value, session.sessionId)
+        store.applyAnnotationMutation(
+            account,
+            session.sessionId,
+            highlightMutation("new-client", "offline")
+        )
+        store.replaceAuthoritativeAnnotations(account, session.sessionId, emptyList())
+
+        val continuation = RoomReaderClosedSessionContinuationStore(database.localReaderDao())
+            .continueFrom(
+                account,
+                "book-1",
+                serverSession("server-active", ReaderSessionStatus.CLOSED),
+                emptyList()
+            )
+        val next = requireNotNull(continuation.session)
+
+        assertEquals(
+            "offline",
+            (
+                store.readAnnotations(account, next.sessionId).single() as
+                    ReaderAnnotation.Highlight
+                ).note
+        )
+        assertTrue(
+            RoomReaderOutboxStore(database.localReaderDao())
+                .pendingReaderIntents(account, next.sessionId)
+                .any { it is ReaderOutboxIntent.AnnotationUpsert }
+        )
+    }
+
+    @Test
+    fun authoritativeMergeRemainsAccountAndSessionScoped() = runBlocking {
+        val firstAccount = account("profile-1")
+        val secondAccount = account("profile-2")
+        val first = store.selectOfflineSession(firstAccount, "book-1")
+        val otherSession = store.selectOfflineSession(firstAccount, "book-2")
+        val otherAccount = store.selectOfflineSession(secondAccount, "book-1")
+        store.applyAnnotationMutation(
+            firstAccount,
+            otherSession.sessionId,
+            highlightMutation("other-session", "other session")
+        )
+        store.applyAnnotationMutation(
+            secondAccount,
+            otherAccount.sessionId,
+            highlightMutation("other-account", "other account")
+        )
+
+        store.replaceAuthoritativeAnnotations(firstAccount, first.sessionId, emptyList())
+
+        assertEquals(
+            "other session",
+            (
+                store.readAnnotations(firstAccount, otherSession.sessionId).single() as
+                    ReaderAnnotation.Highlight
+                ).note
+        )
+        assertEquals(
+            "other account",
+            (
+                store.readAnnotations(secondAccount, otherAccount.sessionId).single() as
+                    ReaderAnnotation.Highlight
+                ).note
         )
     }
 
@@ -301,6 +538,32 @@ class LocalReaderStateStoreTest {
         id: String,
         status: ReaderSessionStatus = ReaderSessionStatus.ACTIVE
     ) = ReaderSessionContext(id, status, CFI)
+
+    private fun highlightMutation(clientId: String, note: String) =
+        ReaderAnnotationMutationRequest.UpsertHighlight(
+            "ignored",
+            clientId,
+            RANGE_CFI,
+            "Chapter 1",
+            "quote",
+            "prefix",
+            "suffix",
+            ReaderAnnotationColor.YELLOW,
+            note
+        )
+
+    private fun serverHighlight(clientId: String, note: String) = ReaderAnnotation.Highlight(
+        "server-$clientId",
+        clientId,
+        RANGE_CFI,
+        "Chapter 1",
+        "now",
+        "quote",
+        "prefix",
+        "suffix",
+        note,
+        ReaderAnnotationColor.YELLOW
+    )
 
     private companion object {
         const val CFI = "epubcfi(/6/2!/4/2:3)"

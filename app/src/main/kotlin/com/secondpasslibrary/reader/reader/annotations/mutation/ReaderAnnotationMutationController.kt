@@ -274,7 +274,7 @@ internal class ReaderAnnotationMutationController(
                             account,
                             owner.localSessionId,
                             it,
-                            confirmedClientId = request.clientId
+                            acknowledgedMutation = request
                         )
                     }
                 } else {

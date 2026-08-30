@@ -706,7 +706,7 @@ class ReaderControllerTest {
             account: LocalReaderAccountKey,
             localSessionId: String,
             annotations: List<ReaderAnnotation>,
-            confirmedClientId: String?
+            acknowledgedMutation: ReaderAnnotationMutationRequest?
         ) = Unit
 
         override suspend fun purgeAccount(account: LocalReaderAccountKey) = Unit

@@ -97,7 +97,7 @@ internal class RoomReaderOutboxStore @javax.inject.Inject constructor(
         sent: List<ReaderOutboxIntent>,
         authoritative: List<com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation>
     ) {
-        dao.acceptAnnotationDelivery(
+        dao.mergeAuthoritativeAnnotations(
             account.value,
             localSessionId,
             sent,

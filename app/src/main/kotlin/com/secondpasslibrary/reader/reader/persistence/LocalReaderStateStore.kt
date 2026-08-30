@@ -81,7 +81,7 @@ internal interface LocalReaderStateStore {
         account: LocalReaderAccountKey,
         localSessionId: String,
         annotations: List<ReaderAnnotation>,
-        confirmedClientId: String? = null
+        acknowledgedMutation: ReaderAnnotationMutationRequest? = null
     )
 
     suspend fun purgeAccount(account: LocalReaderAccountKey)
@@ -271,18 +271,16 @@ internal class RoomLocalReaderStateStore @Inject constructor(
         account: LocalReaderAccountKey,
         localSessionId: String,
         annotations: List<ReaderAnnotation>,
-        confirmedClientId: String?
+        acknowledgedMutation: ReaderAnnotationMutationRequest?
     ) {
-        val pending = dao.pendingAnnotations(account.value, localSessionId)
-            .filterNot { it.clientId == confirmedClientId }
-        dao.replaceAnnotations(
+        val session = dao.session(account.value, localSessionId) ?: return
+        dao.mergeAuthoritativeAnnotations(
             account.value,
             localSessionId,
-            annotations.map { it.toEntity(account, localSessionId) } +
-                pending,
-            confirmedClientId?.let {
-                ReaderOutboxIdentity.annotation(localSessionId, it)
-            }
+            acknowledgedMutation?.let {
+                listOf(it.toOutboxIntent(session.bookId, localSessionId))
+            }.orEmpty(),
+            annotations.map { it.toEntity(account, localSessionId) }
         )
     }
 
@@ -324,6 +322,48 @@ internal class RoomLocalReaderStateStore @Inject constructor(
         )
         return dao.ensureProvisionalSession(candidate, candidate.toEstablishmentOutbox(now))
     }
+}
+
+private fun ReaderAnnotationMutationRequest.toOutboxIntent(
+    bookId: String,
+    localSessionId: String
+): ReaderOutboxIntent = when (this) {
+    is ReaderAnnotationMutationRequest.UpsertHighlight -> ReaderOutboxIntent.AnnotationUpsert(
+        ReaderOutboxIdentity.annotation(localSessionId, clientId),
+        bookId,
+        localSessionId,
+        clientId,
+        LocalAnnotationKind.HIGHLIGHT,
+        cfi,
+        locationLabel,
+        text,
+        prefix,
+        suffix,
+        note,
+        color
+    )
+
+    is ReaderAnnotationMutationRequest.UpsertBookmark -> ReaderOutboxIntent.AnnotationUpsert(
+        ReaderOutboxIdentity.annotation(localSessionId, clientId),
+        bookId,
+        localSessionId,
+        clientId,
+        LocalAnnotationKind.BOOKMARK,
+        cfi,
+        locationLabel,
+        null,
+        null,
+        null,
+        null,
+        null
+    )
+
+    is ReaderAnnotationMutationRequest.Delete -> ReaderOutboxIntent.AnnotationDelete(
+        ReaderOutboxIdentity.annotation(localSessionId, clientId),
+        bookId,
+        localSessionId,
+        clientId
+    )
 }
 
 private data object NoOpReaderSyncScheduler : ReaderSyncScheduler {

@@ -228,7 +228,8 @@ class ReaderOutboxStoreTest {
         val account = account("one")
         val session = serverSession("server-1")
         store.retainServerSession(account, "book-1", session)
-        store.applyAnnotationMutation(account, session.sessionId, highlight("local"))
+        val mutation = highlight("local")
+        store.applyAnnotationMutation(account, session.sessionId, mutation)
 
         store.replaceAuthoritativeAnnotations(account, session.sessionId, emptyList())
         assertTrue(outbox.hasPendingWork(account))
@@ -244,7 +245,7 @@ class ReaderOutboxStoreTest {
             account,
             session.sessionId,
             listOf(serverHighlight("server")),
-            confirmedClientId = CLIENT_ID
+            acknowledgedMutation = mutation
         )
         assertFalse(outbox.hasPendingWork(account))
         assertEquals(
