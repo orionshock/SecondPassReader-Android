@@ -11,7 +11,7 @@ import org.json.JSONObject
 import org.json.JSONTokener
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 
-private const val RUNTIME_VERSION = "1.12.7"
+private const val RUNTIME_VERSION = "1.12.8"
 private const val CONTEXT_LENGTH = 64
 private const val SELECTION_CONTEXT_LENGTH = 2_000
 private const val MOVEMENT_QUOTE_LENGTH = 128
@@ -476,8 +476,8 @@ private fun readContentResolution(value: Any?): ReadiumContentResolution {
     return ReadiumContentResolution(
         kind = kind,
         selectedText = selectedText,
-        prefix = resolution.boundedContext("prefix"),
-        suffix = resolution.boundedContext("suffix"),
+        prefix = resolution.boundedSelectionContext("prefix"),
+        suffix = resolution.boundedSelectionContext("suffix"),
         movementAnchor = ReadiumTextQuoteAnchor(
             exact = movementAnchor.getString("exact").also {
                 require(it.isNotBlank() && it.length <= MOVEMENT_QUOTE_LENGTH)

@@ -1,7 +1,7 @@
 (function installSecondPassEpubCfiRuntime(global) {
     "use strict";
 
-    const RUNTIME_VERSION = "1.12.7";
+    const RUNTIME_VERSION = "1.12.8";
     const CONTEXT_LENGTH = 64;
     const SELECTION_CONTEXT_LENGTH = 2000;
     const MOVEMENT_QUOTE_LENGTH = 128;
@@ -752,7 +752,13 @@
             };
         }
 
-        const context = textContext(snapshotRange, snapshot.document);
+        // Resolution and live selection expose the same raw quote-context contract.
+        // The smaller CONTEXT_LENGTH remains reserved for CFI repair/movement assertions.
+        const context = textContext(
+            snapshotRange,
+            snapshot.document,
+            SELECTION_CONTEXT_LENGTH
+        );
         const movementAnchor = createMovementAnchor(
             snapshotRange,
             snapshot.document,
@@ -990,7 +996,9 @@
                 textFollowingRange(range, publicationDocument, CONTEXT_LENGTH);
         return {
             exact: exact,
-            before: context.prefix,
+            before: context.prefix === null
+                ? null
+                : takeLastCodeUnitSafe(context.prefix, CONTEXT_LENGTH),
             after: takeFirstCodeUnitSafe(trailingText, CONTEXT_LENGTH)
         };
     }

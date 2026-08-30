@@ -40,14 +40,14 @@ class ReadiumCfiJavascriptRuntimeTest {
             harness.evaluate("typeof SecondPassColibrio.EpubCfiParser.parse").jsonString()
         )
         assertEquals(
-            "1.12.7",
+            "1.12.8",
             harness.evaluate("__secondPassEpubCfi.runtimeVersion()").jsonString()
         )
 
         harness.evaluate(asset("reader/cfi/secondpass-epub-cfi-runtime.js"))
 
         assertEquals(
-            "1.12.7",
+            "1.12.8",
             harness.evaluate("__secondPassEpubCfi.runtimeVersion()").jsonString()
         )
     }
@@ -154,6 +154,113 @@ class ReadiumCfiJavascriptRuntimeTest {
         assertEquals("selected", selection.getString("selectedText"))
         assertEquals("p".repeat(2_000), selection.getString("prefix"))
         assertEquals("s".repeat(2_000), selection.getString("suffix"))
+
+        val fullCfi = harness.compose(harness.packageCfi(), selection.getString("contentCfi"))
+        val resolution = harness.resolve(fullCfi)
+        assertEquals(selection.getString("selectedText"), resolution.getString("selectedText"))
+        assertEquals(selection.getString("prefix"), resolution.getString("prefix"))
+        assertEquals(selection.getString("suffix"), resolution.getString("suffix"))
+        assertTrue(resolution.getJSONObject("movementAnchor").getString("before").length <= 64)
+        assertTrue(resolution.getJSONObject("movementAnchor").getString("after").length <= 64)
+    }
+
+    @Test
+    fun selectionAndResolutionShareRawContextAcrossDomBoundaries() = withHarness { harness ->
+        val vectors = listOf(
+            "same text node" to
+                """
+                document.body.innerHTML = '<p id="root">before selected after</p>';
+                const text = document.getElementById('root').firstChild;
+                range.setStart(text, 7);
+                range.setEnd(text, 15);
+                """.trimIndent(),
+            "inline markup" to
+                """
+                document.body.innerHTML =
+                  '<p>before <em id="start">cross</em><span id="end"> markup</span> after</p>';
+                range.setStart(document.getElementById('start').firstChild, 2);
+                range.setEnd(document.getElementById('end').firstChild, 4);
+                """.trimIndent(),
+            "text-node edges" to
+                """
+                document.body.innerHTML = '<p>before <span id="exact">selected</span> after</p>';
+                const text = document.getElementById('exact').firstChild;
+                range.setStart(text, 0);
+                range.setEnd(text, text.length);
+                """.trimIndent(),
+            "paragraph boundary" to
+                """
+                document.body.innerHTML = '<p id="start">before tail</p><p id="end">head after</p>';
+                range.setStart(document.getElementById('start').firstChild, 7);
+                range.setEnd(document.getElementById('end').firstChild, 4);
+                """.trimIndent(),
+            "raw whitespace" to
+                """
+                document.body.innerHTML =
+                  '<p id="root">before&nbsp;  \t\nselected\r\n  after&nbsp;text</p>';
+                const text = document.getElementById('root').firstChild;
+                const start = text.data.indexOf('selected');
+                range.setStart(text, start);
+                range.setEnd(text, start + 'selected'.length);
+                """.trimIndent(),
+            "transient neighbor" to
+                """
+                document.body.innerHTML =
+                  '<p>publisher before</p>' +
+                  '<div id="r2-decoration-123" data-group="test" style="pointer-events: none">' +
+                  'runtime-only context</div>' +
+                  '<p id="root">selected publisher after</p>';
+                const text = document.getElementById('root').firstChild;
+                range.setStart(text, 0);
+                range.setEnd(text, 'selected'.length);
+                """.trimIndent(),
+            "surrogate at context boundary" to
+                """
+                document.body.innerHTML = '<p id="root"></p>';
+                const text = document.getElementById('root');
+                text.textContent = '\ud83d\ude00' + 'p'.repeat(1999) + 'selected' + 's'.repeat(2000);
+                const node = text.firstChild;
+                const start = node.data.indexOf('selected');
+                range.setStart(node, start);
+                range.setEnd(node, start + 'selected'.length);
+                """.trimIndent()
+        )
+
+        vectors.forEach { (name, arrangeRange) ->
+            harness.evaluate(
+                """
+                (() => {
+                  const range = document.createRange();
+                  $arrangeRange
+                  const selection = window.getSelection();
+                  selection.removeAllRanges();
+                  selection.addRange(range);
+                })()
+                """.trimIndent()
+            )
+            val selection = successObject(harness.runtime("generateSelectionContentCfi"))
+            val fullCfi = harness.compose(
+                harness.packageCfi(),
+                selection.getString("contentCfi")
+            )
+            val resolution = harness.resolve(fullCfi)
+
+            assertEquals(
+                "$name exact",
+                selection.getString("selectedText"),
+                resolution.getString("selectedText")
+            )
+            assertEquals(
+                "$name prefix",
+                selection.nullableString("prefix"),
+                resolution.nullableString("prefix")
+            )
+            assertEquals(
+                "$name suffix",
+                selection.nullableString("suffix"),
+                resolution.nullableString("suffix")
+            )
+        }
     }
 
     @Test
