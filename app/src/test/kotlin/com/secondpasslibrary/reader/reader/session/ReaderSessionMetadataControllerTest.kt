@@ -49,6 +49,27 @@ class ReaderSessionMetadataControllerTest {
     }
 
     @Test
+    fun `bound local Session edits server identity while retaining local presentation identity`() =
+        runTest {
+            val writer = RecordingMetadataWriter()
+            val controller = ReaderSessionMetadataController(writer, this)
+            controller.select(
+                PROFILE,
+                session(ReaderSessionStatus.ACTIVE).copy(
+                    sessionId = "local-session",
+                    serverSessionId = "server-session"
+                )
+            )
+            controller.beginEdit()
+            controller.updateName("Bound")
+            controller.submit()
+            advanceUntilIdle()
+
+            assertEquals("server-session", writer.sessionId)
+            assertEquals("local-session", controller.state.value.metadata?.sessionId)
+        }
+
+    @Test
     fun `failure retains draft for explicit retry`() = runTest {
         val writer = RecordingMetadataWriter(failuresRemaining = 1)
         val controller = ReaderSessionMetadataController(writer, this)

@@ -69,13 +69,15 @@ internal class ReaderSessionMetadataController(
     private val authenticationRequired = Channel<Unit>(Channel.BUFFERED)
     val authenticationRequiredEvents = authenticationRequired.receiveAsFlow()
     private var profile: ConnectionProfile? = null
+    private var serverSessionId: String? = null
     private var writable = false
     private var job: Job? = null
 
     fun select(profile: ConnectionProfile, session: ReaderSessionContext) {
         val current = state.value.metadata
         this.profile = profile
-        writable = session.status == ReaderSessionStatus.ACTIVE
+        serverSessionId = session.serverSessionId
+        writable = session.status == ReaderSessionStatus.ACTIVE && serverSessionId != null
         if (current?.sessionId != session.sessionId) {
             job?.cancel()
             mutableState.value = ReaderSessionMetadataState(
@@ -119,7 +121,7 @@ internal class ReaderSessionMetadataController(
             val result = runCatching {
                 writer.update(
                     request.profile,
-                    request.sessionId,
+                    request.serverSessionId,
                     request.name,
                     request.notes
                 )
@@ -127,8 +129,9 @@ internal class ReaderSessionMetadataController(
             (result.exceptionOrNull() as? CancellationException)?.let { throw it }
             result.fold(
                 onSuccess = { updated ->
-                    mutableState.value = ReaderSessionMetadataState(metadata = updated)
-                    onUpdated(updated)
+                    val localUpdated = updated.copy(sessionId = request.localSessionId)
+                    mutableState.value = ReaderSessionMetadataState(metadata = localUpdated)
+                    onUpdated(localUpdated)
                 },
                 onFailure = { failure ->
                     mutableState.value = state.value.copy(saving = false, failure = true)
@@ -143,10 +146,12 @@ internal class ReaderSessionMetadataController(
     private fun createRequest(): ReaderSessionMetadataRequest? {
         val current = state.value
         val activeProfile = profile
+        val activeServerSessionId = serverSessionId
         val metadata = current.metadata
         val valid = writable && current.editorOpen && current.dirty && job?.isActive != true
         return when {
-            activeProfile == null || metadata == null || !valid -> null
+            activeProfile == null || activeServerSessionId == null ||
+                metadata == null || !valid -> null
 
             current.draftName.length > MAX_SESSION_NAME_LENGTH -> {
                 mutableState.value = current.copy(nameTooLong = true)
@@ -156,6 +161,7 @@ internal class ReaderSessionMetadataController(
             else -> ReaderSessionMetadataRequest(
                 activeProfile,
                 metadata.sessionId,
+                activeServerSessionId,
                 current.draftName,
                 current.draftNotes
             )
@@ -172,6 +178,7 @@ internal class ReaderSessionMetadataController(
         job?.cancel()
         job = null
         profile = null
+        serverSessionId = null
         writable = false
         mutableState.value = ReaderSessionMetadataState()
     }
@@ -181,7 +188,8 @@ internal const val MAX_SESSION_NAME_LENGTH = 255
 
 private data class ReaderSessionMetadataRequest(
     val profile: ConnectionProfile,
-    val sessionId: String,
+    val localSessionId: String,
+    val serverSessionId: String,
     val name: String,
     val notes: String
 )

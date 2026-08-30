@@ -9,6 +9,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.secondpasslibrary.reader.app.AppAvailability
+import com.secondpasslibrary.reader.app.AppAvailabilityReason
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.reader.annotations.bookmark.ReaderBookmarkHudIntent
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationIntent
@@ -36,9 +37,15 @@ internal fun ReaderStateHost(
     val annotationMutations by viewModel.annotationMutationState.collectAsStateWithLifecycle()
     val highlightDetail by viewModel.highlightDetail.collectAsStateWithLifecycle()
     val sessionMetadata by viewModel.sessionMetadataState.collectAsStateWithLifecycle()
-    DisposableEffect(viewModel) { onDispose { viewModel.setAuthorityAvailable(false) } }
+    DisposableEffect(viewModel) {
+        onDispose {
+            viewModel.setAvailability(
+                AppAvailability.Offline(AppAvailabilityReason.UNREACHABLE)
+            )
+        }
+    }
     LaunchedEffect(availability) {
-        viewModel.setAuthorityAvailable(availability !is AppAvailability.Offline)
+        viewModel.setAvailability(availability)
     }
     LaunchedEffect(profile, profileId, bookId, existingSessionId, titleHint) {
         viewModel.initialize(profile, profileId, bookId, existingSessionId, titleHint, availability)

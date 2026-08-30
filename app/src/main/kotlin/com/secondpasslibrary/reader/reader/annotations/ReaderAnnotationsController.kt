@@ -130,8 +130,13 @@ internal class ReaderAnnotationsController(
                     loader.load(
                         context.profile,
                         requireNotNull(context.session.serverSessionId)
-                    ).also {
-                        localStore?.replaceAuthoritativeAnnotations(account, sessionId, it)
+                    ).let { authoritative ->
+                        localStore?.replaceAuthoritativeAnnotations(
+                            account,
+                            sessionId,
+                            authoritative
+                        )
+                        localStore?.readAnnotations(account, sessionId) ?: authoritative
                     }
                 }
             }

@@ -56,10 +56,14 @@ internal class ReaderProgressSyncController(
     private var writeJob: Job? = null
     private val flushWaiters = mutableListOf<CompletableDeferred<ReaderProgressFlushResult>>()
 
-    fun start(profile: ConnectionProfile, progress: StateFlow<ReaderProgressState?>) {
+    fun start(
+        profile: ConnectionProfile,
+        progress: StateFlow<ReaderProgressState?>,
+        serverSessionId: String? = null
+    ) {
         progressJob?.cancel()
         val bindingId = bindingIds.incrementAndGet()
-        events.trySend(SyncEvent.Bind(bindingId, profile))
+        events.trySend(SyncEvent.Bind(bindingId, profile, serverSessionId))
         progressJob = scope.launch(start = CoroutineStart.UNDISPATCHED) {
             progress.collect { events.send(SyncEvent.Candidate(bindingId, it)) }
         }
@@ -117,6 +121,7 @@ internal class ReaderProgressSyncController(
         return SyncModel(
             bindingId = event.bindingId,
             profile = event.profile,
+            serverSessionId = event.serverSessionId,
             authorityAvailable = current.authorityAvailable
         )
     }
@@ -253,7 +258,7 @@ internal class ReaderProgressSyncController(
                 SyncEvent.WriteCompleted(
                     model.bindingId,
                     version,
-                    submission.sessionId,
+                    submission.localSessionId,
                     submission.cfi,
                     outcome
                 )
@@ -306,6 +311,7 @@ internal class ReaderProgressSyncController(
     private data class SyncModel(
         val bindingId: Long = 0,
         val profile: ConnectionProfile? = null,
+        val serverSessionId: String? = null,
         val authorityAvailable: Boolean = false,
         val sessionId: String? = null,
         val latestCfi: EpubCfi? = null,
@@ -342,7 +348,13 @@ internal class ReaderProgressSyncController(
                 profile?.let { profile ->
                     sessionId?.let { sessionId ->
                         latestCfi?.let { cfi ->
-                            ProgressSubmission(profile, sessionId, cfi, latestVersion)
+                            ProgressSubmission(
+                                profile,
+                                sessionId,
+                                serverSessionId ?: sessionId,
+                                cfi,
+                                latestVersion
+                            )
                         }
                     }
                 }
@@ -362,13 +374,18 @@ internal class ReaderProgressSyncController(
 
     private data class ProgressSubmission(
         val profile: ConnectionProfile,
+        val localSessionId: String,
         val sessionId: String,
         val cfi: EpubCfi,
         val version: Long
     )
 
     private sealed interface SyncEvent {
-        data class Bind(val bindingId: Long, val profile: ConnectionProfile) : SyncEvent
+        data class Bind(
+            val bindingId: Long,
+            val profile: ConnectionProfile,
+            val serverSessionId: String?
+        ) : SyncEvent
         data class Reset(val bindingId: Long) : SyncEvent
         data class AuthorityChanged(val available: Boolean) : SyncEvent
         data class Candidate(val bindingId: Long, val progress: ReaderProgressState?) : SyncEvent

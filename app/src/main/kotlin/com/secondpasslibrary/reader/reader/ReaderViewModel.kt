@@ -35,6 +35,8 @@ import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginal
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
 import com.secondpasslibrary.reader.reader.progress.SplReaderProgressWriter
 import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadataController
+import com.secondpasslibrary.reader.reader.session.ReaderSessionReconciler
+import com.secondpasslibrary.reader.reader.session.ReaderSessionReconciliationController
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import com.secondpasslibrary.reader.reader.session.SplReaderSessionCoordinator
 import com.secondpasslibrary.reader.reader.session.SplReaderSessionMetadataWriter
@@ -44,10 +46,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 @HiltViewModel
@@ -64,6 +68,7 @@ internal class ReaderViewModel @Inject constructor(
     marginaliaLayerPreferenceStore: ReaderMarginaliaLayerPreferenceStore,
     marginaliaLayerVisibilityStore: ReaderMarginaliaLayerVisibilityStore,
     sessionMetadataWriter: SplReaderSessionMetadataWriter,
+    private val sessionReconciler: ReaderSessionReconciler,
     localReaderStateStore: LocalReaderStateStore
 ) : ViewModel() {
     private val progressSyncJob = SupervisorJob()
@@ -117,6 +122,15 @@ internal class ReaderViewModel @Inject constructor(
     private val highlightActivations = ReaderHighlightActivationController(viewModelScope) {
         annotationMutations.accept(ReaderAnnotationMutationIntent.BeginEdit(it))
     }
+    private val reconciliationEvents = Channel<ReaderConnectionEvent>(Channel.BUFFERED)
+    private val sessionReconciliation = ReaderSessionReconciliationController(
+        sessionReconciler,
+        viewModelScope,
+        controller::acceptReconciledSession,
+        onAuthenticationRejected = {
+            reconciliationEvents.trySend(ReaderConnectionEvent.AuthenticationRejected)
+        }
+    )
     private var exitJob: Job? = null
     private var bookmarkCaptureJob: Job? = null
     private var activeProfile: ConnectionProfile? = null
@@ -148,7 +162,8 @@ internal class ReaderViewModel @Inject constructor(
         },
         sessionMetadata.authenticationRequiredEvents.map {
             ReaderConnectionEvent.AuthenticationRejected
-        }
+        },
+        reconciliationEvents.receiveAsFlow()
     )
 
     init {
@@ -157,6 +172,7 @@ internal class ReaderViewModel @Inject constructor(
                 val ready = readerState as? ReaderState.Ready
                 val session = ready?.session
                 if (ready == null || session == null) {
+                    sessionReconciliation.clear()
                     selections.detach()
                     annotationsController.clear()
                     marginaliaLayersController.clear()
@@ -188,6 +204,13 @@ internal class ReaderViewModel @Inject constructor(
                             serverWritesAvailable
                         )
                         if (!ready.localOnly) sessionMetadata.select(profile, session)
+                        sessionReconciliation.select(
+                            profile,
+                            entry.profileId,
+                            entry.bookId,
+                            session,
+                            ready.localOnly
+                        )
                     }
                 }
             }
@@ -380,11 +403,13 @@ internal class ReaderViewModel @Inject constructor(
         selections.dismiss()
     }
 
-    fun setAuthorityAvailable(available: Boolean) {
+    fun setAvailability(availability: AppAvailability) {
+        val available = availability !is AppAvailability.Offline
         serverWritesAvailable = available
         annotationMutations.setServerAvailable(available)
         controller.setAuthorityAvailable(available)
         marginaliaLayerPolicy.setAuthorityAvailable(available)
+        sessionReconciliation.setAvailability(availability)
     }
 
     fun flushForBackground() {
@@ -401,6 +426,8 @@ internal class ReaderViewModel @Inject constructor(
 
     override fun onCleared() {
         bookmarkCaptureJob?.cancel()
+        sessionReconciliation.clear()
+        reconciliationEvents.close()
         annotationsController.close()
         visiblePageBookmarks.clear()
         marginaliaLayerPolicy.clear()

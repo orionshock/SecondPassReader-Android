@@ -139,6 +139,12 @@ internal class ReaderController(
         progressSyncController.setAuthorityAvailable(available)
     }
 
+    fun acceptReconciledSession(expectedLocalSessionId: String, session: ReaderSessionContext) {
+        val ready = mutableState.value as? ReaderState.Ready ?: return
+        if (ready.session?.sessionId != expectedLocalSessionId) return
+        mutableState.value = ready.copy(session = session, localOnly = false)
+    }
+
     suspend fun flushLatestProgress() = progressSyncController.flushLatest()
 
     fun updateAppearance(appearance: ReaderAppearance) {
@@ -256,7 +262,7 @@ internal class ReaderController(
                 current.profile.serverOrigin,
                 current.profileId
             )
-            progressSyncController.start(profile, progressController.state)
+            progressSyncController.start(profile, progressController.state, serverSessionId)
         }
     }
 

@@ -138,6 +138,62 @@ class ReaderControllerTest {
         }
 
     @Test
+    fun `reconciliation binding does not deliver pending progress`() = runTest {
+        val file = Files.createTempFile("reader-bind-only", ".epub").toFile()
+        val engine = FakeEngine()
+        val serverWrites = mutableListOf<String>()
+        val controller = ReaderController(
+            assetResolver = ReaderBookAssetResolver { _, _ ->
+                ResolvedReaderBook("Cached title", file, reused = true)
+            },
+            engineOpener = ReaderEngineOpener { engine },
+            sessionCoordinator = ReaderSessionCoordinator { _, _ -> error("server call") },
+            progressWriter = ReaderProgressWriter { _, _, cfi ->
+                serverWrites += cfi.value
+                ReaderProgressWriteOutcome.Success
+            },
+            scope = this,
+            launchPolicy = ReaderLaunchAdmission { _, _, _, _ ->
+                ReaderLaunchDecision.LOCAL_AVAILABLE
+            },
+            localStateStore = fakeLocalStore()
+        )
+        controller.initialize(
+            profile(),
+            "profile-1",
+            "book-1",
+            null,
+            "Cached title",
+            AppAvailability.Offline(AppAvailabilityReason.UNREACHABLE)
+        )
+        advanceUntilIdle()
+        engine.navigator.currentPositionOutcome = EpubCfiOutcome.Success(EpubCfi(NEXT_CFI))
+        engine.move(1)
+        advanceUntilIdle()
+
+        controller.setAuthorityAvailable(true)
+        controller.acceptReconciledSession(
+            "local-session",
+            ReaderSessionContext(
+                sessionId = "local-session",
+                status = ReaderSessionStatus.ACTIVE,
+                savedProgressCfi = NEXT_CFI,
+                serverSessionId = "server-session",
+                identityKind = ReaderSessionIdentityKind.SERVER_CONFIRMED
+            )
+        )
+        advanceUntilIdle()
+
+        assertTrue(serverWrites.isEmpty())
+        assertEquals(
+            "server-session",
+            (controller.state.value as ReaderState.Ready).session?.serverSessionId
+        )
+        controller.close()
+        advanceUntilIdle()
+    }
+
+    @Test
     fun `download then publication open reaches ready in order`() = runTest {
         val file = Files.createTempFile("reader", ".epub").toFile()
         val engine = FakeEngine()

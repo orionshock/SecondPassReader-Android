@@ -63,6 +63,31 @@ class ReaderProgressSyncControllerTest {
     }
 
     @Test
+    fun `bound local Session writes server identity and acknowledges local identity`() = runTest {
+        val confirmations = mutableListOf<WriteCall>()
+        val writer = RecordingWriter()
+        val progress = MutableStateFlow<ReaderProgressState?>(null)
+        val controller = ReaderProgressSyncController(
+            this,
+            writer,
+            onProgressConfirmed = { sessionId, cfi ->
+                confirmations += WriteCall(sessionId, cfi)
+            }
+        )
+        controller.setAuthorityAvailable(true)
+        controller.start(profile(), progress, serverSessionId = "server-session")
+        progress.value = activeProgress(CFI_A, 1, sessionId = "local-session")
+        runCurrent()
+
+        advanceTimeBy(3_000)
+        runCurrent()
+
+        assertEquals(listOf(WriteCall("server-session", CFI_A)), writer.calls)
+        assertEquals(listOf(WriteCall("local-session", CFI_A)), confirmations)
+        controller.close()
+    }
+
+    @Test
     fun `rolling candidates coalesce to latest after quiet window`() = runTest {
         val writer = RecordingWriter()
         val progress = MutableStateFlow<ReaderProgressState?>(null)

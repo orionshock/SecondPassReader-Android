@@ -39,6 +39,15 @@ internal abstract class LocalReaderDao {
         localSessionId: String
     ): LocalReaderSessionEntity?
 
+    @Query(
+        "SELECT * FROM reader_sessions WHERE accountKey = :accountKey " +
+            "AND serverSessionId = :serverSessionId LIMIT 1"
+    )
+    abstract suspend fun sessionByServerId(
+        accountKey: String,
+        serverSessionId: String
+    ): LocalReaderSessionEntity?
+
     @Upsert
     abstract suspend fun upsertSession(session: LocalReaderSessionEntity)
 
@@ -67,6 +76,48 @@ internal abstract class LocalReaderDao {
             "WHERE accountKey = :accountKey AND localSessionId = :localSessionId"
     )
     abstract suspend fun touchSession(accountKey: String, localSessionId: String, lastUsedAt: Long)
+
+    @Transaction
+    open suspend fun bindAuthoritativeSession(
+        session: LocalReaderSessionEntity,
+        serverProgressCfi: String?,
+        acknowledgeEstablishment: Boolean,
+        updatedAtEpochMillis: Long
+    ) {
+        session.serverSessionId?.let { serverSessionId ->
+            val duplicate = sessionByServerId(session.accountKey, serverSessionId)
+                ?.takeIf { it.localSessionId != session.localSessionId }
+            if (duplicate != null) {
+                require(!hasPendingWorkForSession(session.accountKey, duplicate.localSessionId)) {
+                    "A duplicate server Session binding still owns pending Reader work."
+                }
+                deleteSession(session.accountKey, duplicate.localSessionId)
+            }
+        }
+        val currentProgress = progress(session.accountKey, session.localSessionId)
+        upsertSession(session)
+        if (currentProgress?.provenance != LocalReaderWriteProvenance.LOCAL_PENDING.name) {
+            if (serverProgressCfi == null) {
+                deleteProgress(session.accountKey, session.localSessionId)
+            } else {
+                upsertProgress(
+                    LocalReaderProgressEntity(
+                        session.accountKey,
+                        session.localSessionId,
+                        serverProgressCfi,
+                        updatedAtEpochMillis,
+                        LocalReaderWriteProvenance.SERVER_CONFIRMED.name
+                    )
+                )
+            }
+        }
+        if (acknowledgeEstablishment) {
+            deleteOutbox(
+                session.accountKey,
+                ReaderOutboxIdentity.session(session.localSessionId)
+            )
+        }
+    }
 
     @Query(
         "SELECT * FROM reader_progress WHERE accountKey = :accountKey " +
@@ -231,8 +282,23 @@ internal abstract class LocalReaderDao {
     @Query("SELECT EXISTS(SELECT 1 FROM reader_outbox WHERE accountKey = :accountKey LIMIT 1)")
     abstract suspend fun hasPendingWork(accountKey: String): Boolean
 
+    @Query(
+        "SELECT EXISTS(SELECT 1 FROM reader_outbox WHERE accountKey = :accountKey " +
+            "AND localSessionId = :localSessionId LIMIT 1)"
+    )
+    abstract suspend fun hasPendingWorkForSession(
+        accountKey: String,
+        localSessionId: String
+    ): Boolean
+
     @Query("DELETE FROM reader_outbox WHERE accountKey = :accountKey AND outboxId = :outboxId")
     abstract suspend fun deleteOutbox(accountKey: String, outboxId: String)
+
+    @Query(
+        "DELETE FROM reader_sessions WHERE accountKey = :accountKey " +
+            "AND localSessionId = :localSessionId"
+    )
+    abstract suspend fun deleteSession(accountKey: String, localSessionId: String)
 
     @Query("DELETE FROM reader_sessions WHERE accountKey = :accountKey")
     abstract suspend fun purgeAccount(accountKey: String)

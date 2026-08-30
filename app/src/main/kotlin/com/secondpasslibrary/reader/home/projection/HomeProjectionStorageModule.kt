@@ -7,8 +7,10 @@ import com.secondpasslibrary.reader.connection.AppAccountLocalDataCleaner
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderDao
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
 import com.secondpasslibrary.reader.reader.persistence.ReaderOutboxStore
+import com.secondpasslibrary.reader.reader.persistence.ReaderSessionBindingStore
 import com.secondpasslibrary.reader.reader.persistence.RoomLocalReaderStateStore
 import com.secondpasslibrary.reader.reader.persistence.RoomReaderOutboxStore
+import com.secondpasslibrary.reader.reader.persistence.RoomReaderSessionBindingStore
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -36,6 +38,11 @@ internal abstract class HomeProjectionStorageModule {
 
     @Binds
     abstract fun bindReaderOutboxStore(store: RoomReaderOutboxStore): ReaderOutboxStore
+
+    @Binds
+    abstract fun bindReaderSessionBindingStore(
+        store: RoomReaderSessionBindingStore
+    ): ReaderSessionBindingStore
 
     companion object {
         @Provides
