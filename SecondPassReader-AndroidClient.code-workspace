@@ -6,6 +6,8 @@
     }
   ],
   "settings": {
+    "gradleKotlin.gradleForJava.integrationMode": "coexist",
+    "gradleKotlin.taskDiscovery.autoHydrateOnActivation": "auto",
     "files.associations": {
       "*.gradle.kts": "kotlin"
     },
@@ -78,6 +80,8 @@
       "outdir": ".linecount"
     },
     "LineCount.sort": "filename",
-    "LineCount.order": "asc"
+    "LineCount.order": "asc",
+    "gradle.autoDetect": "off",
+    "java.gradle.buildServer.enabled": "off"
   }
 }

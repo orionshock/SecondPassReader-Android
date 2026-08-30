@@ -1,0 +1,88 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Test: JVM — all",
+      "type": "process",
+      "command": "${workspaceFolder}/gradlew",
+      "windows": {
+        "command": "${workspaceFolder}\\gradlew.bat"
+      },
+      "args": ["test"],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Test: JVM — focused",
+      "type": "process",
+      "command": "${workspaceFolder}/gradlew",
+      "windows": {
+        "command": "${workspaceFolder}\\gradlew.bat"
+      },
+      "args": [
+        ":app:testDebugUnitTest",
+        "--tests",
+        "${input:jvmTestFilter}"
+      ],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Test: Android — connected all",
+      "type": "process",
+      "command": "${workspaceFolder}/gradlew",
+      "windows": {
+        "command": "${workspaceFolder}\\gradlew.bat"
+      },
+      "args": [":app:connectedDebugAndroidTest"],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Test: Android — connected focused",
+      "type": "process",
+      "command": "${workspaceFolder}/gradlew",
+      "windows": {
+        "command": "${workspaceFolder}\\gradlew.bat"
+      },
+      "args": [
+        ":app:connectedDebugAndroidTest",
+        "-Pandroid.testInstrumentationRunnerArguments.class=${input:androidTestClass}"
+      ],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Reader: validation gate",
+      "type": "process",
+      "command": "${workspaceFolder}/gradlew",
+      "windows": {
+        "command": "${workspaceFolder}\\gradlew.bat"
+      },
+      "args": [
+        "test",
+        "detekt",
+        "ktlintCheck",
+        "staticHygiene",
+        "assembleDebug",
+        "readerBoundaryCheck"
+      ],
+      "group": "test",
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "jvmTestFilter",
+      "type": "promptString",
+      "description": "Gradle --tests filter (class or class.method)",
+      "default": "*ReaderHighlightActivationControllerTest"
+    },
+    {
+      "id": "androidTestClass",
+      "type": "promptString",
+      "description": "Instrumentation class, optionally followed by #method",
+      "default": "com.secondpasslibrary.reader.reader.ui.ReaderUiIntegrationTest"
+    }
+  ]
+}
