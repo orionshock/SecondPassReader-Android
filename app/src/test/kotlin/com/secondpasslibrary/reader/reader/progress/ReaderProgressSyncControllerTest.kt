@@ -40,6 +40,29 @@ class ReaderProgressSyncControllerTest {
     }
 
     @Test
+    fun `successful write acknowledges exact Session and CFI`() = runTest {
+        val confirmations = mutableListOf<WriteCall>()
+        val progress = MutableStateFlow<ReaderProgressState?>(null)
+        val controller = ReaderProgressSyncController(
+            this,
+            RecordingWriter(),
+            onProgressConfirmed = { sessionId, cfi ->
+                confirmations += WriteCall(sessionId, cfi)
+            }
+        )
+        controller.setAuthorityAvailable(true)
+        controller.start(profile(), progress)
+        progress.value = activeProgress(CFI_A, 1)
+        runCurrent()
+
+        advanceTimeBy(3_000)
+        runCurrent()
+
+        assertEquals(listOf(WriteCall("session-1", CFI_A)), confirmations)
+        controller.close()
+    }
+
+    @Test
     fun `rolling candidates coalesce to latest after quiet window`() = runTest {
         val writer = RecordingWriter()
         val progress = MutableStateFlow<ReaderProgressState?>(null)

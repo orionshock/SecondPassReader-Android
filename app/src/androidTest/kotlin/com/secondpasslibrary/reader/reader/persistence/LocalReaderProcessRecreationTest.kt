@@ -47,6 +47,7 @@ class LocalReaderProcessRecreationTest {
         val reopenedDatabase = open(context, databaseName)
         try {
             val reopenedStore = RoomLocalReaderStateStore(reopenedDatabase.localReaderDao())
+            val reopenedOutbox = RoomReaderOutboxStore(reopenedDatabase.localReaderDao())
             val reopenedSession = reopenedStore.selectOfflineSession(account, "book-1")
             val annotation = reopenedStore.readAnnotations(
                 account,
@@ -57,6 +58,24 @@ class LocalReaderProcessRecreationTest {
             assertEquals(session.sessionId, reopenedSession.sessionId)
             assertEquals(CFI, reopenedSession.savedProgressCfi)
             assertEquals("offline note", annotation.note)
+            val intents = reopenedOutbox.pendingReaderIntents(account, reopenedSession.sessionId)
+            assertEquals(3, intents.size)
+            assertEquals(1, intents.count { it is ReaderOutboxIntent.EstablishSession })
+            assertEquals(
+                CFI,
+                (
+                    intents.single { it is ReaderOutboxIntent.Progress } as
+                        ReaderOutboxIntent.Progress
+                    ).cfi
+            )
+            assertEquals(
+                "offline note",
+                (
+                    intents.single {
+                        it is ReaderOutboxIntent.AnnotationUpsert
+                    } as ReaderOutboxIntent.AnnotationUpsert
+                    ).note
+            )
         } finally {
             reopenedDatabase.close()
             context.deleteDatabase(databaseName)

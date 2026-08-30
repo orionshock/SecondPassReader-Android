@@ -49,6 +49,12 @@ internal interface LocalReaderStateStore {
         provenance: LocalReaderWriteProvenance
     )
 
+    suspend fun acknowledgeProgress(
+        account: LocalReaderAccountKey,
+        localSessionId: String,
+        cfi: String
+    )
+
     suspend fun readAnnotations(
         account: LocalReaderAccountKey,
         localSessionId: String
@@ -81,6 +87,9 @@ internal class RoomLocalReaderStateStore @Inject constructor(private val dao: Lo
         val selected = dao.activeServerSession(account.value, bookId)
             ?: dao.activeProvisionalSession(account.value, bookId)
             ?: createProvisional(account, bookId, now)
+        if (selected.identityKind == ReaderSessionIdentityKind.PROVISIONAL.name) {
+            dao.upsertOutbox(selected.toEstablishmentOutbox(now))
+        }
         dao.touchSession(account.value, selected.localSessionId, now)
         return selected.toContext(dao.progress(account.value, selected.localSessionId)?.cfi)
     }
@@ -123,14 +132,34 @@ internal class RoomLocalReaderStateStore @Inject constructor(private val dao: Lo
         ) {
             return
         }
-        dao.upsertProgress(
-            LocalReaderProgressEntity(
-                account.value,
-                localSessionId,
-                cfi,
-                Instant.now().toEpochMilli(),
-                provenance.name
-            )
+        val now = Instant.now().toEpochMilli()
+        val progress = LocalReaderProgressEntity(
+            account.value,
+            localSessionId,
+            cfi,
+            now,
+            provenance.name
+        )
+        dao.writeProgress(
+            progress,
+            if (provenance == LocalReaderWriteProvenance.LOCAL_PENDING) {
+                progress.toOutbox(session.bookId)
+            } else {
+                null
+            }
+        )
+    }
+
+    override suspend fun acknowledgeProgress(
+        account: LocalReaderAccountKey,
+        localSessionId: String,
+        cfi: String
+    ) {
+        dao.acknowledgeProgress(
+            account.value,
+            localSessionId,
+            cfi,
+            Instant.now().toEpochMilli()
         )
     }
 
@@ -150,21 +179,38 @@ internal class RoomLocalReaderStateStore @Inject constructor(private val dao: Lo
         if (session == null || session.serverStatus == ReaderSessionStatus.CLOSED.name) {
             return readAnnotations(account, localSessionId)
         }
+        val now = Instant.now().toEpochMilli()
         when (request) {
-            is ReaderAnnotationMutationRequest.UpsertHighlight ->
-                dao.upsertAnnotation(request.toEntity(account, localSessionId))
+            is ReaderAnnotationMutationRequest.UpsertHighlight -> {
+                val annotation = request.toEntity(account, localSessionId)
+                dao.writeAnnotationUpsert(
+                    annotation,
+                    annotation.toUpsertOutbox(session.bookId, now)
+                )
+            }
 
-            is ReaderAnnotationMutationRequest.UpsertBookmark ->
-                dao.upsertAnnotation(request.toEntity(account, localSessionId))
+            is ReaderAnnotationMutationRequest.UpsertBookmark -> {
+                val annotation = request.toEntity(account, localSessionId)
+                dao.writeAnnotationUpsert(
+                    annotation,
+                    annotation.toUpsertOutbox(session.bookId, now)
+                )
+            }
 
             is ReaderAnnotationMutationRequest.Delete -> {
-                val existing = dao.annotation(account.value, localSessionId, request.clientId)
-                    ?: request.localSnapshot?.toEntity(account, localSessionId)
-                if (existing != null) {
-                    dao.upsertAnnotation(
-                        existing.copy(syncState = LocalAnnotationSync.LOCAL_DELETED)
+                dao.writeAnnotationDelete(
+                    account.value,
+                    localSessionId,
+                    request.clientId,
+                    request.localSnapshot?.toEntity(account, localSessionId),
+                    annotationDeleteOutbox(
+                        account,
+                        session.bookId,
+                        localSessionId,
+                        request.clientId,
+                        now
                     )
-                }
+                )
             }
         }
         return readAnnotations(account, localSessionId)
@@ -182,7 +228,10 @@ internal class RoomLocalReaderStateStore @Inject constructor(private val dao: Lo
             account.value,
             localSessionId,
             annotations.map { it.toEntity(account, localSessionId) } +
-                pending
+                pending,
+            confirmedClientId?.let {
+                ReaderOutboxIdentity.annotation(localSessionId, it)
+            }
         )
     }
 
@@ -212,7 +261,6 @@ internal class RoomLocalReaderStateStore @Inject constructor(private val dao: Lo
             createdAtEpochMillis = now,
             lastUsedAtEpochMillis = now
         )
-        dao.insertSessionIfAbsent(candidate)
-        return dao.activeProvisionalSession(account.value, bookId) ?: candidate
+        return dao.ensureProvisionalSession(candidate, candidate.toEstablishmentOutbox(now))
     }
 }

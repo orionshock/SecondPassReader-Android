@@ -5,6 +5,7 @@ import androidx.room3.Database
 import androidx.room3.RoomDatabase
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderAnnotationEntity
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderDao
+import com.secondpasslibrary.reader.reader.persistence.LocalReaderOutboxEntity
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderProgressEntity
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderSessionEntity
 
@@ -16,10 +17,11 @@ import com.secondpasslibrary.reader.reader.persistence.LocalReaderSessionEntity
         HomeShelfPreviewBookEntity::class,
         LocalReaderSessionEntity::class,
         LocalReaderProgressEntity::class,
-        LocalReaderAnnotationEntity::class
+        LocalReaderAnnotationEntity::class,
+        LocalReaderOutboxEntity::class
     ],
-    version = 2,
-    autoMigrations = [AutoMigration(from = 1, to = 2)],
+    version = 3,
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
     exportSchema = true
 )
 internal abstract class SecondPassReaderDatabase : RoomDatabase() {

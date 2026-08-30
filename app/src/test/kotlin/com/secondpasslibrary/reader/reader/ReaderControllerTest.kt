@@ -573,6 +573,12 @@ class ReaderControllerTest {
             provenance: LocalReaderWriteProvenance
         ) = onProgress(cfi)
 
+        override suspend fun acknowledgeProgress(
+            account: LocalReaderAccountKey,
+            localSessionId: String,
+            cfi: String
+        ) = Unit
+
         override suspend fun readAnnotations(
             account: LocalReaderAccountKey,
             localSessionId: String

@@ -42,7 +42,8 @@ internal enum class ReaderProgressFlushResult {
 internal class ReaderProgressSyncController(
     private val scope: CoroutineScope,
     private val writer: ReaderProgressWriter,
-    private val onAuthenticationRejected: () -> Unit = {}
+    private val onAuthenticationRejected: () -> Unit = {},
+    private val onProgressConfirmed: suspend (String, EpubCfi) -> Unit = { _, _ -> }
 ) : AutoCloseable {
     private val events = Channel<SyncEvent>(Channel.UNLIMITED)
     private val bindingIds = AtomicLong()
@@ -195,17 +196,23 @@ internal class ReaderProgressSyncController(
         return pump(updated)
     }
 
-    private fun writeCompleted(current: SyncModel, event: SyncEvent.WriteCompleted): SyncModel {
+    private suspend fun writeCompleted(
+        current: SyncModel,
+        event: SyncEvent.WriteCompleted
+    ): SyncModel {
         if (event.bindingId != current.bindingId || event.version != current.inFlightVersion) {
             return current
         }
         writeJob = null
         val updated = when (val outcome = event.outcome) {
-            ReaderProgressWriteOutcome.Success -> current.copy(
-                syncedVersion = maxOf(current.syncedVersion, event.version),
-                inFlightVersion = null,
-                lastFailure = null
-            )
+            ReaderProgressWriteOutcome.Success -> {
+                runCatching { onProgressConfirmed(event.sessionId, event.cfi) }
+                current.copy(
+                    syncedVersion = maxOf(current.syncedVersion, event.version),
+                    inFlightVersion = null,
+                    lastFailure = null
+                )
+            }
 
             is ReaderProgressWriteOutcome.Failure -> current.copy(
                 inFlightVersion = null,
@@ -242,7 +249,15 @@ internal class ReaderProgressSyncController(
         val started = model.copy(inFlightVersion = version)
         writeJob = scope.launch {
             val outcome = writer.replace(submission.profile, submission.sessionId, submission.cfi)
-            events.send(SyncEvent.WriteCompleted(model.bindingId, version, outcome))
+            events.send(
+                SyncEvent.WriteCompleted(
+                    model.bindingId,
+                    version,
+                    submission.sessionId,
+                    submission.cfi,
+                    outcome
+                )
+            )
         }
         return started
     }
@@ -362,6 +377,8 @@ internal class ReaderProgressSyncController(
         data class WriteCompleted(
             val bindingId: Long,
             val version: Long,
+            val sessionId: String,
+            val cfi: EpubCfi,
             val outcome: ReaderProgressWriteOutcome
         ) : SyncEvent
     }

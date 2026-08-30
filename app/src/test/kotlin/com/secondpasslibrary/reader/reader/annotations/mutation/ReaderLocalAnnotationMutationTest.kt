@@ -84,6 +84,12 @@ class ReaderLocalAnnotationMutationTest {
             provenance: LocalReaderWriteProvenance
         ) = Unit
 
+        override suspend fun acknowledgeProgress(
+            account: LocalReaderAccountKey,
+            localSessionId: String,
+            cfi: String
+        ) = Unit
+
         override suspend fun readAnnotations(
             account: LocalReaderAccountKey,
             localSessionId: String

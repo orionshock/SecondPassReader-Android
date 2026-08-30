@@ -45,6 +45,23 @@ internal abstract class LocalReaderDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     abstract suspend fun insertSessionIfAbsent(session: LocalReaderSessionEntity): Long
 
+    @Transaction
+    open suspend fun ensureProvisionalSession(
+        candidate: LocalReaderSessionEntity,
+        establishment: LocalReaderOutboxEntity
+    ): LocalReaderSessionEntity {
+        insertSessionIfAbsent(candidate)
+        val selected =
+            requireNotNull(activeProvisionalSession(candidate.accountKey, candidate.bookId))
+        upsertOutbox(
+            establishment.copy(
+                outboxId = ReaderOutboxIdentity.session(selected.localSessionId),
+                localSessionId = selected.localSessionId
+            )
+        )
+        return selected
+    }
+
     @Query(
         "UPDATE reader_sessions SET lastUsedAtEpochMillis = :lastUsedAt " +
             "WHERE accountKey = :accountKey AND localSessionId = :localSessionId"
@@ -62,6 +79,41 @@ internal abstract class LocalReaderDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertProgress(progress: LocalReaderProgressEntity)
+
+    @Transaction
+    open suspend fun writeProgress(
+        progress: LocalReaderProgressEntity,
+        outbox: LocalReaderOutboxEntity?
+    ) {
+        upsertProgress(progress)
+        if (outbox == null) {
+            deleteOutbox(
+                progress.accountKey,
+                ReaderOutboxIdentity.progress(progress.localSessionId)
+            )
+        } else {
+            upsertOutbox(outbox)
+        }
+    }
+
+    @Transaction
+    open suspend fun acknowledgeProgress(
+        accountKey: String,
+        localSessionId: String,
+        cfi: String,
+        updatedAtEpochMillis: Long
+    ) {
+        val current = progress(accountKey, localSessionId)
+        if (current?.cfi == cfi) {
+            upsertProgress(
+                current.copy(
+                    provenance = LocalReaderWriteProvenance.SERVER_CONFIRMED.name,
+                    updatedAtEpochMillis = updatedAtEpochMillis
+                )
+            )
+            deleteOutbox(accountKey, ReaderOutboxIdentity.progress(localSessionId))
+        }
+    }
 
     @Query(
         "DELETE FROM reader_progress WHERE accountKey = :accountKey " +
@@ -101,6 +153,39 @@ internal abstract class LocalReaderDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertAnnotation(annotation: LocalReaderAnnotationEntity)
 
+    @Transaction
+    open suspend fun writeAnnotationUpsert(
+        annotation: LocalReaderAnnotationEntity,
+        outbox: LocalReaderOutboxEntity
+    ) {
+        val serverAnnotationId = annotation(
+            annotation.accountKey,
+            annotation.localSessionId,
+            annotation.clientId
+        )?.serverAnnotationId
+        upsertAnnotation(annotation.copy(serverAnnotationId = serverAnnotationId))
+        upsertOutbox(outbox)
+    }
+
+    @Transaction
+    open suspend fun writeAnnotationDelete(
+        accountKey: String,
+        localSessionId: String,
+        clientId: String,
+        fallback: LocalReaderAnnotationEntity?,
+        deleteIntent: LocalReaderOutboxEntity
+    ) {
+        val current = annotation(accountKey, localSessionId, clientId) ?: fallback ?: return
+        upsertAnnotation(current.copy(syncState = LocalAnnotationSync.LOCAL_DELETED))
+        val existedOnServer = current.serverAnnotationId != null ||
+            current.syncState == LocalAnnotationSync.SERVER_CONFIRMED
+        if (existedOnServer) {
+            upsertOutbox(deleteIntent)
+        } else {
+            deleteOutbox(accountKey, ReaderOutboxIdentity.annotation(localSessionId, clientId))
+        }
+    }
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertAnnotations(annotations: List<LocalReaderAnnotationEntity>)
 
@@ -114,11 +199,40 @@ internal abstract class LocalReaderDao {
     open suspend fun replaceAnnotations(
         accountKey: String,
         localSessionId: String,
-        annotations: List<LocalReaderAnnotationEntity>
+        annotations: List<LocalReaderAnnotationEntity>,
+        acknowledgedOutboxId: String? = null
     ) {
         deleteSessionAnnotations(accountKey, localSessionId)
         upsertAnnotations(annotations)
+        acknowledgedOutboxId?.let { deleteOutbox(accountKey, it) }
     }
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun upsertOutbox(intent: LocalReaderOutboxEntity)
+
+    @Query(
+        "SELECT * FROM reader_outbox WHERE accountKey = :accountKey " +
+            "AND operationKind = 'SESSION_ESTABLISHMENT' " +
+            "ORDER BY deliveryOrder, outboxId"
+    )
+    abstract suspend fun pendingSessionEstablishments(
+        accountKey: String
+    ): List<LocalReaderOutboxEntity>
+
+    @Query(
+        "SELECT * FROM reader_outbox WHERE accountKey = :accountKey " +
+            "AND localSessionId = :localSessionId ORDER BY deliveryOrder, outboxId"
+    )
+    abstract suspend fun pendingReaderIntents(
+        accountKey: String,
+        localSessionId: String
+    ): List<LocalReaderOutboxEntity>
+
+    @Query("SELECT EXISTS(SELECT 1 FROM reader_outbox WHERE accountKey = :accountKey LIMIT 1)")
+    abstract suspend fun hasPendingWork(accountKey: String): Boolean
+
+    @Query("DELETE FROM reader_outbox WHERE accountKey = :accountKey AND outboxId = :outboxId")
+    abstract suspend fun deleteOutbox(accountKey: String, outboxId: String)
 
     @Query("DELETE FROM reader_sessions WHERE accountKey = :accountKey")
     abstract suspend fun purgeAccount(accountKey: String)

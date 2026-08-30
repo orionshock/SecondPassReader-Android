@@ -90,11 +90,17 @@ internal class ReaderController(
         progressWriter,
         onAuthenticationRejected = {
             connectionEventChannel.trySend(ReaderConnectionEvent.AuthenticationRejected)
+        },
+        onProgressConfirmed = { sessionId, cfi ->
+            progressAcknowledgementAccount?.let { account ->
+                localStateStore?.acknowledgeProgress(account, sessionId, cfi.value)
+            }
         }
     )
     val progressSync = progressSyncController.state
     private var job: Job? = null
     private var localProgressJob: Job? = null
+    private var progressAcknowledgementAccount: LocalReaderAccountKey? = null
     private var request: ReaderRequest? = null
 
     fun initialize(
@@ -146,6 +152,7 @@ internal class ReaderController(
     fun close(onProgressSyncClosed: () -> Unit = {}) {
         job?.cancel()
         localProgressJob?.cancel()
+        progressAcknowledgementAccount = null
         progressController.reset()
         closeEngine()
         connectionEventChannel.close()
@@ -164,6 +171,7 @@ internal class ReaderController(
         job?.cancel()
         localProgressJob?.cancel()
         localProgressJob = null
+        progressAcknowledgementAccount = null
         progressSyncController.reset()
         progressController.reset()
         closeEngine()
@@ -243,6 +251,11 @@ internal class ReaderController(
     ) {
         progressController.enableAfterStartupRestore()
         if (sessionStatus == ReaderSessionStatus.ACTIVE && serverSessionId != null) {
+            val current = requireNotNull(request)
+            progressAcknowledgementAccount = LocalReaderAccountKey.from(
+                current.profile.serverOrigin,
+                current.profileId
+            )
             progressSyncController.start(profile, progressController.state)
         }
     }

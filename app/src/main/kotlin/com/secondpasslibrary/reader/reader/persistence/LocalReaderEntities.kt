@@ -80,3 +80,41 @@ internal data class LocalReaderAnnotationEntity(
     val updatedAt: String,
     val syncState: String
 )
+
+@Entity(
+    tableName = "reader_outbox",
+    primaryKeys = ["accountKey", "outboxId"],
+    indices = [
+        Index(value = ["accountKey", "localSessionId", "deliveryOrder", "outboxId"]),
+        Index(
+            value = ["accountKey", "localSessionId", "operationKind", "annotationClientId"],
+            unique = true
+        )
+    ],
+    foreignKeys = [
+        ForeignKey(
+            entity = LocalReaderSessionEntity::class,
+            parentColumns = ["accountKey", "localSessionId"],
+            childColumns = ["accountKey", "localSessionId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ]
+)
+internal data class LocalReaderOutboxEntity(
+    val accountKey: String,
+    val outboxId: String,
+    val bookId: String,
+    val localSessionId: String,
+    val operationKind: String,
+    val annotationClientId: String?,
+    val deliveryOrder: Int,
+    val cfi: String?,
+    val annotationKind: String?,
+    val locationLabel: String?,
+    val quote: String?,
+    val prefix: String?,
+    val suffix: String?,
+    val note: String?,
+    val color: String?,
+    val updatedAtEpochMillis: Long
+)
