@@ -66,8 +66,5 @@ internal data class ReaderHighlightEditDraft(
 }
 
 internal enum class ReaderAnnotationMutationFailure {
-    AUTHENTICATION_REQUIRED,
-    SESSION_CLOSED,
-    REJECTED,
-    UNAVAILABLE
+    LOCAL_PERSISTENCE
 }

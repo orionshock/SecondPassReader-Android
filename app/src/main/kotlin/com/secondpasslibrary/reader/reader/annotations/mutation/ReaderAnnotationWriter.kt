@@ -44,13 +44,6 @@ internal sealed interface ReaderAnnotationMutationRequest {
     ) : ReaderAnnotationMutationRequest
 }
 
-internal fun interface ReaderAnnotationWriter {
-    suspend fun synchronize(
-        profile: ConnectionProfile,
-        request: ReaderAnnotationMutationRequest
-    ): List<ReaderAnnotation>
-}
-
 internal fun interface ReaderAnnotationBatchWriter {
     suspend fun synchronize(
         profile: ConnectionProfile,
@@ -62,14 +55,8 @@ internal fun interface ReaderAnnotationBatchWriter {
 @Singleton
 internal class SplReaderAnnotationWriter @Inject constructor(
     private val clientProvider: AuthenticatedClientProvider
-) : ReaderAnnotationWriter,
-    ReaderAnnotationBatchWriter {
+) : ReaderAnnotationBatchWriter {
     private val deliveryMutex = Mutex()
-
-    override suspend fun synchronize(
-        profile: ConnectionProfile,
-        request: ReaderAnnotationMutationRequest
-    ): List<ReaderAnnotation> = synchronize(profile, request.sessionId, listOf(request))
 
     override suspend fun synchronize(
         profile: ConnectionProfile,

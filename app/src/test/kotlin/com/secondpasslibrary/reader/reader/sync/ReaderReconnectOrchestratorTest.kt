@@ -202,6 +202,28 @@ class ReaderReconnectOrchestratorTest {
         assertEquals(0, reconciliations)
     }
 
+    @Test
+    fun `new local work while already online drains only after explicit sync request`() = runTest {
+        val events = mutableListOf<String>()
+        val store = Store(bound()).apply { intents.clear() }
+        val reconciliation = ReaderSessionReconciliation { _, _, _, local ->
+            events += "reconcile"
+            ReaderSessionReconciliationResult.Resolved(local)
+        }
+        val controller = orchestrator(store, reconciliation, events)
+        controller.update(profile(), PROFILE_ID, AppAvailability.Online)
+        advanceUntilIdle()
+        assertTrue(events.isEmpty())
+
+        store.intents += highlight("local-session")
+        store.intents += progress("local-session")
+        controller.requestSync()
+        advanceUntilIdle()
+
+        assertEquals(listOf("reconcile", "annotations", "progress"), events)
+        assertTrue(store.intents.isEmpty())
+    }
+
     private fun kotlinx.coroutines.test.TestScope.orchestrator(
         store: Store,
         reconciliation: ReaderSessionReconciliation,

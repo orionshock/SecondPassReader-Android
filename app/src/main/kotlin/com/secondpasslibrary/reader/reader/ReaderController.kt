@@ -15,15 +15,13 @@ import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
-import com.secondpasslibrary.reader.reader.persistence.LocalReaderWriteProvenance
 import com.secondpasslibrary.reader.reader.progress.ReaderProgressController
-import com.secondpasslibrary.reader.reader.progress.ReaderProgressSyncController
-import com.secondpasslibrary.reader.reader.progress.ReaderProgressWriter
+import com.secondpasslibrary.reader.reader.progress.ReaderProgressFlushResult
+import com.secondpasslibrary.reader.reader.progress.ReaderProgressPersistenceController
 import com.secondpasslibrary.reader.reader.session.ReaderProgressLoadFailure
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionCoordinator
 import com.secondpasslibrary.reader.reader.session.ReaderSessionRequest
-import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -33,7 +31,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -72,14 +69,14 @@ internal class ReaderController(
     private val assetResolver: ReaderBookAssetResolver,
     private val engineOpener: ReaderEngineOpener,
     private val sessionCoordinator: ReaderSessionCoordinator,
-    progressWriter: ReaderProgressWriter,
     private val scope: CoroutineScope,
     private val appearanceStore: ReaderAppearanceStore = DefaultReaderAppearanceStore,
-    private val progressSyncScope: CoroutineScope = scope,
+    private val progressPersistenceScope: CoroutineScope = scope,
     private val launchPolicy: ReaderLaunchAdmission = ReaderLaunchAdmission { _, _, _, _ ->
         ReaderLaunchDecision.ONLINE
     },
-    private val localStateStore: LocalReaderStateStore? = null
+    private val localStateStore: LocalReaderStateStore? = null,
+    private val onSyncRequested: () -> Unit = {}
 ) {
     private val mutableState = MutableStateFlow<ReaderState>(ReaderState.Resolving)
     val state = mutableState.asStateFlow()
@@ -87,23 +84,11 @@ internal class ReaderController(
     val connectionEvents = connectionEventChannel.receiveAsFlow()
     private val progressController = ReaderProgressController(scope)
     val progress = progressController.state
-    private val progressSyncController = ReaderProgressSyncController(
-        progressSyncScope,
-        progressWriter,
-        onAuthenticationRejected = {
-            connectionEventChannel.trySend(ReaderConnectionEvent.AuthenticationRejected)
-        },
-        onProgressConfirmed = { sessionId, cfi ->
-            progressAcknowledgementAccount?.let { account ->
-                localStateStore?.acknowledgeProgress(account, sessionId, cfi.value)
-            }
-        }
-    )
-    val progressSync = progressSyncController.state
+    private val progressPersistence = localStateStore?.let {
+        ReaderProgressPersistenceController(progressPersistenceScope, it, onSyncRequested)
+    }
     private var job: Job? = null
-    private var localProgressJob: Job? = null
     private var progressCaptureFallbackJob: Job? = null
-    private var progressAcknowledgementAccount: LocalReaderAccountKey? = null
     private var request: ReaderRequest? = null
 
     fun initialize(
@@ -138,17 +123,14 @@ internal class ReaderController(
         }
     }
 
-    fun setAuthorityAvailable(available: Boolean) {
-        progressSyncController.setAuthorityAvailable(available)
-    }
-
     fun acceptReconciledSession(expectedLocalSessionId: String, session: ReaderSessionContext) {
         val ready = mutableState.value as? ReaderState.Ready ?: return
         if (ready.session?.sessionId != expectedLocalSessionId) return
         mutableState.value = ready.copy(session = session, localOnly = false)
     }
 
-    suspend fun flushLatestProgress() = progressSyncController.flushLatest()
+    suspend fun flushLatestProgress() =
+        progressPersistence?.flushLatest() ?: ReaderProgressFlushResult.CLEAN
 
     fun updateAppearance(appearance: ReaderAppearance) {
         val engine = (state.value as? ReaderState.Ready)?.engine ?: return
@@ -160,17 +142,15 @@ internal class ReaderController(
 
     fun close(onProgressSyncClosed: () -> Unit = {}) {
         job?.cancel()
-        localProgressJob?.cancel()
         progressCaptureFallbackJob?.cancel()
-        progressAcknowledgementAccount = null
-        progressController.reset()
         closeEngine()
         connectionEventChannel.close()
-        progressSyncScope.launch {
+        progressPersistenceScope.launch {
             try {
-                progressSyncController.flushLatest()
+                progressPersistence?.flushLatest()
             } finally {
-                progressSyncController.close()
+                progressController.reset()
+                progressPersistence?.close()
                 onProgressSyncClosed()
             }
         }
@@ -179,12 +159,9 @@ internal class ReaderController(
     @Suppress("LongMethod") // Preserves staged engine ownership and failure cleanup in one job.
     private fun load(request: ReaderRequest) {
         job?.cancel()
-        localProgressJob?.cancel()
-        localProgressJob = null
         progressCaptureFallbackJob?.cancel()
         progressCaptureFallbackJob = null
-        progressAcknowledgementAccount = null
-        progressSyncController.reset()
+        progressPersistence?.reset()
         progressController.reset()
         closeEngine()
         mutableState.value = ReaderState.Resolving
@@ -215,7 +192,7 @@ internal class ReaderController(
                     mutableState.value = ready
                     openedEngine = null
                     ready.session?.let { session ->
-                        scheduleProgressCaptureFallback(ready, request.profile, session)
+                        scheduleProgressCaptureFallback(ready, session)
                     }
                     restoreProgress(ready)
                 }
@@ -226,7 +203,7 @@ internal class ReaderController(
                         progressCaptureFallbackJob = null
                         mutableState.value = ready
                         ready.session?.let { session ->
-                            startProgressSynchronization(request.profile, session)
+                            startProgressPersistence(session)
                         }
                         openedEngine = null
                     },
@@ -246,7 +223,7 @@ internal class ReaderController(
                             else -> failureKind
                         }
                         progressController.reset()
-                        progressSyncController.reset()
+                        progressPersistence?.reset()
                         mutableState.value = ReaderState.Failure(kind)
                     }
                 )
@@ -256,48 +233,18 @@ internal class ReaderController(
         }
     }
 
-    private fun startProgressSynchronization(
-        profile: ConnectionProfile,
-        session: ReaderSessionContext
-    ) {
+    private fun startProgressPersistence(session: ReaderSessionContext) {
         progressController.enableAfterStartupRestore()
         val current = requireNotNull(request)
-        startProgressPersistence(current, session)
-        if (session.status == ReaderSessionStatus.ACTIVE && session.serverSessionId != null) {
-            progressAcknowledgementAccount = LocalReaderAccountKey.from(
-                current.profile.serverOrigin,
-                current.profileId
-            )
-            progressSyncController.start(
-                profile,
-                progressController.state,
-                session.serverSessionId
-            )
-        }
-    }
-
-    private fun startProgressPersistence(request: ReaderRequest, session: ReaderSessionContext) {
-        val store = localStateStore ?: return
-        val account = LocalReaderAccountKey.from(request.profile.serverOrigin, request.profileId)
-        localProgressJob?.cancel()
-        localProgressJob = scope.launch {
-            progressController.state.collectLatest { progress ->
-                val cfi = progress?.latestCandidate ?: return@collectLatest
-                if (progress.sessionId == session.sessionId) {
-                    store.writeProgress(
-                        account,
-                        session.sessionId,
-                        cfi.value,
-                        LocalReaderWriteProvenance.LOCAL_PENDING
-                    )
-                }
-            }
-        }
+        progressPersistence?.start(
+            LocalReaderAccountKey.from(current.profile.serverOrigin, current.profileId),
+            session,
+            progressController.state
+        )
     }
 
     private fun scheduleProgressCaptureFallback(
         ready: ReaderState.Ready,
-        profile: ConnectionProfile,
         session: ReaderSessionContext
     ) {
         progressCaptureFallbackJob?.cancel()
@@ -314,7 +261,7 @@ internal class ReaderController(
                 mutableState.value = current.copy(restore = ReaderProgressRestore.SKIPPED)
                 current.engine.positionRetention.completeStartupRestore(null)
             }
-            startProgressSynchronization(profile, session)
+            startProgressPersistence(session)
         }
     }
 

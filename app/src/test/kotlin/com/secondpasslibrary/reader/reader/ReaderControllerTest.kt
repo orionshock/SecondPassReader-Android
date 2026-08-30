@@ -30,8 +30,6 @@ import com.secondpasslibrary.reader.reader.lifecycle.ReaderPositionRetention
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderWriteProvenance
-import com.secondpasslibrary.reader.reader.progress.ReaderProgressWriteOutcome
-import com.secondpasslibrary.reader.reader.progress.ReaderProgressWriter
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionCoordinator
 import com.secondpasslibrary.reader.reader.session.ReaderSessionIdentityKind
@@ -71,7 +69,6 @@ class ReaderControllerTest {
                     sessionCalls += 1
                     error("Offline Reader must not bootstrap a Session.")
                 },
-                progressWriter = writer(),
                 scope = this,
                 launchPolicy = ReaderLaunchAdmission { _, _, _, _ ->
                     ReaderLaunchDecision.LOCAL_AVAILABLE
@@ -112,7 +109,6 @@ class ReaderControllerTest {
                 },
                 engineOpener = ReaderEngineOpener { engine },
                 sessionCoordinator = ReaderSessionCoordinator { _, _ -> error("server call") },
-                progressWriter = writer(),
                 scope = this,
                 launchPolicy = ReaderLaunchAdmission { _, _, _, _ ->
                     ReaderLaunchDecision.LOCAL_AVAILABLE
@@ -142,17 +138,12 @@ class ReaderControllerTest {
     fun `reconciliation binding does not deliver pending progress`() = runTest {
         val file = Files.createTempFile("reader-bind-only", ".epub").toFile()
         val engine = FakeEngine()
-        val serverWrites = mutableListOf<String>()
         val controller = ReaderController(
             assetResolver = ReaderBookAssetResolver { _, _ ->
                 ResolvedReaderBook("Cached title", file, reused = true)
             },
             engineOpener = ReaderEngineOpener { engine },
             sessionCoordinator = ReaderSessionCoordinator { _, _ -> error("server call") },
-            progressWriter = ReaderProgressWriter { _, _, cfi ->
-                serverWrites += cfi.value
-                ReaderProgressWriteOutcome.Success
-            },
             scope = this,
             launchPolicy = ReaderLaunchAdmission { _, _, _, _ ->
                 ReaderLaunchDecision.LOCAL_AVAILABLE
@@ -172,7 +163,6 @@ class ReaderControllerTest {
         engine.move(1)
         advanceUntilIdle()
 
-        controller.setAuthorityAvailable(true)
         controller.acceptReconciledSession(
             "local-session",
             ReaderSessionContext(
@@ -185,7 +175,6 @@ class ReaderControllerTest {
         )
         advanceUntilIdle()
 
-        assertTrue(serverWrites.isEmpty())
         assertEquals(
             "server-session",
             (controller.state.value as ReaderState.Ready).session?.serverSessionId
@@ -206,7 +195,6 @@ class ReaderControllerTest {
             resolver,
             ReaderEngineOpener { engine },
             coordinator(),
-            writer(),
             this
         )
         val states = mutableListOf<ReaderState>()
@@ -244,7 +232,6 @@ class ReaderControllerTest {
             ReaderBookAssetResolver { _, _ -> ResolvedReaderBook("Book", file, reused = true) },
             ReaderEngineOpener { engine },
             coordinator(PROGRESS_CFI),
-            writer(),
             this
         )
 
@@ -274,7 +261,6 @@ class ReaderControllerTest {
             ReaderBookAssetResolver { _, _ -> ResolvedReaderBook("Book", file, reused = true) },
             ReaderEngineOpener { engine },
             coordinator(PROGRESS_CFI),
-            writer(),
             this
         )
 
@@ -309,7 +295,6 @@ class ReaderControllerTest {
             ReaderBookAssetResolver { _, _ -> ResolvedReaderBook("Book", file, reused = true) },
             ReaderEngineOpener { engine },
             coordinator(),
-            writer(),
             this,
             localStateStore = fakeLocalStore(persisted::add)
         )
@@ -334,7 +319,6 @@ class ReaderControllerTest {
             ReaderBookAssetResolver { _, _ -> ResolvedReaderBook("Book", file, reused = true) },
             ReaderEngineOpener { engine },
             coordinator(PROGRESS_CFI),
-            writer(),
             this
         )
 
@@ -364,14 +348,12 @@ class ReaderControllerTest {
             ReaderBookAssetResolver { _, _ -> ResolvedReaderBook("Book", file, reused = true) },
             ReaderEngineOpener { malformedEngine },
             coordinator(" "),
-            writer(),
             this
         )
         val rejected = ReaderController(
             ReaderBookAssetResolver { _, _ -> ResolvedReaderBook("Book", file, reused = true) },
             ReaderEngineOpener { rejectedEngine },
             coordinator(PROGRESS_CFI),
-            writer(),
             this
         )
 
@@ -404,7 +386,6 @@ class ReaderControllerTest {
                 FakeEngine()
             },
             coordinator(),
-            writer(),
             this
         )
 
@@ -426,14 +407,12 @@ class ReaderControllerTest {
             resolved,
             ReaderEngineOpener { throw ReaderEngineOpenException("broken") },
             coordinator(),
-            writer(),
             this
         )
         val noEpub = ReaderController(
             ReaderBookAssetResolver { _, _ -> throw ReaderEpubUnavailableException() },
             ReaderEngineOpener { FakeEngine() },
             coordinator(),
-            writer(),
             this
         )
 
@@ -468,7 +447,6 @@ class ReaderControllerTest {
                 }
             },
             coordinator(),
-            writer(),
             this
         )
 
@@ -488,7 +466,6 @@ class ReaderControllerTest {
             ReaderBookAssetResolver { _, _ -> throw SplClientException.AuthenticationRejected() },
             ReaderEngineOpener { FakeEngine() },
             coordinator(),
-            writer(),
             this
         )
 
@@ -527,7 +504,6 @@ class ReaderControllerTest {
             ReaderBookAssetResolver { _, _ -> ResolvedReaderBook("Book", file, reused = true) },
             opener,
             coordinator(),
-            writer(),
             this,
             FakeAppearanceStore(saved)
         )
@@ -553,7 +529,6 @@ class ReaderControllerTest {
             ReaderBookAssetResolver { _, _ -> ResolvedReaderBook("Book", file, reused = true) },
             ReaderEngineOpener { engine },
             coordinator(),
-            writer(),
             this,
             store
         )
@@ -659,8 +634,6 @@ class ReaderControllerTest {
             savedProgressCfi = progressCfi
         )
     }
-
-    private fun writer() = ReaderProgressWriter { _, _, _ -> ReaderProgressWriteOutcome.Success }
 
     private fun fakeLocalStore(onProgress: (String) -> Unit = {}) = object : LocalReaderStateStore {
         override suspend fun selectOfflineSession(account: LocalReaderAccountKey, bookId: String) =

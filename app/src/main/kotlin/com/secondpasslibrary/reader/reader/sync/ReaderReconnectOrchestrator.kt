@@ -123,12 +123,14 @@ internal class ReaderReconnectOrchestrator @Inject constructor(
 internal class ReaderReconnectController(
     private val orchestrator: ReaderReconnectOrchestrator,
     private val scope: CoroutineScope,
+    private val onRunCompleted: () -> Unit = {},
     private val onAuthenticationRequired: () -> Unit
 ) {
     private var owner: Owner? = null
     private var availability: AppAvailability? = null
     private var generation = 0L
     private var job: Job? = null
+    private var rerunRequested = false
 
     fun update(
         profile: ConnectionProfile?,
@@ -157,19 +159,36 @@ internal class ReaderReconnectController(
         availability = null
     }
 
+    /** Requests an immediate foreground reconcile-and-drain for newly committed durable work. */
+    fun requestSync() {
+        val selected = owner ?: return
+        if (availability !is AppAvailability.Online) return
+        if (job?.isActive == true) {
+            rerunRequested = true
+        } else {
+            start(selected)
+        }
+    }
+
     private fun start(selected: Owner) {
         if (job?.isActive == true) return
         val runGeneration = ++generation
         job = scope.launch {
-            val report = orchestrator.reconnect(selected.profile, selected.account)
-            if (isCurrent(selected, runGeneration) && report.authenticationRequired) {
-                onAuthenticationRequired()
-            }
+            do {
+                rerunRequested = false
+                val report = orchestrator.reconnect(selected.profile, selected.account)
+                if (isCurrent(selected, runGeneration)) onRunCompleted()
+                if (isCurrent(selected, runGeneration) && report.authenticationRequired) {
+                    onAuthenticationRequired()
+                    return@launch
+                }
+            } while (rerunRequested && isCurrent(selected, runGeneration))
         }
     }
 
     private fun cancelRun() {
         generation += 1
+        rerunRequested = false
         job?.cancel()
         job = null
     }

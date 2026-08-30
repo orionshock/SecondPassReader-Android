@@ -16,6 +16,10 @@ import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelection
 import com.secondpasslibrary.reader.reader.annotations.selection.readerLocationLabel
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiPosition
+import com.secondpasslibrary.reader.reader.persistence.LocalReaderAccountKey
+import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
+import com.secondpasslibrary.reader.reader.persistence.LocalReaderWriteProvenance
+import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
@@ -33,15 +37,9 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class ReaderAnnotationMutationControllerTest {
     @Test
-    fun `create and edit normalize quote context only when preparing a write`() = runTest {
-        val requests = mutableListOf<ReaderAnnotationMutationRequest.UpsertHighlight>()
-        val controller = controller(
-            this,
-            ReaderAnnotationWriter { _, request ->
-                requests += request as ReaderAnnotationMutationRequest.UpsertHighlight
-                emptyList()
-            }
-        )
+    fun `create and edit normalize context only when preparing local desired state`() = runTest {
+        val store = RecordingStore()
+        val controller = controller(this, store)
         controller.select(profile(), SESSION_ID, ReaderSessionStatus.ACTIVE)
         controller.accept(
             ReaderAnnotationMutationIntent.BeginCreate(
@@ -53,7 +51,7 @@ class ReaderAnnotationMutationControllerTest {
             )
         )
         controller.accept(
-            ReaderAnnotationMutationIntent.UpdateCreate(note = "  first line\n\tsecond line  ")
+            ReaderAnnotationMutationIntent.UpdateCreate(note = "  first line\n\tsecond  ")
         )
         controller.accept(ReaderAnnotationMutationIntent.SubmitCreate)
         advanceUntilIdle()
@@ -61,43 +59,37 @@ class ReaderAnnotationMutationControllerTest {
         val existing = highlight("existing").copy(
             quote = "  Stored\n\n exactly\t as returned  ",
             prefix = "\u00A0 Old\t prefix ",
-            suffix = " Old\r\n suffix ",
-            note = "old"
+            suffix = " Old\r\n suffix "
         )
         controller.accept(ReaderAnnotationMutationIntent.BeginEdit(existing))
         controller.accept(
             ReaderAnnotationMutationIntent.UpdateEdit(
-                color = ReaderAnnotationColor.BLUE,
-                note = "  edited\n\tnote  "
+                ReaderAnnotationColor.BLUE,
+                "  edited\n\tnote  "
             )
         )
         controller.accept(ReaderAnnotationMutationIntent.SaveEdit)
         advanceUntilIdle()
 
-        assertEquals("One Apocalypses always kick off...", requests[0].text)
-        assertEquals("Before context", requests[0].prefix)
-        assertEquals("After context", requests[0].suffix)
-        assertEquals("  first line\n\tsecond line  ", requests[0].note)
-        assertEquals(CFI, requests[0].cfi)
-        assertEquals("Stored exactly as returned", requests[1].text)
-        assertEquals("Old prefix", requests[1].prefix)
-        assertEquals("Old suffix", requests[1].suffix)
-        assertEquals("  edited\n\tnote  ", requests[1].note)
-        assertEquals(existing.clientId, requests[1].clientId)
-        assertEquals(existing.cfi, requests[1].cfi)
-        assertEquals(existing.locationLabel, requests[1].locationLabel)
+        val created = store.requests[0] as ReaderAnnotationMutationRequest.UpsertHighlight
+        val edited = store.requests[1] as ReaderAnnotationMutationRequest.UpsertHighlight
+        assertEquals("One Apocalypses always kick off...", created.text)
+        assertEquals("Before context", created.prefix)
+        assertEquals("After context", created.suffix)
+        assertEquals("  first line\n\tsecond  ", created.note)
+        assertEquals("Stored exactly as returned", edited.text)
+        assertEquals("Old prefix", edited.prefix)
+        assertEquals("Old suffix", edited.suffix)
+        assertEquals("  edited\n\tnote  ", edited.note)
+        assertEquals(existing.clientId, edited.clientId)
+        assertEquals(existing.cfi, edited.cfi)
     }
 
     @Test
-    fun `normalized blank quote does not submit a highlight`() = runTest {
-        var calls = 0
-        val controller = controller(
-            this,
-            ReaderAnnotationWriter { _, _ ->
-                calls += 1
-                emptyList()
-            }
-        )
+    fun `normalized blank quote does not commit or request sync`() = runTest {
+        val store = RecordingStore()
+        var syncRequests = 0
+        val controller = controller(this, store) { syncRequests += 1 }
         controller.select(profile(), SESSION_ID, ReaderSessionStatus.ACTIVE)
         controller.accept(
             ReaderAnnotationMutationIntent.BeginCreate(
@@ -107,24 +99,128 @@ class ReaderAnnotationMutationControllerTest {
         controller.accept(ReaderAnnotationMutationIntent.SubmitCreate)
         advanceUntilIdle()
 
-        assertEquals(0, calls)
+        assertTrue(store.requests.isEmpty())
+        assertEquals(0, syncRequests)
         assertFalse(controller.state.value.submitting)
     }
 
     @Test
-    fun `note editor cancel keeps create identity and draft`() = runTest {
-        val controller = controller(this, ReaderAnnotationWriter { _, _ -> emptyList() })
+    fun `each quick color commits locally with empty note and requests sync`() = runTest {
+        ReaderAnnotationColor.entries.forEach { color ->
+            val store = RecordingStore()
+            var syncRequests = 0
+            val controller = controller(this, store) { syncRequests += 1 }
+            controller.select(profile(), SESSION_ID, ReaderSessionStatus.ACTIVE)
+            controller.accept(ReaderAnnotationMutationIntent.BeginCreate(selection()))
+            val clientId = controller.state.value.pendingCreate?.clientId
+            controller.accept(ReaderAnnotationMutationIntent.UpdateCreate(note = "discarded"))
+            controller.accept(ReaderAnnotationMutationIntent.SubmitQuickCreate(color))
+            advanceUntilIdle()
+
+            val committed = store.requests.single()
+                as ReaderAnnotationMutationRequest.UpsertHighlight
+            assertEquals(color, committed.color)
+            assertEquals("", committed.note)
+            assertEquals(clientId, committed.clientId)
+            assertEquals(1, syncRequests)
+        }
+    }
+
+    @Test
+    fun `local persistence failure retains create identity and draft for retry`() = runTest {
+        val store = RecordingStore(failNext = true)
+        val controller = controller(this, store)
         controller.select(profile(), SESSION_ID, ReaderSessionStatus.ACTIVE)
         controller.accept(ReaderAnnotationMutationIntent.BeginCreate(selection()))
         val clientId = controller.state.value.pendingCreate?.clientId
+        controller.accept(
+            ReaderAnnotationMutationIntent.UpdateCreate(
+                ReaderAnnotationColor.PINK,
+                "Exact note  \n"
+            )
+        )
+        controller.accept(ReaderAnnotationMutationIntent.SubmitCreate)
+        advanceUntilIdle()
+        assertEquals(clientId, controller.state.value.pendingCreate?.clientId)
+        assertEquals("Exact note  \n", controller.state.value.pendingCreate?.note)
 
+        controller.accept(ReaderAnnotationMutationIntent.SubmitCreate)
+        advanceUntilIdle()
+        val retried = store.requests.single()
+            as ReaderAnnotationMutationRequest.UpsertHighlight
+        assertEquals(clientId, retried.clientId)
+        assertTrue(runCatching { UUID.fromString(retried.clientId) }.isSuccess)
+        assertNull(controller.state.value.pendingCreate)
+    }
+
+    @Test
+    fun `edit and delete commit exact identity while closed Session refuses writes`() = runTest {
+        val store = RecordingStore()
+        val controller = controller(this, store)
+        val original = highlight("server-highlight")
+        controller.select(profile(), SESSION_ID, ReaderSessionStatus.ACTIVE)
+        controller.accept(ReaderAnnotationMutationIntent.BeginEdit(original))
+        controller.accept(
+            ReaderAnnotationMutationIntent.UpdateEdit(ReaderAnnotationColor.ORANGE, "Revised")
+        )
+        controller.accept(ReaderAnnotationMutationIntent.SaveEdit)
+        advanceUntilIdle()
+
+        val edit = store.requests.single()
+            as ReaderAnnotationMutationRequest.UpsertHighlight
+        assertEquals(original.clientId, edit.clientId)
+        assertNotEquals(original.id, edit.clientId)
+        assertEquals(original.cfi, edit.cfi)
+        assertEquals("Revised", edit.note)
+
+        controller.accept(ReaderAnnotationMutationIntent.RequestDelete(original))
+        controller.accept(ReaderAnnotationMutationIntent.ConfirmDelete)
+        advanceUntilIdle()
+        val delete = store.requests.last() as ReaderAnnotationMutationRequest.Delete
+        assertEquals(original.clientId, delete.clientId)
+
+        controller.select(profile(), "closed", ReaderSessionStatus.CLOSED)
+        controller.accept(ReaderAnnotationMutationIntent.BeginEdit(original))
+        controller.accept(ReaderAnnotationMutationIntent.RequestDelete(original))
+        controller.accept(ReaderAnnotationMutationIntent.BeginCreate(selection()))
+        runCurrent()
+        assertEquals(2, store.requests.size)
+        assertNull(controller.state.value.editing)
+        assertNull(controller.state.value.deleting)
+        assertNull(controller.state.value.pendingCreate)
+    }
+
+    @Test
+    fun `bookmark create and delete are local-first with stable client identity`() = runTest {
+        val store = RecordingStore()
+        val controller = controller(this, store)
+        controller.select(profile(), SESSION_ID, ReaderSessionStatus.ACTIVE)
+        controller.accept(ReaderAnnotationMutationIntent.CreateBookmark(position()))
+        advanceUntilIdle()
+
+        val create = store.requests.single()
+            as ReaderAnnotationMutationRequest.UpsertBookmark
+        assertTrue(runCatching { UUID.fromString(create.clientId) }.isSuccess)
+        assertEquals(CFI, create.cfi)
+        assertEquals(readerLocationLabel(3, 0.42), create.locationLabel)
+
+        controller.accept(ReaderAnnotationMutationIntent.RequestDelete(bookmark(create.clientId)))
+        controller.accept(ReaderAnnotationMutationIntent.ConfirmDelete)
+        advanceUntilIdle()
+        assertEquals(
+            create.clientId,
+            (store.requests.last() as ReaderAnnotationMutationRequest.Delete).clientId
+        )
+    }
+
+    @Test
+    fun `note editor cancel keeps create identity and draft`() = runTest {
+        val controller = controller(this, RecordingStore())
+        controller.select(profile(), SESSION_ID, ReaderSessionStatus.ACTIVE)
+        controller.accept(ReaderAnnotationMutationIntent.BeginCreate(selection()))
+        val clientId = controller.state.value.pendingCreate?.clientId
         controller.accept(ReaderAnnotationMutationIntent.OpenCreateNote)
         controller.accept(ReaderAnnotationMutationIntent.UpdateCreate(note = "Draft note"))
-
-        assertTrue(controller.state.value.createNoteEditorVisible)
-        assertEquals(clientId, controller.state.value.pendingCreate?.clientId)
-        assertEquals("Draft note", controller.state.value.pendingCreate?.note)
-
         controller.accept(ReaderAnnotationMutationIntent.CancelCreateNote)
 
         assertFalse(controller.state.value.createNoteEditorVisible)
@@ -133,354 +229,10 @@ class ReaderAnnotationMutationControllerTest {
     }
 
     @Test
-    fun `each quick color submits immediately with empty note and stable identity`() = runTest {
-        ReaderAnnotationColor.entries.forEach { color ->
-            val requests = mutableListOf<ReaderAnnotationMutationRequest>()
-            val controller = controller(
-                this,
-                ReaderAnnotationWriter { _, request ->
-                    requests += request
-                    error("offline")
-                }
-            )
-            controller.select(profile(), SESSION_ID, ReaderSessionStatus.ACTIVE)
-            controller.accept(ReaderAnnotationMutationIntent.BeginCreate(selection()))
-            val clientId = controller.state.value.pendingCreate?.clientId
-            controller.accept(ReaderAnnotationMutationIntent.UpdateCreate(note = "discarded"))
-
-            controller.accept(ReaderAnnotationMutationIntent.SubmitQuickCreate(color))
-            advanceUntilIdle()
-
-            val submitted = requests.single() as ReaderAnnotationMutationRequest.UpsertHighlight
-            assertEquals(color, submitted.color)
-            assertEquals("", submitted.note)
-            assertEquals(clientId, submitted.clientId)
-            assertEquals(clientId, controller.state.value.pendingCreate?.clientId)
-
-            controller.accept(ReaderAnnotationMutationIntent.SubmitQuickCreate(color))
-            advanceUntilIdle()
-            assertEquals(
-                clientId,
-                (requests.last() as ReaderAnnotationMutationRequest.UpsertHighlight).clientId
-            )
-        }
-    }
-
-    @Test
-    fun `create keeps one identity and sends latest exact draft`() = runTest {
-        val requests = mutableListOf<ReaderAnnotationMutationRequest>()
-        var fail = true
-        val controller = controller(
-            this,
-            ReaderAnnotationWriter { _, request ->
-                requests += request
-                if (fail) error("offline")
-                listOf(highlight("server"))
-            }
-        )
-        controller.select(profile(), SESSION_ID, ReaderSessionStatus.ACTIVE)
-        controller.accept(ReaderAnnotationMutationIntent.BeginCreate(selection()))
-        val clientId = controller.state.value.pendingCreate?.clientId
-        controller.accept(
-            ReaderAnnotationMutationIntent.UpdateCreate(
-                color = ReaderAnnotationColor.PINK,
-                note = "Exact note  \n"
-            )
-        )
-        controller.accept(ReaderAnnotationMutationIntent.SubmitCreate)
-        advanceUntilIdle()
-
-        assertEquals(clientId, controller.state.value.pendingCreate?.clientId)
-        assertEquals("Exact note  \n", controller.state.value.pendingCreate?.note)
-
-        fail = false
-        controller.accept(
-            ReaderAnnotationMutationIntent.UpdateCreate(
-                color = ReaderAnnotationColor.BLUE,
-                note = "Latest note"
-            )
-        )
-        controller.accept(ReaderAnnotationMutationIntent.SubmitCreate)
-        advanceUntilIdle()
-
-        val retried = requests.last() as ReaderAnnotationMutationRequest.UpsertHighlight
-        assertEquals(clientId, retried.clientId)
-        assertEquals(CFI, retried.cfi)
-        assertEquals("Selected text", retried.text)
-        assertEquals("Before", retried.prefix)
-        assertEquals("After", retried.suffix)
-        assertEquals(ReaderAnnotationColor.BLUE, retried.color)
-        assertEquals("Latest note", retried.note)
-        assertTrue(runCatching { UUID.fromString(retried.clientId) }.isSuccess)
-
-        controller.accept(ReaderAnnotationMutationIntent.BeginCreate(selection()))
-        assertNotEquals(clientId, controller.state.value.pendingCreate?.clientId)
-    }
-
-    @Test
-    fun `edit preserves immutable representation and existing client identity`() = runTest {
-        val requests = mutableListOf<ReaderAnnotationMutationRequest>()
-        var reconciled = emptyList<ReaderAnnotation>()
-        val original = highlight("server-highlight")
-        val controller = controller(
-            this,
-            ReaderAnnotationWriter { _, request ->
-                requests += request
-                listOf(original.copy(color = ReaderAnnotationColor.ORANGE, note = "Revised"))
-            }
-        ) { _, annotations -> reconciled = annotations }
-        controller.select(profile(), SESSION_ID, ReaderSessionStatus.ACTIVE)
-        controller.accept(ReaderAnnotationMutationIntent.BeginEdit(original))
-
-        val initial = controller.state.value.editing
-        assertEquals(original.color, initial?.color)
-        assertEquals(original.note, initial?.note)
-
-        controller.accept(
-            ReaderAnnotationMutationIntent.UpdateEdit(
-                color = ReaderAnnotationColor.ORANGE,
-                note = "Revised"
-            )
-        )
-        controller.accept(ReaderAnnotationMutationIntent.SaveEdit)
-        advanceUntilIdle()
-
-        val request = requests.single() as ReaderAnnotationMutationRequest.UpsertHighlight
-        assertEquals(original.clientId, request.clientId)
-        assertNotEquals(original.id, request.clientId)
-        assertEquals(original.cfi, request.cfi)
-        assertEquals(original.locationLabel, request.locationLabel)
-        assertEquals(original.quote, request.text)
-        assertEquals(original.prefix, request.prefix)
-        assertEquals(original.suffix, request.suffix)
-        assertEquals(ReaderAnnotationColor.ORANGE, request.color)
-        assertEquals("Revised", request.note)
-        assertEquals(
-            ReaderAnnotationColor.ORANGE,
-            (reconciled.single() as ReaderAnnotation.Highlight).color
-        )
-    }
-
-    @Test
-    fun `unchanged edit closes without mutation and failed edit retains latest draft`() = runTest {
-        var calls = 0
-        val controller = controller(
-            this,
-            ReaderAnnotationWriter { _, _ ->
-                calls += 1
-                error("offline")
-            }
-        )
-        controller.select(profile(), SESSION_ID, ReaderSessionStatus.ACTIVE)
-        controller.accept(ReaderAnnotationMutationIntent.BeginEdit(highlight("unchanged")))
-        controller.accept(ReaderAnnotationMutationIntent.SaveEdit)
-        runCurrent()
-        assertEquals(0, calls)
-        assertNull(controller.state.value.editing)
-
-        controller.accept(ReaderAnnotationMutationIntent.BeginEdit(highlight("failed")))
-        controller.accept(
-            ReaderAnnotationMutationIntent.UpdateEdit(ReaderAnnotationColor.GREEN, "Draft note")
-        )
-        controller.accept(ReaderAnnotationMutationIntent.SaveEdit)
-        advanceUntilIdle()
-
-        assertEquals(1, calls)
-        assertEquals("client-failed", controller.state.value.editing?.annotation?.clientId)
-        assertEquals(ReaderAnnotationColor.GREEN, controller.state.value.editing?.color)
-        assertEquals("Draft note", controller.state.value.editing?.note)
-        assertFalse(controller.state.value.submitting)
-    }
-
-    @Test
-    fun `delete uses client identity and closed Session refuses all writes`() = runTest {
-        val requests = mutableListOf<ReaderAnnotationMutationRequest>()
-        var reconciled: List<ReaderAnnotation>? = null
-        val controller = controller(
-            this,
-            ReaderAnnotationWriter { _, request ->
-                requests += request
-                emptyList()
-            }
-        ) { _, annotations -> reconciled = annotations }
-        val annotation = highlight("server-row")
-        controller.select(profile(), SESSION_ID, ReaderSessionStatus.ACTIVE)
-        controller.accept(ReaderAnnotationMutationIntent.RequestDelete(annotation))
-        assertEquals(annotation, controller.state.value.deleting)
-        controller.accept(ReaderAnnotationMutationIntent.ConfirmDelete)
-        advanceUntilIdle()
-
-        val deleted = requests.single() as ReaderAnnotationMutationRequest.Delete
-        assertEquals(annotation.clientId, deleted.clientId)
-        assertNotEquals(annotation.id, deleted.clientId)
-        assertEquals(emptyList<ReaderAnnotation>(), reconciled)
-
-        controller.select(profile(), "closed", ReaderSessionStatus.CLOSED)
-        controller.accept(ReaderAnnotationMutationIntent.BeginEdit(annotation))
-        controller.accept(ReaderAnnotationMutationIntent.RequestDelete(annotation))
-        controller.accept(ReaderAnnotationMutationIntent.BeginCreate(selection()))
-        controller.accept(ReaderAnnotationMutationIntent.ConfirmDelete)
-        controller.accept(ReaderAnnotationMutationIntent.SubmitCreate)
-        runCurrent()
-        assertEquals(1, requests.size)
-        assertNull(controller.state.value.editing)
-        assertNull(controller.state.value.deleting)
-        assertNull(controller.state.value.pendingCreate)
-    }
-
-    @Test
-    fun `failed delete retains confirmation and annotation identity for retry`() = runTest {
-        val annotation = highlight("failed-delete")
-        val controller = controller(this, ReaderAnnotationWriter { _, _ -> error("offline") })
-        controller.select(profile(), SESSION_ID, ReaderSessionStatus.ACTIVE)
-        controller.accept(ReaderAnnotationMutationIntent.RequestDelete(annotation))
-        controller.accept(ReaderAnnotationMutationIntent.ConfirmDelete)
-        advanceUntilIdle()
-
-        assertEquals(annotation, controller.state.value.deleting)
-        assertEquals(ReaderAnnotationMutationFailure.UNAVAILABLE, controller.state.value.failure)
-        assertFalse(controller.state.value.submitting)
-    }
-
-    @Test
-    fun `bookmark delete uses client identity and authoritative removal`() = runTest {
-        val requests = mutableListOf<ReaderAnnotationMutationRequest>()
-        var reconciled: List<ReaderAnnotation>? = null
-        val bookmark = bookmark("server-bookmark")
-        val controller = controller(
-            this,
-            ReaderAnnotationWriter { _, request ->
-                requests += request
-                emptyList()
-            }
-        ) { _, annotations -> reconciled = annotations }
-        controller.select(profile(), SESSION_ID, ReaderSessionStatus.ACTIVE)
-        controller.accept(ReaderAnnotationMutationIntent.RequestDelete(bookmark))
-        controller.accept(ReaderAnnotationMutationIntent.ConfirmDelete)
-        advanceUntilIdle()
-
-        val request = requests.single() as ReaderAnnotationMutationRequest.Delete
-        assertEquals(bookmark.clientId, request.clientId)
-        assertNotEquals(bookmark.id, request.clientId)
-        assertEquals(emptyList<ReaderAnnotation>(), reconciled)
-    }
-
-    @Test
-    fun `bookmark create retries stable identity and reconciles authoritative order`() = runTest {
-        val requests = mutableListOf<ReaderAnnotationMutationRequest>()
-        val authoritative = listOf(bookmark("server-new"), highlight("server-existing"))
-        var fail = true
-        var reconciled = emptyList<ReaderAnnotation>()
-        val controller = controller(
-            this,
-            ReaderAnnotationWriter { _, request ->
-                requests += request
-                if (fail) error("offline")
-                authoritative
-            }
-        ) { _, annotations -> reconciled = annotations }
-        controller.select(profile(), SESSION_ID, ReaderSessionStatus.ACTIVE)
-        controller.accept(ReaderAnnotationMutationIntent.CreateBookmark(position()))
-        advanceUntilIdle()
-
-        val first = requests.single() as ReaderAnnotationMutationRequest.UpsertBookmark
-        assertTrue(runCatching { UUID.fromString(first.clientId) }.isSuccess)
-        assertEquals(CFI, first.cfi)
-        assertEquals(readerLocationLabel(3, 0.42), first.locationLabel)
-        assertEquals(first.clientId, controller.state.value.pendingBookmark?.clientId)
-
-        fail = false
-        controller.accept(ReaderAnnotationMutationIntent.RetryBookmark)
-        advanceUntilIdle()
-
-        val retried = requests.last() as ReaderAnnotationMutationRequest.UpsertBookmark
-        assertEquals(first.clientId, retried.clientId)
-        assertEquals(authoritative, reconciled)
-
-        controller.accept(ReaderAnnotationMutationIntent.CreateBookmark(position()))
-        advanceUntilIdle()
-        val independent = requests.last() as ReaderAnnotationMutationRequest.UpsertBookmark
-        assertNotEquals(first.clientId, independent.clientId)
-    }
-
-    @Test
-    fun `closed Session refuses bookmark create and bookmark delete`() = runTest {
-        val requests = mutableListOf<ReaderAnnotationMutationRequest>()
-        val controller = controller(
-            this,
-            ReaderAnnotationWriter { _, request ->
-                requests += request
-                emptyList()
-            }
-        )
-        val bookmark = bookmark("closed")
-        controller.select(profile(), SESSION_ID, ReaderSessionStatus.CLOSED)
-        controller.accept(ReaderAnnotationMutationIntent.CreateBookmark(position()))
-        controller.accept(ReaderAnnotationMutationIntent.RetryBookmark)
-        controller.accept(ReaderAnnotationMutationIntent.RequestDelete(bookmark))
-        controller.accept(ReaderAnnotationMutationIntent.ConfirmDelete)
-        runCurrent()
-
-        assertTrue(requests.isEmpty())
-        assertNull(controller.state.value.pendingBookmark)
-        assertNull(controller.state.value.deleting)
-    }
-
-    @Test
-    fun `SPL writer sends one batch upsert or delete keyed only by client ID`() = runTest {
+    fun `SPL batch writer remains the outbox transport adapter`() = runTest {
         val batches = mutableListOf<List<MarginaliaAnnotationOperation>>()
-        val delegate = FakeAuthenticatedMarginaliaClient.sessions
-        val sessions = object : AuthenticatedReadingSessionsClient by delegate {
-            override suspend fun synchronizeAnnotations(
-                sessionId: String,
-                operations: List<MarginaliaAnnotationOperation>
-            ): List<com.secondpasslibrary.client.MarginaliaAnnotation> {
-                assertEquals(SESSION_ID, sessionId)
-                batches += operations
-                return emptyList()
-            }
-        }
-        val writer = SplReaderAnnotationWriter(clientProvider(sessions))
-        writer.synchronize(profile(), upsertRequest())
-        writer.synchronize(
-            profile(),
-            ReaderAnnotationMutationRequest.UpsertBookmark(
-                SESSION_ID,
-                "client-bookmark",
-                CFI,
-                readerLocationLabel(3, 0.42)
-            )
-        )
-        writer.synchronize(
-            profile(),
-            ReaderAnnotationMutationRequest.Delete(SESSION_ID, "client-existing")
-        )
-
-        val draft = (batches.first().single() as MarginaliaAnnotationOperation.Upsert)
-            .annotation as MarginaliaAnnotationDraft.Highlight
-        assertEquals("client-existing", draft.clientId)
-        assertEquals(CFI, draft.location.cfi)
-        assertEquals("Original quote", draft.body.text)
-        assertEquals("Before", draft.body.prefix)
-        assertEquals("After", draft.body.suffix)
-        assertEquals(MarginaliaHighlightColor.PURPLE, draft.body.color)
-        assertEquals("  Exact note\n", draft.body.note)
-        val bookmarkDraft = (batches[1].single() as MarginaliaAnnotationOperation.Upsert)
-            .annotation as MarginaliaAnnotationDraft.Bookmark
-        assertEquals("client-bookmark", bookmarkDraft.clientId)
-        assertEquals(CFI, bookmarkDraft.location.cfi)
-        assertEquals(readerLocationLabel(3, 0.42), bookmarkDraft.location.locationLabel)
-        assertEquals(
-            "client-existing",
-            (batches.last().single() as MarginaliaAnnotationOperation.Delete).clientId
-        )
-    }
-
-    @Test
-    fun `SPL writer sends several outbox operations in one batch`() = runTest {
-        val batches = mutableListOf<List<MarginaliaAnnotationOperation>>()
-        val delegate = FakeAuthenticatedMarginaliaClient.sessions
-        val sessions = object : AuthenticatedReadingSessionsClient by delegate {
+        val sessions = object : AuthenticatedReadingSessionsClient by
+        FakeAuthenticatedMarginaliaClient.sessions {
             override suspend fun synchronizeAnnotations(
                 sessionId: String,
                 operations: List<MarginaliaAnnotationOperation>
@@ -498,20 +250,26 @@ class ReaderAnnotationMutationControllerTest {
                 upsertRequest(),
                 ReaderAnnotationMutationRequest.UpsertBookmark(
                     SESSION_ID,
-                    "client-batch-bookmark",
+                    "client-bookmark",
                     CFI,
                     readerLocationLabel(3, 0.42)
                 ),
-                ReaderAnnotationMutationRequest.Delete(SESSION_ID, "client-batch-delete")
+                ReaderAnnotationMutationRequest.Delete(SESSION_ID, "client-delete")
             )
         )
-        assertEquals(3, batches.last().size)
-        val batchedBookmark = (batches.last()[1] as MarginaliaAnnotationOperation.Upsert)
-            .annotation
-        assertTrue(batchedBookmark is MarginaliaAnnotationDraft.Bookmark)
+
+        val draft = (batches.single()[0] as MarginaliaAnnotationOperation.Upsert)
+            .annotation as MarginaliaAnnotationDraft.Highlight
+        assertEquals("client-existing", draft.clientId)
+        assertEquals(MarginaliaHighlightColor.PURPLE, draft.body.color)
+        assertEquals("  Exact note\n", draft.body.note)
+        assertTrue(
+            (batches.single()[1] as MarginaliaAnnotationOperation.Upsert)
+                .annotation is MarginaliaAnnotationDraft.Bookmark
+        )
         assertEquals(
-            "client-batch-delete",
-            (batches.last()[2] as MarginaliaAnnotationOperation.Delete).clientId
+            "client-delete",
+            (batches.single()[2] as MarginaliaAnnotationOperation.Delete).clientId
         )
     }
 
@@ -525,9 +283,82 @@ class ReaderAnnotationMutationControllerTest {
 
     private fun controller(
         scope: CoroutineScope,
-        writer: ReaderAnnotationWriter,
-        reconcile: (String, List<ReaderAnnotation>) -> Unit = { _, _ -> }
-    ) = ReaderAnnotationMutationController(writer, scope, reconcile)
+        store: RecordingStore,
+        onSyncRequested: () -> Unit = {}
+    ) = ReaderAnnotationMutationController(scope, store, { _, _ -> }, onSyncRequested)
+
+    private class RecordingStore(var failNext: Boolean = false) : LocalReaderStateStore {
+        val requests = mutableListOf<ReaderAnnotationMutationRequest>()
+
+        override suspend fun selectOfflineSession(account: LocalReaderAccountKey, bookId: String) =
+            error("unused")
+
+        override suspend fun retainServerSession(
+            account: LocalReaderAccountKey,
+            bookId: String,
+            session: ReaderSessionContext
+        ) = session
+
+        override suspend fun writeProgress(
+            account: LocalReaderAccountKey,
+            localSessionId: String,
+            cfi: String,
+            provenance: LocalReaderWriteProvenance
+        ) = Unit
+
+        override suspend fun acknowledgeProgress(
+            account: LocalReaderAccountKey,
+            localSessionId: String,
+            cfi: String
+        ) = Unit
+
+        override suspend fun readAnnotations(
+            account: LocalReaderAccountKey,
+            localSessionId: String
+        ) = emptyList<ReaderAnnotation>()
+
+        override suspend fun applyAnnotationMutation(
+            account: LocalReaderAccountKey,
+            localSessionId: String,
+            request: ReaderAnnotationMutationRequest
+        ): List<ReaderAnnotation> {
+            if (failNext) {
+                failNext = false
+                error("disk unavailable")
+            }
+            requests += request
+            return when (request) {
+                is ReaderAnnotationMutationRequest.UpsertHighlight -> listOf(
+                    ReaderAnnotation.Highlight(
+                        "local:${request.clientId}", request.clientId, request.cfi,
+                        request.locationLabel, "now", request.text, request.prefix,
+                        request.suffix, request.note, request.color
+                    )
+                )
+
+                is ReaderAnnotationMutationRequest.UpsertBookmark -> listOf(
+                    ReaderAnnotation.Bookmark(
+                        "local:${request.clientId}",
+                        request.clientId,
+                        request.cfi,
+                        request.locationLabel,
+                        "now"
+                    )
+                )
+
+                is ReaderAnnotationMutationRequest.Delete -> emptyList()
+            }
+        }
+
+        override suspend fun replaceAuthoritativeAnnotations(
+            account: LocalReaderAccountKey,
+            localSessionId: String,
+            annotations: List<ReaderAnnotation>,
+            acknowledgedMutation: ReaderAnnotationMutationRequest?
+        ) = Unit
+
+        override suspend fun purgeAccount(account: LocalReaderAccountKey) = Unit
+    }
 
     private fun selection() = ReaderSelection(
         EpubCfi(CFI),
@@ -538,66 +369,43 @@ class ReaderAnnotationMutationControllerTest {
     )
 
     private fun highlight(id: String) = ReaderAnnotation.Highlight(
-        id = id,
-        clientId = "client-$id",
-        cfi = CFI,
-        locationLabel = "Chapter 03 · 42%",
-        updatedAt = "2026-08-25T00:00:00Z",
-        quote = "Original quote",
-        prefix = "Before",
-        suffix = "After",
-        note = "Original note",
-        color = ReaderAnnotationColor.YELLOW
+        id, "client-$id", CFI, "Chapter 03 · 42%", "2026-08-25T00:00:00Z",
+        "Original quote", "Before", "After", "Original note", ReaderAnnotationColor.YELLOW
     )
 
-    private fun bookmark(id: String) = ReaderAnnotation.Bookmark(
-        id = id,
-        clientId = "client-$id",
-        cfi = CFI,
-        locationLabel = readerLocationLabel(3, 0.42),
-        updatedAt = "2026-08-25T00:00:00Z"
+    private fun bookmark(clientId: String) = ReaderAnnotation.Bookmark(
+        "server-bookmark",
+        clientId,
+        CFI,
+        readerLocationLabel(3, 0.42),
+        "2026-08-25T00:00:00Z"
     )
 
     private fun position() = EpubCfiPosition(EpubCfi(CFI), 3, 0.42)
 
     private fun upsertRequest() = ReaderAnnotationMutationRequest.UpsertHighlight(
-        SESSION_ID,
-        "client-existing",
-        CFI,
-        "Chapter 03 · 42%",
-        "Original quote",
-        "Before",
-        "After",
-        ReaderAnnotationColor.PURPLE,
-        "  Exact note\n"
+        SESSION_ID, "client-existing", CFI, "Chapter 03 · 42%", "Original quote",
+        "Before", "After", ReaderAnnotationColor.PURPLE, "  Exact note\n"
     )
 
     private fun clientProvider(sessions: AuthenticatedReadingSessionsClient) =
         object : AuthenticatedClientProvider {
-            override suspend fun forProfile(
-                profile: ConnectionProfile
-            ): AuthenticatedSecondPassClient = object : AuthenticatedSecondPassClient {
-                override val library: AuthenticatedLibraryClient get() = error("unused")
-                override val shelves: AuthenticatedShelvesClient get() = error("unused")
-                override val marginalia =
-                    object : com.secondpasslibrary.client.AuthenticatedMarginaliaClient {
-                        override val books = FakeAuthenticatedMarginaliaClient.books
-                        override val sessions = sessions
-                    }
-            }
+            override suspend fun forProfile(profile: ConnectionProfile) =
+                object : AuthenticatedSecondPassClient {
+                    override val library: AuthenticatedLibraryClient get() = error("unused")
+                    override val shelves: AuthenticatedShelvesClient get() = error("unused")
+                    override val marginalia =
+                        object : com.secondpasslibrary.client.AuthenticatedMarginaliaClient {
+                            override val books = FakeAuthenticatedMarginaliaClient.books
+                            override val sessions = sessions
+                        }
+                }
         }
 
     private fun profile() = ConnectionProfile(
-        serverOrigin = "https://library.example",
-        serverBaseUrl = "https://library.example/",
-        apiBaseUrl = "https://library.example/api/v1/",
-        serverName = "Library",
-        serverDescription = "",
-        serverVersion = "1",
-        serverReleaseDate = "2026-08-25",
-        clientSessionId = "client-session",
-        clientName = "Reader",
-        clientType = "reader"
+        "https://library.example", "https://library.example/",
+        "https://library.example/api/v1/", "Library", "", "1", "2026-08-25",
+        "client-session", "Reader", "reader"
     )
 }
 

@@ -28,10 +28,11 @@ internal constructor(
     private val connectionEventChannel = Channel<AppConnectionEvent>(Channel.BUFFERED)
     private val reconnect = ReaderReconnectController(
         reconnectOrchestrator,
-        viewModelScope
-    ) {
-        connectionEventChannel.trySend(AppConnectionEvent.AuthenticationRejected)
-    }
+        viewModelScope,
+        onAuthenticationRequired = {
+            connectionEventChannel.trySend(AppConnectionEvent.AuthenticationRejected)
+        }
+    )
     private val readerSyncWakeup = ReaderSyncWakeupController(readerSyncScheduler, viewModelScope)
 
     internal val state = controller.state

@@ -1,8 +1,6 @@
 package com.secondpasslibrary.reader.reader.annotations.mutation
 
 import com.secondpasslibrary.client.MAX_HIGHLIGHT_NOTE_LENGTH
-import com.secondpasslibrary.client.ReadingSessionLifecycleRejection
-import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.ReaderQuoteContextPolicy
 
@@ -73,20 +71,6 @@ internal fun validateClientId(value: String) {
     require(value.isNotBlank() && value.length <= MAX_CLIENT_ID_LENGTH) {
         "Invalid annotation client ID."
     }
-}
-
-internal fun Throwable.toMutationFailure(): ReaderAnnotationMutationFailure = when (this) {
-    is SplClientException.AuthenticationRejected ->
-        ReaderAnnotationMutationFailure.AUTHENTICATION_REQUIRED
-
-    is SplClientException.ReadingSessionLifecycleRejected -> when (reason) {
-        ReadingSessionLifecycleRejection.SESSION_CLOSED ->
-            ReaderAnnotationMutationFailure.SESSION_CLOSED
-
-        else -> ReaderAnnotationMutationFailure.REJECTED
-    }
-
-    else -> ReaderAnnotationMutationFailure.UNAVAILABLE
 }
 
 private const val MAX_CLIENT_ID_LENGTH = 255

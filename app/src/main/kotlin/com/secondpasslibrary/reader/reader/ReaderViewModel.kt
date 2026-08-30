@@ -16,7 +16,6 @@ import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotati
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderHighlightActivationController
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationController
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationIntent
-import com.secondpasslibrary.reader.reader.annotations.mutation.SplReaderAnnotationWriter
 import com.secondpasslibrary.reader.reader.annotations.mutation.captureReaderBookmarkPosition
 import com.secondpasslibrary.reader.reader.annotations.navigateToReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelectionController
@@ -32,14 +31,16 @@ import com.secondpasslibrary.reader.reader.marginalia.SplReaderMarginaliaLayerHi
 import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginaliaLayerPolicyController
 import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginaliaLayerPreferenceStore
 import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginaliaLayerVisibilityStore
+import com.secondpasslibrary.reader.reader.persistence.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
-import com.secondpasslibrary.reader.reader.progress.SplReaderProgressWriter
 import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadataController
 import com.secondpasslibrary.reader.reader.session.ReaderSessionReconciler
 import com.secondpasslibrary.reader.reader.session.ReaderSessionReconciliationController
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import com.secondpasslibrary.reader.reader.session.SplReaderSessionCoordinator
 import com.secondpasslibrary.reader.reader.session.SplReaderSessionMetadataWriter
+import com.secondpasslibrary.reader.reader.sync.ReaderReconnectController
+import com.secondpasslibrary.reader.reader.sync.ReaderReconnectOrchestrator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -60,30 +61,49 @@ internal class ReaderViewModel @Inject constructor(
     launchPolicy: ReaderLaunchPolicy,
     engineOpener: ReaderEngineOpener,
     sessionCoordinator: SplReaderSessionCoordinator,
-    progressWriter: SplReaderProgressWriter,
     appearanceStore: ReaderAppearanceStore,
     annotationsLoader: SplReaderAnnotationsLoader,
-    annotationWriter: SplReaderAnnotationWriter,
     marginaliaLayerHistoryLoader: SplReaderMarginaliaLayerHistoryLoader,
     marginaliaLayerPreferenceStore: ReaderMarginaliaLayerPreferenceStore,
     marginaliaLayerVisibilityStore: ReaderMarginaliaLayerVisibilityStore,
     sessionMetadataWriter: SplReaderSessionMetadataWriter,
     private val sessionReconciler: ReaderSessionReconciler,
-    localReaderStateStore: LocalReaderStateStore
+    reconnectOrchestrator: ReaderReconnectOrchestrator,
+    private val localReaderStateStore: LocalReaderStateStore
 ) : ViewModel() {
-    private val progressSyncJob = SupervisorJob()
-    private val progressSyncScope = CoroutineScope(progressSyncJob + Dispatchers.IO)
+    private val progressPersistenceJob = SupervisorJob()
+    private val progressPersistenceScope = CoroutineScope(progressPersistenceJob + Dispatchers.IO)
+    private val reconciliationEvents = Channel<ReaderConnectionEvent>(Channel.BUFFERED)
+    private val refreshLocalAnnotationsAfterSync: () -> Unit = refresh@{
+        val ready = controller.state.value as? ReaderState.Ready ?: return@refresh
+        val sessionId = ready.session?.sessionId ?: return@refresh
+        val profile = activeProfile ?: return@refresh
+        val profileId = entryIdentity?.profileId ?: return@refresh
+        viewModelScope.launch {
+            val account = LocalReaderAccountKey.from(profile.serverOrigin, profileId)
+            val annotations = localReaderStateStore.readAnnotations(account, sessionId)
+            annotationsController.replaceProjection(sessionId, annotations)
+        }
+    }
+    private val foregroundSync = ReaderReconnectController(
+        reconnectOrchestrator,
+        viewModelScope,
+        onAuthenticationRequired = {
+            reconciliationEvents.trySend(ReaderConnectionEvent.AuthenticationRejected)
+        },
+        onRunCompleted = refreshLocalAnnotationsAfterSync
+    )
     private val controller =
         ReaderController(
             assetResolver,
             engineOpener,
             sessionCoordinator,
-            progressWriter,
             viewModelScope,
             appearanceStore,
-            progressSyncScope,
+            progressPersistenceScope,
             launchPolicy,
-            localReaderStateStore
+            localReaderStateStore,
+            foregroundSync::requestSync
         )
     private val annotationsController = ReaderAnnotationsController(
         annotationsLoader,
@@ -111,18 +131,17 @@ internal class ReaderViewModel @Inject constructor(
         marginaliaLayersController::updateCurrentSessionMetadata
     )
     private val annotationMutations = ReaderAnnotationMutationController(
-        writer = annotationWriter,
         scope = viewModelScope,
-        onAuthoritativeAnnotations = { sessionId, annotations ->
-            annotationsController.replaceAuthoritative(sessionId, annotations)
+        localStore = localReaderStateStore,
+        onAnnotationsChanged = { sessionId, annotations ->
+            annotationsController.replaceProjection(sessionId, annotations)
             selections.dismiss()
         },
-        localStore = localReaderStateStore
+        onSyncRequested = foregroundSync::requestSync
     )
     private val highlightActivations = ReaderHighlightActivationController(viewModelScope) {
         annotationMutations.accept(ReaderAnnotationMutationIntent.BeginEdit(it))
     }
-    private val reconciliationEvents = Channel<ReaderConnectionEvent>(Channel.BUFFERED)
     private val sessionReconciliation = ReaderSessionReconciliationController(
         sessionReconciler,
         viewModelScope,
@@ -141,7 +160,6 @@ internal class ReaderViewModel @Inject constructor(
 
     val state = controller.state
     val progress = controller.progress
-    val progressSync = controller.progressSync
     val annotations = annotationsController.state
     val pageBookmarks = visiblePageBookmarks.state
     val marginaliaLayers = marginaliaLayersController.state
@@ -154,9 +172,6 @@ internal class ReaderViewModel @Inject constructor(
     val connectionEvents = merge(
         controller.connectionEvents,
         annotationsController.authenticationRequiredEvents.map {
-            ReaderConnectionEvent.AuthenticationRejected
-        },
-        annotationMutations.authenticationRequiredEvents.map {
             ReaderConnectionEvent.AuthenticationRejected
         },
         marginaliaLayersController.authenticationRequiredEvents.map {
@@ -202,8 +217,7 @@ internal class ReaderViewModel @Inject constructor(
                         annotationMutations.select(
                             profile,
                             entry.profileId,
-                            session,
-                            serverWritesAvailable
+                            session
                         )
                         if (!ready.localOnly) sessionMetadata.select(profile, session)
                         sessionReconciliation.select(
@@ -312,6 +326,7 @@ internal class ReaderViewModel @Inject constructor(
         }
         entryIdentity = nextIdentity
         activeProfile = profile
+        foregroundSync.update(profile, profileId, availability)
         controller.initialize(
             profile,
             profileId,
@@ -408,8 +423,7 @@ internal class ReaderViewModel @Inject constructor(
     fun setAvailability(availability: AppAvailability) {
         val available = availability !is AppAvailability.Offline
         serverWritesAvailable = available
-        annotationMutations.setServerAvailable(available)
-        controller.setAuthorityAvailable(available)
+        foregroundSync.update(activeProfile, entryIdentity?.profileId, availability)
         marginaliaLayerPolicy.setAuthorityAvailable(available)
         sessionReconciliation.setAvailability(availability)
     }
@@ -429,6 +443,7 @@ internal class ReaderViewModel @Inject constructor(
     override fun onCleared() {
         bookmarkCaptureJob?.cancel()
         sessionReconciliation.clear()
+        foregroundSync.clear()
         reconciliationEvents.close()
         annotationsController.close()
         visiblePageBookmarks.clear()
@@ -438,7 +453,7 @@ internal class ReaderViewModel @Inject constructor(
         annotationMutations.clear()
         sessionMetadata.clear()
         highlightActivations.clear()
-        controller.close { progressSyncJob.cancel() }
+        controller.close { progressPersistenceJob.cancel() }
     }
 }
 

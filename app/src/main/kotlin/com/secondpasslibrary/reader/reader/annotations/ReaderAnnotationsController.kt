@@ -89,8 +89,8 @@ internal class ReaderAnnotationsController(
         load(sessionId, generation)
     }
 
-    /** Reconciles a successful batch response without issuing a redundant collection GET. */
-    fun replaceAuthoritative(sessionId: String, annotations: List<ReaderAnnotation>) {
+    /** Replaces the visible projection after a committed local or authoritative Room change. */
+    fun replaceProjection(sessionId: String, annotations: List<ReaderAnnotation>) {
         if (state.value.sessionId != sessionId) return
         loadJob?.cancel()
         generation += 1

@@ -23,17 +23,14 @@ class ReaderLocalAnnotationMutationTest {
     fun `provisional annotation persists and reconciles locally without server delivery`() =
         runTest {
             val store = RecordingStore()
-            var serverCalls = 0
+            var syncRequests = 0
             val reconciled = mutableListOf<List<ReaderAnnotation>>()
             val controller = ReaderAnnotationMutationController(
-                writer = ReaderAnnotationWriter { _, _ ->
-                    serverCalls += 1
-                    error("Offline mutation must not reach SPL.")
-                },
                 scope = this,
-                onAuthoritativeAnnotations = { _, annotations -> reconciled += annotations },
-                clientIdFactory = { "client-local" },
-                localStore = store
+                localStore = store,
+                onAnnotationsChanged = { _, annotations -> reconciled += annotations },
+                onSyncRequested = { syncRequests += 1 },
+                clientIdFactory = { "client-local" }
             )
             controller.select(
                 profile(),
@@ -44,8 +41,7 @@ class ReaderLocalAnnotationMutationTest {
                     null,
                     serverSessionId = null,
                     identityKind = ReaderSessionIdentityKind.PROVISIONAL
-                ),
-                serverAvailable = false
+                )
             )
             controller.accept(
                 ReaderAnnotationMutationIntent.BeginCreate(
@@ -61,7 +57,7 @@ class ReaderLocalAnnotationMutationTest {
             val persisted = store.request as ReaderAnnotationMutationRequest.UpsertHighlight
             assertEquals("client-local", persisted.clientId)
             assertEquals(ReaderAnnotationColor.GREEN, persisted.color)
-            assertEquals(0, serverCalls)
+            assertEquals(1, syncRequests)
             assertEquals("client-local", reconciled.last().single().clientId)
         }
 
