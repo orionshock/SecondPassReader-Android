@@ -45,6 +45,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -248,7 +249,7 @@ class ReaderControllerTest {
         )
 
         controller.initialize(profile(), "profile-1", "book-1", "session-existing")
-        advanceUntilIdle()
+        runCurrent()
 
         val waiting = controller.state.value as ReaderState.Ready
         assertEquals("session-existing", requireNotNull(waiting.session).sessionId)
@@ -278,7 +279,7 @@ class ReaderControllerTest {
         )
 
         controller.initialize(profile(), "profile-1", "book-1", "session-existing")
-        advanceUntilIdle()
+        runCurrent()
         engine.move(1)
         engine.navigator.readiness.value = EpubCfiReadiness.Available
         advanceUntilIdle()
@@ -296,6 +297,59 @@ class ReaderControllerTest {
         advanceUntilIdle()
 
         assertEquals(EpubCfi(NEXT_CFI), controller.progress.value?.latestCandidate)
+        controller.close()
+    }
+
+    @Test
+    fun `settled movement is persisted locally before network acknowledgement`() = runTest {
+        val file = Files.createTempFile("reader", ".epub").toFile()
+        val engine = FakeEngine()
+        val persisted = mutableListOf<String>()
+        val controller = ReaderController(
+            ReaderBookAssetResolver { _, _ -> ResolvedReaderBook("Book", file, reused = true) },
+            ReaderEngineOpener { engine },
+            coordinator(),
+            writer(),
+            this,
+            localStateStore = fakeLocalStore(persisted::add)
+        )
+
+        controller.initialize(profile(), "profile-1", "book-1", null)
+        advanceUntilIdle()
+        engine.navigator.currentPositionOutcome = EpubCfiOutcome.Success(EpubCfi(NEXT_CFI))
+        engine.move(1)
+        advanceUntilIdle()
+
+        assertEquals(listOf(NEXT_CFI), persisted)
+        controller.close()
+    }
+
+    @Test
+    fun `stalled startup restore cannot permanently disable progress capture`() = runTest {
+        val file = Files.createTempFile("reader", ".epub").toFile()
+        val engine = FakeEngine().apply {
+            navigator.goToGate = CompletableDeferred()
+        }
+        val controller = ReaderController(
+            ReaderBookAssetResolver { _, _ -> ResolvedReaderBook("Book", file, reused = true) },
+            ReaderEngineOpener { engine },
+            coordinator(PROGRESS_CFI),
+            writer(),
+            this
+        )
+
+        controller.initialize(profile(), "profile-1", "book-1", null)
+        runCurrent()
+        assertTrue(controller.progress.value?.captureEnabled == false)
+
+        advanceTimeBy(15_000)
+        runCurrent()
+
+        assertEquals(
+            ReaderProgressRestore.SKIPPED,
+            (controller.state.value as ReaderState.Ready).restore
+        )
+        assertTrue(requireNotNull(controller.progress.value).captureEnabled)
         controller.close()
     }
 
@@ -577,10 +631,12 @@ class ReaderControllerTest {
         var goToOutcome: EpubCfiOutcome<Unit> = EpubCfiOutcome.Success(Unit)
         var currentPositionOutcome: EpubCfiOutcome<EpubCfi> =
             EpubCfiOutcome.Failure(EpubCfiFailure.VISIBLE_POSITION_UNAVAILABLE)
+        var goToGate: CompletableDeferred<Unit>? = null
         var positionRequests = 0
 
         override suspend fun goTo(cfi: EpubCfi): EpubCfiOutcome<Unit> {
             destinations += cfi
+            goToGate?.await()
             return goToOutcome
         }
 

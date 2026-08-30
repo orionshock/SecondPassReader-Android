@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
-import org.readium.r2.shared.publication.Locator
 
 /** Converts Readium's public current-locator state into settled, renderer-neutral movement events. */
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
@@ -22,16 +21,27 @@ internal class ReadiumViewportMovements(
     private val settleDelayMillis: Long = MOVEMENT_SETTLE_DELAY_MILLIS
 ) : ReaderViewportMovements,
     AutoCloseable {
-    private val tracker = SettledViewportMovementTracker<Locator>(settleDelayMillis)
+    private val pageChanges = MutableStateFlow(0L)
+    private val tracker = SettledViewportMovementTracker<Long>(settleDelayMillis)
+    private var navigator: EpubNavigatorFragment? = null
 
     override fun settled(): Flow<ReaderViewportMovement> = tracker.settled()
 
     fun bind(next: EpubNavigatorFragment) {
-        tracker.bind(next.currentLocator)
+        if (navigator === next) return
+        navigator = next
+        tracker.bind(pageChanges)
     }
 
     fun unbind(current: EpubNavigatorFragment) {
-        tracker.unbind(current.currentLocator)
+        if (navigator !== current) return
+        navigator = null
+        tracker.unbind(pageChanges)
+    }
+
+    /** Records the supported Readium pagination callback as a meaningful viewport movement. */
+    fun pageChanged() {
+        if (navigator != null) pageChanges.value += 1
     }
 
     suspend fun suppressSettledMovement(block: suspend () -> Unit) {
@@ -44,6 +54,7 @@ internal class ReadiumViewportMovements(
     }
 
     override fun close() {
+        navigator = null
         tracker.close()
     }
 

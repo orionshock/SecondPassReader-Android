@@ -29,6 +29,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,6 +37,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 internal sealed interface ReaderState {
     data object Resolving : ReaderState
@@ -100,6 +102,7 @@ internal class ReaderController(
     val progressSync = progressSyncController.state
     private var job: Job? = null
     private var localProgressJob: Job? = null
+    private var progressCaptureFallbackJob: Job? = null
     private var progressAcknowledgementAccount: LocalReaderAccountKey? = null
     private var request: ReaderRequest? = null
 
@@ -158,6 +161,7 @@ internal class ReaderController(
     fun close(onProgressSyncClosed: () -> Unit = {}) {
         job?.cancel()
         localProgressJob?.cancel()
+        progressCaptureFallbackJob?.cancel()
         progressAcknowledgementAccount = null
         progressController.reset()
         closeEngine()
@@ -177,6 +181,8 @@ internal class ReaderController(
         job?.cancel()
         localProgressJob?.cancel()
         localProgressJob = null
+        progressCaptureFallbackJob?.cancel()
+        progressCaptureFallbackJob = null
         progressAcknowledgementAccount = null
         progressSyncController.reset()
         progressController.reset()
@@ -208,19 +214,19 @@ internal class ReaderController(
                     ready.session?.let { progressController.prepare(it, engine) }
                     mutableState.value = ready
                     openedEngine = null
+                    ready.session?.let { session ->
+                        scheduleProgressCaptureFallback(ready, request.profile, session)
+                    }
                     restoreProgress(ready)
                 }
                 (result.exceptionOrNull() as? CancellationException)?.let { throw it }
                 result.fold(
                     onSuccess = { ready ->
+                        progressCaptureFallbackJob?.cancel()
+                        progressCaptureFallbackJob = null
                         mutableState.value = ready
                         ready.session?.let { session ->
-                            startProgressPersistence(request, session)
-                            startProgressSynchronization(
-                                request.profile,
-                                session.status,
-                                session.serverSessionId
-                            )
+                            startProgressSynchronization(request.profile, session)
                         }
                         openedEngine = null
                     },
@@ -252,17 +258,21 @@ internal class ReaderController(
 
     private fun startProgressSynchronization(
         profile: ConnectionProfile,
-        sessionStatus: ReaderSessionStatus,
-        serverSessionId: String?
+        session: ReaderSessionContext
     ) {
         progressController.enableAfterStartupRestore()
-        if (sessionStatus == ReaderSessionStatus.ACTIVE && serverSessionId != null) {
-            val current = requireNotNull(request)
+        val current = requireNotNull(request)
+        startProgressPersistence(current, session)
+        if (session.status == ReaderSessionStatus.ACTIVE && session.serverSessionId != null) {
             progressAcknowledgementAccount = LocalReaderAccountKey.from(
                 current.profile.serverOrigin,
                 current.profileId
             )
-            progressSyncController.start(profile, progressController.state, serverSessionId)
+            progressSyncController.start(
+                profile,
+                progressController.state,
+                session.serverSessionId
+            )
         }
     }
 
@@ -282,6 +292,29 @@ internal class ReaderController(
                     )
                 }
             }
+        }
+    }
+
+    private fun scheduleProgressCaptureFallback(
+        ready: ReaderState.Ready,
+        profile: ConnectionProfile,
+        session: ReaderSessionContext
+    ) {
+        progressCaptureFallbackJob?.cancel()
+        progressCaptureFallbackJob = scope.launch {
+            delay(STARTUP_PROGRESS_RESTORE_TIMEOUT_MILLIS)
+            val current = mutableState.value as? ReaderState.Ready ?: return@launch
+            if (
+                current.engine !== ready.engine ||
+                current.session?.sessionId != session.sessionId
+            ) {
+                return@launch
+            }
+            if (current.restore == ReaderProgressRestore.WAITING) {
+                mutableState.value = current.copy(restore = ReaderProgressRestore.SKIPPED)
+                current.engine.positionRetention.completeStartupRestore(null)
+            }
+            startProgressSynchronization(profile, session)
         }
     }
 
@@ -345,7 +378,9 @@ internal class ReaderController(
 
     private suspend fun restoreProgress(ready: ReaderState.Ready): ReaderState.Ready {
         val restored = try {
-            restoreSavedProgress(ready)
+            withTimeoutOrNull(STARTUP_PROGRESS_RESTORE_TIMEOUT_MILLIS) {
+                restoreSavedProgress(ready)
+            } ?: ready.copy(restore = ReaderProgressRestore.SKIPPED)
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (_: Exception) {
@@ -355,6 +390,10 @@ internal class ReaderController(
             restored.restoredStartupPosition()
         )
         return restored
+    }
+
+    private companion object {
+        const val STARTUP_PROGRESS_RESTORE_TIMEOUT_MILLIS = 15_000L
     }
 }
 

@@ -15,7 +15,7 @@ import org.readium.r2.shared.publication.Locator
 
 /** Adapts Readium's live resource pagination and publication taps to Reader HUD events. */
 @OptIn(ExperimentalReadiumApi::class)
-internal class ReadiumReaderHudEvents :
+internal class ReadiumReaderHudEvents(private val onPageChanged: () -> Unit = {}) :
     ReaderHudEvents,
     InputListener,
     AutoCloseable {
@@ -32,8 +32,10 @@ internal class ReadiumReaderHudEvents :
         val generation = pagination.newGeneration()
         return object : EpubNavigatorFragment.PaginationListener {
             override fun onPageChanged(pageIndex: Int, totalPages: Int, locator: Locator) {
-                pagination.publish(generation, pageIndex, totalPages)
-                paginationChanges.tryEmit(Unit)
+                if (pagination.publish(generation, pageIndex, totalPages)) {
+                    onPageChanged()
+                    paginationChanges.tryEmit(Unit)
+                }
             }
 
             override fun onPageLoaded() {
@@ -82,9 +84,10 @@ internal class ReadiumSectionPaginationTracker {
         return generation
     }
 
-    fun publish(sourceGeneration: Long, pageIndex: Int, totalPages: Int) {
-        if (sourceGeneration != generation) return
+    fun publish(sourceGeneration: Long, pageIndex: Int, totalPages: Int): Boolean {
+        if (sourceGeneration != generation) return false
         mutableStatus.value = readerSectionStatus(pageIndex, totalPages)
+        return true
     }
 
     fun invalidate() {

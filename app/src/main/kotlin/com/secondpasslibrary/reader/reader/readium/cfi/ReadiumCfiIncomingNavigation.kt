@@ -62,7 +62,12 @@ internal class ReadiumCfiIncomingNavigation(
                     after = resolution.movementAnchor.after
                 )
             )
-            if (!navigator.go(locator, animated = false)) {
+            val locatorAccepted = withTimeoutOrNull(NAVIGATION_TIMEOUT) {
+                navigator.go(locator, animated = false)
+            } ?: return@withNavigator EpubCfiOutcome.Failure(
+                EpubCfiFailure.NAVIGATION_TIMEOUT
+            )
+            if (!locatorAccepted) {
                 return@withNavigator EpubCfiOutcome.Failure(EpubCfiFailure.NAVIGATION_FAILED)
             }
             awaitVerifiedTarget(navigator, runtime, cfi, target, resolution)?.let {
@@ -77,8 +82,13 @@ internal class ReadiumCfiIncomingNavigation(
         target: ReadiumEpubPackageTarget
     ): EpubCfiFailure? {
         val alreadyActive = navigator.isActiveResource(target)
-        val navigationAccepted =
-            alreadyActive || navigator.go(target.resourceLink, animated = false)
+        val navigationAccepted = if (alreadyActive) {
+            true
+        } else {
+            withTimeoutOrNull(NAVIGATION_TIMEOUT) {
+                navigator.go(target.resourceLink, animated = false)
+            } ?: return EpubCfiFailure.NAVIGATION_TIMEOUT
+        }
         val arrived = when {
             alreadyActive -> true
 

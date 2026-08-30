@@ -45,7 +45,7 @@ private class ReadiumReaderEngine(
     private val appearanceController = ReadiumReaderAppearanceController(initialAppearance)
     private val movements = ReadiumViewportMovements()
     private val selections = ReadiumSelectionEvents(cfiBinding)
-    private val hud = ReadiumReaderHudEvents()
+    private val hud = ReadiumReaderHudEvents(movements::pageChanged)
     private val readiumCfiNavigator = ReadiumEpubCfiNavigator(
         binding = cfiBinding,
         packageDocument = packageDocument,

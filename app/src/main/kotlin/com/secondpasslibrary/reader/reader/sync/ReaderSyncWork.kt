@@ -87,11 +87,11 @@ internal interface ReaderSyncWorkQueue {
 internal class WorkManagerReaderSyncWorkQueue @Inject constructor(
     @ApplicationContext context: Context
 ) : ReaderSyncWorkQueue {
-    private val workManager = WorkManager.getInstance(context)
+    private val appContext = context.applicationContext
 
     override fun replace(account: LocalReaderAccountKey) {
         val request = readerSyncWorkRequest(account)
-        workManager.enqueueUniqueWork(
+        workManager().enqueueUniqueWork(
             workName(account),
             ExistingWorkPolicy.REPLACE,
             request
@@ -99,8 +99,10 @@ internal class WorkManagerReaderSyncWorkQueue @Inject constructor(
     }
 
     override fun cancel(account: LocalReaderAccountKey) {
-        workManager.cancelUniqueWork(workName(account))
+        workManager().cancelUniqueWork(workName(account))
     }
+
+    private fun workManager() = WorkManager.getInstance(appContext)
 }
 
 internal class ReaderSyncWorker(
