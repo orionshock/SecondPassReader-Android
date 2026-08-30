@@ -3,6 +3,8 @@ package com.secondpasslibrary.reader.reader.persistence
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 
 internal interface ReaderOutboxStore {
+    suspend fun pendingSessions(account: LocalReaderAccountKey): List<ReaderPendingOutboxSession>
+
     suspend fun boundPendingSessions(account: LocalReaderAccountKey): List<ReaderBoundOutboxSession>
 
     suspend fun pendingSessionEstablishments(
@@ -35,6 +37,17 @@ internal interface ReaderOutboxStore {
 internal class RoomReaderOutboxStore @javax.inject.Inject constructor(
     private val dao: LocalReaderDao
 ) : ReaderOutboxStore {
+    override suspend fun pendingSessions(
+        account: LocalReaderAccountKey
+    ): List<ReaderPendingOutboxSession> = dao.pendingOutboxSessions(account.value).map { session ->
+        ReaderPendingOutboxSession(
+            bookId = session.bookId,
+            session = session.toContext(
+                dao.progress(account.value, session.localSessionId)?.cfi
+            )
+        )
+    }
+
     override suspend fun boundPendingSessions(
         account: LocalReaderAccountKey
     ): List<ReaderBoundOutboxSession> = dao.boundPendingSessions(account.value).map {
@@ -97,6 +110,11 @@ internal data class ReaderBoundOutboxSession(
     val localSessionId: String,
     val serverSessionId: String,
     val bookId: String
+)
+
+internal data class ReaderPendingOutboxSession(
+    val bookId: String,
+    val session: com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 )
 
 internal sealed interface ReaderOutboxIntent {

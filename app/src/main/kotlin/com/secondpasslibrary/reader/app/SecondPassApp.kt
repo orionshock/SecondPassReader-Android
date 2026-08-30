@@ -32,6 +32,14 @@ fun SecondPassApp(
     LaunchedEffect(connectionState, localAccount) {
         appSessionViewModel.updateConnection(connectionState, localAccount)
     }
+    LaunchedEffect(appSessionViewModel, connectionViewModel) {
+        appSessionViewModel.connectionEvents.collect { event ->
+            when (event) {
+                AppConnectionEvent.AuthenticationRejected ->
+                    connectionViewModel.onAuthenticatedRequestRejected()
+            }
+        }
+    }
     LifecycleEventEffect(Lifecycle.Event.ON_START) {
         connectionViewModel.pairingForegrounded()
     }

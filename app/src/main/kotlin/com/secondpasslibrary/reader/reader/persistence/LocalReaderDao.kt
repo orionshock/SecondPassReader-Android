@@ -280,6 +280,14 @@ internal abstract class LocalReaderDao {
     ): List<LocalReaderOutboxEntity>
 
     @Query(
+        "SELECT s.* FROM reader_sessions s WHERE s.accountKey = :accountKey " +
+            "AND EXISTS (SELECT 1 FROM reader_outbox o WHERE o.accountKey = s.accountKey " +
+            "AND o.localSessionId = s.localSessionId) " +
+            "ORDER BY s.lastUsedAtEpochMillis, s.localSessionId"
+    )
+    abstract suspend fun pendingOutboxSessions(accountKey: String): List<LocalReaderSessionEntity>
+
+    @Query(
         "SELECT DISTINCT s.* FROM reader_sessions s " +
             "INNER JOIN reader_outbox o ON o.accountKey = s.accountKey " +
             "AND o.localSessionId = s.localSessionId " +

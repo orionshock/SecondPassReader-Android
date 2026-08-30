@@ -56,6 +56,29 @@ class ReaderOutboxStoreTest {
     }
 
     @Test
+    fun pendingSessionsExposeExactAccountScopedReconciliationInputs() = runBlocking {
+        val firstAccount = account("one")
+        val otherAccount = account("other")
+        val provisional = store.selectOfflineSession(firstAccount, "book-1")
+        val confirmed = serverSession("server-2")
+        store.retainServerSession(firstAccount, "book-2", confirmed)
+        store.writeProgress(
+            firstAccount,
+            confirmed.sessionId,
+            CFI,
+            LocalReaderWriteProvenance.LOCAL_PENDING
+        )
+        store.selectOfflineSession(otherAccount, "book-other")
+
+        val pending = outbox.pendingSessions(firstAccount)
+
+        assertEquals(setOf("book-1", "book-2"), pending.map { it.bookId }.toSet())
+        assertTrue(pending.any { it.session.sessionId == provisional.sessionId })
+        assertTrue(pending.any { it.session.serverSessionId == confirmed.serverSessionId })
+        assertTrue(pending.none { it.bookId == "book-other" })
+    }
+
+    @Test
     fun progressCoalescesToLatestExactCfi() = runBlocking {
         val account = account("one")
         val session = store.selectOfflineSession(account, "book-1")

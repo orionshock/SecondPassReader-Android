@@ -239,6 +239,10 @@ class ReaderOutboxSynchronizerTest {
             intents += next
         }
 
+        override suspend fun pendingSessions(account: LocalReaderAccountKey) = emptyList<
+            com.secondpasslibrary.reader.reader.persistence.ReaderPendingOutboxSession
+            >()
+
         override suspend fun boundPendingSessions(account: LocalReaderAccountKey) = sessions
 
         override suspend fun pendingSessionEstablishments(account: LocalReaderAccountKey) =
