@@ -90,9 +90,20 @@ internal interface LocalReaderStateStore {
 @Singleton
 internal class RoomLocalReaderStateStore @Inject constructor(
     private val dao: LocalReaderDao,
-    private val syncScheduler: ReaderSyncScheduler
+    private val syncScheduler: ReaderSyncScheduler,
+    private val sessionBindingStore: ReaderSessionBindingStore
 ) : LocalReaderStateStore {
-    constructor(dao: LocalReaderDao) : this(dao, NoOpReaderSyncScheduler)
+    constructor(dao: LocalReaderDao) : this(
+        dao,
+        NoOpReaderSyncScheduler,
+        RoomReaderSessionBindingStore(dao)
+    )
+
+    constructor(dao: LocalReaderDao, syncScheduler: ReaderSyncScheduler) : this(
+        dao,
+        syncScheduler,
+        RoomReaderSessionBindingStore(dao)
+    )
 
     override suspend fun selectOfflineSession(
         account: LocalReaderAccountKey,
@@ -116,6 +127,28 @@ internal class RoomLocalReaderStateStore @Inject constructor(
         session: ReaderSessionContext
     ): ReaderSessionContext {
         require(session.identityKind == ReaderSessionIdentityKind.SERVER_CONFIRMED)
+        val serverSessionId = requireNotNull(session.serverSessionId)
+        val retained = dao.sessionByServerId(account.value, serverSessionId)
+        return if (retained != null) {
+            require(retained.bookId == bookId) {
+                "Server Reader Session belongs to another Book."
+            }
+            sessionBindingStore.refreshConfirmed(
+                account,
+                bookId,
+                retained.localSessionId,
+                session
+            )
+        } else {
+            retainNewServerSession(account, bookId, session)
+        }
+    }
+
+    private suspend fun retainNewServerSession(
+        account: LocalReaderAccountKey,
+        bookId: String,
+        session: ReaderSessionContext
+    ): ReaderSessionContext {
         val now = Instant.now().toEpochMilli()
         val existingProgress = dao.progress(account.value, session.sessionId)
         dao.upsertSession(session.toServerEntity(account, bookId, now))

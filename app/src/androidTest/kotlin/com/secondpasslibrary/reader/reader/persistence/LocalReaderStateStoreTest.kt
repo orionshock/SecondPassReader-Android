@@ -175,6 +175,39 @@ class LocalReaderStateStoreTest {
     }
 
     @Test
+    fun onlineRefreshRetainsStableLocalIdentityAfterProvisionalBinding() = runBlocking {
+        val account = account("profile-1")
+        val provisional = store.selectOfflineSession(account, "book-1")
+        val authoritative = serverSession("server-active")
+        RoomReaderSessionBindingStore(database.localReaderDao()).bindProvisional(
+            account,
+            "book-1",
+            provisional.sessionId,
+            authoritative
+        )
+        store.applyAnnotationMutation(
+            account,
+            provisional.sessionId,
+            ReaderAnnotationMutationRequest.UpsertBookmark(
+                provisional.sessionId,
+                "client-1",
+                CFI,
+                "Chapter 1"
+            )
+        )
+
+        val retained = store.retainServerSession(account, "book-1", authoritative)
+
+        assertEquals(provisional.sessionId, retained.sessionId)
+        assertEquals(authoritative.serverSessionId, retained.serverSessionId)
+        assertEquals(
+            "client-1",
+            store.readAnnotations(account, retained.sessionId).single().clientId
+        )
+        assertNull(database.localReaderDao().session(account.value, authoritative.sessionId))
+    }
+
+    @Test
     fun refreshingServerSessionMetadataDoesNotCascadeDeleteLocalReaderState() = runBlocking {
         val account = account("profile-1")
         val session = serverSession("server-active")

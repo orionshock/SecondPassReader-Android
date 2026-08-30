@@ -68,11 +68,12 @@ class ReaderReconnectOrchestratorTest {
     }
 
     @Test
-    fun `remotely closed intent container is not delivered into replacement Session`() = runTest {
+    fun `remotely closed intent is forwarded then drained from continuation Session`() = runTest {
         val events = mutableListOf<String>()
         val store = Store(bound())
         val reconciliation = ReaderSessionReconciliation { _, _, _, _ ->
             events += "reconcile"
+            store.forwardTo("replacement-local", "replacement-server")
             ReaderSessionReconciliationResult.Resolved(
                 bound("replacement-local", "replacement-server")
             )
@@ -82,8 +83,8 @@ class ReaderReconnectOrchestratorTest {
             .update(profile(), PROFILE_ID, AppAvailability.Online)
         advanceUntilIdle()
 
-        assertEquals(listOf("reconcile"), events)
-        assertTrue(store.intents.isNotEmpty())
+        assertEquals(listOf("reconcile", "annotations", "progress"), events)
+        assertTrue(store.intents.isEmpty())
     }
 
     @Test
@@ -244,6 +245,32 @@ class ReaderReconnectOrchestratorTest {
                 )
             )
             intents.removeAll { it is ReaderOutboxIntent.EstablishSession }
+        }
+
+        fun forwardTo(localSessionId: String, serverSessionId: String) {
+            val current = pending.single()
+            pending[0] = current.copy(session = bound(localSessionId, serverSessionId))
+            val moved = intents.map { intent ->
+                when (intent) {
+                    is ReaderOutboxIntent.EstablishSession ->
+                        establishment(localSessionId)
+
+                    is ReaderOutboxIntent.Progress -> progress(localSessionId)
+
+                    is ReaderOutboxIntent.AnnotationUpsert -> if (intent.kind == "BOOKMARK") {
+                        bookmark(localSessionId)
+                    } else {
+                        highlight(localSessionId)
+                    }
+
+                    is ReaderOutboxIntent.AnnotationDelete -> intent.copy(
+                        id = "annotation:$localSessionId:${intent.clientId}",
+                        localSessionId = localSessionId
+                    )
+                }
+            }
+            intents.clear()
+            intents += moved.filterNot { it is ReaderOutboxIntent.EstablishSession }
         }
 
         override suspend fun pendingSessions(account: LocalReaderAccountKey) = pending.toList()

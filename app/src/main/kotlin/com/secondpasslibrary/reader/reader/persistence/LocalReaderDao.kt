@@ -193,6 +193,15 @@ internal abstract class LocalReaderDao {
 
     @Query(
         "SELECT * FROM reader_annotations WHERE accountKey = :accountKey " +
+            "AND localSessionId = :localSessionId ORDER BY rowid"
+    )
+    abstract suspend fun allAnnotations(
+        accountKey: String,
+        localSessionId: String
+    ): List<LocalReaderAnnotationEntity>
+
+    @Query(
+        "SELECT * FROM reader_annotations WHERE accountKey = :accountKey " +
             "AND localSessionId = :localSessionId AND clientId = :clientId LIMIT 1"
     )
     abstract suspend fun annotation(
@@ -245,6 +254,161 @@ internal abstract class LocalReaderDao {
             "AND localSessionId = :localSessionId"
     )
     abstract suspend fun deleteSessionAnnotations(accountKey: String, localSessionId: String)
+
+    @Query(
+        "DELETE FROM reader_outbox WHERE accountKey = :accountKey " +
+            "AND localSessionId = :localSessionId AND operationKind != 'SESSION_ESTABLISHMENT'"
+    )
+    abstract suspend fun deleteReaderMutationOutbox(accountKey: String, localSessionId: String)
+
+    @Upsert
+    abstract suspend fun upsertContinuationOutcome(outcome: LocalReaderContinuationOutcomeEntity)
+
+    @Query(
+        "SELECT * FROM reader_continuation_outcomes WHERE accountKey = :accountKey " +
+            "AND sourceLocalSessionId = :sourceLocalSessionId LIMIT 1"
+    )
+    abstract suspend fun continuationOutcome(
+        accountKey: String,
+        sourceLocalSessionId: String
+    ): LocalReaderContinuationOutcomeEntity?
+
+    @Transaction
+    open suspend fun continueClosedSession(
+        closedSession: LocalReaderSessionEntity,
+        serverProgressCfi: String?,
+        authoritativeAnnotations: List<LocalReaderAnnotationEntity>,
+        continuationCandidate: LocalReaderSessionEntity,
+        now: Long
+    ): ReaderClosedSessionContinuationResult {
+        existingContinuationResult(closedSession)?.let { return it }
+        val pending = closedSessionPendingState(closedSession)
+        val continuation = selectContinuation(pending, continuationCandidate)
+        restoreClosedHistory(
+            closedSession,
+            serverProgressCfi,
+            authoritativeAnnotations,
+            now
+        )
+        continuation?.let { target -> forwardPending(pending, closedSession, target, now) }
+        return recordContinuationOutcome(closedSession, continuation, pending, now)
+    }
+
+    private suspend fun existingContinuationResult(
+        source: LocalReaderSessionEntity
+    ): ReaderClosedSessionContinuationResult? =
+        continuationOutcome(source.accountKey, source.localSessionId)?.let { outcome ->
+            ReaderClosedSessionContinuationResult(
+                outcome.continuationLocalSessionId?.let { session(source.accountKey, it) },
+                outcome.forwardedEditCount,
+                outcome.droppedDeleteCount
+            )
+        }
+
+    private suspend fun closedSessionPendingState(
+        source: LocalReaderSessionEntity
+    ): ClosedSessionPendingState {
+        val annotations = pendingAnnotations(source.accountKey, source.localSessionId)
+        return ClosedSessionPendingState(
+            progress(source.accountKey, source.localSessionId)?.takeIf {
+                it.provenance == LocalReaderWriteProvenance.LOCAL_PENDING.name
+            },
+            annotations.filter { it.syncState == LocalAnnotationSync.LOCAL_PENDING },
+            annotations.count {
+                it.syncState == LocalAnnotationSync.LOCAL_DELETED &&
+                    it.serverAnnotationId != null
+            }
+        )
+    }
+
+    private suspend fun selectContinuation(
+        pending: ClosedSessionPendingState,
+        candidate: LocalReaderSessionEntity
+    ): LocalReaderSessionEntity? {
+        if (pending.progress == null && pending.movableAnnotations.isEmpty()) return null
+        insertSessionIfAbsent(candidate)
+        return requireNotNull(activeProvisionalSession(candidate.accountKey, candidate.bookId))
+    }
+
+    private suspend fun restoreClosedHistory(
+        source: LocalReaderSessionEntity,
+        serverProgressCfi: String?,
+        authoritativeAnnotations: List<LocalReaderAnnotationEntity>,
+        now: Long
+    ) {
+        upsertSession(source)
+        if (serverProgressCfi == null) {
+            deleteProgress(source.accountKey, source.localSessionId)
+        } else {
+            upsertProgress(
+                LocalReaderProgressEntity(
+                    source.accountKey,
+                    source.localSessionId,
+                    serverProgressCfi,
+                    now,
+                    LocalReaderWriteProvenance.SERVER_CONFIRMED.name
+                )
+            )
+        }
+        deleteSessionAnnotations(source.accountKey, source.localSessionId)
+        upsertAnnotations(authoritativeAnnotations)
+        deleteReaderMutationOutbox(source.accountKey, source.localSessionId)
+    }
+
+    private suspend fun forwardPending(
+        pending: ClosedSessionPendingState,
+        source: LocalReaderSessionEntity,
+        continuation: LocalReaderSessionEntity,
+        now: Long
+    ) {
+        upsertOutbox(continuation.toEstablishmentOutbox(now))
+        pending.progress?.let { forwardProgress(it, continuation) }
+        pending.movableAnnotations.forEach { annotation ->
+            val target = annotation.toContinuation(source, continuation)
+            upsertAnnotation(target)
+            upsertOutbox(target.toUpsertOutbox(continuation.bookId, now))
+        }
+    }
+
+    private suspend fun forwardProgress(
+        source: LocalReaderProgressEntity,
+        continuation: LocalReaderSessionEntity
+    ) {
+        val current = progress(source.accountKey, continuation.localSessionId)
+        val selected = if (current == null ||
+            source.updatedAtEpochMillis >= current.updatedAtEpochMillis
+        ) {
+            source.copy(localSessionId = continuation.localSessionId)
+        } else {
+            current
+        }
+        upsertProgress(selected)
+        upsertOutbox(selected.toOutbox(continuation.bookId))
+    }
+
+    private suspend fun recordContinuationOutcome(
+        source: LocalReaderSessionEntity,
+        continuation: LocalReaderSessionEntity?,
+        pending: ClosedSessionPendingState,
+        now: Long
+    ): ReaderClosedSessionContinuationResult {
+        val forwardedEdits = pending.movableAnnotations.count { it.serverAnnotationId != null }
+        upsertContinuationOutcome(
+            LocalReaderContinuationOutcomeEntity(
+                source.accountKey,
+                source.localSessionId,
+                continuation?.localSessionId,
+                forwardedEdits,
+                pending.droppedDeleteCount,
+                now
+            )
+        )
+        return ReaderClosedSessionContinuationResult(
+            continuation,
+            forwardedEdits,
+            pending.droppedDeleteCount
+        )
+    }
 
     @Transaction
     open suspend fun replaceAnnotations(
@@ -351,4 +515,31 @@ internal abstract class LocalReaderDao {
 
     @Query("DELETE FROM reader_sessions WHERE accountKey = :accountKey")
     abstract suspend fun purgeAccount(accountKey: String)
+}
+
+private data class ClosedSessionPendingState(
+    val progress: LocalReaderProgressEntity?,
+    val movableAnnotations: List<LocalReaderAnnotationEntity>,
+    val droppedDeleteCount: Int
+)
+
+private fun LocalReaderAnnotationEntity.toContinuation(
+    source: LocalReaderSessionEntity,
+    continuation: LocalReaderSessionEntity
+): LocalReaderAnnotationEntity {
+    val targetClientId = if (serverAnnotationId == null) {
+        clientId
+    } else {
+        ReaderContinuationIdentity.forwardedEdit(
+            source.localSessionId,
+            continuation.localSessionId,
+            clientId
+        )
+    }
+    return copy(
+        localSessionId = continuation.localSessionId,
+        serverAnnotationId = null,
+        clientId = targetClientId,
+        syncState = LocalAnnotationSync.LOCAL_PENDING
+    )
 }

@@ -118,3 +118,31 @@ internal data class LocalReaderOutboxEntity(
     val color: String?,
     val updatedAtEpochMillis: Long
 )
+
+@Entity(
+    tableName = "reader_continuation_outcomes",
+    primaryKeys = ["accountKey", "sourceLocalSessionId"],
+    indices = [Index(value = ["accountKey", "continuationLocalSessionId"])],
+    foreignKeys = [
+        ForeignKey(
+            entity = LocalReaderSessionEntity::class,
+            parentColumns = ["accountKey", "localSessionId"],
+            childColumns = ["accountKey", "sourceLocalSessionId"],
+            onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = LocalReaderSessionEntity::class,
+            parentColumns = ["accountKey", "localSessionId"],
+            childColumns = ["accountKey", "continuationLocalSessionId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ]
+)
+internal data class LocalReaderContinuationOutcomeEntity(
+    val accountKey: String,
+    val sourceLocalSessionId: String,
+    val continuationLocalSessionId: String?,
+    val forwardedEditCount: Int,
+    val droppedDeleteCount: Int,
+    val createdAtEpochMillis: Long
+)

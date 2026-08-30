@@ -2,15 +2,20 @@ package com.secondpasslibrary.reader.reader.session
 
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsLoader
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderAccountKey
-import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
+import com.secondpasslibrary.reader.reader.persistence.ReaderClosedSessionContinuationStore
 import com.secondpasslibrary.reader.reader.persistence.ReaderSessionBindingStore
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
 
 internal sealed interface ReaderSessionReconciliationResult {
-    data class Resolved(val session: ReaderSessionContext) : ReaderSessionReconciliationResult
+    data class Resolved(
+        val session: ReaderSessionContext,
+        val forwardedEditCount: Int = 0,
+        val droppedDeleteCount: Int = 0
+    ) : ReaderSessionReconciliationResult
 
     data class Failed(
         val reason: ReaderSessionReconciliationFailure,
@@ -36,8 +41,9 @@ internal fun interface ReaderSessionReconciliation {
 @Singleton
 internal class ReaderSessionReconciler @Inject constructor(
     private val coordinator: ReaderSessionCoordinator,
-    private val localStore: LocalReaderStateStore,
-    private val bindingStore: ReaderSessionBindingStore
+    private val bindingStore: ReaderSessionBindingStore,
+    private val continuationStore: ReaderClosedSessionContinuationStore,
+    private val annotationsLoader: ReaderAnnotationsLoader
 ) : ReaderSessionReconciliation {
     // All authority/transport failures become retryable app state.
     @Suppress("TooGenericExceptionCaught")
@@ -46,52 +52,92 @@ internal class ReaderSessionReconciler @Inject constructor(
         account: LocalReaderAccountKey,
         bookId: String,
         localSession: ReaderSessionContext
+    ): ReaderSessionReconciliationResult = try {
+        if (localSession.identityKind == ReaderSessionIdentityKind.PROVISIONAL ||
+            localSession.serverSessionId == null
+        ) {
+            reconcileProvisional(profile, account, bookId, localSession)
+        } else {
+            reconcileConfirmed(profile, account, bookId, localSession)
+        }
+    } catch (cancellation: CancellationException) {
+        throw cancellation
+    } catch (failure: Exception) {
+        failure.toReconciliationFailure()
+    }
+
+    private suspend fun reconcileProvisional(
+        profile: ConnectionProfile,
+        account: LocalReaderAccountKey,
+        bookId: String,
+        localSession: ReaderSessionContext
     ): ReaderSessionReconciliationResult {
-        var refreshedSession: ReaderSessionContext? = null
-        return try {
-            if (localSession.identityKind == ReaderSessionIdentityKind.PROVISIONAL ||
-                localSession.serverSessionId == null
-            ) {
-                val authoritative = resolveWritable(profile, bookId)
-                ReaderSessionReconciliationResult.Resolved(
-                    bindingStore.bindProvisional(
-                        account,
-                        bookId,
-                        localSession.sessionId,
-                        authoritative
-                    )
-                )
-            } else {
-                val exact = coordinator.resolve(
-                    profile,
-                    ReaderSessionRequest(bookId, localSession.serverSessionId)
-                )
-                refreshedSession = bindingStore.refreshConfirmed(
+        val authoritative = resolveWritable(profile, bookId)
+        return ReaderSessionReconciliationResult.Resolved(
+            bindingStore.bindProvisional(
+                account,
+                bookId,
+                localSession.sessionId,
+                authoritative
+            )
+        )
+    }
+
+    private suspend fun reconcileConfirmed(
+        profile: ConnectionProfile,
+        account: LocalReaderAccountKey,
+        bookId: String,
+        localSession: ReaderSessionContext
+    ): ReaderSessionReconciliationResult {
+        val exact = coordinator.resolve(
+            profile,
+            ReaderSessionRequest(bookId, localSession.serverSessionId)
+        )
+        if (exact.status == ReaderSessionStatus.ACTIVE) {
+            return ReaderSessionReconciliationResult.Resolved(
+                bindingStore.refreshConfirmed(
                     account,
                     bookId,
                     localSession.sessionId,
                     exact
                 )
-                if (exact.status == ReaderSessionStatus.ACTIVE) {
-                    ReaderSessionReconciliationResult.Resolved(refreshedSession)
-                } else {
-                    val writable = resolveWritable(profile, bookId)
-                    ReaderSessionReconciliationResult.Resolved(
-                        localStore.retainServerSession(account, bookId, writable)
-                    )
-                }
-            }
+            )
+        }
+        return continueClosed(profile, account, bookId, localSession.sessionId, exact)
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun continueClosed(
+        profile: ConnectionProfile,
+        account: LocalReaderAccountKey,
+        bookId: String,
+        localSessionId: String,
+        exact: ReaderSessionContext
+    ): ReaderSessionReconciliationResult {
+        val historical = exact.copy(sessionId = localSessionId)
+        val annotations = annotationsLoader.load(profile, requireNotNull(exact.serverSessionId))
+        val continuation = continuationStore.continueFrom(
+            account,
+            bookId,
+            historical,
+            annotations
+        )
+        val provisional = continuation.session ?: return ReaderSessionReconciliationResult.Resolved(
+            historical,
+            continuation.forwardedEditCount,
+            continuation.droppedDeleteCount
+        )
+        return try {
+            val writable = resolveWritable(profile, bookId)
+            ReaderSessionReconciliationResult.Resolved(
+                bindingStore.bindProvisional(account, bookId, provisional.sessionId, writable),
+                continuation.forwardedEditCount,
+                continuation.droppedDeleteCount
+            )
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (failure: Exception) {
-            ReaderSessionReconciliationResult.Failed(
-                if (failure is SplClientException.AuthenticationRejected) {
-                    ReaderSessionReconciliationFailure.AUTHENTICATION_REQUIRED
-                } else {
-                    ReaderSessionReconciliationFailure.UNAVAILABLE
-                },
-                refreshedSession
-            )
+            failure.toReconciliationFailure(historical)
         }
     }
 
@@ -114,3 +160,13 @@ internal class ReaderSessionReconciler @Inject constructor(
         const val MAX_WRITABLE_RESOLUTION_ATTEMPTS = 2
     }
 }
+
+private fun Exception.toReconciliationFailure(refreshedSession: ReaderSessionContext? = null) =
+    ReaderSessionReconciliationResult.Failed(
+        if (this is SplClientException.AuthenticationRejected) {
+            ReaderSessionReconciliationFailure.AUTHENTICATION_REQUIRED
+        } else {
+            ReaderSessionReconciliationFailure.UNAVAILABLE
+        },
+        refreshedSession
+    )

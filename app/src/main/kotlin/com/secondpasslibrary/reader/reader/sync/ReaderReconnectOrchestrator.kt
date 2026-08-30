@@ -90,17 +90,15 @@ internal class ReaderReconnectOrchestrator @Inject constructor(
         }
 
         is ReaderSessionReconciliationResult.Resolved ->
-            drainResolved(profile, account, pending.session.sessionId, result.session)
+            drainResolved(profile, account, result.session)
     }
 
     private suspend fun drainResolved(
         profile: ConnectionProfile,
         account: LocalReaderAccountKey,
-        pendingLocalSessionId: String,
         resolved: ReaderSessionContext
     ): ReconcileOutcome {
-        val eligible = resolved.sessionId == pendingLocalSessionId &&
-            resolved.status == ReaderSessionStatus.ACTIVE &&
+        val eligible = resolved.status == ReaderSessionStatus.ACTIVE &&
             resolved.serverSessionId != null
         if (!eligible) return ReconcileOutcome.SETTLED
         val report = synchronizer.syncBoundSession(profile, account, resolved.sessionId)

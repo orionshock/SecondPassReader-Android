@@ -4,11 +4,15 @@ import android.content.Context
 import androidx.room3.Room
 import com.secondpasslibrary.reader.connection.AccountLocalDataCleaner
 import com.secondpasslibrary.reader.connection.AppAccountLocalDataCleaner
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsLoader
+import com.secondpasslibrary.reader.reader.annotations.SplReaderAnnotationsLoader
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderDao
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
+import com.secondpasslibrary.reader.reader.persistence.ReaderClosedSessionContinuationStore
 import com.secondpasslibrary.reader.reader.persistence.ReaderOutboxStore
 import com.secondpasslibrary.reader.reader.persistence.ReaderSessionBindingStore
 import com.secondpasslibrary.reader.reader.persistence.RoomLocalReaderStateStore
+import com.secondpasslibrary.reader.reader.persistence.RoomReaderClosedSessionContinuationStore
 import com.secondpasslibrary.reader.reader.persistence.RoomReaderOutboxStore
 import com.secondpasslibrary.reader.reader.persistence.RoomReaderSessionBindingStore
 import com.secondpasslibrary.reader.reader.sync.ReaderSyncScheduler
@@ -45,6 +49,16 @@ internal abstract class HomeProjectionStorageModule {
     abstract fun bindReaderSessionBindingStore(
         store: RoomReaderSessionBindingStore
     ): ReaderSessionBindingStore
+
+    @Binds
+    abstract fun bindReaderClosedSessionContinuationStore(
+        store: RoomReaderClosedSessionContinuationStore
+    ): ReaderClosedSessionContinuationStore
+
+    @Binds
+    abstract fun bindReaderAnnotationsLoader(
+        loader: SplReaderAnnotationsLoader
+    ): ReaderAnnotationsLoader
 
     @Binds
     @Singleton

@@ -2,10 +2,10 @@ package com.secondpasslibrary.reader.reader.session
 
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
-import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationRequest
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsLoader
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderAccountKey
-import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
-import com.secondpasslibrary.reader.reader.persistence.LocalReaderWriteProvenance
+import com.secondpasslibrary.reader.reader.persistence.ReaderClosedSessionContinuation
+import com.secondpasslibrary.reader.reader.persistence.ReaderClosedSessionContinuationStore
 import com.secondpasslibrary.reader.reader.persistence.ReaderSessionBindingStore
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -34,7 +34,13 @@ class ReaderSessionReconcilerTest {
         val coordinator = RecordingCoordinator { server("server-created-by-authority") }
         val binding = RecordingBindingStore()
 
-        val result = reconciler(coordinator, binding).reconcile(
+        val reconciler = ReaderSessionReconciler(
+            coordinator,
+            binding,
+            RecordingContinuationStore(provisional()),
+            ReaderAnnotationsLoader { _, _ -> emptyList() }
+        )
+        val result = reconciler.reconcile(
             profile(),
             account(),
             BOOK_ID,
@@ -55,8 +61,13 @@ class ReaderSessionReconcilerTest {
                 }
             }
             val binding = RecordingBindingStore()
-            val localStore = RecordingLocalStore()
-            val reconciler = ReaderSessionReconciler(coordinator, localStore, binding)
+            val continuation = RecordingContinuationStore(provisional())
+            val reconciler = ReaderSessionReconciler(
+                coordinator,
+                binding,
+                continuation,
+                ReaderAnnotationsLoader { _, _ -> emptyList() }
+            )
 
             val result = reconciler.reconcile(
                 profile(),
@@ -71,9 +82,9 @@ class ReaderSessionReconcilerTest {
                     it.existingSessionId
                 }
             )
-            assertEquals(ReaderSessionStatus.CLOSED, binding.refreshedStatus)
             assertEquals("server-new", result.session.serverSessionId)
-            assertEquals("server-new", localStore.retained?.serverSessionId)
+            assertEquals("local-provisional", result.session.sessionId)
+            assertEquals("local-old", continuation.closedSessionId)
         }
 
     @Test
@@ -81,7 +92,13 @@ class ReaderSessionReconcilerTest {
         val coordinator = RecordingCoordinator { error("unreachable") }
         val binding = RecordingBindingStore()
 
-        val result = reconciler(coordinator, binding).reconcile(
+        val reconciler = ReaderSessionReconciler(
+            coordinator,
+            binding,
+            RecordingContinuationStore(provisional()),
+            ReaderAnnotationsLoader { _, _ -> emptyList() }
+        )
+        val result = reconciler.reconcile(
             profile(),
             account(),
             BOOK_ID,
@@ -100,8 +117,14 @@ class ReaderSessionReconcilerTest {
             if (call == 1) server("server-old", ReaderSessionStatus.CLOSED) else error("offline")
         }
         val binding = RecordingBindingStore()
+        val reconciler = ReaderSessionReconciler(
+            coordinator,
+            binding,
+            RecordingContinuationStore(provisional()),
+            ReaderAnnotationsLoader { _, _ -> emptyList() }
+        )
 
-        val result = reconciler(coordinator, binding).reconcile(
+        val result = reconciler.reconcile(
             profile(),
             account(),
             BOOK_ID,
@@ -128,7 +151,12 @@ class ReaderSessionReconcilerTest {
     }
 
     private fun reconciler(coordinator: ReaderSessionCoordinator, binding: RecordingBindingStore) =
-        ReaderSessionReconciler(coordinator, RecordingLocalStore(), binding)
+        ReaderSessionReconciler(
+            coordinator,
+            binding,
+            RecordingContinuationStore(null),
+            ReaderAnnotationsLoader { _, _ -> emptyList() }
+        )
 
     private class RecordingCoordinator(
         private val response: suspend (ReaderSessionRequest) -> ReaderSessionContext
@@ -173,50 +201,19 @@ class ReaderSessionReconcilerTest {
         }
     }
 
-    private class RecordingLocalStore : LocalReaderStateStore {
-        var retained: ReaderSessionContext? = null
+    private class RecordingContinuationStore(private val continuation: ReaderSessionContext?) :
+        ReaderClosedSessionContinuationStore {
+        var closedSessionId: String? = null
 
-        override suspend fun retainServerSession(
+        override suspend fun continueFrom(
             account: LocalReaderAccountKey,
             bookId: String,
-            session: ReaderSessionContext
-        ): ReaderSessionContext = session.also { retained = it }
-
-        override suspend fun selectOfflineSession(account: LocalReaderAccountKey, bookId: String) =
-            error("unused")
-
-        override suspend fun writeProgress(
-            account: LocalReaderAccountKey,
-            localSessionId: String,
-            cfi: String,
-            provenance: LocalReaderWriteProvenance
-        ) = Unit
-
-        override suspend fun acknowledgeProgress(
-            account: LocalReaderAccountKey,
-            localSessionId: String,
-            cfi: String
-        ) = Unit
-
-        override suspend fun readAnnotations(
-            account: LocalReaderAccountKey,
-            localSessionId: String
-        ) = emptyList<ReaderAnnotation>()
-
-        override suspend fun applyAnnotationMutation(
-            account: LocalReaderAccountKey,
-            localSessionId: String,
-            request: ReaderAnnotationMutationRequest
-        ) = emptyList<ReaderAnnotation>()
-
-        override suspend fun replaceAuthoritativeAnnotations(
-            account: LocalReaderAccountKey,
-            localSessionId: String,
-            annotations: List<ReaderAnnotation>,
-            confirmedClientId: String?
-        ) = Unit
-
-        override suspend fun purgeAccount(account: LocalReaderAccountKey) = Unit
+            closedSession: ReaderSessionContext,
+            authoritativeAnnotations: List<ReaderAnnotation>
+        ): ReaderClosedSessionContinuation {
+            closedSessionId = closedSession.sessionId
+            return ReaderClosedSessionContinuation(continuation, 0, 0)
+        }
     }
 
     private fun provisional() = ReaderSessionContext(
