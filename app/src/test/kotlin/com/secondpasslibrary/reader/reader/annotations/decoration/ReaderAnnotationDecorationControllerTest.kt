@@ -4,6 +4,7 @@ import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -17,19 +18,20 @@ class ReaderAnnotationDecorationControllerTest {
 
         assertEquals(
             ReaderAnnotationDecoration(
+                sessionId = "session-1",
                 annotationId = "highlight-1",
                 cfi = EpubCfi("epubcfi(/6/4!/4/2,/1:0,/1:4)"),
                 kind = ReaderAnnotationKind.HIGHLIGHT,
                 color = ReaderAnnotationColor.BLUE
             ),
-            highlight.toDecoration()
+            highlight.toDecoration("session-1")
         )
-        assertNull(bookmark.toDecoration())
+        assertNull(bookmark.toDecoration("session-1"))
     }
 
     @Test
     fun `invalid canonical CFI is omitted conservatively`() {
-        assertNull(highlight("highlight-1", "").toDecoration())
+        assertNull(highlight("highlight-1", "").toDecoration("session-1"))
     }
 
     @Test
@@ -61,6 +63,7 @@ class ReaderAnnotationDecorationControllerTest {
         override val failures = MutableStateFlow(
             emptyMap<String, ReaderAnnotationDecorationFailure>()
         )
+        override val activations = emptyFlow<ReaderAnnotationDecorationActivation>()
         val replacements = mutableListOf<List<ReaderAnnotationDecoration>>()
         var clearCount = 0
 

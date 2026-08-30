@@ -5,6 +5,7 @@ import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsLoader
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecoration
+import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecorationActivation
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecorationFailure
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecorationGroupId
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecorations
@@ -12,6 +13,7 @@ import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -141,6 +143,7 @@ class ReaderMarginaliaLayerDecorationControllerTest {
         override val failures = MutableStateFlow(
             emptyMap<String, ReaderAnnotationDecorationFailure>()
         )
+        override val activations = emptyFlow<ReaderAnnotationDecorationActivation>()
         val groups =
             mutableMapOf<
                 ReaderAnnotationDecorationGroupId.Previous,

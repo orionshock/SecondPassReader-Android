@@ -12,6 +12,7 @@ import com.secondpasslibrary.reader.reader.annotations.SplReaderAnnotationsLoade
 import com.secondpasslibrary.reader.reader.annotations.bookmark.ReaderBookmarkHudIntent
 import com.secondpasslibrary.reader.reader.annotations.bookmark.ReaderVisiblePageBookmarksController
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecorationController
+import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderHighlightActivationController
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationController
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationIntent
 import com.secondpasslibrary.reader.reader.annotations.mutation.SplReaderAnnotationWriter
@@ -105,6 +106,9 @@ internal class ReaderViewModel @Inject constructor(
             selections.dismiss()
         }
     )
+    private val highlightActivations = ReaderHighlightActivationController(viewModelScope) {
+        annotationMutations.accept(ReaderAnnotationMutationIntent.BeginEdit(it))
+    }
     private var exitJob: Job? = null
     private var bookmarkCaptureJob: Job? = null
     private var activeProfile: ConnectionProfile? = null
@@ -119,6 +123,8 @@ internal class ReaderViewModel @Inject constructor(
     val autoShowPreviousMarginalia = marginaliaLayerPolicy.autoShowPrevious
     val selection = selections.selection
     val annotationMutationState = annotationMutations.state
+    val highlightDetail = highlightActivations.detail
+    val dismissHighlightDetail = highlightActivations::dismiss
     val sessionMetadataState = sessionMetadata.state
     val connectionEvents = merge(
         controller.connectionEvents,
@@ -170,34 +176,46 @@ internal class ReaderViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
-            combine(controller.state, annotationsController.state) { reader, annotations ->
-                reader to annotations
-            }.collectLatest { (reader, annotations) ->
-                val ready = reader as? ReaderState.Ready
-                if (ready != null) {
-                    visiblePageBookmarks.select(
-                        ready.session.sessionId,
-                        ready.engine.visiblePageBookmarks
+            combine(
+                controller.state,
+                annotationsController.state,
+                marginaliaLayersController.state
+            ) { reader, annotations, layers -> Triple(reader, annotations, layers) }
+                .collectLatest { (reader, annotations, layers) ->
+                    val ready = reader as? ReaderState.Ready
+                    val currentAnnotationValues = annotations.annotations.takeIf {
+                        annotations.sessionId == ready?.session?.sessionId
+                    }.orEmpty()
+                    highlightActivations.select(ready?.engine?.annotationDecorations)
+                    highlightActivations.replaceContext(
+                        ready?.session,
+                        currentAnnotationValues,
+                        layers.previousLayers
                     )
-                    if (annotations.sessionId == ready.session.sessionId) {
-                        visiblePageBookmarks.replace(
+                    if (ready != null) {
+                        visiblePageBookmarks.select(
                             ready.session.sessionId,
-                            annotations.annotations
+                            ready.engine.visiblePageBookmarks
                         )
-                        annotationDecorations.replace(
-                            sessionId = ready.session.sessionId,
-                            target = ready.engine.annotationDecorations,
-                            annotations = annotations.annotations
-                        )
+                        if (annotations.sessionId == ready.session.sessionId) {
+                            visiblePageBookmarks.replace(
+                                ready.session.sessionId,
+                                annotations.annotations
+                            )
+                            annotationDecorations.replace(
+                                sessionId = ready.session.sessionId,
+                                target = ready.engine.annotationDecorations,
+                                annotations = annotations.annotations
+                            )
+                        } else {
+                            visiblePageBookmarks.replace(ready.session.sessionId, emptyList())
+                            annotationDecorations.clear()
+                        }
                     } else {
-                        visiblePageBookmarks.replace(ready.session.sessionId, emptyList())
+                        visiblePageBookmarks.clear()
                         annotationDecorations.clear()
                     }
-                } else {
-                    visiblePageBookmarks.clear()
-                    annotationDecorations.clear()
                 }
-            }
         }
         viewModelScope.launch {
             selections.selection.collect { selection ->
@@ -358,6 +376,7 @@ internal class ReaderViewModel @Inject constructor(
         selections.detach()
         annotationMutations.clear()
         sessionMetadata.clear()
+        highlightActivations.clear()
         controller.close { progressSyncJob.cancel() }
     }
 }

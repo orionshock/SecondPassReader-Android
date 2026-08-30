@@ -21,7 +21,7 @@ internal class ReaderAnnotationDecorationController {
         owner = next
         target.replace(
             ReaderAnnotationDecorationGroupId.Current,
-            annotations.mapNotNull(ReaderAnnotation::toDecoration)
+            annotations.mapNotNull { it.toDecoration(sessionId) }
         )
     }
 

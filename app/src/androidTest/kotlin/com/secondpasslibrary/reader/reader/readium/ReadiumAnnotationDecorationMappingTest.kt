@@ -43,7 +43,7 @@ class ReadiumAnnotationDecorationMappingTest {
         assertEquals(" after", decoration.locator.text.after)
         val style = decoration.style as Decoration.Style.Highlight
         assertEquals(0xFF3B82F6.toInt(), style.tint)
-        assertTrue(!style.isActive)
+        assertTrue(style.isActive)
     }
 
     @Test
@@ -78,6 +78,7 @@ class ReadiumAnnotationDecorationMappingTest {
     }
 
     private fun annotation(cfi: EpubCfi) = ReaderAnnotationDecoration(
+        sessionId = "session-1",
         annotationId = "annotation-1",
         cfi = cfi,
         kind = ReaderAnnotationKind.HIGHLIGHT,

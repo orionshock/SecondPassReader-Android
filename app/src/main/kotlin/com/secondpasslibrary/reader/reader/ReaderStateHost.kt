@@ -31,6 +31,7 @@ internal fun ReaderStateHost(
         viewModel.autoShowPreviousMarginalia.collectAsStateWithLifecycle()
     val selection by viewModel.selection.collectAsStateWithLifecycle()
     val annotationMutations by viewModel.annotationMutationState.collectAsStateWithLifecycle()
+    val highlightDetail by viewModel.highlightDetail.collectAsStateWithLifecycle()
     val sessionMetadata by viewModel.sessionMetadataState.collectAsStateWithLifecycle()
     DisposableEffect(viewModel) {
         viewModel.setAuthorityAvailable(true)
@@ -61,11 +62,13 @@ internal fun ReaderStateHost(
         onMarginaliaIntent = viewModel::acceptMarginalia,
         selection = selection,
         annotationMutations = annotationMutations,
+        highlightDetail = highlightDetail,
         sessionMetadata = sessionMetadata,
         onAnnotationMutation = viewModel::mutateAnnotation,
         onCreateBookmark = { viewModel.acceptBookmark(ReaderBookmarkHudIntent.Create) },
         onNavigateBookmark = { viewModel.acceptBookmark(ReaderBookmarkHudIntent.Navigate(it)) },
         onRemoveBookmark = { viewModel.acceptBookmark(ReaderBookmarkHudIntent.Remove(it)) },
-        onDismissSelection = viewModel::dismissSelection
+        onDismissSelection = viewModel::dismissSelection,
+        onDismissHighlightDetail = viewModel.dismissHighlightDetail
     )
 }

@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.reader.readium
 
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecoration
+import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecorationActivation
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecorationFailure
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecorationGroupId
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecorations
@@ -19,7 +20,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -27,6 +30,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import org.readium.r2.navigator.DecorableNavigator
 import org.readium.r2.navigator.Decoration
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.shared.publication.Locator
@@ -47,14 +51,36 @@ internal class ReadiumReaderAnnotationDecorations(
     private val mutableFailures = MutableStateFlow(
         emptyMap<String, ReaderAnnotationDecorationFailure>()
     )
+    private val mutableActivations = MutableSharedFlow<ReaderAnnotationDecorationActivation>(
+        extraBufferCapacity = 1
+    )
+
+    @Volatile
+    private var activationIndex = emptyMap<ReadiumActivationKey, ActivationTarget>()
     private var desired = emptyMap<DecorationKey, ReaderAnnotationDecoration>()
     private val targets = mutableMapOf<DecorationKey, ReadiumEpubPackageTarget>()
     private val resolved = mutableMapOf<DecorationKey, Decoration>()
     private var appliedGroups = emptySet<ReaderAnnotationDecorationGroupId>()
     private var navigator: EpubNavigatorFragment? = null
     private var resourceJob: Job? = null
+    private var registeredGroups = emptySet<String>()
+    private val activationListener = object : DecorableNavigator.Listener {
+        override fun onDecorationActivated(event: DecorableNavigator.OnActivatedEvent): Boolean {
+            val target = activationIndex[
+                ReadiumActivationKey(event.group, event.decoration.id)
+            ] ?: return false
+            return mutableActivations.tryEmit(
+                ReaderAnnotationDecorationActivation(
+                    sessionId = target.decoration.sessionId,
+                    groupId = target.group,
+                    annotationId = target.decoration.annotationId
+                )
+            )
+        }
+    }
 
     override val failures = mutableFailures.asStateFlow()
+    override val activations = mutableActivations.asSharedFlow()
 
     override suspend fun replace(
         groupId: ReaderAnnotationDecorationGroupId,
@@ -72,6 +98,7 @@ internal class ReadiumReaderAnnotationDecorations(
             }
             mutableFailures.value = mutableFailures.value - changed.map { it.failureKey }.toSet()
             desired = desired.filterKeys { it.group != groupId } + next
+            activationIndex = desired.toActivationIndex()
         }
         refreshCurrentResource()
     }
@@ -83,13 +110,16 @@ internal class ReadiumReaderAnnotationDecorations(
             targets.keys.removeAll(keys)
             resolved.keys.removeAll(keys)
             mutableFailures.value = mutableFailures.value - keys.map { it.failureKey }.toSet()
+            activationIndex = desired.toActivationIndex()
         }
         applyResolved()
     }
 
     fun bind(value: EpubNavigatorFragment) {
+        navigator?.removeDecorationListener(activationListener)
         navigator = value
         appliedGroups = emptySet()
+        registeredGroups = emptySet()
         resourceJob?.cancel()
         resourceJob = scope.launch {
             value.currentLocator
@@ -105,7 +135,9 @@ internal class ReadiumReaderAnnotationDecorations(
 
     fun unbind(value: EpubNavigatorFragment) {
         if (navigator === value) {
+            value.removeDecorationListener(activationListener)
             navigator = null
+            registeredGroups = emptySet()
             resourceJob?.cancel()
             resourceJob = null
         }
@@ -183,6 +215,13 @@ internal class ReadiumReaderAnnotationDecorations(
         try {
             withContext(Dispatchers.Main.immediate) {
                 if (navigator === bound) {
+                    values.keys.forEach { group ->
+                        val name = group.readiumName
+                        if (name !in registeredGroups) {
+                            bound.addDecorationListener(name, activationListener)
+                            registeredGroups = registeredGroups + name
+                        }
+                    }
                     groups.forEach { group ->
                         bound.applyDecorations(values[group].orEmpty(), group.readiumName)
                     }
@@ -207,6 +246,7 @@ internal class ReadiumReaderAnnotationDecorations(
 
     override fun close() {
         resourceJob?.cancel()
+        navigator?.removeDecorationListener(activationListener)
         navigator = null
         scope.cancel()
     }
@@ -236,7 +276,7 @@ internal fun ReaderAnnotationDecoration.toReadiumDecoration(
             ),
             style = Decoration.Style.Highlight(
                 tint = color.readiumTint(historical),
-                isActive = false
+                isActive = true
             )
         )
     }
@@ -286,3 +326,16 @@ private val ReaderAnnotationDecorationGroupId.readiumName: String
         is ReaderAnnotationDecorationGroupId.Previous ->
             "second-pass-previous-session-$sessionId"
     }
+
+private data class ReadiumActivationKey(val group: String, val annotationId: String)
+
+private data class ActivationTarget(
+    val group: ReaderAnnotationDecorationGroupId,
+    val decoration: ReaderAnnotationDecoration
+)
+
+private fun Map<DecorationKey, ReaderAnnotationDecoration>.toActivationIndex() =
+    map { (key, decoration) ->
+        ReadiumActivationKey(key.group.readiumName, key.annotationId) to
+            ActivationTarget(key.group, decoration)
+    }.toMap()

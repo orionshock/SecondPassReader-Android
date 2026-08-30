@@ -7,6 +7,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecoration
+import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecorationActivation
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecorationGroupId
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationKind
 import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelectionController
@@ -51,7 +52,12 @@ import org.readium.r2.shared.util.mediatype.MediaType
 
 private const val HOST_TIMEOUT_MILLIS = 30_000L
 
-private fun annotationDecoration(id: String, cfi: EpubCfi) = ReaderAnnotationDecoration(
+private fun annotationDecoration(
+    id: String,
+    cfi: EpubCfi,
+    sessionId: String = "session-1"
+): ReaderAnnotationDecoration = ReaderAnnotationDecoration(
+    sessionId = sessionId,
     annotationId = id,
     cfi = cfi,
     kind = ReaderAnnotationKind.HIGHLIGHT,
@@ -253,6 +259,70 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
             val recreated = scenario.awaitReadyHost()
             runBlocking { awaitDecoration(recreated.navigator) }
             assertSame(host.engine, recreated.engine)
+        }
+    }
+
+    @Test
+    fun decorationActivationPreservesCurrentAndPreviousIdentityAfterRecreation() = withFixture(
+        "annotation-activation.epub"
+    ) { fixture ->
+        launchHost(fixture).use { scenario ->
+            val first = scenario.awaitReadyHost()
+            val current = annotationDecoration("current-highlight", EpubCfi(CROSS_MARKUP_RANGE_CFI))
+            runBlocking {
+                first.engine.annotationDecorations.replace(
+                    ReaderAnnotationDecorationGroupId.Current,
+                    listOf(current)
+                )
+                awaitDecoration(first.navigator)
+            }
+            val currentActivation = awaitActivation(first.engine) {
+                activateDecoration(first.navigator, "second-pass-current-session-annotations")
+            }
+            assertEquals("session-1", currentActivation.sessionId)
+            assertEquals(ReaderAnnotationDecorationGroupId.Current, currentActivation.groupId)
+            assertEquals("current-highlight", currentActivation.annotationId)
+
+            val previousGroup = ReaderAnnotationDecorationGroupId.Previous("previous-session")
+            val previous = annotationDecoration(
+                "previous-highlight",
+                EpubCfi(CROSS_MARKUP_RANGE_CFI),
+                sessionId = "previous-session"
+            )
+            runBlocking {
+                first.engine.annotationDecorations.clear(ReaderAnnotationDecorationGroupId.Current)
+                first.engine.annotationDecorations.replace(previousGroup, listOf(previous))
+                awaitDecorationGroup(
+                    first.navigator,
+                    "second-pass-previous-session-previous-session"
+                )
+            }
+            val previousActivation = awaitActivation(first.engine) {
+                activateDecoration(
+                    first.navigator,
+                    "second-pass-previous-session-previous-session"
+                )
+            }
+            assertEquals("previous-session", previousActivation.sessionId)
+            assertEquals(previousGroup, previousActivation.groupId)
+            assertEquals("previous-highlight", previousActivation.annotationId)
+
+            scenario.recreate()
+            val recreated = scenario.awaitReadyHost()
+            runBlocking {
+                awaitDecorationGroup(
+                    recreated.navigator,
+                    "second-pass-previous-session-previous-session"
+                )
+            }
+            val rebound = awaitActivation(recreated.engine) {
+                activateDecoration(
+                    recreated.navigator,
+                    "second-pass-previous-session-previous-session"
+                )
+            }
+            assertEquals(previousActivation, rebound)
+            assertSame(first.engine, recreated.engine)
         }
     }
 
@@ -551,6 +621,42 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
                 }
                 if (!matches) delay(50)
             }
+        }
+    }
+
+    private fun awaitActivation(
+        engine: ReaderEngine,
+        activate: suspend () -> Unit
+    ): ReaderAnnotationDecorationActivation = runBlocking {
+        val activation = async(start = CoroutineStart.UNDISPATCHED) {
+            withTimeout(HOST_TIMEOUT_MILLIS) {
+                engine.annotationDecorations.activations.first()
+            }
+        }
+        activate()
+        activation.await()
+    }
+
+    private suspend fun activateDecoration(navigator: EpubNavigatorFragment, group: String) {
+        withContext(Dispatchers.Main) {
+            val activated = navigator.evaluateJavascript(
+                """
+                (() => {
+                  const container = document.querySelector('div[data-group="$group"]');
+                  const target = container && container.firstElementChild &&
+                    container.firstElementChild.firstElementChild;
+                  if (!target) return false;
+                  const rect = target.getBoundingClientRect();
+                  target.dispatchEvent(new MouseEvent('click', {
+                    bubbles: true,
+                    clientX: rect.left + rect.width / 2,
+                    clientY: rect.top + rect.height / 2
+                  }));
+                  return true;
+                })();
+                """.trimIndent()
+            )
+            check(activated == "true") { "Readium decoration target was not activatable." }
         }
     }
 

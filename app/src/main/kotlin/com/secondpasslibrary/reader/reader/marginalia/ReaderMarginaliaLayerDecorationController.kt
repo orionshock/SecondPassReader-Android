@@ -29,7 +29,7 @@ internal class ReaderMarginaliaLayerDecorationController {
             .filter { it.visibility == ReaderMarginaliaLayerVisibility.VISIBLE }
             .associate { layer ->
                 ReaderAnnotationDecorationGroupId.Previous(layer.summary.sessionId) to
-                    layer.annotations.mapNotNull(ReaderAnnotation::toDecoration)
+                    layer.annotations.mapNotNull { it.toDecoration(layer.summary.sessionId) }
             }
         (installed.keys - desired.keys).forEach { target.clear(it) }
         desired.forEach { (groupId, decorations) ->

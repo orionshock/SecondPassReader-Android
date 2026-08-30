@@ -27,11 +27,13 @@ import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsState
 import com.secondpasslibrary.reader.reader.annotations.bookmark.ReaderVisiblePageBookmarks
+import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderReadOnlyHighlightDetail
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationIntent
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationState
 import com.secondpasslibrary.reader.reader.annotations.navigateToReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelection
 import com.secondpasslibrary.reader.reader.annotations.ui.ReaderHighlightMutationDialogs
+import com.secondpasslibrary.reader.reader.annotations.ui.ReaderHighlightReadOnlyDialog
 import com.secondpasslibrary.reader.reader.annotations.ui.ReaderSelectionToolbar
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearancePanel
@@ -67,12 +69,14 @@ internal fun ReaderScreen(
     onMarginaliaIntent: (ReaderMarginaliaIntent) -> Unit = {},
     selection: ReaderSelection? = null,
     annotationMutations: ReaderAnnotationMutationState = ReaderAnnotationMutationState(),
+    highlightDetail: ReaderReadOnlyHighlightDetail? = null,
     sessionMetadata: ReaderSessionMetadataState = ReaderSessionMetadataState(),
     onAnnotationMutation: (ReaderAnnotationMutationIntent) -> Unit = {},
     onCreateBookmark: () -> Unit = {},
     onNavigateBookmark: (ReaderAnnotation.Bookmark) -> Unit = {},
     onRemoveBookmark: (ReaderAnnotation.Bookmark) -> Unit = {},
-    onDismissSelection: () -> Unit = {}
+    onDismissSelection: () -> Unit = {},
+    onDismissHighlightDetail: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     val ready = state as? ReaderState.Ready
@@ -83,7 +87,7 @@ internal fun ReaderScreen(
     var bookmarkMenuVisible by remember { mutableStateOf(false) }
     val hud = rememberReaderHudPresentation(
         ready?.engine,
-        selection != null || overlayVisible || bookmarkMenuVisible
+        selection != null || overlayVisible || bookmarkMenuVisible || highlightDetail != null
     )
     ReaderOverlayLayout(
         onExit = onBack,
@@ -121,6 +125,7 @@ internal fun ReaderScreen(
             palette,
             highlightSelection,
             annotationMutations,
+            highlightDetail,
             hud,
             pageBookmarks,
             onBack,
@@ -130,7 +135,8 @@ internal fun ReaderScreen(
             onNavigateBookmark,
             onRemoveBookmark,
             { bookmarkMenuVisible = it },
-            onDismissSelection
+            onDismissSelection,
+            onDismissHighlightDetail
         )
     }
 }
@@ -143,6 +149,7 @@ private fun ReaderReadingSurface(
     palette: ReaderPalette,
     selection: ReaderSelection?,
     mutationState: ReaderAnnotationMutationState,
+    highlightDetail: ReaderReadOnlyHighlightDetail?,
     hud: ReaderHudPresentation,
     pageBookmarks: ReaderVisiblePageBookmarks,
     onBack: () -> Unit,
@@ -152,7 +159,8 @@ private fun ReaderReadingSurface(
     onNavigateBookmark: (ReaderAnnotation.Bookmark) -> Unit,
     onRemoveBookmark: (ReaderAnnotation.Bookmark) -> Unit,
     onBookmarkMenuVisibilityChanged: (Boolean) -> Unit,
-    onDismissSelection: () -> Unit
+    onDismissSelection: () -> Unit,
+    onDismissHighlightDetail: () -> Unit
 ) {
     Box(Modifier.fillMaxSize().background(palette.publicationBackground)) {
         when (state) {
@@ -200,9 +208,11 @@ private fun ReaderReadingSurface(
         ReaderSelectionAnnotationOverlays(
             selection,
             mutationState,
+            highlightDetail,
             palette,
             onMutation,
-            onDismissSelection
+            onDismissSelection,
+            onDismissHighlightDetail
         )
     }
 }
@@ -211,9 +221,11 @@ private fun ReaderReadingSurface(
 private fun ReaderSelectionAnnotationOverlays(
     selection: ReaderSelection?,
     mutationState: ReaderAnnotationMutationState,
+    highlightDetail: ReaderReadOnlyHighlightDetail?,
     palette: ReaderPalette,
     onMutation: (ReaderAnnotationMutationIntent) -> Unit,
-    onDismissSelection: () -> Unit
+    onDismissSelection: () -> Unit,
+    onDismissHighlightDetail: () -> Unit
 ) {
     selection?.takeUnless { mutationState.createNoteEditorVisible }?.let {
         ReaderSelectionToolbar(
@@ -245,9 +257,15 @@ private fun ReaderSelectionAnnotationOverlays(
             onMutation(ReaderAnnotationMutationIntent.UpdateEdit(note = it))
         },
         onSaveEdit = { onMutation(ReaderAnnotationMutationIntent.SaveEdit) },
+        onRequestDelete = { annotation ->
+            onMutation(ReaderAnnotationMutationIntent.RequestDelete(annotation))
+        },
         onConfirmDelete = { onMutation(ReaderAnnotationMutationIntent.ConfirmDelete) },
         onDismiss = { onMutation(ReaderAnnotationMutationIntent.DismissTransient) }
     )
+    highlightDetail?.let {
+        ReaderHighlightReadOnlyDialog(it, palette, onDismissHighlightDetail)
+    }
 }
 
 private fun readyAppearance(ready: ReaderState.Ready?) =

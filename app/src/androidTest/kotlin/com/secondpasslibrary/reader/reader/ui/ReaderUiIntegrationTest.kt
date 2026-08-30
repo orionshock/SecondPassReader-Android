@@ -29,6 +29,7 @@ import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsFailure
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsState
 import com.secondpasslibrary.reader.reader.annotations.bookmark.ReaderVisiblePageBookmarks
+import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderReadOnlyHighlightDetail
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationIntent
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationState
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderHighlightEditDraft
@@ -697,6 +698,49 @@ class ReaderUiIntegrationTest {
         ReaderAnnotationMutationIntent.DismissTransient -> ReaderAnnotationMutationState()
 
         else -> state
+    }
+
+    @Test
+    fun `historical viewport highlight detail is read only and dismissible`() {
+        val highlight = ReaderAnnotation.Highlight(
+            id = "previous-highlight",
+            clientId = "shared-client",
+            cfi = TEST_ANNOTATION_CFI,
+            locationLabel = "Chapter 03 · 42%",
+            updatedAt = "2026-08-25T00:00:00Z",
+            quote = "Historical quote",
+            prefix = null,
+            suffix = null,
+            note = "Historical note",
+            color = ReaderAnnotationColor.PURPLE
+        )
+        var dismissed = false
+        compose.setContent {
+            SecondPassTheme {
+                ReaderScreen(
+                    state = readerReadyState(),
+                    onBack = {},
+                    onRetry = {},
+                    highlightDetail = ReaderReadOnlyHighlightDetail(
+                        sessionId = "previous-session",
+                        annotation = highlight,
+                        sessionName = "First read",
+                        startedAt = "2026-08-01T00:00:00Z",
+                        historical = true
+                    ),
+                    onDismissHighlightDetail = { dismissed = true }
+                )
+            }
+        }
+
+        compose.onNodeWithText("First read").assertIsDisplayed()
+        compose.onNodeWithText("Historical · Read only").assertIsDisplayed()
+        compose.onNodeWithText("Historical quote").assertIsDisplayed()
+        compose.onNodeWithText("Historical note").assertIsDisplayed()
+        assertEquals(0, compose.onAllNodesWithText("Edit").fetchSemanticsNodes().size)
+        assertEquals(0, compose.onAllNodesWithText("Delete").fetchSemanticsNodes().size)
+        compose.onNodeWithText("Close").performClick()
+        compose.runOnIdle { assertTrue(dismissed) }
     }
 
     private fun testBookmark(id: String, label: String) = ReaderAnnotation.Bookmark(

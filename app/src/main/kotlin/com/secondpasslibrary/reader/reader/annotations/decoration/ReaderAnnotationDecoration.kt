@@ -3,13 +3,21 @@ package com.secondpasslibrary.reader.reader.annotations.decoration
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
 internal data class ReaderAnnotationDecoration(
+    val sessionId: String,
     val annotationId: String,
     val cfi: EpubCfi,
     val kind: ReaderAnnotationKind,
     val color: ReaderAnnotationColor?
+)
+
+internal data class ReaderAnnotationDecorationActivation(
+    val sessionId: String,
+    val groupId: ReaderAnnotationDecorationGroupId,
+    val annotationId: String
 )
 
 internal sealed interface ReaderAnnotationDecorationGroupId {
@@ -32,6 +40,7 @@ internal enum class ReaderAnnotationDecorationFailure {
 
 internal interface ReaderAnnotationDecorations {
     val failures: StateFlow<Map<String, ReaderAnnotationDecorationFailure>>
+    val activations: Flow<ReaderAnnotationDecorationActivation>
 
     suspend fun replace(
         groupId: ReaderAnnotationDecorationGroupId,
@@ -45,6 +54,8 @@ internal object EmptyReaderAnnotationDecorations : ReaderAnnotationDecorations {
     override val failures = kotlinx.coroutines.flow.MutableStateFlow(
         emptyMap<String, ReaderAnnotationDecorationFailure>()
     )
+    override val activations =
+        kotlinx.coroutines.flow.emptyFlow<ReaderAnnotationDecorationActivation>()
 
     override suspend fun replace(
         groupId: ReaderAnnotationDecorationGroupId,
@@ -54,12 +65,13 @@ internal object EmptyReaderAnnotationDecorations : ReaderAnnotationDecorations {
     override suspend fun clear(groupId: ReaderAnnotationDecorationGroupId) = Unit
 }
 
-internal fun ReaderAnnotation.toDecoration(): ReaderAnnotationDecoration? {
+internal fun ReaderAnnotation.toDecoration(sessionId: String): ReaderAnnotationDecoration? {
     val canonicalCfi = runCatching { EpubCfi(cfi) }.getOrNull() ?: return null
     return when (this) {
         is ReaderAnnotation.Bookmark -> null
 
         is ReaderAnnotation.Highlight -> ReaderAnnotationDecoration(
+            sessionId = sessionId,
             annotationId = id,
             cfi = canonicalCfi,
             kind = ReaderAnnotationKind.HIGHLIGHT,

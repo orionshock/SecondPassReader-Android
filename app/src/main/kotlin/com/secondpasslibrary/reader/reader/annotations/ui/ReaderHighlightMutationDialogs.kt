@@ -37,6 +37,7 @@ internal fun ReaderHighlightMutationDialogs(
     onEditColorChanged: (ReaderAnnotationColor) -> Unit,
     onEditNoteChanged: (String) -> Unit,
     onSaveEdit: () -> Unit,
+    onRequestDelete: (ReaderAnnotation.Highlight) -> Unit,
     onConfirmDelete: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -63,6 +64,7 @@ internal fun ReaderHighlightMutationDialogs(
             onEditColorChanged,
             onEditNoteChanged,
             onSaveEdit,
+            onRequestDelete,
             onDismiss
         )
     }
@@ -79,6 +81,7 @@ private fun ReaderHighlightEditDialog(
     onColorChanged: (ReaderAnnotationColor) -> Unit,
     onNoteChanged: (String) -> Unit,
     onSave: () -> Unit,
+    onRequestDelete: (ReaderAnnotation.Highlight) -> Unit,
     onDismiss: () -> Unit
 ) {
     ReaderHighlightDraftDialog(
@@ -92,6 +95,11 @@ private fun ReaderHighlightEditDialog(
         onColorChanged = onColorChanged,
         onNoteChanged = onNoteChanged,
         onSave = onSave,
+        destructiveAction = {
+            ReaderDialogTextButton("Delete", !state.submitting, palette) {
+                onRequestDelete(draft.annotation)
+            }
+        },
         onDismiss = onDismiss
     )
 }
@@ -108,6 +116,7 @@ private fun ReaderHighlightDraftDialog(
     onColorChanged: (ReaderAnnotationColor) -> Unit,
     onNoteChanged: (String) -> Unit,
     onSave: () -> Unit,
+    destructiveAction: (@Composable () -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     BackHandler(onBack = onDismiss)
@@ -148,15 +157,18 @@ private fun ReaderHighlightDraftDialog(
                 }
                 Row(
                     Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    ReaderDialogTextButton("Cancel", !state.submitting, palette, onDismiss)
-                    ReaderDialogTextButton(
-                        if (state.failure == null) confirmLabel else "Retry",
-                        !state.submitting,
-                        palette,
-                        onSave
-                    )
+                    Row { destructiveAction?.invoke() }
+                    Row {
+                        ReaderDialogTextButton("Cancel", !state.submitting, palette, onDismiss)
+                        ReaderDialogTextButton(
+                            if (state.failure == null) confirmLabel else "Retry",
+                            !state.submitting,
+                            palette,
+                            onSave
+                        )
+                    }
                 }
             }
         },
