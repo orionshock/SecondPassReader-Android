@@ -125,6 +125,31 @@ class ReaderSessionReconciliationControllerTest {
         assertTrue(resolved.isEmpty())
     }
 
+    @Test
+    fun `delivery rejection can refresh an already bound Session`() = runTest {
+        var calls = 0
+        val controller = controller(
+            scope = this,
+            reconcile = { _, _, _, local ->
+                calls += 1
+                ReaderSessionReconciliationResult.Resolved(local)
+            }
+        )
+        val bound = provisional().copy(
+            serverSessionId = "server-1",
+            identityKind = ReaderSessionIdentityKind.SERVER_CONFIRMED
+        )
+        controller.select(profile(), PROFILE_ID, BOOK_ID, bound, localOnly = false)
+        controller.setAvailability(AppAvailability.Online)
+        advanceUntilIdle()
+        assertEquals(0, calls)
+
+        controller.requestAuthorityRefresh(bound.sessionId)
+        advanceUntilIdle()
+
+        assertEquals(1, calls)
+    }
+
     private fun controller(
         scope: CoroutineScope,
         reconcile: ReaderSessionReconciliation,

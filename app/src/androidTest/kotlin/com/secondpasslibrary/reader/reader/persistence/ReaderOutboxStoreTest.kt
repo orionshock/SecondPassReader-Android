@@ -233,6 +233,95 @@ class ReaderOutboxStoreTest {
     }
 
     @Test
+    fun deliveredAnnotationAcknowledgesOnlyExactSentDesiredState() = runBlocking {
+        val account = account("one")
+        val session = serverSession("server-1")
+        store.retainServerSession(account, "book-1", session)
+        store.applyAnnotationMutation(account, session.sessionId, highlight("sent"))
+        val sent = outbox.pendingReaderIntents(account, session.sessionId)
+            .filterIsInstance<ReaderOutboxIntent.AnnotationUpsert>()
+
+        store.applyAnnotationMutation(account, session.sessionId, highlight("newer"))
+        outbox.acceptAnnotationBatch(
+            account,
+            session.sessionId,
+            sent,
+            listOf(serverHighlight("sent"))
+        )
+
+        val pending = outbox.pendingReaderIntents(account, session.sessionId)
+            .filterIsInstance<ReaderOutboxIntent.AnnotationUpsert>()
+            .single()
+        assertEquals("newer", pending.note)
+        assertEquals(
+            "newer",
+            (
+                store.readAnnotations(account, session.sessionId).single() as
+                    ReaderAnnotation.Highlight
+                ).note
+        )
+    }
+
+    @Test
+    fun exactAnnotationDeliveryStoresAuthorityAndFinalizesDeleteTombstone() = runBlocking {
+        val account = account("one")
+        val session = serverSession("server-1")
+        store.retainServerSession(account, "book-1", session)
+        store.applyAnnotationMutation(account, session.sessionId, highlight("sent"))
+        val sentUpsert = outbox.pendingReaderIntents(account, session.sessionId)
+            .filterIsInstance<ReaderOutboxIntent.AnnotationUpsert>()
+        outbox.acceptAnnotationBatch(
+            account,
+            session.sessionId,
+            sentUpsert,
+            listOf(serverHighlight("confirmed"))
+        )
+        assertTrue(outbox.pendingReaderIntents(account, session.sessionId).isEmpty())
+        assertEquals(
+            "confirmed",
+            (
+                store.readAnnotations(account, session.sessionId).single() as
+                    ReaderAnnotation.Highlight
+                ).note
+        )
+
+        store.applyAnnotationMutation(
+            account,
+            session.sessionId,
+            ReaderAnnotationMutationRequest.Delete(session.sessionId, CLIENT_ID)
+        )
+        val sentDelete = outbox.pendingReaderIntents(account, session.sessionId)
+            .filterIsInstance<ReaderOutboxIntent.AnnotationDelete>()
+        outbox.acceptAnnotationBatch(account, session.sessionId, sentDelete, emptyList())
+
+        assertTrue(outbox.pendingReaderIntents(account, session.sessionId).isEmpty())
+        assertTrue(store.readAnnotations(account, session.sessionId).isEmpty())
+        assertNull(
+            database.localReaderDao().annotation(account.value, session.sessionId, CLIENT_ID)
+        )
+    }
+
+    @Test
+    fun `only active bound Sessions without establishment are delivery eligible`() = runBlocking {
+        val account = account("one")
+        val provisional = store.selectOfflineSession(account, "book-1")
+        store.applyAnnotationMutation(account, provisional.sessionId, highlight("pending"))
+        val confirmed = serverSession("server-2")
+        store.retainServerSession(account, "book-2", confirmed)
+        store.writeProgress(
+            account,
+            confirmed.sessionId,
+            CFI,
+            LocalReaderWriteProvenance.LOCAL_PENDING
+        )
+
+        val eligible = outbox.boundPendingSessions(account)
+
+        assertEquals(listOf(confirmed.sessionId), eligible.map { it.localSessionId })
+        assertEquals("server-2", eligible.single().serverSessionId)
+    }
+
+    @Test
     fun sameClientIdAndCleanupRemainAccountAndSessionScoped() = runBlocking {
         val firstAccount = account("one")
         val secondAccount = account("two")

@@ -11,6 +11,9 @@ import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.toReaderAnnotation
 import javax.inject.Inject
+import javax.inject.Singleton
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 internal sealed interface ReaderAnnotationMutationRequest {
     val sessionId: String
@@ -48,24 +51,49 @@ internal fun interface ReaderAnnotationWriter {
     ): List<ReaderAnnotation>
 }
 
+internal fun interface ReaderAnnotationBatchWriter {
+    suspend fun synchronize(
+        profile: ConnectionProfile,
+        serverSessionId: String,
+        requests: List<ReaderAnnotationMutationRequest>
+    ): List<ReaderAnnotation>
+}
+
+@Singleton
 internal class SplReaderAnnotationWriter @Inject constructor(
     private val clientProvider: AuthenticatedClientProvider
-) : ReaderAnnotationWriter {
+) : ReaderAnnotationWriter,
+    ReaderAnnotationBatchWriter {
+    private val deliveryMutex = Mutex()
+
     override suspend fun synchronize(
         profile: ConnectionProfile,
         request: ReaderAnnotationMutationRequest
-    ): List<ReaderAnnotation> {
-        val operation = when (request) {
-            is ReaderAnnotationMutationRequest.UpsertHighlight -> request.toOperation()
+    ): List<ReaderAnnotation> = synchronize(profile, request.sessionId, listOf(request))
 
-            is ReaderAnnotationMutationRequest.UpsertBookmark -> request.toOperation()
+    override suspend fun synchronize(
+        profile: ConnectionProfile,
+        serverSessionId: String,
+        requests: List<ReaderAnnotationMutationRequest>
+    ): List<ReaderAnnotation> = deliveryMutex.withLock {
+        require(requests.size in 1..MAX_ANNOTATION_BATCH_SIZE)
+        val operations = requests.map { request ->
+            when (request) {
+                is ReaderAnnotationMutationRequest.UpsertHighlight -> request.toOperation()
 
-            is ReaderAnnotationMutationRequest.Delete ->
-                MarginaliaAnnotationOperation.Delete(request.clientId)
+                is ReaderAnnotationMutationRequest.UpsertBookmark -> request.toOperation()
+
+                is ReaderAnnotationMutationRequest.Delete ->
+                    MarginaliaAnnotationOperation.Delete(request.clientId)
+            }
         }
-        return clientProvider.forProfile(profile)
-            .marginalia.sessions.synchronizeAnnotations(request.sessionId, listOf(operation))
+        clientProvider.forProfile(profile)
+            .marginalia.sessions.synchronizeAnnotations(serverSessionId, operations)
             .map { it.toReaderAnnotation() }
+    }
+
+    private companion object {
+        const val MAX_ANNOTATION_BATCH_SIZE = 100
     }
 }
 

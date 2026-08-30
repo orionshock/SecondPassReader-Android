@@ -477,6 +477,45 @@ class ReaderAnnotationMutationControllerTest {
     }
 
     @Test
+    fun `SPL writer sends several outbox operations in one batch`() = runTest {
+        val batches = mutableListOf<List<MarginaliaAnnotationOperation>>()
+        val delegate = FakeAuthenticatedMarginaliaClient.sessions
+        val sessions = object : AuthenticatedReadingSessionsClient by delegate {
+            override suspend fun synchronizeAnnotations(
+                sessionId: String,
+                operations: List<MarginaliaAnnotationOperation>
+            ): List<com.secondpasslibrary.client.MarginaliaAnnotation> {
+                assertEquals(SESSION_ID, sessionId)
+                batches += operations
+                return emptyList()
+            }
+        }
+        val writer = SplReaderAnnotationWriter(clientProvider(sessions))
+        writer.synchronize(
+            profile(),
+            SESSION_ID,
+            listOf(
+                upsertRequest(),
+                ReaderAnnotationMutationRequest.UpsertBookmark(
+                    SESSION_ID,
+                    "client-batch-bookmark",
+                    CFI,
+                    readerLocationLabel(3, 0.42)
+                ),
+                ReaderAnnotationMutationRequest.Delete(SESSION_ID, "client-batch-delete")
+            )
+        )
+        assertEquals(3, batches.last().size)
+        val batchedBookmark = (batches.last()[1] as MarginaliaAnnotationOperation.Upsert)
+            .annotation
+        assertTrue(batchedBookmark is MarginaliaAnnotationDraft.Bookmark)
+        assertEquals(
+            "client-batch-delete",
+            (batches.last()[2] as MarginaliaAnnotationOperation.Delete).clientId
+        )
+    }
+
+    @Test
     fun `web palette remains the only supported color set`() {
         assertEquals(
             listOf(0xFFFACC15, 0xFF22C55E, 0xFF3B82F6, 0xFFEC4899, 0xFFA855F7, 0xFFF97316),

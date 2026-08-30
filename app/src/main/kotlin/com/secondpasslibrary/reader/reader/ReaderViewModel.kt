@@ -40,6 +40,8 @@ import com.secondpasslibrary.reader.reader.session.ReaderSessionReconciliationCo
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import com.secondpasslibrary.reader.reader.session.SplReaderSessionCoordinator
 import com.secondpasslibrary.reader.reader.session.SplReaderSessionMetadataWriter
+import com.secondpasslibrary.reader.reader.sync.ReaderOutboxSyncController
+import com.secondpasslibrary.reader.reader.sync.ReaderOutboxSynchronizer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -69,6 +71,7 @@ internal class ReaderViewModel @Inject constructor(
     marginaliaLayerVisibilityStore: ReaderMarginaliaLayerVisibilityStore,
     sessionMetadataWriter: SplReaderSessionMetadataWriter,
     private val sessionReconciler: ReaderSessionReconciler,
+    outboxSynchronizer: ReaderOutboxSynchronizer,
     localReaderStateStore: LocalReaderStateStore
 ) : ViewModel() {
     private val progressSyncJob = SupervisorJob()
@@ -123,10 +126,22 @@ internal class ReaderViewModel @Inject constructor(
         annotationMutations.accept(ReaderAnnotationMutationIntent.BeginEdit(it))
     }
     private val reconciliationEvents = Channel<ReaderConnectionEvent>(Channel.BUFFERED)
+    private val outboxSync = ReaderOutboxSyncController(
+        outboxSynchronizer,
+        viewModelScope,
+        onAuthenticationRequired = {
+            reconciliationEvents.trySend(ReaderConnectionEvent.AuthenticationRejected)
+        },
+        onReconciliationRequired = { localSessionId ->
+            sessionReconciliation.requestAuthorityRefresh(localSessionId)
+        }
+    )
     private val sessionReconciliation = ReaderSessionReconciliationController(
         sessionReconciler,
         viewModelScope,
-        controller::acceptReconciledSession,
+        onResolved = { localSessionId, session ->
+            controller.acceptReconciledSession(localSessionId, session)
+        },
         onAuthenticationRejected = {
             reconciliationEvents.trySend(ReaderConnectionEvent.AuthenticationRejected)
         }
@@ -172,6 +187,7 @@ internal class ReaderViewModel @Inject constructor(
                 val ready = readerState as? ReaderState.Ready
                 val session = ready?.session
                 if (ready == null || session == null) {
+                    outboxSync.clear()
                     sessionReconciliation.clear()
                     selections.detach()
                     annotationsController.clear()
@@ -210,6 +226,12 @@ internal class ReaderViewModel @Inject constructor(
                             entry.bookId,
                             session,
                             ready.localOnly
+                        )
+                        outboxSync.select(
+                            profile,
+                            entry.profileId,
+                            session.sessionId,
+                            session.serverSessionId
                         )
                     }
                 }
@@ -410,6 +432,7 @@ internal class ReaderViewModel @Inject constructor(
         controller.setAuthorityAvailable(available)
         marginaliaLayerPolicy.setAuthorityAvailable(available)
         sessionReconciliation.setAvailability(availability)
+        outboxSync.setAvailability(availability)
     }
 
     fun flushForBackground() {
@@ -426,6 +449,7 @@ internal class ReaderViewModel @Inject constructor(
 
     override fun onCleared() {
         bookmarkCaptureJob?.cancel()
+        outboxSync.clear()
         sessionReconciliation.clear()
         reconciliationEvents.close()
         annotationsController.close()

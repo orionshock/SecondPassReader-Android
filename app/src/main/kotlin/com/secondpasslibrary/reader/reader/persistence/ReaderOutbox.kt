@@ -3,6 +3,8 @@ package com.secondpasslibrary.reader.reader.persistence
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 
 internal interface ReaderOutboxStore {
+    suspend fun boundPendingSessions(account: LocalReaderAccountKey): List<ReaderBoundOutboxSession>
+
     suspend fun pendingSessionEstablishments(
         account: LocalReaderAccountKey
     ): List<ReaderOutboxIntent>
@@ -15,11 +17,34 @@ internal interface ReaderOutboxStore {
     suspend fun hasPendingWork(account: LocalReaderAccountKey): Boolean
 
     suspend fun acknowledgeIntent(account: LocalReaderAccountKey, outboxId: String)
+
+    suspend fun acceptProgress(
+        account: LocalReaderAccountKey,
+        localSessionId: String,
+        sent: ReaderOutboxIntent.Progress
+    )
+
+    suspend fun acceptAnnotationBatch(
+        account: LocalReaderAccountKey,
+        localSessionId: String,
+        sent: List<ReaderOutboxIntent>,
+        authoritative: List<com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation>
+    )
 }
 
 internal class RoomReaderOutboxStore @javax.inject.Inject constructor(
     private val dao: LocalReaderDao
 ) : ReaderOutboxStore {
+    override suspend fun boundPendingSessions(
+        account: LocalReaderAccountKey
+    ): List<ReaderBoundOutboxSession> = dao.boundPendingSessions(account.value).map {
+        ReaderBoundOutboxSession(
+            it.localSessionId,
+            requireNotNull(it.serverSessionId),
+            it.bookId
+        )
+    }
+
     override suspend fun pendingSessionEstablishments(
         account: LocalReaderAccountKey
     ): List<ReaderOutboxIntent> = dao.pendingSessionEstablishments(account.value).map {
@@ -39,7 +64,40 @@ internal class RoomReaderOutboxStore @javax.inject.Inject constructor(
     override suspend fun acknowledgeIntent(account: LocalReaderAccountKey, outboxId: String) {
         dao.deleteOutbox(account.value, outboxId)
     }
+
+    override suspend fun acceptProgress(
+        account: LocalReaderAccountKey,
+        localSessionId: String,
+        sent: ReaderOutboxIntent.Progress
+    ) {
+        dao.acknowledgeProgress(
+            account.value,
+            localSessionId,
+            sent.cfi,
+            java.time.Instant.now().toEpochMilli()
+        )
+    }
+
+    override suspend fun acceptAnnotationBatch(
+        account: LocalReaderAccountKey,
+        localSessionId: String,
+        sent: List<ReaderOutboxIntent>,
+        authoritative: List<com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation>
+    ) {
+        dao.acceptAnnotationDelivery(
+            account.value,
+            localSessionId,
+            sent,
+            authoritative.map { it.toEntity(account, localSessionId) }
+        )
+    }
 }
+
+internal data class ReaderBoundOutboxSession(
+    val localSessionId: String,
+    val serverSessionId: String,
+    val bookId: String
+)
 
 internal sealed interface ReaderOutboxIntent {
     val id: String

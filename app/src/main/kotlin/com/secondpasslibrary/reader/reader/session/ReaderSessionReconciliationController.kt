@@ -50,6 +50,12 @@ internal class ReaderSessionReconciliationController(
         startIfEligible()
     }
 
+    fun requestAuthorityRefresh(localSessionId: String) {
+        val selected = owner?.takeIf { it.session.sessionId == localSessionId } ?: return
+        attemptedGeneration = -1L
+        startIfEligible(force = selected)
+    }
+
     fun clear() {
         job?.cancel()
         job = null
@@ -57,11 +63,13 @@ internal class ReaderSessionReconciliationController(
         attemptedGeneration = -1L
     }
 
-    private fun startIfEligible() {
-        val selected = owner?.takeIf {
+    private fun startIfEligible(force: Owner? = null) {
+        val selected = force ?: owner?.takeIf {
             it.localOnly && availability is AppAvailability.Online
         } ?: return
-        if (attemptedGeneration == onlineGeneration || job?.isActive == true) return
+        val eligible = availability is AppAvailability.Online &&
+            attemptedGeneration != onlineGeneration && job?.isActive != true
+        if (!eligible) return
         attemptedGeneration = onlineGeneration
         job = scope.launch {
             val result = reconciler.reconcile(

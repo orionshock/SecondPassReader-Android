@@ -279,6 +279,47 @@ internal abstract class LocalReaderDao {
         localSessionId: String
     ): List<LocalReaderOutboxEntity>
 
+    @Query(
+        "SELECT DISTINCT s.* FROM reader_sessions s " +
+            "INNER JOIN reader_outbox o ON o.accountKey = s.accountKey " +
+            "AND o.localSessionId = s.localSessionId " +
+            "WHERE s.accountKey = :accountKey AND s.serverSessionId IS NOT NULL " +
+            "AND s.serverStatus = 'ACTIVE' " +
+            "AND NOT EXISTS (SELECT 1 FROM reader_outbox establishment " +
+            "WHERE establishment.accountKey = s.accountKey " +
+            "AND establishment.localSessionId = s.localSessionId " +
+            "AND establishment.operationKind = 'SESSION_ESTABLISHMENT') " +
+            "ORDER BY s.lastUsedAtEpochMillis, s.localSessionId"
+    )
+    abstract suspend fun boundPendingSessions(accountKey: String): List<LocalReaderSessionEntity>
+
+    @Transaction
+    open suspend fun acceptAnnotationDelivery(
+        accountKey: String,
+        localSessionId: String,
+        sent: List<ReaderOutboxIntent>,
+        authoritative: List<LocalReaderAnnotationEntity>
+    ) {
+        val currentIntents = pendingReaderIntents(accountKey, localSessionId)
+            .associateBy(LocalReaderOutboxEntity::outboxId)
+        val acknowledged = sent.filter { intent ->
+            currentIntents[intent.id]?.toIntent() == intent
+        }
+        val acknowledgedClientIds = acknowledged.mapNotNull { intent ->
+            when (intent) {
+                is ReaderOutboxIntent.AnnotationDelete -> intent.clientId
+                is ReaderOutboxIntent.AnnotationUpsert -> intent.clientId
+                else -> null
+            }
+        }.toSet()
+        val newerPending = pendingAnnotations(accountKey, localSessionId).filterNot {
+            it.clientId in acknowledgedClientIds
+        }
+        deleteSessionAnnotations(accountKey, localSessionId)
+        upsertAnnotations(authoritative + newerPending)
+        acknowledged.forEach { deleteOutbox(accountKey, it.id) }
+    }
+
     @Query("SELECT EXISTS(SELECT 1 FROM reader_outbox WHERE accountKey = :accountKey LIMIT 1)")
     abstract suspend fun hasPendingWork(accountKey: String): Boolean
 
