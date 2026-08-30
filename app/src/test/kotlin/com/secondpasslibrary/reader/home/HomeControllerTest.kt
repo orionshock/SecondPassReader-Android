@@ -6,6 +6,8 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
@@ -179,6 +181,88 @@ class HomeControllerTest {
         )
         shelfGate.complete(Unit)
         advanceUntilIdle()
+    }
+
+    @Test
+    fun `cached refresh reports ambient syncing then reachable without hiding content`() = runTest {
+        val account = projectionAccount()
+        val store = FakeHomeProjectionStore().apply {
+            seedRecent(account, ACTIVE_ONLY, listOf(recentItem("cached-reading")))
+            seedShelves(account, listOf(shelfItem("cached-shelf")))
+        }
+        val recentGate = CompletableDeferred<Unit>()
+        val shelfGate = CompletableDeferred<Unit>()
+        val controller =
+            controller(
+                store,
+                FakeHomeAuthenticatedClient().apply {
+                    recentCall = {
+                        recentGate.await()
+                        listOf(recentItem("fresh-reading"))
+                    }
+                    shelfCall = {
+                        shelfGate.await()
+                        listOf(shelfItem("fresh-shelf"))
+                    }
+                }
+            )
+        val availability = async { controller.refreshAvailability.take(2).toList() }
+        runCurrent()
+
+        controller.provideVerifiedAuthority(account.profile, account.profileId)
+        runCurrent()
+
+        assertEquals(
+            listOf("cached-reading"),
+            controller.state.value.recentReading.content?.items?.map { it.sessionId }
+        )
+        recentGate.complete(Unit)
+        shelfGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(HomeRefreshAvailability.REFRESHING, HomeRefreshAvailability.REACHABLE),
+            availability.await()
+        )
+        assertEquals(
+            listOf("fresh-reading"),
+            controller.state.value.recentReading.content?.items?.map { it.sessionId }
+        )
+    }
+
+    @Test
+    fun `unreachable refresh retains cached Home and reports ambient offline`() = runTest {
+        val account = projectionAccount()
+        val store = FakeHomeProjectionStore().apply {
+            seedRecent(account, ACTIVE_ONLY, listOf(recentItem("cached-reading")))
+            seedShelves(account, listOf(shelfItem("cached-shelf")))
+        }
+        val controller =
+            controller(
+                store,
+                FakeHomeAuthenticatedClient().apply {
+                    recentCall = { throw SplClientException.ServerUnreachable() }
+                    shelfCall = { throw SplClientException.ServerUnreachable() }
+                }
+            )
+        val availability = async { controller.refreshAvailability.take(2).toList() }
+        runCurrent()
+
+        controller.provideVerifiedAuthority(account.profile, account.profileId)
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(HomeRefreshAvailability.REFRESHING, HomeRefreshAvailability.UNREACHABLE),
+            availability.await()
+        )
+        assertEquals(
+            listOf("cached-reading"),
+            controller.state.value.recentReading.content?.items?.map { it.sessionId }
+        )
+        assertEquals(
+            listOf("cached-shelf"),
+            controller.state.value.shelves.content?.items?.map { it.id }
+        )
     }
 
     @Test

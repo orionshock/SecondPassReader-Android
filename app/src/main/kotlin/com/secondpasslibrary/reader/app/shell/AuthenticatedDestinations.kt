@@ -17,6 +17,7 @@ import com.secondpasslibrary.reader.bookdetail.BookDetailStateHost
 import com.secondpasslibrary.reader.connection.ConnectionLifecycleActionState
 import com.secondpasslibrary.reader.connection.ConnectionLifecycleActions
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.home.HomeRefreshAvailability
 import com.secondpasslibrary.reader.home.HomeScreen
 import com.secondpasslibrary.reader.library.LibraryExternalNavigation
 import com.secondpasslibrary.reader.library.LibraryStateHost
@@ -37,6 +38,7 @@ internal fun AccountDestinations(
     navigation: AppNavigationState,
     navigator: AppNavigator,
     onAuthenticationRejected: () -> Unit,
+    onHomeRefreshAvailabilityChanged: (HomeRefreshAvailability) -> Unit,
     onRetryConnection: () -> Unit,
     onRelinkAccount: () -> Unit,
     onForgetAccount: () -> Unit,
@@ -51,6 +53,7 @@ internal fun AccountDestinations(
                 lifecycleActions,
                 navigator,
                 onAuthenticationRejected,
+                onHomeRefreshAvailabilityChanged,
                 onRetryConnection,
                 onRelinkAccount,
                 onForgetAccount,
@@ -82,6 +85,7 @@ internal data class AccountDestinationEnvironment(
     val lifecycleActions: ConnectionLifecycleActions,
     val navigator: AppNavigator,
     val onAuthenticationRejected: () -> Unit,
+    val onHomeRefreshAvailabilityChanged: (HomeRefreshAvailability) -> Unit,
     val onRetryConnection: () -> Unit,
     val onRelinkAccount: () -> Unit,
     val onForgetAccount: () -> Unit,
@@ -104,7 +108,8 @@ private fun EntryProviderScope<NavKey>.registerHomeEntry(
         HomeDestination(
             current.session,
             current.navigator,
-            current.onAuthenticationRejected
+            current.onAuthenticationRejected,
+            current.onHomeRefreshAvailabilityChanged
         )
     }
 }
@@ -294,14 +299,16 @@ private fun LibraryDestination(
 private fun HomeDestination(
     session: AppSessionState.AccountShell,
     navigator: AppNavigator,
-    onAuthenticationRejected: () -> Unit
+    onAuthenticationRejected: () -> Unit,
+    onRefreshAvailabilityChanged: (HomeRefreshAvailability) -> Unit
 ) {
     HomeScreen(
         profile = session.profile,
         profileId = session.profileId,
         verifiedContext = session.authenticatedFeatureContext,
         onNavigation = navigator::handleHomeNavigation,
-        onAuthenticationRejected = onAuthenticationRejected
+        onAuthenticationRejected = onAuthenticationRejected,
+        onRefreshAvailabilityChanged = onRefreshAvailabilityChanged
     )
 }
 

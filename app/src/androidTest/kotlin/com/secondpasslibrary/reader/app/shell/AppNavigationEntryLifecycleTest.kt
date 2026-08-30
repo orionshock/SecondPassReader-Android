@@ -126,6 +126,7 @@ class AppNavigationEntryLifecycleTest {
                             ),
                         navigator = AppNavigator(navigation),
                         onAuthenticationRejected = {},
+                        onHomeRefreshAvailabilityChanged = {},
                         onRetryConnection = {},
                         onRelinkAccount = {},
                         onForgetAccount = {},

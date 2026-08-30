@@ -30,12 +30,15 @@ internal fun HomeScreen(
     verifiedContext: AuthenticatedContext?,
     onNavigation: (HomeNavigationIntent) -> Unit,
     onAuthenticationRejected: () -> Unit,
+    onRefreshAvailabilityChanged: (HomeRefreshAvailability) -> Unit,
     viewModel: HomeViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val accountScope = HomeAccountScope(profile.serverOrigin, profileId)
     val currentOnNavigation by rememberUpdatedState(onNavigation)
     val currentOnAuthenticationRejected by rememberUpdatedState(onAuthenticationRejected)
+    val currentOnRefreshAvailabilityChanged by
+        rememberUpdatedState(onRefreshAvailabilityChanged)
     LaunchedEffect(accountScope, verifiedContext) {
         viewModel.initializeCached(accountScope)
         if (verifiedContext != null) {
@@ -51,6 +54,9 @@ internal fun HomeScreen(
                 HomeConnectionEvent.AuthenticationRejected -> currentOnAuthenticationRejected()
             }
         }
+    }
+    LaunchedEffect(viewModel) {
+        viewModel.refreshAvailability.collectLatest(currentOnRefreshAvailabilityChanged)
     }
     HomeContent(
         state = state,

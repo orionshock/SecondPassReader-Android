@@ -4,6 +4,7 @@ import com.secondpasslibrary.reader.connection.ConnectionUiState
 import com.secondpasslibrary.reader.connection.LocalAccountContext
 import com.secondpasslibrary.reader.home.HomeAccountScope
 import com.secondpasslibrary.reader.home.HomeProjectionRepository
+import com.secondpasslibrary.reader.home.HomeRefreshAvailability
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -44,6 +45,23 @@ internal class AppSessionController(
             is ConnectionUiState.TerminalPairingProblem -> resolveCachedShell(localAccount)
 
             else -> publishConnectionRequired(connection)
+        }
+    }
+
+    fun updateHomeRefreshAvailability(availability: HomeRefreshAvailability) {
+        val shell = mutableState.value as? AppSessionState.AccountShell ?: return
+        if (shell.authority !is AppSessionAuthority.Verified) return
+        val appAvailability =
+            when (availability) {
+                HomeRefreshAvailability.REFRESHING -> AppAvailability.Syncing
+
+                HomeRefreshAvailability.REACHABLE -> AppAvailability.Online
+
+                HomeRefreshAvailability.UNREACHABLE ->
+                    AppAvailability.Offline(AppAvailabilityReason.UNREACHABLE)
+            }
+        if (shell.availability != appAvailability) {
+            mutableState.value = shell.copy(availability = appAvailability)
         }
     }
 

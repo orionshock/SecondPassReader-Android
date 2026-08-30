@@ -12,7 +12,8 @@ internal sealed interface AppSessionState {
     data class AccountShell(
         val profile: ConnectionProfile,
         val profileId: String,
-        val authority: AppSessionAuthority
+        val authority: AppSessionAuthority,
+        val availability: AppAvailability = authority.toAvailability()
     ) : AppSessionState
 }
 
@@ -30,3 +31,16 @@ internal sealed interface AppSessionAuthority {
 
 internal val AppSessionState.AccountShell.authenticatedFeatureContext: AuthenticatedContext?
     get() = (authority as? AppSessionAuthority.Verified)?.context
+
+private fun AppSessionAuthority.toAvailability(): AppAvailability = when (this) {
+    AppSessionAuthority.Restoring,
+    is AppSessionAuthority.Healing -> AppAvailability.Syncing
+
+    is AppSessionAuthority.Verified -> AppAvailability.Online
+
+    is AppSessionAuthority.TransientFailure ->
+        AppAvailability.Offline(AppAvailabilityReason.UNREACHABLE)
+
+    is AppSessionAuthority.AuthenticationRequired ->
+        AppAvailability.Offline(AppAvailabilityReason.AUTHENTICATION_REQUIRED)
+}

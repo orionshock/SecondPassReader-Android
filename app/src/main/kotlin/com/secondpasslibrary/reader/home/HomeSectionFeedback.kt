@@ -96,6 +96,7 @@ internal fun HomeSectionCachedFailure(
     modifier: Modifier = Modifier
 ) {
     val failure = refresh as? HomeProjectionRefresh.Failed ?: return
+    if (failure.reason == HomeProjectionFailure.Unreachable) return
     Surface(
         modifier = modifier,
         color = MaterialTheme.colorScheme.surfaceContainer,

@@ -16,6 +16,7 @@ internal constructor(repository: HomeProjectionRepository) :
     internal val state = controller.state
     val navigation = controller.navigation
     internal val connectionEvents = controller.connectionEvents
+    internal val refreshAvailability = controller.refreshAvailability
 
     internal fun initializeCached(scope: HomeAccountScope) = controller.initializeCached(scope)
 

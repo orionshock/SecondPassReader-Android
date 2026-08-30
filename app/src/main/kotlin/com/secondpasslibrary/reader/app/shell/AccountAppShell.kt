@@ -3,13 +3,10 @@ package com.secondpasslibrary.reader.app.shell
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.MaterialTheme
@@ -18,10 +15,10 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,6 +29,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavKey
+import com.secondpasslibrary.reader.app.AppAvailability
+import com.secondpasslibrary.reader.app.AppAvailabilityReason
 import com.secondpasslibrary.reader.app.AppSessionAuthority
 import com.secondpasslibrary.reader.app.AppSessionState
 import com.secondpasslibrary.reader.app.authenticatedFeatureContext
@@ -39,9 +38,13 @@ import com.secondpasslibrary.reader.connection.ConnectionLifecycleActionState
 import com.secondpasslibrary.reader.connection.ConnectionLifecycleActions
 import com.secondpasslibrary.reader.connection.ConnectionScreen
 import com.secondpasslibrary.reader.connection.ConnectionScreenActions
+import com.secondpasslibrary.reader.design.components.AppBarNetworkPresentation
+import com.secondpasslibrary.reader.design.components.AppBarNetworkStatus
 import com.secondpasslibrary.reader.design.components.ContextualAppBar
+import com.secondpasslibrary.reader.design.components.LocalAppBarNetworkStatus
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
+import com.secondpasslibrary.reader.home.HomeRefreshAvailability
 import kotlinx.coroutines.launch
 
 @Composable
@@ -51,6 +54,7 @@ internal fun AccountAppShell(
     lifecycleActionState: ConnectionLifecycleActionState,
     lifecycleActions: ConnectionLifecycleActions,
     onAuthenticationRejected: () -> Unit,
+    onHomeRefreshAvailabilityChanged: (HomeRefreshAvailability) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val navigation = rememberAppNavigationState()
@@ -63,34 +67,40 @@ internal fun AccountAppShell(
             coroutineScope.launch { drawer.state.open() }
         }
 
-    Box(modifier) {
-        ModalNavigationDrawer(
-            modifier = drawerGestureModifier,
-            drawerState = drawer.state,
-            gesturesEnabled = drawer.gesturesEnabled,
-            drawerContent = {
-                AppDrawer(
-                    serverName = session.serverName,
-                    selected = navigation.selectedDestination,
-                    onSelected = { destination ->
-                        navigator.select(destination)
-                        coroutineScope.launch { drawer.state.close() }
-                    }
+    CompositionLocalProvider(
+        LocalAppBarNetworkStatus provides
+            session.availability.toAppBarNetworkPresentation(connectionActions)
+    ) {
+        Box(modifier) {
+            ModalNavigationDrawer(
+                modifier = drawerGestureModifier,
+                drawerState = drawer.state,
+                gesturesEnabled = drawer.gesturesEnabled,
+                drawerContent = {
+                    AppDrawer(
+                        serverName = session.serverName,
+                        selected = navigation.selectedDestination,
+                        onSelected = { destination ->
+                            navigator.select(destination)
+                            coroutineScope.launch { drawer.state.close() }
+                        }
+                    )
+                }
+            ) {
+                AccountShellScaffold(
+                    session,
+                    connectionActions,
+                    lifecycleActionState,
+                    lifecycleActions,
+                    navigation,
+                    navigator,
+                    onAuthenticationRejected,
+                    onHomeRefreshAvailabilityChanged,
+                    onOpenDrawer = { coroutineScope.launch { drawer.state.open() } }
                 )
             }
-        ) {
-            AccountShellScaffold(
-                session,
-                connectionActions,
-                lifecycleActionState,
-                lifecycleActions,
-                navigation,
-                navigator,
-                onAuthenticationRejected,
-                onOpenDrawer = { coroutineScope.launch { drawer.state.open() } }
-            )
+            AccountHealingOverlay(session.authority, connectionActions)
         }
-        AccountHealingOverlay(session.authority, connectionActions)
     }
     DrawerDismissBackHandler(
         enabled = drawer.gesturesEnabled,
@@ -107,6 +117,7 @@ private fun AccountShellScaffold(
     navigation: AppNavigationState,
     navigator: AppNavigator,
     onAuthenticationRejected: () -> Unit,
+    onHomeRefreshAvailabilityChanged: (HomeRefreshAvailability) -> Unit,
     onOpenDrawer: () -> Unit
 ) {
     Scaffold(
@@ -122,7 +133,6 @@ private fun AccountShellScaffold(
         }
     ) { contentPadding ->
         Column(Modifier.fillMaxSize().padding(contentPadding)) {
-            AccountAuthorityBanner(session.authority, connectionActions)
             AccountDestinations(
                 session = session,
                 lifecycleActionState = lifecycleActionState,
@@ -130,6 +140,7 @@ private fun AccountShellScaffold(
                 navigation = navigation,
                 navigator = navigator,
                 onAuthenticationRejected = onAuthenticationRejected,
+                onHomeRefreshAvailabilityChanged = onHomeRefreshAvailabilityChanged,
                 onRetryConnection = connectionActions.retryRestore,
                 onRelinkAccount = connectionActions.relinkLocalAccount,
                 onForgetAccount = connectionActions.forgetLocalConnection,
@@ -138,6 +149,31 @@ private fun AccountShellScaffold(
             )
         }
     }
+}
+
+private fun AppAvailability.toAppBarNetworkPresentation(
+    actions: ConnectionScreenActions
+): AppBarNetworkPresentation = when (this) {
+    AppAvailability.Syncing -> AppBarNetworkPresentation(AppBarNetworkStatus.SYNCING)
+
+    AppAvailability.Online -> AppBarNetworkPresentation(AppBarNetworkStatus.SETTLED)
+
+    is AppAvailability.Offline ->
+        when (reason) {
+            AppAvailabilityReason.UNREACHABLE ->
+                AppBarNetworkPresentation(
+                    AppBarNetworkStatus.OFFLINE,
+                    "Offline — retry connection",
+                    actions.retryRestore
+                )
+
+            AppAvailabilityReason.AUTHENTICATION_REQUIRED ->
+                AppBarNetworkPresentation(
+                    AppBarNetworkStatus.OFFLINE,
+                    "Disconnected — link account again",
+                    actions.relinkLocalAccount
+                )
+        }
 }
 
 private data class AccountDrawerState(val state: DrawerState, val gesturesEnabled: Boolean)
@@ -196,49 +232,6 @@ private val AppSessionState.AccountShell.serverName: String
             ?.serverInfo?.name
             ?.ifBlank { profile.serverName }
             ?: profile.serverName
-
-@Composable
-private fun AccountAuthorityBanner(
-    authority: AppSessionAuthority,
-    actions: ConnectionScreenActions
-) {
-    if (authority is AppSessionAuthority.Verified) return
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-        Row(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            when (authority) {
-                AppSessionAuthority.Restoring -> {
-                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                    Text("Reconnecting…", Modifier.padding(start = 10.dp))
-                }
-
-                is AppSessionAuthority.TransientFailure -> {
-                    Text(
-                        "Offline — cached Home remains available.",
-                        modifier = Modifier.weight(1f),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Button(onClick = actions.retryRestore) { Text("Retry") }
-                }
-
-                is AppSessionAuthority.AuthenticationRequired -> {
-                    Text(
-                        "Authentication is required. Cached Home remains available.",
-                        modifier = Modifier.weight(1f),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Button(onClick = actions.relinkLocalAccount) { Text("Link again") }
-                    Button(onClick = actions.forgetLocalConnection) { Text("Forget") }
-                }
-
-                is AppSessionAuthority.Healing,
-                is AppSessionAuthority.Verified -> Unit
-            }
-        }
-    }
-}
 
 @Composable
 private fun AppDrawer(

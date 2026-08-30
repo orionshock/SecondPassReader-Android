@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.secondpasslibrary.reader.connection.ConnectionUiState
 import com.secondpasslibrary.reader.connection.LocalAccountContext
 import com.secondpasslibrary.reader.home.HomeProjectionRepository
+import com.secondpasslibrary.reader.home.HomeRefreshAvailability
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
@@ -21,4 +22,7 @@ internal constructor(homeRepository: HomeProjectionRepository) :
         connection: ConnectionUiState,
         localAccount: LocalAccountContext?
     ) = controller.updateConnection(connection, localAccount)
+
+    internal fun updateHomeRefreshAvailability(availability: HomeRefreshAvailability) =
+        controller.updateHomeRefreshAvailability(availability)
 }

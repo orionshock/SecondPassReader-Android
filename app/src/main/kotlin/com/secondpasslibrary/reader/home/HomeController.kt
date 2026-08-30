@@ -24,6 +24,8 @@ internal class HomeController(
     val navigation = navigationChannel.receiveAsFlow()
     private val connectionEventChannel = Channel<HomeConnectionEvent>(Channel.BUFFERED)
     val connectionEvents = connectionEventChannel.receiveAsFlow()
+    private val refreshAvailabilityTracker = HomeRefreshAvailabilityTracker()
+    val refreshAvailability = refreshAvailabilityTracker.changes
 
     private var connectionIdentity: AuthenticatedConnectionIdentity? = null
     private var accountProfileId: String? = null
@@ -40,6 +42,7 @@ internal class HomeController(
                 accountProfileId = null
                 account = null
                 authenticationRejectionReported = false
+                refreshAvailabilityTracker.reset()
                 recentReadingLoad?.cancel()
                 shelfLoad?.cancel()
                 loadCachedRecentReading()
@@ -52,6 +55,7 @@ internal class HomeController(
         accountProfileId = null
         account = null
         authenticationRejectionReported = false
+        refreshAvailabilityTracker.reset()
         recentReadingLoad?.cancel()
         shelfLoad?.cancel()
         mutableState.value = HomeUiState()
@@ -114,6 +118,7 @@ internal class HomeController(
                 HomeRecentReadingVariant.ActiveOnly
             }
         recentReadingLoad?.cancel()
+        refreshAvailabilityTracker.recentStarted()
         recentReadingLoad = scope.launch {
             val cached = repository.readCachedReadingHistory(activeAccount.scope, variant)
             mutableState.value = mutableState.value.copy(recentReading = cached)
@@ -132,6 +137,7 @@ internal class HomeController(
                 mutableState.value.copy(
                     recentReading = HomeProjectionState(content, refresh)
                 )
+            refreshAvailabilityTracker.recentCompleted(refresh)
             reportAuthenticationRejection(refresh)
         }
     }
@@ -148,6 +154,7 @@ internal class HomeController(
     private fun refreshShelves() {
         val activeAccount = account ?: return
         shelfLoad?.cancel()
+        refreshAvailabilityTracker.shelvesStarted()
         shelfLoad = scope.launch {
             val cached = repository.readCachedShelves(activeAccount.scope)
             mutableState.value = mutableState.value.copy(shelves = cached)
@@ -164,6 +171,7 @@ internal class HomeController(
                 }
             mutableState.value =
                 mutableState.value.copy(shelves = HomeProjectionState(content, refresh))
+            refreshAvailabilityTracker.shelvesCompleted(refresh)
             reportAuthenticationRejection(refresh)
         }
     }

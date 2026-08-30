@@ -17,6 +17,8 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -88,7 +90,49 @@ private fun ContextualAppBarTitle(
                 overflow = TextOverflow.Ellipsis
             )
             titleActions()
+            AppBarNetworkIndicator(LocalAppBarNetworkStatus.current)
             ContextualAppBarMetadata(presentation.metadata, presentation.metadataSlotWidth)
+        }
+    }
+}
+
+@Composable
+private fun AppBarNetworkIndicator(presentation: AppBarNetworkPresentation) {
+    when (presentation.status) {
+        AppBarNetworkStatus.SETTLED -> Unit
+
+        AppBarNetworkStatus.SYNCING ->
+            androidx.compose.foundation.layout.Box(
+                modifier =
+                    Modifier
+                        .size(48.dp)
+                        .semantics { contentDescription = "Connecting and refreshing" },
+                contentAlignment = Alignment.Center
+            ) {
+                androidx.compose.material3.CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp
+                )
+            }
+
+        AppBarNetworkStatus.OFFLINE -> {
+            val content: @Composable () -> Unit = {
+                AppIconGraphic(
+                    AppIcon.Offline,
+                    presentation.offlineContentDescription,
+                    Modifier.size(20.dp),
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            val onClick = presentation.onOfflineClick
+            if (onClick == null) {
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier.size(48.dp),
+                    contentAlignment = Alignment.Center
+                ) { content() }
+            } else {
+                IconButton(onClick = onClick, modifier = Modifier.size(48.dp)) { content() }
+            }
         }
     }
 }

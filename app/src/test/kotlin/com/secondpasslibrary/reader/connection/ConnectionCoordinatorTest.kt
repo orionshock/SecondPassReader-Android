@@ -718,6 +718,28 @@ class ConnectionCoordinatorTest {
         }
 
     @Test
+    fun `linked unreachable request retains local account for cache-first retry`() = runTest {
+        val profileStore = FakeProfileStore().apply { stored = profile() }
+        val credentialStore = FakeCredentialStore().apply {
+            stored = StoredCredential(BearerCredential.restore("spl_secret"), null)
+        }
+        val accountContextStore = FakePersistedAccountContextStore()
+        val coordinator =
+            coordinator(FakeClient(), profileStore, credentialStore, accountContextStore)
+        coordinator.restore()
+        advanceUntilIdle()
+        val resolvedLocalAccount = coordinator.localAccountContext.value
+
+        coordinator.authenticatedRequestUnreachable()
+
+        assertTrue(coordinator.state.value is ConnectionUiState.RestoreProblem)
+        assertEquals(resolvedLocalAccount, coordinator.localAccountContext.value)
+        assertFalse(profileStore.cleared)
+        assertFalse(credentialStore.cleared)
+        assertFalse(accountContextStore.cleared)
+    }
+
+    @Test
     fun `ambiguous consume failure is never retried automatically`() = runTest {
         val client =
             FakeClient(

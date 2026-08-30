@@ -10,6 +10,7 @@ import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import com.secondpasslibrary.reader.home.FakeHomeAuthenticatedClient
 import com.secondpasslibrary.reader.home.FakeHomeAuthenticatedClientProvider
 import com.secondpasslibrary.reader.home.FakeHomeProjectionStore
+import com.secondpasslibrary.reader.home.HomeRefreshAvailability
 import com.secondpasslibrary.reader.home.homeRepository
 import com.secondpasslibrary.reader.home.projection.HomeRecentReadingVariant
 import com.secondpasslibrary.reader.home.projectionAccount
@@ -70,6 +71,7 @@ class AppSessionControllerTest {
         assertEquals(account.profile, shell.profile)
         assertEquals(account.profileId, shell.profileId)
         assertEquals(AppSessionAuthority.Restoring, shell.authority)
+        assertEquals(AppAvailability.Syncing, shell.availability)
         assertNull(shell.authenticatedFeatureContext)
         assertEquals(0, provider.accessCount)
     }
@@ -95,6 +97,7 @@ class AppSessionControllerTest {
         assertSame(cachedShell.profile, verifiedShell.profile)
         assertEquals(cachedShell.profileId, verifiedShell.profileId)
         assertEquals(AppSessionAuthority.Verified(verifiedContext), verifiedShell.authority)
+        assertEquals(AppAvailability.Online, verifiedShell.availability)
         assertSame(verifiedContext, verifiedShell.authenticatedFeatureContext)
     }
 
@@ -114,6 +117,10 @@ class AppSessionControllerTest {
 
         val shell = controller.state.value as AppSessionState.AccountShell
         assertEquals(AppSessionAuthority.TransientFailure("Server unavailable"), shell.authority)
+        assertEquals(
+            AppAvailability.Offline(AppAvailabilityReason.UNREACHABLE),
+            shell.availability
+        )
         assertNull(shell.authenticatedFeatureContext)
     }
 
@@ -134,6 +141,10 @@ class AppSessionControllerTest {
 
             val shell = controller.state.value as AppSessionState.AccountShell
             assertEquals(AppSessionAuthority.AuthenticationRequired("Link again"), shell.authority)
+            assertEquals(
+                AppAvailability.Offline(AppAvailabilityReason.AUTHENTICATION_REQUIRED),
+                shell.availability
+            )
             assertNull(shell.authenticatedFeatureContext)
         }
 
@@ -154,6 +165,43 @@ class AppSessionControllerTest {
         assertEquals(account.profileId, shell.profileId)
         assertNull(shell.authenticatedFeatureContext)
     }
+
+    @Test
+    fun `Home refresh availability updates ambient state without replacing cached shell`() =
+        runTest {
+            val account = projectionAccount()
+            val store = FakeHomeProjectionStore().apply {
+                seedRecent(
+                    account,
+                    HomeRecentReadingVariant.ActiveOnly,
+                    listOf(recentItem("cached"))
+                )
+            }
+            val controller = controller(store)
+            val context = authenticatedContext(account.profileId)
+            controller.updateConnection(
+                ConnectionUiState.Linked(account.profile, context),
+                account.localContext()
+            )
+            val initial = controller.state.value as AppSessionState.AccountShell
+
+            controller.updateHomeRefreshAvailability(HomeRefreshAvailability.REFRESHING)
+            val syncing = controller.state.value as AppSessionState.AccountShell
+            controller.updateHomeRefreshAvailability(HomeRefreshAvailability.UNREACHABLE)
+            val offline = controller.state.value as AppSessionState.AccountShell
+            controller.updateHomeRefreshAvailability(HomeRefreshAvailability.REACHABLE)
+            val online = controller.state.value as AppSessionState.AccountShell
+
+            assertSame(initial.profile, syncing.profile)
+            assertEquals(AppAvailability.Syncing, syncing.availability)
+            assertSame(initial.profile, offline.profile)
+            assertEquals(
+                AppAvailability.Offline(AppAvailabilityReason.UNREACHABLE),
+                offline.availability
+            )
+            assertSame(initial.profile, online.profile)
+            assertEquals(AppAvailability.Online, online.availability)
+        }
 
     @Test
     fun `transient restore failure without cache remains connection owned`() = runTest {

@@ -38,6 +38,8 @@ internal constructor(
     internal val localAccountContext = coordinator.localAccountContext
     internal val lifecycleActionState = coordinator.lifecycleActionState
     val onAuthenticatedRequestRejected: () -> Unit = coordinator::authenticatedRequestRejected
+    val onAuthenticatedRequestUnreachable: () -> Unit =
+        coordinator::authenticatedRequestUnreachable
     internal val screenActions =
         ConnectionScreenActions(
             updateServerUrl = coordinator::updateServerUrl,

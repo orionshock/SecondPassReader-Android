@@ -47,3 +47,9 @@ internal data class OpenReaderIntent(val bookId: String, val sessionId: String) 
 internal sealed interface HomeConnectionEvent {
     data object AuthenticationRejected : HomeConnectionEvent
 }
+
+internal enum class HomeRefreshAvailability {
+    REFRESHING,
+    REACHABLE,
+    UNREACHABLE
+}

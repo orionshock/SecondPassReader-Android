@@ -44,6 +44,7 @@ internal class ConnectionCoordinator(
     private var operation: Job? = null
 
     fun restore() = replaceOperation {
+        mutableState.value = ConnectionUiState.Restoring
         val stored = attempt { credentialStore.read() }.getOrElse {
             mutableLocalAccountContext.value = null
             mutableState.value =
@@ -542,6 +543,16 @@ internal class ConnectionCoordinator(
             ConnectionUiState.AuthenticationRequired(
                 profile = linked.profile,
                 message = "The server rejected this device's stored credential. Link again."
+            )
+    }
+
+    fun authenticatedRequestUnreachable() {
+        val linked = mutableState.value as? ConnectionUiState.Linked ?: return
+        operation?.cancel()
+        mutableState.value =
+            ConnectionUiState.RestoreProblem(
+                linked.profile,
+                "The library is currently unreachable."
             )
     }
 }

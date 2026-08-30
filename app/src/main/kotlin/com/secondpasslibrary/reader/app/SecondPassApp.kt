@@ -16,6 +16,7 @@ import com.secondpasslibrary.reader.app.shell.AccountAppShell
 import com.secondpasslibrary.reader.connection.ConnectionScreen
 import com.secondpasslibrary.reader.connection.ConnectionUiState
 import com.secondpasslibrary.reader.connection.ConnectionViewModel
+import com.secondpasslibrary.reader.home.HomeRefreshAvailability
 
 @Composable
 fun SecondPassApp(
@@ -60,7 +61,14 @@ fun SecondPassApp(
                         lifecycleActionState = lifecycleActionState,
                         lifecycleActions = connectionViewModel.lifecycleActions,
                         onAuthenticationRejected =
-                            connectionViewModel.onAuthenticatedRequestRejected
+                            connectionViewModel.onAuthenticatedRequestRejected,
+                        onHomeRefreshAvailabilityChanged =
+                            { availability ->
+                                appSessionViewModel.updateHomeRefreshAvailability(availability)
+                                if (availability == HomeRefreshAvailability.UNREACHABLE) {
+                                    connectionViewModel.onAuthenticatedRequestUnreachable()
+                                }
+                            }
                     )
                 }
         }
