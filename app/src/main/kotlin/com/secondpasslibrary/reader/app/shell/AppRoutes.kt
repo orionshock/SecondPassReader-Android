@@ -74,7 +74,8 @@ sealed interface ReaderReturnTarget {
 data class ReaderRoute(
     val bookId: String,
     val returnTarget: ReaderReturnTarget,
-    val existingSessionId: String? = null
+    val existingSessionId: String? = null,
+    val titleHint: String? = null
 ) : NavKey,
     AppShellDrawerGesturePolicy {
     init {

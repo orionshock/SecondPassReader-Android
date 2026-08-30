@@ -9,16 +9,16 @@ internal fun EntryProviderScope<NavKey>.registerReaderEntry(
     environment: State<AccountDestinationEnvironment>
 ) {
     entry<ReaderRoute> { route ->
-        AuthenticatedDestination(environment) { bindings ->
-            val current = environment.value
-            ReaderStateHost(
-                profile = bindings.profile,
-                profileId = current.session.profileId,
-                bookId = route.bookId,
-                existingSessionId = route.existingSessionId,
-                onBack = bindings.navigator::goBack,
-                onAuthenticationRejected = bindings.onAuthenticationRejected
-            )
-        }
+        val current = environment.value
+        ReaderStateHost(
+            profile = current.session.profile,
+            profileId = current.session.profileId,
+            bookId = route.bookId,
+            existingSessionId = route.existingSessionId,
+            titleHint = route.titleHint,
+            availability = current.session.availability,
+            onBack = current.navigator::goBack,
+            onAuthenticationRejected = current.onAuthenticationRejected
+        )
     }
 }

@@ -25,6 +25,7 @@ import com.secondpasslibrary.reader.shelves.management.canManageShelf
 @Composable
 internal fun ShelvesScreen(
     viewModel: ShelvesViewModel,
+    serverMutationsAvailable: Boolean,
     onOpenDrawer: () -> Unit,
     onBookSelected: (ShelfBookNavigationRequest) -> Unit,
     onExitInitialDetail: (() -> Unit)? = null
@@ -50,25 +51,42 @@ internal fun ShelvesScreen(
             detail != null -> onExitInitialDetail ?: viewModel::backFromDetail
             else -> onOpenDrawer
         }
-    ) { modifier -> ShelvesDestinationContent(state, viewModel, onBookSelected, modifier) }
-    ShelvesMutationDialogs(viewModel, state.createOpen)
+    ) { modifier ->
+        ShelvesDestinationContent(
+            state,
+            viewModel,
+            serverMutationsAvailable,
+            onBookSelected,
+            modifier
+        )
+    }
+    if (serverMutationsAvailable) ShelvesMutationDialogs(viewModel, state.createOpen)
 }
 
 @Composable
 private fun ShelvesDestinationContent(
     state: ShelvesState,
     viewModel: ShelvesViewModel,
+    serverMutationsAvailable: Boolean,
     onBookSelected: (ShelfBookNavigationRequest) -> Unit,
     modifier: Modifier
 ) {
     when (val destination = state.destination) {
         is ShelvesDestination.ContentsEditor ->
-            ShelfEditorDestination(state.editor, viewModel, modifier)
+            if (serverMutationsAvailable) ShelfEditorDestination(state.editor, viewModel, modifier)
 
         is ShelvesDestination.Detail ->
-            ShelfDetailDestination(state, destination, viewModel, onBookSelected, modifier)
+            ShelfDetailDestination(
+                state,
+                destination,
+                viewModel,
+                serverMutationsAvailable,
+                onBookSelected,
+                modifier
+            )
 
-        is ShelvesDestination.Collection -> ShelfCollectionDestination(state, viewModel, modifier)
+        is ShelvesDestination.Collection ->
+            ShelfCollectionDestination(state, viewModel, serverMutationsAvailable, modifier)
     }
 }
 
@@ -96,6 +114,7 @@ private fun ShelfDetailDestination(
     state: ShelvesState,
     destination: ShelvesDestination.Detail,
     viewModel: ShelvesViewModel,
+    serverMutationsAvailable: Boolean,
     onBookSelected: (ShelfBookNavigationRequest) -> Unit,
     modifier: Modifier
 ) = ShelfDetailContent(
@@ -108,7 +127,8 @@ private fun ShelfDetailDestination(
     onBookSelected = { bookId ->
         onBookSelected(ShelfBookNavigationRequest(bookId, destination.shelfId, destination.origin))
     },
-    canManage = canManageShelf(destination.origin, state.detail.detail.shelf),
+    canManage = serverMutationsAvailable &&
+        canManageShelf(destination.origin, state.detail.detail.shelf),
     onManageContents = viewModel::openContentsEditor,
     modifier = modifier
 )
@@ -117,6 +137,7 @@ private fun ShelfDetailDestination(
 private fun ShelfCollectionDestination(
     state: ShelvesState,
     viewModel: ShelvesViewModel,
+    serverMutationsAvailable: Boolean,
     modifier: Modifier
 ) = ShelvesRoot(
     state = state,
@@ -130,6 +151,7 @@ private fun ShelfCollectionDestination(
     onRetryGroup = viewModel::retryGroup,
     onShelfSelected = viewModel::selectShelf,
     onCreateShelf = viewModel::openCreate,
+    createShelfAvailable = serverMutationsAvailable,
     modifier = modifier
 )
 

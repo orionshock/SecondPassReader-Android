@@ -36,7 +36,9 @@ internal fun BookDetailScreen(
     onTagSelected: (String, String) -> Unit,
     onReadBook: () -> Unit,
     onReadingSessions: () -> Unit,
-    onAddToShelf: () -> Unit
+    onAddToShelf: () -> Unit,
+    readAvailable: Boolean = true,
+    serverActionsAvailable: Boolean = true
 ) {
     Column(Modifier.fillMaxSize()) {
         ContextualAppBar(state.appBarPresentation(appBarContext), onNavigation = onBack)
@@ -53,7 +55,9 @@ internal fun BookDetailScreen(
                     onTagSelected,
                     onReadBook,
                     onReadingSessions,
-                    onAddToShelf
+                    onAddToShelf,
+                    readAvailable,
+                    serverActionsAvailable
                 )
         }
     }
@@ -91,7 +95,9 @@ private fun BookDetailHero(
     onTagSelected: (String, String) -> Unit,
     onReadBook: () -> Unit,
     onReadingSessions: () -> Unit,
-    onAddToShelf: () -> Unit
+    onAddToShelf: () -> Unit,
+    readAvailable: Boolean,
+    serverActionsAvailable: Boolean
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val layout = bookDetailLayoutForWidth(maxWidth)
@@ -108,7 +114,9 @@ private fun BookDetailHero(
                         onSeriesSelected,
                         onReadBook,
                         onReadingSessions,
-                        onAddToShelf
+                        onAddToShelf,
+                        readAvailable,
+                        serverActionsAvailable
                     )
 
                     BookDetailLayout.MEDIUM -> BookDetailMediumHero(
@@ -117,7 +125,9 @@ private fun BookDetailHero(
                         onSeriesSelected,
                         onReadBook,
                         onReadingSessions,
-                        onAddToShelf
+                        onAddToShelf,
+                        readAvailable,
+                        serverActionsAvailable
                     )
 
                     BookDetailLayout.NARROW -> BookDetailNarrowHero(
@@ -126,7 +136,9 @@ private fun BookDetailHero(
                         onSeriesSelected,
                         onReadBook,
                         onReadingSessions,
-                        onAddToShelf
+                        onAddToShelf,
+                        readAvailable,
+                        serverActionsAvailable
                     )
                 }
             }
@@ -150,7 +162,9 @@ private fun BookDetailWideHero(
     onSeriesSelected: (String) -> Unit,
     onReadBook: () -> Unit,
     onReadingSessions: () -> Unit,
-    onAddToShelf: () -> Unit
+    onAddToShelf: () -> Unit,
+    readAvailable: Boolean,
+    serverActionsAvailable: Boolean
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
         BookDetailCover(book, Modifier.width(280.dp))
@@ -164,7 +178,8 @@ private fun BookDetailWideHero(
             onReadBook,
             onReadingSessions,
             onAddToShelf,
-            readBookEnabled = book.hasReadableEpub,
+            readBookEnabled = book.hasReadableEpub && readAvailable,
+            serverActionsAvailable = serverActionsAvailable,
             BookDetailActionLayout.VERTICAL,
             Modifier.width(184.dp)
         )
@@ -178,7 +193,9 @@ private fun BookDetailMediumHero(
     onSeriesSelected: (String) -> Unit,
     onReadBook: () -> Unit,
     onReadingSessions: () -> Unit,
-    onAddToShelf: () -> Unit
+    onAddToShelf: () -> Unit,
+    readAvailable: Boolean,
+    serverActionsAvailable: Boolean
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
@@ -197,7 +214,8 @@ private fun BookDetailMediumHero(
             onReadBook,
             onReadingSessions,
             onAddToShelf,
-            readBookEnabled = book.hasReadableEpub,
+            readBookEnabled = book.hasReadableEpub && readAvailable,
+            serverActionsAvailable = serverActionsAvailable,
             BookDetailActionLayout.HORIZONTAL
         )
     }
@@ -210,7 +228,9 @@ private fun BookDetailNarrowHero(
     onSeriesSelected: (String) -> Unit,
     onReadBook: () -> Unit,
     onReadingSessions: () -> Unit,
-    onAddToShelf: () -> Unit
+    onAddToShelf: () -> Unit,
+    readAvailable: Boolean,
+    serverActionsAvailable: Boolean
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -221,7 +241,8 @@ private fun BookDetailNarrowHero(
             onReadBook,
             onReadingSessions,
             onAddToShelf,
-            readBookEnabled = book.hasReadableEpub,
+            readBookEnabled = book.hasReadableEpub && readAvailable,
+            serverActionsAvailable = serverActionsAvailable,
             BookDetailActionLayout.HORIZONTAL
         )
     }

@@ -15,6 +15,7 @@ internal fun EntryProviderScope<NavKey>.registerShelfDetailEntry(
         AuthenticatedDestination(environment) { bindings ->
             ShelvesStateHost(
                 profile = bindings.profile,
+                serverMutationsAvailable = bindings.serverMutationsAvailable,
                 onOpenDrawer = bindings.onOpenDrawer,
                 onBookSelected = { bindings.navigator.openShelfBook(it) },
                 onAuthenticationRejected = bindings.onAuthenticationRejected,

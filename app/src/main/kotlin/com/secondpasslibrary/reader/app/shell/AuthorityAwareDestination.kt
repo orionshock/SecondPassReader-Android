@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.app.shell
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
+import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.app.authenticatedFeatureContext
 
 @Composable
@@ -25,6 +26,7 @@ internal fun AuthenticatedDestination(
                 current.session.profile,
                 context,
                 current.navigator,
+                current.session.availability !is AppAvailability.Offline,
                 current.onAuthenticationRejected,
                 current.onOpenDrawer
             )

@@ -23,6 +23,7 @@ internal fun ReaderAnnotationsOverlayContent(
     scope: CoroutineScope,
     dismiss: () -> Unit,
     onMarginaliaIntent: (ReaderMarginaliaIntent) -> Unit,
+    serverWritesAvailable: Boolean,
     mutationState: ReaderAnnotationMutationState,
     sessionMetadata: ReaderSessionMetadataState,
     onCreateBookmark: () -> Unit,
@@ -41,7 +42,8 @@ internal fun ReaderAnnotationsOverlayContent(
         scope = scope,
         onDismiss = dismiss,
         onMarginaliaIntent = onMarginaliaIntent,
-        editable = ready?.session?.status == ReaderSessionStatus.ACTIVE,
+        editable = serverWritesAvailable &&
+            ready?.session?.status == ReaderSessionStatus.ACTIVE,
         mutationState = mutationState,
         sessionMetadata = sessionMetadata,
         onCreateBookmark = onCreateBookmark,

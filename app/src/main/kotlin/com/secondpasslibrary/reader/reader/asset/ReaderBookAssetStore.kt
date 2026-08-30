@@ -31,6 +31,14 @@ internal class ReaderBookAssetStore private constructor(private val root: File) 
 
     private val writes = Mutex()
 
+    suspend fun findCompleted(account: ReaderAccountScope, bookId: String): ReaderBookAsset? =
+        withContext(Dispatchers.IO) {
+            require(bookId.isNotBlank()) { "Book ID must not be blank." }
+            completedFile(account, bookId)
+                .takeIf { it.isFile && it.length() > 0L }
+                ?.let { ReaderBookAsset(it, reused = true) }
+        }
+
     suspend fun acquire(
         account: ReaderAccountScope,
         bookId: String,

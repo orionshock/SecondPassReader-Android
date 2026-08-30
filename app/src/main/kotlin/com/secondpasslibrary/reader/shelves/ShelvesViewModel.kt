@@ -113,6 +113,17 @@ constructor(clientProvider: AuthenticatedClientProvider) :
 
     fun dismissEditorMutationFailure() = controller.editor.dismissMutationFailure()
 
+    fun leaveMutationSurfaces() {
+        controller.dismissCreate()
+        controller.edit.reset()
+        controller.delete.reset()
+        controller.editor.dismissPosition()
+        controller.editor.dismissRemoval()
+        if (state.value.destination is ShelvesDestination.ContentsEditor) {
+            controller.backFromContentsEditor()
+        }
+    }
+
     fun changeItemOrdering(ordering: ShelfItemOrdering) =
         controller.detail.changeItemOrdering(ordering)
 

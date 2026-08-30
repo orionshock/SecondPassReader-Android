@@ -13,7 +13,8 @@ internal sealed interface AppSessionState {
         val profile: ConnectionProfile,
         val profileId: String,
         val authority: AppSessionAuthority,
-        val availability: AppAvailability = authority.toAvailability()
+        val availability: AppAvailability = authority.toAvailability(),
+        val retainedContext: AuthenticatedContext? = null
     ) : AppSessionState
 }
 
@@ -30,7 +31,7 @@ internal sealed interface AppSessionAuthority {
 }
 
 internal val AppSessionState.AccountShell.authenticatedFeatureContext: AuthenticatedContext?
-    get() = (authority as? AppSessionAuthority.Verified)?.context
+    get() = (authority as? AppSessionAuthority.Verified)?.context ?: retainedContext
 
 private fun AppSessionAuthority.toAvailability(): AppAvailability = when (this) {
     AppSessionAuthority.Restoring,

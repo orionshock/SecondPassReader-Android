@@ -9,6 +9,7 @@ import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 @Composable
 internal fun ShelvesStateHost(
     profile: ConnectionProfile,
+    serverMutationsAvailable: Boolean,
     onOpenDrawer: () -> Unit,
     onBookSelected: (ShelfBookNavigationRequest) -> Unit,
     onAuthenticationRejected: () -> Unit,
@@ -21,6 +22,9 @@ internal fun ShelvesStateHost(
         viewModel.initialize(profile)
         initialDetail?.let(viewModel::openShelf)
     }
+    LaunchedEffect(serverMutationsAvailable) {
+        if (!serverMutationsAvailable) viewModel.leaveMutationSurfaces()
+    }
     LaunchedEffect(viewModel, onAuthenticationRejected) {
         viewModel.connectionEvents.collect { event ->
             when (event) {
@@ -28,5 +32,11 @@ internal fun ShelvesStateHost(
             }
         }
     }
-    ShelvesScreen(viewModel, onOpenDrawer, onBookSelected, onExitInitialDetail)
+    ShelvesScreen(
+        viewModel,
+        serverMutationsAvailable,
+        onOpenDrawer,
+        onBookSelected,
+        onExitInitialDetail
+    )
 }

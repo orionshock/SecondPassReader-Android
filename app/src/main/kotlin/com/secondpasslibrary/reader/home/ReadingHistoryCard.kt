@@ -125,6 +125,13 @@ private fun ReadingHistoryCardText(model: ReadingHistoryCardModel, modifier: Mod
                 style = MaterialTheme.typography.bodySmall
             )
         }
+        model.availabilityLabel?.let {
+            Text(
+                it,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.labelSmall
+            )
+        }
         ReadingStatus(model)
     }
 }

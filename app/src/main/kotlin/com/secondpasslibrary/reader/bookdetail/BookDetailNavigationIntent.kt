@@ -9,7 +9,7 @@ internal sealed interface BookDetailNavigationIntent {
 
     data class ReadingSessions(val bookId: String) : BookDetailNavigationIntent
 
-    data class ReadBook(val bookId: String) : BookDetailNavigationIntent
+    data class ReadBook(val bookId: String, val title: String? = null) : BookDetailNavigationIntent
 
     data object ManageShelves : BookDetailNavigationIntent
 }

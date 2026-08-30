@@ -2,16 +2,26 @@ package com.secondpasslibrary.reader.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.reader.asset.ReaderAccountScope
+import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel
 @Inject
-internal constructor(repository: HomeProjectionRepository) :
-    ViewModel() {
-    private val controller = HomeController(repository, viewModelScope)
+internal constructor(
+    repository: HomeProjectionRepository,
+    assetStore: ReaderBookAssetStore
+) : ViewModel() {
+    private val controller = HomeController(repository, viewModelScope) { scope, bookId ->
+        assetStore.findCompleted(
+            ReaderAccountScope(scope.serverOrigin, scope.profileId),
+            bookId
+        ) != null
+    }
 
     internal val state = controller.state
     val navigation = controller.navigation
@@ -22,6 +32,9 @@ internal constructor(repository: HomeProjectionRepository) :
 
     internal fun provideVerifiedAuthority(profile: ConnectionProfile, profileId: String) =
         controller.provideVerifiedAuthority(profile, profileId)
+
+    internal fun updateAppAvailability(availability: AppAvailability) =
+        controller.updateAppAvailability(availability)
 
     fun setShowClosedSessions(showClosed: Boolean) = controller.setShowClosedSessions(showClosed)
 

@@ -25,6 +25,8 @@ internal class AppSessionController(
     private var evaluatedAccount: LocalAccountContext? = null
     private var cachedHomeEligible: Boolean? = null
     private var eligibilityLoad: Job? = null
+    private var lastVerifiedContext: com.secondpasslibrary.client.AuthenticatedContext? = null
+    private var lastVerifiedAccount: Pair<String, String>? = null
 
     fun updateConnection(connection: ConnectionUiState, localAccount: LocalAccountContext?) {
         connectionState = connection
@@ -67,6 +69,8 @@ internal class AppSessionController(
 
     private fun publishVerifiedShell(linked: ConnectionUiState.Linked) {
         eligibilityLoad?.cancel()
+        lastVerifiedContext = linked.context
+        lastVerifiedAccount = linked.profile.serverOrigin to linked.context.currentUser.profileId
         mutableState.value =
             AppSessionState.AccountShell(
                 profile = linked.profile,
@@ -150,12 +154,18 @@ internal class AppSessionController(
             AppSessionState.AccountShell(
                 profile = account.profile,
                 profileId = account.persistedAccount.profileId,
-                authority = authority
+                authority = authority,
+                retainedContext = lastVerifiedContext.takeIf {
+                    lastVerifiedAccount ==
+                        account.profile.serverOrigin to account.persistedAccount.profileId
+                }
             )
     }
 
     private fun publishConnectionRequired(connection: ConnectionUiState) {
         eligibilityLoad?.cancel()
+        lastVerifiedContext = null
+        lastVerifiedAccount = null
         mutableState.value = AppSessionState.ConnectionRequired(connection)
     }
 }

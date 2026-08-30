@@ -7,7 +7,9 @@ import com.secondpasslibrary.reader.design.book.BookCardAction
 internal data class HomeUiState(
     val showClosedSessions: Boolean = false,
     val recentReading: HomeProjectionState<RecentReadingItem> = HomeProjectionState.loading(),
-    val shelves: HomeProjectionState<ShelfSummary> = HomeProjectionState.loading()
+    val shelves: HomeProjectionState<ShelfSummary> = HomeProjectionState.loading(),
+    val offline: Boolean = false,
+    val locallyReadableBookIds: Set<String> = emptySet()
 )
 
 sealed interface HomeNavigationIntent {
@@ -41,8 +43,11 @@ enum class ReadingSessionDetailAction {
 }
 
 /** Home identifies the exact existing Session; Reader reloads its authoritative progress. */
-internal data class OpenReaderIntent(val bookId: String, val sessionId: String) :
-    HomeNavigationIntent
+internal data class OpenReaderIntent(
+    val bookId: String,
+    val sessionId: String,
+    val title: String? = null
+) : HomeNavigationIntent
 
 internal sealed interface HomeConnectionEvent {
     data object AuthenticationRejected : HomeConnectionEvent

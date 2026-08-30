@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.home
 
+import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
@@ -13,9 +14,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
+@Suppress("TooManyFunctions") // Two cached sections expose independent retry and refresh intents.
 internal class HomeController(
     private val repository: HomeProjectionRepository,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val localBookAvailable: suspend (
+        HomeAccountScope,
+        String
+    ) -> Boolean = { _, _ -> false }
 ) {
     private val mutableState = MutableStateFlow(HomeUiState())
     val state: StateFlow<HomeUiState> = mutableState.asStateFlow()
@@ -34,6 +40,18 @@ internal class HomeController(
     private var authenticationRejectionReported = false
     private var recentReadingLoad: Job? = null
     private var shelfLoad: Job? = null
+    private var offlineAvailabilityLoad: Job? = null
+
+    fun updateAppAvailability(availability: AppAvailability) {
+        val offline = availability is AppAvailability.Offline
+        if (mutableState.value.offline == offline) return
+        offlineAvailabilityLoad?.cancel()
+        mutableState.value = mutableState.value.copy(
+            offline = offline,
+            locallyReadableBookIds = emptySet()
+        )
+        refreshOfflineBookAvailability()
+    }
 
     fun initializeCached(scope: HomeAccountScope) {
         if (scope == cacheScope) {
@@ -45,6 +63,7 @@ internal class HomeController(
                 refreshAvailabilityTracker.reset()
                 recentReadingLoad?.cancel()
                 shelfLoad?.cancel()
+                offlineAvailabilityLoad?.cancel()
                 loadCachedRecentReading()
                 loadCachedShelves()
             }
@@ -58,6 +77,7 @@ internal class HomeController(
         refreshAvailabilityTracker.reset()
         recentReadingLoad?.cancel()
         shelfLoad?.cancel()
+        offlineAvailabilityLoad?.cancel()
         mutableState.value = HomeUiState()
         loadCachedRecentReading()
         loadCachedShelves()
@@ -106,6 +126,7 @@ internal class HomeController(
         recentReadingLoad = scope.launch {
             val cached = repository.readCachedReadingHistory(activeScope, variant)
             mutableState.value = mutableState.value.copy(recentReading = cached)
+            refreshOfflineBookAvailability()
         }
     }
 
@@ -139,6 +160,7 @@ internal class HomeController(
                 )
             refreshAvailabilityTracker.recentCompleted(refresh)
             reportAuthenticationRejection(refresh)
+            refreshOfflineBookAvailability()
         }
     }
 
@@ -185,5 +207,21 @@ internal class HomeController(
         }
         authenticationRejectionReported = true
         connectionEventChannel.trySend(HomeConnectionEvent.AuthenticationRejected)
+    }
+
+    private fun refreshOfflineBookAvailability() {
+        val current = mutableState.value
+        val activeScope = cacheScope ?: return
+        if (!current.offline) return
+        val bookIds = current.recentReading.content?.items.orEmpty().map { it.book.id }.distinct()
+        offlineAvailabilityLoad?.cancel()
+        offlineAvailabilityLoad = scope.launch {
+            val available = bookIds.filterTo(mutableSetOf()) { bookId ->
+                runCatching { localBookAvailable(activeScope, bookId) }.getOrDefault(false)
+            }
+            if (cacheScope == activeScope && mutableState.value.offline) {
+                mutableState.value = mutableState.value.copy(locallyReadableBookIds = available)
+            }
+        }
     }
 }

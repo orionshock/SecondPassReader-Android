@@ -29,6 +29,7 @@ internal data class ReadingHistoryCardModel(
     val statusIndicator: ReadingStatusIndicator,
     val cover: BookCoverPresentation,
     val primaryIntent: OpenReaderIntent?,
+    val availabilityLabel: String? = null,
     val contextActions: List<HomeNavigationIntent>
 )
 
@@ -46,7 +47,11 @@ internal data class ShelfCardModel(
 internal data class ShelfPreviewCardModel(val title: String, val cover: BookCoverPresentation)
 
 internal object HomePresenter {
-    fun readingHistory(item: RecentReadingItem) = ReadingHistoryCardModel(
+    fun readingHistory(
+        item: RecentReadingItem,
+        offlineReadable: Boolean = true,
+        offline: Boolean = false
+    ) = ReadingHistoryCardModel(
         bookId = item.book.id,
         sessionId = item.sessionId,
         title = item.book.title,
@@ -56,10 +61,11 @@ internal object HomePresenter {
         statusIndicator = item.status.indicator,
         cover = item.book.cover.toPresentation(),
         primaryIntent =
-            item.book.takeIf { it.canOpen }?.let {
-                OpenReaderIntent(it.id, item.sessionId)
+            item.book.takeIf { (offline && offlineReadable) || (!offline && it.canOpen) }?.let {
+                OpenReaderIntent(it.id, item.sessionId, it.title)
             },
-        contextActions = item.contextActions
+        availabilityLabel = "Not available offline".takeIf { offline && !offlineReadable },
+        contextActions = item.contextActions(serverMutationsAvailable = !offline)
     )
 
     fun shelf(shelf: ShelfSummary): ShelfCardModel {
@@ -134,22 +140,23 @@ private data class ShelfOwnerPresentation(
     val iconDescription: String
 )
 
-private val RecentReadingItem.contextActions: List<HomeNavigationIntent>
-    get() = buildList {
-        add(HomeNavigationIntent.BookAction(BookCardAction.BookDetails(book.id)))
-        add(HomeNavigationIntent.OpenReadingSessionDetail(sessionId))
-        if (status == ReadingSessionStatus.ACTIVE) {
-            add(
-                HomeNavigationIntent.OpenReadingSessionDetail(
-                    sessionId,
-                    ReadingSessionDetailAction.EDIT
-                )
+private fun RecentReadingItem.contextActions(
+    serverMutationsAvailable: Boolean
+): List<HomeNavigationIntent> = buildList {
+    add(HomeNavigationIntent.BookAction(BookCardAction.BookDetails(book.id)))
+    add(HomeNavigationIntent.OpenReadingSessionDetail(sessionId))
+    if (serverMutationsAvailable && status == ReadingSessionStatus.ACTIVE) {
+        add(
+            HomeNavigationIntent.OpenReadingSessionDetail(
+                sessionId,
+                ReadingSessionDetailAction.EDIT
             )
-            add(
-                HomeNavigationIntent.OpenReadingSessionDetail(
-                    sessionId,
-                    ReadingSessionDetailAction.CLOSE
-                )
+        )
+        add(
+            HomeNavigationIntent.OpenReadingSessionDetail(
+                sessionId,
+                ReadingSessionDetailAction.CLOSE
             )
-        }
+        )
     }
+}

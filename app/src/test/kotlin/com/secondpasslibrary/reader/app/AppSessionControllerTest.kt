@@ -167,6 +167,33 @@ class AppSessionControllerTest {
     }
 
     @Test
+    fun `online to offline transition retains matching screen context only`() = runTest {
+        val account = projectionAccount()
+        val store = FakeHomeProjectionStore().apply {
+            seedRecent(account, HomeRecentReadingVariant.ActiveOnly, emptyList())
+        }
+        val controller = controller(store)
+        val context = authenticatedContext(account.profileId)
+        controller.updateConnection(
+            ConnectionUiState.Linked(account.profile, context),
+            account.localContext()
+        )
+
+        controller.updateConnection(
+            ConnectionUiState.RestoreProblem(account.profile, "Server unavailable"),
+            account.localContext()
+        )
+        advanceUntilIdle()
+
+        val shell = controller.state.value as AppSessionState.AccountShell
+        assertSame(context, shell.authenticatedFeatureContext)
+        assertEquals(
+            AppAvailability.Offline(AppAvailabilityReason.UNREACHABLE),
+            shell.availability
+        )
+    }
+
+    @Test
     fun `Home refresh availability updates ambient state without replacing cached shell`() =
         runTest {
             val account = projectionAccount()

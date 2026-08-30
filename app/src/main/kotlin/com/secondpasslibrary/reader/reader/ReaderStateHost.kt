@@ -8,6 +8,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.reader.annotations.bookmark.ReaderBookmarkHudIntent
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationIntent
@@ -19,6 +20,8 @@ internal fun ReaderStateHost(
     profileId: String,
     bookId: String,
     existingSessionId: String?,
+    titleHint: String?,
+    availability: AppAvailability,
     onBack: () -> Unit,
     onAuthenticationRejected: () -> Unit,
     viewModel: ReaderViewModel = viewModel()
@@ -33,12 +36,12 @@ internal fun ReaderStateHost(
     val annotationMutations by viewModel.annotationMutationState.collectAsStateWithLifecycle()
     val highlightDetail by viewModel.highlightDetail.collectAsStateWithLifecycle()
     val sessionMetadata by viewModel.sessionMetadataState.collectAsStateWithLifecycle()
-    DisposableEffect(viewModel) {
-        viewModel.setAuthorityAvailable(true)
-        onDispose { viewModel.setAuthorityAvailable(false) }
+    DisposableEffect(viewModel) { onDispose { viewModel.setAuthorityAvailable(false) } }
+    LaunchedEffect(availability) {
+        viewModel.setAuthorityAvailable(availability !is AppAvailability.Offline)
     }
-    LaunchedEffect(profile, profileId, bookId, existingSessionId) {
-        viewModel.initialize(profile, profileId, bookId, existingSessionId)
+    LaunchedEffect(profile, profileId, bookId, existingSessionId, titleHint) {
+        viewModel.initialize(profile, profileId, bookId, existingSessionId, titleHint, availability)
     }
     LaunchedEffect(viewModel, onAuthenticationRejected) {
         viewModel.connectionEvents.collect { event ->
@@ -52,8 +55,9 @@ internal fun ReaderStateHost(
     }
     ReaderScreen(
         state = state,
+        serverWritesAvailable = availability !is AppAvailability.Offline,
         onBack = { viewModel.flushThenExit(onBack) },
-        onRetry = viewModel::retry,
+        onRetry = { viewModel.retry(availability) },
         onAppearanceChanged = viewModel::updateAppearance,
         annotations = annotations,
         pageBookmarks = pageBookmarks,

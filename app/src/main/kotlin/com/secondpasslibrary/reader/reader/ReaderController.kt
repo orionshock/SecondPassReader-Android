@@ -1,6 +1,7 @@
 package com.secondpasslibrary.reader.reader
 
 import com.secondpasslibrary.client.SplClientException
+import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceStore
@@ -39,8 +40,9 @@ internal sealed interface ReaderState {
     data class Ready(
         val title: String,
         val engine: ReaderEngine,
-        val session: ReaderSessionContext,
-        val restore: ReaderProgressRestore
+        val session: ReaderSessionContext?,
+        val restore: ReaderProgressRestore,
+        val localReadOnly: Boolean = false
     ) : ReaderState
     data class Failure(val kind: ReaderFailure) : ReaderState
 }
@@ -52,7 +54,7 @@ internal enum class ReaderProgressRestore {
     SKIPPED
 }
 
-internal enum class ReaderFailure { DOWNLOAD, OPEN, NO_EPUB, SESSION }
+internal enum class ReaderFailure { DOWNLOAD, OPEN, NO_EPUB, OFFLINE_ASSET_UNAVAILABLE, SESSION }
 
 internal sealed interface ReaderConnectionEvent {
     data object AuthenticationRejected : ReaderConnectionEvent
@@ -65,7 +67,10 @@ internal class ReaderController(
     progressWriter: ReaderProgressWriter,
     private val scope: CoroutineScope,
     private val appearanceStore: ReaderAppearanceStore = DefaultReaderAppearanceStore,
-    private val progressSyncScope: CoroutineScope = scope
+    private val progressSyncScope: CoroutineScope = scope,
+    private val launchPolicy: ReaderLaunchAdmission = ReaderLaunchAdmission { _, _, _, _ ->
+        ReaderLaunchDecision.ONLINE
+    }
 ) {
     private val mutableState = MutableStateFlow<ReaderState>(ReaderState.Resolving)
     val state = mutableState.asStateFlow()
@@ -88,16 +93,32 @@ internal class ReaderController(
         profile: ConnectionProfile,
         profileId: String,
         bookId: String,
-        existingSessionId: String?
+        existingSessionId: String?,
+        titleHint: String? = null,
+        availability: AppAvailability = AppAvailability.Online
     ) {
-        val next = ReaderRequest(profile, profileId, bookId, existingSessionId)
+        val next = ReaderRequest(
+            profile,
+            profileId,
+            bookId,
+            existingSessionId,
+            titleHint,
+            availability
+        )
         if (request == next && (job?.isActive == true || state.value is ReaderState.Ready)) return
         request = next
         load(next)
     }
 
-    fun retry() {
-        request?.let(::load)
+    fun retry(availability: AppAvailability? = null) {
+        request?.let { current ->
+            load(
+                current.copy(
+                    availability =
+                        availability ?: current.availability
+                )
+            )
+        }
     }
 
     fun setAuthorityAvailable(available: Boolean) {
@@ -129,6 +150,7 @@ internal class ReaderController(
         }
     }
 
+    @Suppress("LongMethod") // Preserves staged engine ownership and failure cleanup in one job.
     private fun load(request: ReaderRequest) {
         job?.cancel()
         progressSyncController.reset()
@@ -141,22 +163,30 @@ internal class ReaderController(
             try {
                 val result = runCatching {
                     val initialAppearance = async { appearanceStore.readOrDefault() }
-                    val book = assetResolver.resolve(
-                        ReaderBookAssetRequest(request.profile, request.profileId, request.bookId),
-                        onDownloadStarted = {
-                            if (isActive) mutableState.value = ReaderState.Downloading
-                        }
-                    )
+                    val resolved = resolveReaderBook(launchPolicy, assetResolver, request) {
+                        if (isActive) mutableState.value = ReaderState.Downloading
+                    }
+                    val book = resolved.book
                     coroutineContext.ensureActive()
                     failureKind = ReaderFailure.OPEN
                     mutableState.value = ReaderState.Opening
                     val engine = engineOpener.open(book.file, initialAppearance.await())
                     openedEngine = engine
                     coroutineContext.ensureActive()
-                    failureKind = ReaderFailure.SESSION
-                    val ready = prepareReady(request, book.title, engine)
+                    val ready = if (resolved.localReadOnly) {
+                        ReaderState.Ready(
+                            title = book.title,
+                            engine = engine,
+                            session = null,
+                            restore = ReaderProgressRestore.NOT_NEEDED,
+                            localReadOnly = true
+                        )
+                    } else {
+                        failureKind = ReaderFailure.SESSION
+                        prepareReady(request, book.title, engine)
+                    }
                     coroutineContext.ensureActive()
-                    progressController.prepare(ready.session, engine)
+                    ready.session?.let { progressController.prepare(it, engine) }
                     mutableState.value = ready
                     openedEngine = null
                     restoreProgress(ready)
@@ -165,7 +195,9 @@ internal class ReaderController(
                 result.fold(
                     onSuccess = { ready ->
                         mutableState.value = ready
-                        startProgressSynchronization(request.profile, ready.session.status)
+                        ready.session?.let { session ->
+                            startProgressSynchronization(request.profile, session.status)
+                        }
                         openedEngine = null
                     },
                     onFailure = { failure ->
@@ -176,7 +208,11 @@ internal class ReaderController(
                             )
                         }
                         val kind = when (failure) {
+                            is ReaderOfflineAssetUnavailableException ->
+                                ReaderFailure.OFFLINE_ASSET_UNAVAILABLE
+
                             is ReaderEpubUnavailableException -> ReaderFailure.NO_EPUB
+
                             else -> failureKind
                         }
                         progressController.reset()
@@ -244,7 +280,7 @@ internal class ReaderController(
 }
 
 private suspend fun restoreSavedProgress(ready: ReaderState.Ready): ReaderState.Ready {
-    val rawCfi = ready.session.savedProgressCfi
+    val rawCfi = ready.session?.savedProgressCfi
     val cfi = rawCfi?.let { runCatching { EpubCfi(it) }.getOrNull() }
     return when {
         rawCfi == null -> ready
@@ -273,7 +309,7 @@ private suspend fun restoreValidProgress(
     )
 }
 
-private fun ReaderState.Ready.restoredStartupPosition(): EpubCfi? = session.savedProgressCfi
+private fun ReaderState.Ready.restoredStartupPosition(): EpubCfi? = session?.savedProgressCfi
     ?.takeIf { restore == ReaderProgressRestore.RESTORED }
     ?.let { runCatching { EpubCfi(it) }.getOrNull() }
 
@@ -290,7 +326,9 @@ private data class ReaderRequest(
     val profile: ConnectionProfile,
     val profileId: String,
     val bookId: String,
-    val existingSessionId: String?
+    val existingSessionId: String?,
+    val titleHint: String?,
+    val availability: AppAvailability
 ) {
     init {
         require(profileId.isNotBlank()) { "Profile ID must not be blank." }
@@ -299,6 +337,42 @@ private data class ReaderRequest(
             "Existing Reading Session ID must not be blank."
         }
     }
+}
+
+private data class ReaderBookResolution(
+    val book: com.secondpasslibrary.reader.reader.asset.ResolvedReaderBook,
+    val localReadOnly: Boolean
+)
+
+private class ReaderOfflineAssetUnavailableException : Exception()
+
+private suspend fun resolveReaderBook(
+    launchPolicy: ReaderLaunchAdmission,
+    assetResolver: ReaderBookAssetResolver,
+    request: ReaderRequest,
+    onDownloadStarted: () -> Unit
+): ReaderBookResolution {
+    val launch = launchPolicy.decide(
+        request.availability,
+        request.profile,
+        request.profileId,
+        request.bookId
+    )
+    if (launch == ReaderLaunchDecision.OFFLINE_ASSET_UNAVAILABLE) {
+        throw ReaderOfflineAssetUnavailableException()
+    }
+    val localReadOnly = launch == ReaderLaunchDecision.LOCAL_READ_ONLY
+    val book = assetResolver.resolve(
+        ReaderBookAssetRequest(
+            request.profile,
+            request.profileId,
+            request.bookId,
+            request.titleHint,
+            localReadOnly
+        ),
+        onDownloadStarted
+    )
+    return ReaderBookResolution(book, localReadOnly)
 }
 
 private suspend inline fun EpubCfiOutcome<Unit>.then(

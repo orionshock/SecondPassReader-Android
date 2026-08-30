@@ -21,7 +21,9 @@ internal fun interface ReaderBookAssetResolver {
 internal data class ReaderBookAssetRequest(
     val profile: ConnectionProfile,
     val profileId: String,
-    val bookId: String
+    val bookId: String,
+    val titleHint: String? = null,
+    val localOnly: Boolean = false
 )
 
 @Singleton
@@ -33,12 +35,22 @@ internal class SplReaderBookAssetResolver @Inject constructor(
         request: ReaderBookAssetRequest,
         onDownloadStarted: () -> Unit
     ): ResolvedReaderBook {
+        val account = ReaderAccountScope(request.profile.serverOrigin, request.profileId)
+        if (request.localOnly) {
+            val local = assetStore.findCompleted(account, request.bookId)
+                ?: throw ReaderEpubUnavailableException()
+            return ResolvedReaderBook(
+                request.titleHint?.takeIf(String::isNotBlank) ?: "Downloaded book",
+                local.file,
+                reused = true
+            )
+        }
         val client = clientProvider.forProfile(request.profile)
         val book = client.library.books.getBook(request.bookId)
         val file = book.file?.takeIf { it.format.lowercase(Locale.ROOT) == "epub" }
             ?: throw ReaderEpubUnavailableException()
         val asset = assetStore.acquire(
-            ReaderAccountScope(request.profile.serverOrigin, request.profileId),
+            account,
             request.bookId,
             onDownloadStarted
         ) { output -> client.library.books.downloadBook(file.download, output) }

@@ -13,9 +13,10 @@ import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 internal fun writableSelection(
     ready: ReaderState.Ready?,
     selection: ReaderSelection?,
-    mutations: ReaderAnnotationMutationState
+    mutations: ReaderAnnotationMutationState,
+    serverWritesAvailable: Boolean = true
 ) = selection?.takeIf {
-    ready?.session?.status == ReaderSessionStatus.ACTIVE &&
+    serverWritesAvailable && ready?.session?.status == ReaderSessionStatus.ACTIVE &&
         mutations.pendingCreate?.selection?.cfi == it.cfi
 }
 

@@ -1,6 +1,8 @@
 package com.secondpasslibrary.reader.reader
 
 import com.secondpasslibrary.client.SplClientException
+import com.secondpasslibrary.reader.app.AppAvailability
+import com.secondpasslibrary.reader.app.AppAvailabilityReason
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceController
@@ -46,6 +48,48 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ReaderControllerTest {
+    @Test
+    fun `offline admitted asset opens read-only without Session or server bootstrap`() = runTest {
+        val file = Files.createTempFile("reader-offline", ".epub").toFile()
+        var sessionCalls = 0
+        var localOnly = false
+        val controller = ReaderController(
+            assetResolver = ReaderBookAssetResolver { request, _ ->
+                localOnly = request.localOnly
+                ResolvedReaderBook(request.titleHint.orEmpty(), file, reused = true)
+            },
+            engineOpener = ReaderEngineOpener { FakeEngine() },
+            sessionCoordinator = ReaderSessionCoordinator { _, _ ->
+                sessionCalls += 1
+                error("Offline Reader must not bootstrap a Session.")
+            },
+            progressWriter = writer(),
+            scope = this,
+            launchPolicy = ReaderLaunchAdmission { _, _, _, _ ->
+                ReaderLaunchDecision.LOCAL_READ_ONLY
+            }
+        )
+
+        controller.initialize(
+            profile(),
+            "profile-1",
+            "book-1",
+            null,
+            "Cached title",
+            AppAvailability.Offline(AppAvailabilityReason.UNREACHABLE)
+        )
+        advanceUntilIdle()
+
+        val ready = controller.state.value as ReaderState.Ready
+        assertTrue(localOnly)
+        assertEquals("Cached title", ready.title)
+        assertEquals(null, ready.session)
+        assertTrue(ready.localReadOnly)
+        assertEquals(0, sessionCalls)
+        controller.close()
+        advanceUntilIdle()
+    }
+
     @Test
     fun `download then publication open reaches ready in order`() = runTest {
         val file = Files.createTempFile("reader", ".epub").toFile()
@@ -104,7 +148,7 @@ class ReaderControllerTest {
         advanceUntilIdle()
 
         val waiting = controller.state.value as ReaderState.Ready
-        assertEquals("session-existing", waiting.session.sessionId)
+        assertEquals("session-existing", requireNotNull(waiting.session).sessionId)
         assertEquals(ReaderProgressRestore.WAITING, waiting.restore)
         assertTrue(engine.navigator.destinations.isEmpty())
 

@@ -116,6 +116,18 @@ class BookDetailPresentationTest {
     }
 
     @Test
+    fun `offline Book Detail disables server actions without disabling local read`() {
+        val actions = bookDetailActionPresentations(
+            readBookEnabled = true,
+            serverActionsAvailable = false
+        ).associateBy { it.kind }
+
+        assertTrue(requireNotNull(actions[BookDetailActionKind.READ_BOOK]).enabled)
+        assertFalse(requireNotNull(actions[BookDetailActionKind.READING_SESSIONS]).enabled)
+        assertFalse(requireNotNull(actions[BookDetailActionKind.ADD_TO_SHELF]).enabled)
+    }
+
+    @Test
     fun `file sizes use bounded human readable binary units`() {
         assertEquals("0 B", fileSizeLabel(0))
         assertEquals("1 KiB", fileSizeLabel(1024))

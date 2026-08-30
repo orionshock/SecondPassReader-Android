@@ -59,6 +59,7 @@ import kotlinx.coroutines.launch
 @Suppress("LongMethod")
 internal fun ReaderScreen(
     state: ReaderState,
+    serverWritesAvailable: Boolean = true,
     onBack: () -> Unit,
     onRetry: () -> Unit,
     onAppearanceChanged: (ReaderAppearance) -> Unit = {},
@@ -82,7 +83,12 @@ internal fun ReaderScreen(
     val ready = state as? ReaderState.Ready
     val appearance by remember(ready?.engine) { readyAppearance(ready) }.collectAsState()
     val palette = appearance.theme.readerPalette()
-    val highlightSelection = writableSelection(ready, selection, annotationMutations)
+    val highlightSelection = writableSelection(
+        ready,
+        selection,
+        annotationMutations,
+        serverWritesAvailable
+    )
     var overlayVisible by remember { mutableStateOf(false) }
     var bookmarkMenuVisible by remember { mutableStateOf(false) }
     val hud = rememberReaderHudPresentation(
@@ -111,6 +117,7 @@ internal fun ReaderScreen(
                 scope,
                 dismiss,
                 onMarginaliaIntent,
+                serverWritesAvailable,
                 annotationMutations,
                 sessionMetadata,
                 onCreateBookmark,
@@ -128,6 +135,7 @@ internal fun ReaderScreen(
             highlightDetail,
             hud,
             pageBookmarks,
+            serverWritesAvailable,
             onBack,
             onRetry,
             onAnnotationMutation,
@@ -152,6 +160,7 @@ private fun ReaderReadingSurface(
     highlightDetail: ReaderReadOnlyHighlightDetail?,
     hud: ReaderHudPresentation,
     pageBookmarks: ReaderVisiblePageBookmarks,
+    serverWritesAvailable: Boolean,
     onBack: () -> Unit,
     onRetry: () -> Unit,
     onMutation: (ReaderAnnotationMutationIntent) -> Unit,
@@ -195,7 +204,8 @@ private fun ReaderReadingSurface(
                 overlays.openAppearance()
             },
             bookmarks = pageBookmarks.bookmarks,
-            bookmarksWritable = ready?.session?.status == ReaderSessionStatus.ACTIVE,
+            bookmarksWritable = serverWritesAvailable &&
+                ready?.session?.status == ReaderSessionStatus.ACTIVE,
             onCreateBookmark = onCreateBookmark,
             onNavigateBookmark = onNavigateBookmark,
             onRemoveBookmark = onRemoveBookmark,
@@ -299,9 +309,9 @@ internal fun ReaderAnnotationsOverlay(
     onEditHighlight: (ReaderAnnotation.Highlight) -> Unit,
     onDeleteAnnotation: (ReaderAnnotation) -> Unit
 ) {
-    if (ready == null) return
+    val session = ready?.session ?: return
     ReaderMarginaliaDrawer(
-        currentSessionId = ready.session.sessionId,
+        currentSessionId = session.sessionId,
         currentAnnotations = state,
         layers = layers,
         autoShowPrevious = autoShowPrevious,
@@ -451,6 +461,7 @@ private fun ReaderFailureContent(
         ReaderFailure.DOWNLOAD -> "Couldn’t download this book."
         ReaderFailure.OPEN -> "Couldn’t open this EPUB."
         ReaderFailure.NO_EPUB -> "This book does not have an EPUB file."
+        ReaderFailure.OFFLINE_ASSET_UNAVAILABLE -> "This book is not available offline."
         ReaderFailure.SESSION -> "Couldn't prepare this reading session."
     }
     Column(

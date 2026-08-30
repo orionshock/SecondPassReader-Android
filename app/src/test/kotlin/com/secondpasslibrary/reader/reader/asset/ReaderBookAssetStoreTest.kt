@@ -43,7 +43,25 @@ class ReaderBookAssetStoreTest {
         }
 
         assertFalse(store.completedFile(account, "book-1").exists())
+        assertEquals(null, store.findCompleted(account, "book-1"))
         assertTrue(root.walkTopDown().none { it.name.endsWith(".part") })
+    }
+
+    @Test
+    fun `completed lookup is account scoped and rejects empty files`() = runTest {
+        val root = Files.createTempDirectory("reader-assets").toFile()
+        val store = ReaderBookAssetStore.forTests(root)
+        val owner = ReaderAccountScope("https://library.example", "profile-1")
+        val other = ReaderAccountScope("https://library.example", "profile-2")
+        store.completedFile(owner, "empty").apply {
+            parentFile?.mkdirs()
+            createNewFile()
+        }
+        store.acquire(owner, "book-1", {}) { it.write("epub".toByteArray()) }
+
+        assertTrue(store.findCompleted(owner, "book-1") != null)
+        assertEquals(null, store.findCompleted(other, "book-1"))
+        assertEquals(null, store.findCompleted(owner, "empty"))
     }
 
     @Test

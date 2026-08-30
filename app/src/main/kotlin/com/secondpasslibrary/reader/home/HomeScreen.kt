@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.secondpasslibrary.client.AuthenticatedContext
+import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.design.components.InlineSearchField
 import kotlinx.coroutines.flow.collectLatest
@@ -28,6 +29,7 @@ internal fun HomeScreen(
     profile: ConnectionProfile,
     profileId: String,
     verifiedContext: AuthenticatedContext?,
+    availability: AppAvailability,
     onNavigation: (HomeNavigationIntent) -> Unit,
     onAuthenticationRejected: () -> Unit,
     onRefreshAvailabilityChanged: (HomeRefreshAvailability) -> Unit,
@@ -55,6 +57,7 @@ internal fun HomeScreen(
             }
         }
     }
+    LaunchedEffect(accountScope, availability) { viewModel.updateAppAvailability(availability) }
     LaunchedEffect(viewModel) {
         viewModel.refreshAvailability.collectLatest(currentOnRefreshAvailabilityChanged)
     }
@@ -94,6 +97,8 @@ private fun HomeContent(
         GlobalLibrarySearch(onSearch, Modifier.padding(horizontal = 24.dp))
         ReadingHistorySection(
             state = state.recentReading,
+            offline = state.offline,
+            locallyReadableBookIds = state.locallyReadableBookIds,
             showClosed = state.showClosedSessions,
             onShowClosedChanged = onShowClosedChanged,
             onRetry = onRetryRecentReading,

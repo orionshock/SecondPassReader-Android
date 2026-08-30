@@ -36,6 +36,7 @@ internal fun ShelvesRootControls(
     onCollectionSelected: (ShelvesCollection) -> Unit,
     onOrderingSelected: (ShelfOrdering) -> Unit,
     onCreateShelf: () -> Unit,
+    createShelfAvailable: Boolean,
     modifier: Modifier
 ) {
     BoxWithConstraints(modifier.fillMaxWidth()) {
@@ -47,7 +48,13 @@ internal fun ShelvesRootControls(
             ) {
                 CollectionSelectors(selected, onCollectionSelected)
                 Box(Modifier.weight(1f))
-                CollectionActions(selected, state.ordering, onOrderingSelected, onCreateShelf)
+                CollectionActions(
+                    selected,
+                    state.ordering,
+                    onOrderingSelected,
+                    onCreateShelf,
+                    createShelfAvailable
+                )
             }
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -59,7 +66,13 @@ internal fun ShelvesRootControls(
                     horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    CollectionActions(selected, state.ordering, onOrderingSelected, onCreateShelf)
+                    CollectionActions(
+                        selected,
+                        state.ordering,
+                        onOrderingSelected,
+                        onCreateShelf,
+                        createShelfAvailable
+                    )
                 }
             }
         }
@@ -93,10 +106,11 @@ private fun CollectionActions(
     selected: ShelvesCollection,
     ordering: ShelfOrdering,
     onOrderingSelected: (ShelfOrdering) -> Unit,
-    onCreateShelf: () -> Unit
+    onCreateShelf: () -> Unit,
+    createShelfAvailable: Boolean
 ) {
     if (selected == ShelvesCollection.PERSONAL) {
-        OutlinedButton(onClick = onCreateShelf) {
+        OutlinedButton(onClick = onCreateShelf, enabled = createShelfAvailable) {
             AppIconGraphic(AppIcon.Add, null, Modifier.size(18.dp))
             Text("Create shelf", Modifier.padding(start = 6.dp))
         }

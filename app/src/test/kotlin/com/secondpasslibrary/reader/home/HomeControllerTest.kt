@@ -1,6 +1,8 @@
 package com.secondpasslibrary.reader.home
 
 import com.secondpasslibrary.client.SplClientException
+import com.secondpasslibrary.reader.app.AppAvailability
+import com.secondpasslibrary.reader.app.AppAvailabilityReason
 import com.secondpasslibrary.reader.home.projection.HomeRecentReadingVariant
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -19,6 +21,39 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeControllerTest {
+    @Test
+    fun `offline cached reading marks only locally completed Books readable`() = runTest {
+        val account = projectionAccount()
+        val store = FakeHomeProjectionStore().apply {
+            seedRecent(
+                account,
+                ACTIVE_ONLY,
+                listOf(recentItem("downloaded"), recentItem("remote-only"))
+            )
+        }
+        val controller =
+            HomeController(
+                homeRepository(store, FakeHomeAuthenticatedClient()),
+                this,
+                localBookAvailable = { _, bookId -> bookId == "book-downloaded" }
+            )
+
+        controller.initializeCached(account.scope)
+        controller.updateAppAvailability(
+            AppAvailability.Offline(AppAvailabilityReason.UNREACHABLE)
+        )
+        advanceUntilIdle()
+
+        assertTrue(controller.state.value.offline)
+        assertEquals(setOf("book-downloaded"), controller.state.value.locallyReadableBookIds)
+
+        controller.updateAppAvailability(AppAvailability.Online)
+        advanceUntilIdle()
+
+        assertTrue(!controller.state.value.offline)
+        assertTrue(controller.state.value.locallyReadableBookIds.isEmpty())
+    }
+
     @Test
     fun `cached-only initialization reads sections without authenticated client access`() =
         runTest {

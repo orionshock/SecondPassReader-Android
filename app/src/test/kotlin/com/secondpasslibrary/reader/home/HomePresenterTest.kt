@@ -35,7 +35,8 @@ class HomePresenterTest {
         assertEquals(
             OpenReaderIntent(
                 "book-1",
-                "session-1"
+                "session-1",
+                "The Dispossessed"
             ),
             model.primaryIntent
         )
@@ -49,6 +50,31 @@ class HomePresenterTest {
             )
 
         assertNull(model.primaryIntent)
+    }
+
+    @Test
+    fun `offline reading uses local availability and removes Session mutations`() {
+        val unavailable = HomePresenter.readingHistory(
+            recent(ReadingSessionStatus.ACTIVE),
+            offlineReadable = false,
+            offline = true
+        )
+        val downloaded = HomePresenter.readingHistory(
+            recent(ReadingSessionStatus.ACTIVE, canOpen = false),
+            offlineReadable = true,
+            offline = true
+        )
+
+        assertNull(unavailable.primaryIntent)
+        assertEquals("Not available offline", unavailable.availabilityLabel)
+        assertEquals("book-1", downloaded.primaryIntent?.bookId)
+        assertEquals(
+            listOf(
+                HomeNavigationIntent.BookAction(BookCardAction.BookDetails("book-1")),
+                HomeNavigationIntent.OpenReadingSessionDetail("session-1")
+            ),
+            downloaded.contextActions
+        )
     }
 
     @Test

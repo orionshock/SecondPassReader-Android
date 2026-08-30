@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.reader
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
@@ -51,6 +52,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 internal class ReaderViewModel @Inject constructor(
     assetResolver: SplReaderBookAssetResolver,
+    launchPolicy: ReaderLaunchPolicy,
     engineOpener: ReaderEngineOpener,
     sessionCoordinator: SplReaderSessionCoordinator,
     progressWriter: SplReaderProgressWriter,
@@ -72,7 +74,8 @@ internal class ReaderViewModel @Inject constructor(
             progressWriter,
             viewModelScope,
             appearanceStore,
-            progressSyncScope
+            progressSyncScope,
+            launchPolicy
         )
     private val annotationsController = ReaderAnnotationsController(
         annotationsLoader,
@@ -113,6 +116,7 @@ internal class ReaderViewModel @Inject constructor(
     private var bookmarkCaptureJob: Job? = null
     private var activeProfile: ConnectionProfile? = null
     private var entryIdentity: ReaderEntryIdentity? = null
+    private var serverWritesAvailable = true
 
     val state = controller.state
     val progress = controller.progress
@@ -146,19 +150,22 @@ internal class ReaderViewModel @Inject constructor(
         viewModelScope.launch {
             controller.state.collect { readerState ->
                 val ready = readerState as? ReaderState.Ready
-                if (ready == null) {
+                val session = ready?.session
+                if (ready == null || session == null) {
                     selections.detach()
+                    annotationsController.clear()
+                    marginaliaLayersController.clear()
                     annotationMutations.clear()
                     visiblePageBookmarks.clear()
                 } else {
                     selections.attach(ready.engine.selectionEvents, ready.engine.cfiNavigator)
                     activeProfile?.let { profile ->
-                        annotationsController.select(profile, ready.session.sessionId)
+                        annotationsController.select(profile, session.sessionId)
                         entryIdentity?.let { entry ->
                             marginaliaLayersController.select(
                                 profile,
                                 entry.bookId,
-                                ready.session
+                                session
                             )
                             marginaliaLayerPolicy.select(
                                 profile.authenticatedConnectionIdentity,
@@ -167,10 +174,10 @@ internal class ReaderViewModel @Inject constructor(
                         }
                         annotationMutations.select(
                             profile,
-                            ready.session.sessionId,
-                            ready.session.status
+                            session.sessionId,
+                            session.status
                         )
-                        sessionMetadata.select(profile, ready.session)
+                        sessionMetadata.select(profile, session)
                     }
                 }
             }
@@ -192,23 +199,24 @@ internal class ReaderViewModel @Inject constructor(
                         currentAnnotationValues,
                         layers.previousLayers
                     )
-                    if (ready != null) {
+                    val session = ready?.session
+                    if (ready != null && session != null) {
                         visiblePageBookmarks.select(
-                            ready.session.sessionId,
+                            session.sessionId,
                             ready.engine.visiblePageBookmarks
                         )
-                        if (annotations.sessionId == ready.session.sessionId) {
+                        if (annotations.sessionId == session.sessionId) {
                             visiblePageBookmarks.replace(
-                                ready.session.sessionId,
+                                session.sessionId,
                                 annotations.annotations
                             )
                             annotationDecorations.replace(
-                                sessionId = ready.session.sessionId,
+                                sessionId = session.sessionId,
                                 target = ready.engine.annotationDecorations,
                                 annotations = annotations.annotations
                             )
                         } else {
-                            visiblePageBookmarks.replace(ready.session.sessionId, emptyList())
+                            visiblePageBookmarks.replace(session.sessionId, emptyList())
                             annotationDecorations.clear()
                         }
                     } else {
@@ -234,7 +242,9 @@ internal class ReaderViewModel @Inject constructor(
         profile: ConnectionProfile,
         profileId: String,
         bookId: String,
-        existingSessionId: String?
+        existingSessionId: String?,
+        titleHint: String?,
+        availability: AppAvailability
     ) {
         val nextIdentity = ReaderEntryIdentity(
             profile.authenticatedConnectionIdentity,
@@ -251,9 +261,12 @@ internal class ReaderViewModel @Inject constructor(
                 reader to layers
             }.collectLatest { (reader, layers) ->
                 val ready = reader as? ReaderState.Ready
-                if (ready != null && layers.currentLayer?.sessionId == ready.session.sessionId) {
+                val session = ready?.session
+                if (ready != null && session != null &&
+                    layers.currentLayer?.sessionId == session.sessionId
+                ) {
                     marginaliaLayerDecorations.replace(
-                        readerSessionId = ready.session.sessionId,
+                        readerSessionId = session.sessionId,
                         target = ready.engine.annotationDecorations,
                         layers = layers.previousLayers
                     )
@@ -264,14 +277,23 @@ internal class ReaderViewModel @Inject constructor(
         }
         entryIdentity = nextIdentity
         activeProfile = profile
-        controller.initialize(profile, profileId, bookId, existingSessionId)
+        controller.initialize(
+            profile,
+            profileId,
+            bookId,
+            existingSessionId,
+            titleHint,
+            availability
+        )
     }
 
-    fun retry() = controller.retry()
+    fun retry(availability: AppAvailability? = null) = controller.retry(availability)
 
     fun updateAppearance(appearance: ReaderAppearance) = controller.updateAppearance(appearance)
 
     fun acceptMarginalia(intent: ReaderMarginaliaIntent) {
+        if (!serverWritesAvailable && intent.isServerMutation()) return
+        if (sessionMetadata.accept(intent)) return
         when (intent) {
             ReaderMarginaliaIntent.RetryCurrentAnnotations -> annotationsController.retry()
 
@@ -294,30 +316,32 @@ internal class ReaderViewModel @Inject constructor(
 
             ReaderMarginaliaIntent.RetryLayerHistory -> marginaliaLayersController.retry()
 
-            ReaderMarginaliaIntent.EditCurrentSessionMetadata -> sessionMetadata.beginEdit()
-
-            is ReaderMarginaliaIntent.ChangeCurrentSessionName ->
-                sessionMetadata.updateName(intent.name)
-
-            is ReaderMarginaliaIntent.ChangeCurrentSessionNotes ->
-                sessionMetadata.updateNotes(intent.notes)
-
-            ReaderMarginaliaIntent.SaveCurrentSessionMetadata -> sessionMetadata.submit()
-
             ReaderMarginaliaIntent.DismissCurrentSessionMetadataEditor ->
                 sessionMetadata.dismissEditor()
+
+            ReaderMarginaliaIntent.EditCurrentSessionMetadata,
+            is ReaderMarginaliaIntent.ChangeCurrentSessionName,
+            is ReaderMarginaliaIntent.ChangeCurrentSessionNotes,
+            ReaderMarginaliaIntent.SaveCurrentSessionMetadata -> Unit
         }
     }
 
     fun mutateAnnotation(intent: ReaderAnnotationMutationIntent) {
+        if (!serverWritesAvailable) return
         annotationMutations.accept(intent)
     }
 
     fun acceptBookmark(intent: ReaderBookmarkHudIntent) {
-        val ready = controller.state.value as? ReaderState.Ready ?: return
+        val ready = controller.state.value as? ReaderState.Ready
+        if (ready == null ||
+            (!serverWritesAvailable && intent !is ReaderBookmarkHudIntent.Navigate)
+        ) {
+            return
+        }
+        val session = ready.session ?: return
         when (intent) {
             ReaderBookmarkHudIntent.Create -> when {
-                ready.session.status != ReaderSessionStatus.ACTIVE -> Unit
+                session.status != ReaderSessionStatus.ACTIVE -> Unit
 
                 annotationMutationState.value.pendingBookmark != null ->
                     annotationMutations.accept(ReaderAnnotationMutationIntent.RetryBookmark)
@@ -351,6 +375,7 @@ internal class ReaderViewModel @Inject constructor(
     }
 
     fun setAuthorityAvailable(available: Boolean) {
+        serverWritesAvailable = available
         controller.setAuthorityAvailable(available)
         marginaliaLayerPolicy.setAuthorityAvailable(available)
     }
@@ -380,6 +405,30 @@ internal class ReaderViewModel @Inject constructor(
         controller.close { progressSyncJob.cancel() }
     }
 }
+
+private fun ReaderMarginaliaIntent.isServerMutation(): Boolean = when (this) {
+    ReaderMarginaliaIntent.EditCurrentSessionMetadata,
+    is ReaderMarginaliaIntent.ChangeCurrentSessionName,
+    is ReaderMarginaliaIntent.ChangeCurrentSessionNotes,
+    ReaderMarginaliaIntent.SaveCurrentSessionMetadata -> true
+
+    else -> false
+}
+
+private fun ReaderSessionMetadataController.accept(intent: ReaderMarginaliaIntent): Boolean =
+    when (intent) {
+        ReaderMarginaliaIntent.EditCurrentSessionMetadata -> true.also { beginEdit() }
+
+        is ReaderMarginaliaIntent.ChangeCurrentSessionName -> true.also { updateName(intent.name) }
+
+        is ReaderMarginaliaIntent.ChangeCurrentSessionNotes -> true.also {
+            updateNotes(intent.notes)
+        }
+
+        ReaderMarginaliaIntent.SaveCurrentSessionMetadata -> true.also { submit() }
+
+        else -> false
+    }
 
 private data class ReaderEntryIdentity(
     val connectionIdentity: AuthenticatedConnectionIdentity,

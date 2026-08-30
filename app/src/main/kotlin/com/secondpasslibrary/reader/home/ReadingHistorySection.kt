@@ -31,6 +31,8 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun ReadingHistorySection(
     state: HomeProjectionState<RecentReadingItem>,
+    offline: Boolean,
+    locallyReadableBookIds: Set<String>,
     showClosed: Boolean,
     onShowClosedChanged: (Boolean) -> Unit,
     onRetry: () -> Unit,
@@ -72,7 +74,11 @@ internal fun ReadingHistorySection(
             ) {
                 items(content.items, key = { it.sessionId }) { item ->
                     ReadingHistoryCard(
-                        HomePresenter.readingHistory(item),
+                        HomePresenter.readingHistory(
+                            item,
+                            offlineReadable = !offline || item.book.id in locallyReadableBookIds,
+                            offline = offline
+                        ),
                         onPrimaryAction,
                         onContextAction
                     )

@@ -6,6 +6,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.bookdetail.shelfpicker.BookShelfPickerDialog
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
@@ -13,6 +14,9 @@ import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 @Composable
 internal fun BookDetailStateHost(
     profile: ConnectionProfile,
+    profileId: String,
+    availability: AppAvailability,
+    serverMutationsAvailable: Boolean,
     bookId: String,
     appBarContext: String,
     onBack: () -> Unit,
@@ -22,10 +26,11 @@ internal fun BookDetailStateHost(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val shelfPickerState by viewModel.shelfPickerState.collectAsStateWithLifecycle()
+    val offlineReadable by viewModel.offlineReadable.collectAsStateWithLifecycle()
     val connectionIdentity = profile.authenticatedConnectionIdentity
     BackHandler(onBack = onBack)
-    LaunchedEffect(connectionIdentity, bookId) {
-        viewModel.initialize(profile, bookId)
+    LaunchedEffect(connectionIdentity, profileId, availability, bookId) {
+        viewModel.initialize(profile, profileId, availability, bookId)
     }
     LaunchedEffect(viewModel, onAuthenticationRejected) {
         viewModel.connectionEvents.collect { event ->
@@ -42,13 +47,17 @@ internal fun BookDetailStateHost(
         onAuthorSelected = { onNavigation(BookDetailNavigationIntent.Author(it)) },
         onSeriesSelected = { onNavigation(BookDetailNavigationIntent.Series(it)) },
         onTagSelected = { id, slug -> onNavigation(BookDetailNavigationIntent.Tag(id, slug)) },
-        onReadBook = { onNavigation(BookDetailNavigationIntent.ReadBook(bookId)) },
+        onReadBook = {
+            onNavigation(BookDetailNavigationIntent.ReadBook(bookId, state.detail?.title))
+        },
         onReadingSessions = {
             onNavigation(BookDetailNavigationIntent.ReadingSessions(bookId))
         },
-        onAddToShelf = viewModel::openShelfPicker
+        onAddToShelf = viewModel::openShelfPicker,
+        readAvailable = offlineReadable,
+        serverActionsAvailable = serverMutationsAvailable
     )
-    if (shelfPickerState.open) {
+    if (shelfPickerState.open && serverMutationsAvailable) {
         BookShelfPickerDialog(
             state = shelfPickerState,
             onRetry = viewModel::retryShelfPicker,

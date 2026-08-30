@@ -179,7 +179,10 @@ internal data class BookDetailActionPresentation(
     val enabled: Boolean
 )
 
-internal fun bookDetailActionPresentations(readBookEnabled: Boolean = false) = listOf(
+internal fun bookDetailActionPresentations(
+    readBookEnabled: Boolean = false,
+    serverActionsAvailable: Boolean = true
+) = listOf(
     BookDetailActionPresentation(
         BookDetailActionKind.READ_BOOK,
         "Read book",
@@ -190,13 +193,13 @@ internal fun bookDetailActionPresentations(readBookEnabled: Boolean = false) = l
         BookDetailActionKind.READING_SESSIONS,
         "Reading sessions",
         AppIcon.ReadingHistory,
-        true
+        serverActionsAvailable
     ),
     BookDetailActionPresentation(
         BookDetailActionKind.ADD_TO_SHELF,
         "Add to shelf",
         AppIcon.Shelf,
-        true
+        serverActionsAvailable
     )
 )
 
@@ -206,6 +209,7 @@ internal fun BookDetailActions(
     onReadingSessions: () -> Unit,
     onAddToShelf: () -> Unit,
     readBookEnabled: Boolean,
+    serverActionsAvailable: Boolean,
     layout: BookDetailActionLayout,
     modifier: Modifier = Modifier
 ) {
@@ -214,7 +218,7 @@ internal fun BookDetailActions(
         BookDetailActionKind.READING_SESSIONS to onReadingSessions,
         BookDetailActionKind.ADD_TO_SHELF to onAddToShelf
     )
-    val actions = bookDetailActionPresentations(readBookEnabled)
+    val actions = bookDetailActionPresentations(readBookEnabled, serverActionsAvailable)
     if (layout == BookDetailActionLayout.VERTICAL) {
         Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
             actions.forEach { action ->

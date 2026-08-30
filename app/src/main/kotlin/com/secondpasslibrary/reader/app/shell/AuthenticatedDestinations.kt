@@ -9,6 +9,7 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.secondpasslibrary.client.AuthenticatedContext
+import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.app.AppSessionAuthority
 import com.secondpasslibrary.reader.app.AppSessionState
 import com.secondpasslibrary.reader.app.authenticatedFeatureContext
@@ -96,6 +97,7 @@ internal data class AuthenticatedDestinationBindings(
     val profile: ConnectionProfile,
     val context: AuthenticatedContext,
     val navigator: AppNavigator,
+    val serverMutationsAvailable: Boolean,
     val onAuthenticationRejected: () -> Unit,
     val onOpenDrawer: () -> Unit
 )
@@ -121,6 +123,7 @@ private fun EntryProviderScope<NavKey>.registerAuthenticatedTopLevelEntries(
         AuthenticatedDestination(environment) { bindings ->
             ShelvesStateHost(
                 bindings.profile,
+                bindings.serverMutationsAvailable,
                 bindings.onOpenDrawer,
                 onBookSelected = { bindings.navigator.openShelfBook(it) },
                 onAuthenticationRejected = bindings.onAuthenticationRejected
@@ -203,6 +206,9 @@ private fun EntryProviderScope<NavKey>.registerSharedBookDetailEntry(
         AuthenticatedDestination(environment) { bindings ->
             BookDetailStateHost(
                 profile = bindings.profile,
+                profileId = environment.value.session.profileId,
+                availability = environment.value.session.availability,
+                serverMutationsAvailable = bindings.serverMutationsAvailable,
                 bookId = route.bookId,
                 appBarContext = route.returnTarget.appBarContextLabel(),
                 onBack = bindings.navigator::goBack,
@@ -306,6 +312,7 @@ private fun HomeDestination(
         profile = session.profile,
         profileId = session.profileId,
         verifiedContext = session.authenticatedFeatureContext,
+        availability = session.availability,
         onNavigation = navigator::handleHomeNavigation,
         onAuthenticationRejected = onAuthenticationRejected,
         onRefreshAvailabilityChanged = onRefreshAvailabilityChanged
