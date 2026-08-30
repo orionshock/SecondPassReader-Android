@@ -53,6 +53,81 @@
       "problemMatcher": []
     },
     {
+      "label": "Test: CFI runtime — TypeScript and bundle",
+      "type": "process",
+      "command": "npm",
+      "windows": {
+        "command": "npm.cmd"
+      },
+      "args": ["run", "check"],
+      "options": {
+        "cwd": "${workspaceFolder}/tools/reader-cfi-runtime"
+      },
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Test: CFI — JVM",
+      "type": "process",
+      "command": "${workspaceFolder}/gradlew",
+      "windows": {
+        "command": "${workspaceFolder}\\gradlew.bat"
+      },
+      "args": [
+        ":app:testDebugUnitTest",
+        "--tests",
+        "com.secondpasslibrary.reader.reader.cfi.EpubCfiTest",
+        "--tests",
+        "com.secondpasslibrary.reader.reader.cfi.EpubCfiNavigatorTest",
+        "--tests",
+        "com.secondpasslibrary.reader.reader.cfi.EpubPackageResolverTest"
+      ],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Test: CFI — connected runtime",
+      "type": "process",
+      "command": "${workspaceFolder}/gradlew",
+      "windows": {
+        "command": "${workspaceFolder}\\gradlew.bat"
+      },
+      "args": [
+        ":app:connectedDebugAndroidTest",
+        "-Pandroid.testInstrumentationRunnerArguments.class=com.secondpasslibrary.reader.reader.readium.cfi.ReadiumCfiJavascriptRuntimeTest"
+      ],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Test: CFI — connected navigator",
+      "type": "process",
+      "command": "${workspaceFolder}/gradlew",
+      "windows": {
+        "command": "${workspaceFolder}\\gradlew.bat"
+      },
+      "args": [
+        ":app:connectedDebugAndroidTest",
+        "-Pandroid.testInstrumentationRunnerArguments.class=com.secondpasslibrary.reader.reader.readium.cfi.ReadiumEpubCfiNavigatorIntegrationTest"
+      ],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Test: CFI — connected prefix parity",
+      "type": "process",
+      "command": "${workspaceFolder}/gradlew",
+      "windows": {
+        "command": "${workspaceFolder}\\gradlew.bat"
+      },
+      "args": [
+        ":app:connectedDebugAndroidTest",
+        "-Pandroid.testInstrumentationRunnerArguments.class=com.secondpasslibrary.reader.reader.readium.cfi.ReadiumEpubCfiNavigatorIntegrationTest#realNavigatorRoundTripsPointAndCrossMarkupRange"
+      ],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
       "label": "Reader: validation gate",
       "type": "process",
       "command": "${workspaceFolder}/gradlew",

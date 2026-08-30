@@ -19,10 +19,12 @@ val hygieneFiles =
             "**/*.kt",
             "**/*.kts",
             "**/*.md",
+            "**/*.mjs",
             "**/*.properties",
             "**/*.ps1",
             "**/*.toml",
             "**/*.txt",
+            "**/*.ts",
             "**/*.xml",
             "**/*.yaml",
             "**/*.yml",
@@ -38,6 +40,7 @@ val hygieneFiles =
             ".linecount/**",
             ".vscode/**",
             "**/build/**",
+            "**/node_modules/**",
             "gitlog.txt",
             "local.properties"
         )
@@ -86,8 +89,27 @@ val colibrioBundleCheck =
         )
     }
 
+val readerCfiRuntimeCheck =
+    tasks.register<ReaderCfiRuntimeCheckTask>("readerCfiRuntimeCheck") {
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        description = "Verifies the generated Reader CFI runtime source digest without Node."
+        sourceInputs.from(
+            fileTree("tools/reader-cfi-runtime/src") { include("**/*.ts") },
+            file("tools/reader-cfi-runtime/package.json"),
+            file("tools/reader-cfi-runtime/package-lock.json"),
+            file("tools/reader-cfi-runtime/tsconfig.json"),
+            file("tools/reader-cfi-runtime/scripts/build-support.mjs")
+        )
+        generatedRuntime.set(
+            layout.projectDirectory.file(
+                "app/src/main/assets/reader/cfi/secondpass-epub-cfi-runtime.js"
+            )
+        )
+        repositoryDirectory.set(layout.projectDirectory)
+    }
+
 tasks.named("staticHygiene") {
-    dependsOn(readerBoundaryCheck, colibrioBundleCheck)
+    dependsOn(readerBoundaryCheck, colibrioBundleCheck, readerCfiRuntimeCheck)
 }
 
 tasks.register("detekt") {
