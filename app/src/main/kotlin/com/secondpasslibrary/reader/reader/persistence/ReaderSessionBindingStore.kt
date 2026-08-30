@@ -92,6 +92,6 @@ private fun LocalReaderSessionEntity.withServerTruth(
     startedAt = authoritative.startedAt,
     closedAt = authoritative.closedAt,
     lastActivityAt = authoritative.lastActivityAt,
-    annotationCount = authoritative.annotationCount,
+    serverAnnotationCount = authoritative.annotationCount,
     lastUsedAtEpochMillis = now
 )

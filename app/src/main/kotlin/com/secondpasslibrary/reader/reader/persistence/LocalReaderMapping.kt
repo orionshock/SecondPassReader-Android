@@ -8,23 +8,26 @@ import com.secondpasslibrary.reader.reader.session.ReaderSessionIdentityKind
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import java.time.Instant
 
-internal fun LocalReaderSessionEntity.toContext(savedCfi: String?) = ReaderSessionContext(
-    sessionId = localSessionId,
-    serverSessionId = serverSessionId,
-    identityKind = ReaderSessionIdentityKind.valueOf(identityKind),
-    status = if (identityKind == ReaderSessionIdentityKind.PROVISIONAL.name) {
-        ReaderSessionStatus.ACTIVE
-    } else {
-        ReaderSessionStatus.valueOf(requireNotNull(serverStatus))
-    },
-    savedProgressCfi = savedCfi,
-    sessionName = sessionName,
-    startedAt = startedAt,
-    closedAt = closedAt,
-    lastActivityAt = lastActivityAt,
-    annotationCount = annotationCount,
-    sessionNotes = sessionNotes
-)
+internal fun LocalReaderSessionEntity.toContext(savedCfi: String?): ReaderSessionContext {
+    LocalReaderPersistedStateValidator.session(this)
+    return ReaderSessionContext(
+        sessionId = localSessionId,
+        serverSessionId = serverSessionId,
+        identityKind = ReaderSessionIdentityKind.valueOf(identityKind),
+        status = if (identityKind == ReaderSessionIdentityKind.PROVISIONAL.name) {
+            ReaderSessionStatus.ACTIVE
+        } else {
+            ReaderSessionStatus.valueOf(requireNotNull(serverStatus))
+        },
+        savedProgressCfi = savedCfi,
+        sessionName = sessionName,
+        startedAt = startedAt,
+        closedAt = closedAt,
+        lastActivityAt = lastActivityAt,
+        annotationCount = serverAnnotationCount,
+        sessionNotes = sessionNotes
+    )
+}
 
 internal fun ReaderSessionContext.toServerEntity(
     account: LocalReaderAccountKey,
@@ -43,7 +46,7 @@ internal fun ReaderSessionContext.toServerEntity(
     startedAt = startedAt,
     closedAt = closedAt,
     lastActivityAt = lastActivityAt,
-    annotationCount = annotationCount,
+    serverAnnotationCount = annotationCount,
     createdAtEpochMillis = now,
     lastUsedAtEpochMillis = now
 )
@@ -81,20 +84,23 @@ internal fun ReaderAnnotationMutationRequest.UpsertBookmark.toEntity(
     LocalAnnotationSync.LOCAL_PENDING
 )
 
-internal fun LocalReaderAnnotationEntity.toReaderAnnotation(): ReaderAnnotation = when (kind) {
-    LocalAnnotationKind.BOOKMARK -> ReaderAnnotation.Bookmark(
-        serverAnnotationId ?: "local:$clientId",
-        clientId,
-        cfi,
-        locationLabel,
-        updatedAt
-    )
+internal fun LocalReaderAnnotationEntity.toReaderAnnotation(): ReaderAnnotation {
+    LocalReaderPersistedStateValidator.annotation(this)
+    return when (kind) {
+        LocalAnnotationKind.BOOKMARK -> ReaderAnnotation.Bookmark(
+            serverAnnotationId ?: "local:$clientId",
+            clientId,
+            cfi,
+            locationLabel,
+            updatedAt
+        )
 
-    else -> ReaderAnnotation.Highlight(
-        serverAnnotationId ?: "local:$clientId", clientId, cfi, locationLabel, updatedAt,
-        requireNotNull(quote), prefix, suffix, note,
-        ReaderAnnotationColor.valueOf(requireNotNull(color))
-    )
+        else -> ReaderAnnotation.Highlight(
+            serverAnnotationId ?: "local:$clientId", clientId, cfi, locationLabel, updatedAt,
+            requireNotNull(quote), prefix, suffix, note,
+            ReaderAnnotationColor.valueOf(requireNotNull(color))
+        )
+    }
 }
 
 internal object LocalAnnotationKind {

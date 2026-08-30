@@ -26,7 +26,7 @@ internal data class LocalReaderSessionEntity(
     val startedAt: String?,
     val closedAt: String?,
     val lastActivityAt: String?,
-    val annotationCount: Int?,
+    val serverAnnotationCount: Int?,
     val createdAtEpochMillis: Long,
     val lastUsedAtEpochMillis: Long
 )
@@ -128,12 +128,6 @@ internal data class LocalReaderOutboxEntity(
             entity = LocalReaderSessionEntity::class,
             parentColumns = ["accountKey", "localSessionId"],
             childColumns = ["accountKey", "sourceLocalSessionId"],
-            onDelete = ForeignKey.CASCADE
-        ),
-        ForeignKey(
-            entity = LocalReaderSessionEntity::class,
-            parentColumns = ["accountKey", "localSessionId"],
-            childColumns = ["accountKey", "continuationLocalSessionId"],
             onDelete = ForeignKey.CASCADE
         )
     ]

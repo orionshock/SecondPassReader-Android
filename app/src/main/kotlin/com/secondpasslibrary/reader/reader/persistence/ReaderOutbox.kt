@@ -177,43 +177,46 @@ internal object ReaderOutboxIdentity {
 internal const val SESSION_ESTABLISHMENT_DELIVERY_ORDER = 0
 internal const val READER_MUTATION_DELIVERY_ORDER = 1
 
-internal fun LocalReaderOutboxEntity.toIntent(): ReaderOutboxIntent = when (operationKind) {
-    ReaderOutboxOperation.SESSION_ESTABLISHMENT -> ReaderOutboxIntent.EstablishSession(
-        outboxId,
-        bookId,
-        localSessionId
-    )
+internal fun LocalReaderOutboxEntity.toIntent(): ReaderOutboxIntent {
+    LocalReaderPersistedStateValidator.outbox(this)
+    return when (operationKind) {
+        ReaderOutboxOperation.SESSION_ESTABLISHMENT -> ReaderOutboxIntent.EstablishSession(
+            outboxId,
+            bookId,
+            localSessionId
+        )
 
-    ReaderOutboxOperation.PROGRESS -> ReaderOutboxIntent.Progress(
-        outboxId,
-        bookId,
-        localSessionId,
-        requireNotNull(cfi)
-    )
+        ReaderOutboxOperation.PROGRESS -> ReaderOutboxIntent.Progress(
+            outboxId,
+            bookId,
+            localSessionId,
+            requireNotNull(cfi)
+        )
 
-    ReaderOutboxOperation.ANNOTATION_UPSERT -> ReaderOutboxIntent.AnnotationUpsert(
-        outboxId,
-        bookId,
-        localSessionId,
-        requireNotNull(annotationClientId),
-        requireNotNull(annotationKind),
-        requireNotNull(cfi),
-        locationLabel,
-        quote,
-        prefix,
-        suffix,
-        note,
-        color?.let(ReaderAnnotationColor::valueOf)
-    )
+        ReaderOutboxOperation.ANNOTATION_UPSERT -> ReaderOutboxIntent.AnnotationUpsert(
+            outboxId,
+            bookId,
+            localSessionId,
+            requireNotNull(annotationClientId),
+            requireNotNull(annotationKind),
+            requireNotNull(cfi),
+            locationLabel,
+            quote,
+            prefix,
+            suffix,
+            note,
+            color?.let(ReaderAnnotationColor::valueOf)
+        )
 
-    ReaderOutboxOperation.ANNOTATION_DELETE -> ReaderOutboxIntent.AnnotationDelete(
-        outboxId,
-        bookId,
-        localSessionId,
-        requireNotNull(annotationClientId)
-    )
+        ReaderOutboxOperation.ANNOTATION_DELETE -> ReaderOutboxIntent.AnnotationDelete(
+            outboxId,
+            bookId,
+            localSessionId,
+            requireNotNull(annotationClientId)
+        )
 
-    else -> error("Unknown Reader outbox operation: $operationKind")
+        else -> error("Unknown Reader outbox operation: $operationKind")
+    }
 }
 
 internal fun LocalReaderSessionEntity.toEstablishmentOutbox(now: Long) = emptyOutbox(

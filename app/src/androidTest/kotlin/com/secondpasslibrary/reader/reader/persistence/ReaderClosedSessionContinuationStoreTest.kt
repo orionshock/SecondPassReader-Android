@@ -43,6 +43,34 @@ class ReaderClosedSessionContinuationStoreTest {
     fun closeDatabase() = database.close()
 
     @Test
+    fun continuationOutcomeIsOwnedBySourceAndSurvivesContinuationDeletion() = runBlocking {
+        val account = account()
+        val source = server(ReaderSessionStatus.ACTIVE, SERVER_CFI)
+        local.retainServerSession(account, BOOK_ID, source)
+        local.writeProgress(
+            account,
+            source.sessionId,
+            OFFLINE_CFI,
+            LocalReaderWriteProvenance.LOCAL_PENDING
+        )
+        val result = continuation.continueFrom(
+            account,
+            BOOK_ID,
+            source.copy(status = ReaderSessionStatus.CLOSED),
+            emptyList()
+        )
+        val continuationId = requireNotNull(result.session).sessionId
+
+        database.localReaderDao().deleteSession(account.value, continuationId)
+
+        val outcome = database.localReaderDao().continuationOutcome(account.value, source.sessionId)
+        assertNotNull(outcome)
+        assertEquals(continuationId, outcome?.continuationLocalSessionId)
+        database.localReaderDao().deleteSession(account.value, source.sessionId)
+        assertNull(database.localReaderDao().continuationOutcome(account.value, source.sessionId))
+    }
+
+    @Test
     fun closedSessionAtomicallyForwardsEligibleIntentAndRestoresHistory() = runBlocking {
         val account = account()
         val active = server(ReaderSessionStatus.ACTIVE, SERVER_CFI)

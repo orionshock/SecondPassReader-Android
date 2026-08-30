@@ -316,7 +316,7 @@ internal class RoomLocalReaderStateStore @Inject constructor(
             startedAt = null,
             closedAt = null,
             lastActivityAt = null,
-            annotationCount = null,
+            serverAnnotationCount = null,
             createdAtEpochMillis = now,
             lastUsedAtEpochMillis = now
         )

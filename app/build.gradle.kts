@@ -10,6 +10,7 @@ plugins {
 
 android {
     namespace = "com.secondpasslibrary.reader"
+    sourceSets.getByName("androidTest").assets.directories.add("$projectDir/schemas")
     compileSdk = 37
 
     defaultConfig {
@@ -107,6 +108,7 @@ dependencies {
     androidTestImplementation(libs.androidx.test.junit)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.work.testing)
+    androidTestImplementation(libs.room3.testing)
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)
 }

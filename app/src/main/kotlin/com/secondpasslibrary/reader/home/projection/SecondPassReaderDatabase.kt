@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.home.projection
 
 import androidx.room3.AutoMigration
 import androidx.room3.Database
+import androidx.room3.RenameColumn
 import androidx.room3.RoomDatabase
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderAnnotationEntity
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderContinuationOutcomeEntity
@@ -22,11 +23,12 @@ import com.secondpasslibrary.reader.reader.persistence.LocalReaderSessionEntity
         LocalReaderOutboxEntity::class,
         LocalReaderContinuationOutcomeEntity::class
     ],
-    version = 4,
+    version = 5,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
-        AutoMigration(from = 3, to = 4)
+        AutoMigration(from = 3, to = 4),
+        AutoMigration(from = 4, to = 5, spec = ReaderSchema4To5::class)
     ],
     exportSchema = true
 )
@@ -39,3 +41,10 @@ internal abstract class SecondPassReaderDatabase : RoomDatabase() {
 
     abstract fun localReaderDao(): LocalReaderDao
 }
+
+@RenameColumn(
+    tableName = "reader_sessions",
+    fromColumnName = "annotationCount",
+    toColumnName = "serverAnnotationCount"
+)
+internal class ReaderSchema4To5 : androidx.room3.migration.AutoMigrationSpec

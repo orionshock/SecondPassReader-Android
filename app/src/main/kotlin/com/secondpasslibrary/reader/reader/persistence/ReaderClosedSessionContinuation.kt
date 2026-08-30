@@ -48,7 +48,7 @@ internal class RoomReaderClosedSessionContinuationStore @Inject constructor(
             startedAt = null,
             closedAt = null,
             lastActivityAt = null,
-            annotationCount = null,
+            serverAnnotationCount = null,
             createdAtEpochMillis = now,
             lastUsedAtEpochMillis = now
         )
@@ -63,7 +63,7 @@ internal class RoomReaderClosedSessionContinuationStore @Inject constructor(
                 startedAt = closedSession.startedAt,
                 closedAt = closedSession.closedAt,
                 lastActivityAt = closedSession.lastActivityAt,
-                annotationCount = authoritativeAnnotations.size,
+                serverAnnotationCount = authoritativeAnnotations.size,
                 lastUsedAtEpochMillis = now
             ),
             closedSession.savedProgressCfi,

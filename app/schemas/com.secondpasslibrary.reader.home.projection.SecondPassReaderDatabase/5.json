@@ -1,0 +1,835 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 5,
+    "identityHash": "5046bdb6eae050bdcff472bfe52c99a9",
+    "entities": [
+      {
+        "tableName": "home_projection_snapshots",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountKey` TEXT NOT NULL, `projectionKind` TEXT NOT NULL, `variantKey` TEXT NOT NULL, `fetchedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`accountKey`, `projectionKind`, `variantKey`))",
+        "fields": [
+          {
+            "fieldPath": "accountKey",
+            "columnName": "accountKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "projectionKind",
+            "columnName": "projectionKind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "variantKey",
+            "columnName": "variantKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fetchedAtEpochMillis",
+            "columnName": "fetchedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountKey",
+            "projectionKind",
+            "variantKey"
+          ]
+        }
+      },
+      {
+        "tableName": "home_recent_reading_items",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountKey` TEXT NOT NULL, `variantKey` TEXT NOT NULL, `serverPosition` INTEGER NOT NULL, `sessionId` TEXT NOT NULL, `sessionName` TEXT NOT NULL, `status` TEXT NOT NULL, `lastActivityAt` TEXT NOT NULL, `bookId` TEXT NOT NULL, `bookTitle` TEXT NOT NULL, `coverUrl` TEXT, `canOpen` INTEGER NOT NULL, `progressCfi` TEXT, `progressLocationLabel` TEXT, `progressUpdatedAt` TEXT, PRIMARY KEY(`accountKey`, `variantKey`, `serverPosition`))",
+        "fields": [
+          {
+            "fieldPath": "accountKey",
+            "columnName": "accountKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "variantKey",
+            "columnName": "variantKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverPosition",
+            "columnName": "serverPosition",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessionName",
+            "columnName": "sessionName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastActivityAt",
+            "columnName": "lastActivityAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bookId",
+            "columnName": "bookId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bookTitle",
+            "columnName": "bookTitle",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "coverUrl",
+            "columnName": "coverUrl",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "canOpen",
+            "columnName": "canOpen",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "progressCfi",
+            "columnName": "progressCfi",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "progressLocationLabel",
+            "columnName": "progressLocationLabel",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "progressUpdatedAt",
+            "columnName": "progressUpdatedAt",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountKey",
+            "variantKey",
+            "serverPosition"
+          ]
+        }
+      },
+      {
+        "tableName": "home_shelf_items",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountKey` TEXT NOT NULL, `variantKey` TEXT NOT NULL, `serverPosition` INTEGER NOT NULL, `shelfId` TEXT NOT NULL, `name` TEXT NOT NULL, `description` TEXT, `ownerKind` TEXT NOT NULL, `ownerId` TEXT, `ownerName` TEXT, `ownerUsername` TEXT, `ownerFirstName` TEXT, `ownerLastName` TEXT, `ownerIsPublicGroup` INTEGER, `ownerOtherType` TEXT, `visibility` TEXT NOT NULL, `itemCount` INTEGER NOT NULL, `canEdit` INTEGER NOT NULL, `previewBooksPresent` INTEGER NOT NULL, PRIMARY KEY(`accountKey`, `variantKey`, `serverPosition`))",
+        "fields": [
+          {
+            "fieldPath": "accountKey",
+            "columnName": "accountKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "variantKey",
+            "columnName": "variantKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverPosition",
+            "columnName": "serverPosition",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "shelfId",
+            "columnName": "shelfId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "description",
+            "columnName": "description",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "ownerKind",
+            "columnName": "ownerKind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ownerId",
+            "columnName": "ownerId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "ownerName",
+            "columnName": "ownerName",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "ownerUsername",
+            "columnName": "ownerUsername",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "ownerFirstName",
+            "columnName": "ownerFirstName",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "ownerLastName",
+            "columnName": "ownerLastName",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "ownerIsPublicGroup",
+            "columnName": "ownerIsPublicGroup",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "ownerOtherType",
+            "columnName": "ownerOtherType",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "visibility",
+            "columnName": "visibility",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "itemCount",
+            "columnName": "itemCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "canEdit",
+            "columnName": "canEdit",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "previewBooksPresent",
+            "columnName": "previewBooksPresent",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountKey",
+            "variantKey",
+            "serverPosition"
+          ]
+        }
+      },
+      {
+        "tableName": "home_shelf_preview_books",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountKey` TEXT NOT NULL, `variantKey` TEXT NOT NULL, `shelfId` TEXT NOT NULL, `previewPosition` INTEGER NOT NULL, `bookId` TEXT NOT NULL, `title` TEXT NOT NULL, `coverUrl` TEXT, PRIMARY KEY(`accountKey`, `variantKey`, `shelfId`, `previewPosition`))",
+        "fields": [
+          {
+            "fieldPath": "accountKey",
+            "columnName": "accountKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "variantKey",
+            "columnName": "variantKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "shelfId",
+            "columnName": "shelfId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "previewPosition",
+            "columnName": "previewPosition",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bookId",
+            "columnName": "bookId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "coverUrl",
+            "columnName": "coverUrl",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountKey",
+            "variantKey",
+            "shelfId",
+            "previewPosition"
+          ]
+        }
+      },
+      {
+        "tableName": "reader_sessions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountKey` TEXT NOT NULL, `localSessionId` TEXT NOT NULL, `bookId` TEXT NOT NULL, `serverSessionId` TEXT, `identityKind` TEXT NOT NULL, `serverStatus` TEXT, `activeProvisionalBookId` TEXT, `sessionName` TEXT, `sessionNotes` TEXT NOT NULL, `startedAt` TEXT, `closedAt` TEXT, `lastActivityAt` TEXT, `serverAnnotationCount` INTEGER, `createdAtEpochMillis` INTEGER NOT NULL, `lastUsedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`accountKey`, `localSessionId`))",
+        "fields": [
+          {
+            "fieldPath": "accountKey",
+            "columnName": "accountKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "localSessionId",
+            "columnName": "localSessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bookId",
+            "columnName": "bookId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverSessionId",
+            "columnName": "serverSessionId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "identityKind",
+            "columnName": "identityKind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverStatus",
+            "columnName": "serverStatus",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "activeProvisionalBookId",
+            "columnName": "activeProvisionalBookId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "sessionName",
+            "columnName": "sessionName",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "sessionNotes",
+            "columnName": "sessionNotes",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startedAt",
+            "columnName": "startedAt",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "closedAt",
+            "columnName": "closedAt",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "lastActivityAt",
+            "columnName": "lastActivityAt",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "serverAnnotationCount",
+            "columnName": "serverAnnotationCount",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "createdAtEpochMillis",
+            "columnName": "createdAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastUsedAtEpochMillis",
+            "columnName": "lastUsedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountKey",
+            "localSessionId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_reader_sessions_accountKey_bookId",
+            "unique": false,
+            "columnNames": [
+              "accountKey",
+              "bookId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_reader_sessions_accountKey_bookId` ON `${TABLE_NAME}` (`accountKey`, `bookId`)"
+          },
+          {
+            "name": "index_reader_sessions_accountKey_serverSessionId",
+            "unique": true,
+            "columnNames": [
+              "accountKey",
+              "serverSessionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_reader_sessions_accountKey_serverSessionId` ON `${TABLE_NAME}` (`accountKey`, `serverSessionId`)"
+          },
+          {
+            "name": "index_reader_sessions_accountKey_activeProvisionalBookId",
+            "unique": true,
+            "columnNames": [
+              "accountKey",
+              "activeProvisionalBookId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_reader_sessions_accountKey_activeProvisionalBookId` ON `${TABLE_NAME}` (`accountKey`, `activeProvisionalBookId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "reader_progress",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountKey` TEXT NOT NULL, `localSessionId` TEXT NOT NULL, `cfi` TEXT NOT NULL, `updatedAtEpochMillis` INTEGER NOT NULL, `provenance` TEXT NOT NULL, PRIMARY KEY(`accountKey`, `localSessionId`), FOREIGN KEY(`accountKey`, `localSessionId`) REFERENCES `reader_sessions`(`accountKey`, `localSessionId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "accountKey",
+            "columnName": "accountKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "localSessionId",
+            "columnName": "localSessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cfi",
+            "columnName": "cfi",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updatedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "provenance",
+            "columnName": "provenance",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountKey",
+            "localSessionId"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "reader_sessions",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "accountKey",
+              "localSessionId"
+            ],
+            "referencedColumns": [
+              "accountKey",
+              "localSessionId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "reader_annotations",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountKey` TEXT NOT NULL, `localSessionId` TEXT NOT NULL, `serverAnnotationId` TEXT, `clientId` TEXT NOT NULL, `kind` TEXT NOT NULL, `cfi` TEXT NOT NULL, `locationLabel` TEXT, `quote` TEXT, `prefix` TEXT, `suffix` TEXT, `note` TEXT, `color` TEXT, `updatedAt` TEXT NOT NULL, `syncState` TEXT NOT NULL, PRIMARY KEY(`accountKey`, `localSessionId`, `clientId`), FOREIGN KEY(`accountKey`, `localSessionId`) REFERENCES `reader_sessions`(`accountKey`, `localSessionId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "accountKey",
+            "columnName": "accountKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "localSessionId",
+            "columnName": "localSessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverAnnotationId",
+            "columnName": "serverAnnotationId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "clientId",
+            "columnName": "clientId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cfi",
+            "columnName": "cfi",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "locationLabel",
+            "columnName": "locationLabel",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "quote",
+            "columnName": "quote",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "prefix",
+            "columnName": "prefix",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "suffix",
+            "columnName": "suffix",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "note",
+            "columnName": "note",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "color",
+            "columnName": "color",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "syncState",
+            "columnName": "syncState",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountKey",
+            "localSessionId",
+            "clientId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_reader_annotations_accountKey_localSessionId_serverAnnotationId",
+            "unique": false,
+            "columnNames": [
+              "accountKey",
+              "localSessionId",
+              "serverAnnotationId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_reader_annotations_accountKey_localSessionId_serverAnnotationId` ON `${TABLE_NAME}` (`accountKey`, `localSessionId`, `serverAnnotationId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "reader_sessions",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "accountKey",
+              "localSessionId"
+            ],
+            "referencedColumns": [
+              "accountKey",
+              "localSessionId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "reader_outbox",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountKey` TEXT NOT NULL, `outboxId` TEXT NOT NULL, `bookId` TEXT NOT NULL, `localSessionId` TEXT NOT NULL, `operationKind` TEXT NOT NULL, `annotationClientId` TEXT, `deliveryOrder` INTEGER NOT NULL, `cfi` TEXT, `annotationKind` TEXT, `locationLabel` TEXT, `quote` TEXT, `prefix` TEXT, `suffix` TEXT, `note` TEXT, `color` TEXT, `updatedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`accountKey`, `outboxId`), FOREIGN KEY(`accountKey`, `localSessionId`) REFERENCES `reader_sessions`(`accountKey`, `localSessionId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "accountKey",
+            "columnName": "accountKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "outboxId",
+            "columnName": "outboxId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bookId",
+            "columnName": "bookId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "localSessionId",
+            "columnName": "localSessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "operationKind",
+            "columnName": "operationKind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "annotationClientId",
+            "columnName": "annotationClientId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "deliveryOrder",
+            "columnName": "deliveryOrder",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cfi",
+            "columnName": "cfi",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "annotationKind",
+            "columnName": "annotationKind",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "locationLabel",
+            "columnName": "locationLabel",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "quote",
+            "columnName": "quote",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "prefix",
+            "columnName": "prefix",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "suffix",
+            "columnName": "suffix",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "note",
+            "columnName": "note",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "color",
+            "columnName": "color",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updatedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountKey",
+            "outboxId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_reader_outbox_accountKey_localSessionId_deliveryOrder_outboxId",
+            "unique": false,
+            "columnNames": [
+              "accountKey",
+              "localSessionId",
+              "deliveryOrder",
+              "outboxId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_reader_outbox_accountKey_localSessionId_deliveryOrder_outboxId` ON `${TABLE_NAME}` (`accountKey`, `localSessionId`, `deliveryOrder`, `outboxId`)"
+          },
+          {
+            "name": "index_reader_outbox_accountKey_localSessionId_operationKind_annotationClientId",
+            "unique": true,
+            "columnNames": [
+              "accountKey",
+              "localSessionId",
+              "operationKind",
+              "annotationClientId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_reader_outbox_accountKey_localSessionId_operationKind_annotationClientId` ON `${TABLE_NAME}` (`accountKey`, `localSessionId`, `operationKind`, `annotationClientId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "reader_sessions",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "accountKey",
+              "localSessionId"
+            ],
+            "referencedColumns": [
+              "accountKey",
+              "localSessionId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "reader_continuation_outcomes",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountKey` TEXT NOT NULL, `sourceLocalSessionId` TEXT NOT NULL, `continuationLocalSessionId` TEXT, `forwardedEditCount` INTEGER NOT NULL, `droppedDeleteCount` INTEGER NOT NULL, `createdAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`accountKey`, `sourceLocalSessionId`), FOREIGN KEY(`accountKey`, `sourceLocalSessionId`) REFERENCES `reader_sessions`(`accountKey`, `localSessionId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "accountKey",
+            "columnName": "accountKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceLocalSessionId",
+            "columnName": "sourceLocalSessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "continuationLocalSessionId",
+            "columnName": "continuationLocalSessionId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "forwardedEditCount",
+            "columnName": "forwardedEditCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "droppedDeleteCount",
+            "columnName": "droppedDeleteCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtEpochMillis",
+            "columnName": "createdAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountKey",
+            "sourceLocalSessionId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_reader_continuation_outcomes_accountKey_continuationLocalSessionId",
+            "unique": false,
+            "columnNames": [
+              "accountKey",
+              "continuationLocalSessionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_reader_continuation_outcomes_accountKey_continuationLocalSessionId` ON `${TABLE_NAME}` (`accountKey`, `continuationLocalSessionId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "reader_sessions",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "accountKey",
+              "sourceLocalSessionId"
+            ],
+            "referencedColumns": [
+              "accountKey",
+              "localSessionId"
+            ]
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '5046bdb6eae050bdcff472bfe52c99a9')"
+    ]
+  }
+}
