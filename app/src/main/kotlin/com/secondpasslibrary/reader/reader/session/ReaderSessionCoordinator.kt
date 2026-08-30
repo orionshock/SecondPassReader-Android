@@ -31,8 +31,15 @@ internal data class ReaderSessionContext(
     val closedAt: String? = null,
     val lastActivityAt: String? = null,
     val annotationCount: Int? = null,
-    val sessionNotes: String = ""
+    val sessionNotes: String = "",
+    val serverSessionId: String? = sessionId,
+    val identityKind: ReaderSessionIdentityKind = ReaderSessionIdentityKind.SERVER_CONFIRMED
 )
+
+internal enum class ReaderSessionIdentityKind {
+    SERVER_CONFIRMED,
+    PROVISIONAL
+}
 
 internal enum class ReaderSessionStatus {
     ACTIVE,
@@ -76,6 +83,8 @@ internal class SplReaderSessionCoordinator @Inject constructor(
         val progress = loadProgress(marginalia, session.summary.id)
         return ReaderSessionContext(
             sessionId = session.summary.id,
+            serverSessionId = session.summary.id,
+            identityKind = ReaderSessionIdentityKind.SERVER_CONFIRMED,
             status = session.summary.status.toReaderStatus(),
             savedProgressCfi = progress.cfi,
             progressFailure = progress.failure,

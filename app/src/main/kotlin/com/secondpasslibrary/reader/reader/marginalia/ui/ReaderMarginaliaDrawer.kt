@@ -37,6 +37,7 @@ internal data class ReaderMarginaliaDrawerModel(
     val state: ReaderMarginaliaDrawerState,
     val palette: ReaderPalette,
     val currentEditable: Boolean,
+    val currentMetadataEditable: Boolean,
     val mutationState: ReaderAnnotationMutationState,
     val sessionMetadata: ReaderSessionMetadataState
 )
@@ -71,6 +72,7 @@ internal fun ReaderMarginaliaDrawer(
     drawerState: ReaderMarginaliaDrawerState,
     palette: ReaderPalette,
     currentEditable: Boolean,
+    currentMetadataEditable: Boolean,
     mutationState: ReaderAnnotationMutationState,
     sessionMetadata: ReaderSessionMetadataState,
     onDismiss: () -> Unit,
@@ -100,6 +102,7 @@ internal fun ReaderMarginaliaDrawer(
         drawerState,
         palette,
         currentEditable,
+        currentMetadataEditable,
         mutationState,
         sessionMetadata
     )

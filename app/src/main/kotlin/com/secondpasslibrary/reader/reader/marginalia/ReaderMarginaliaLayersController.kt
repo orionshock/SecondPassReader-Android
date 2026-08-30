@@ -77,6 +77,18 @@ internal class ReaderMarginaliaLayersController(
         load(page = 1, append = false, activeGeneration = generation)
     }
 
+    fun selectLocal(currentSession: ReaderSessionContext) {
+        loadJob?.cancel()
+        cancelLayerLoads()
+        generation += 1
+        profile = null
+        bookId = null
+        connectionIdentity = null
+        mutableState.value = ReaderMarginaliaLayersState(
+            currentLayer = currentSession.toCurrentMarginaliaLayer()
+        )
+    }
+
     fun loadMore() {
         val current = state.value
         if (!current.hasMore || current.isInitialLoading || current.isAppending) return

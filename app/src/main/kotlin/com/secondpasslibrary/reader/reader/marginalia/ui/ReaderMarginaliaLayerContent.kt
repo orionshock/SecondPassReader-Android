@@ -99,10 +99,12 @@ private fun ReaderSelectedSessionHeader(
                 style = MaterialTheme.typography.labelMedium
             )
         }
-        if (current && model.currentEditable) {
+        if (current && model.currentMetadataEditable) {
             IconButton(onClick = actions.editCurrentSessionMetadata) {
                 AppIconGraphic(AppIcon.Edit, "Edit current session")
             }
+        }
+        if (current && model.currentEditable) {
             IconButton(
                 enabled = !model.mutationState.submitting,
                 onClick = actions.createBookmark

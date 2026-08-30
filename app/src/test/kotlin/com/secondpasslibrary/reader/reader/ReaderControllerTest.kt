@@ -4,6 +4,8 @@ import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.app.AppAvailabilityReason
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
+import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationRequest
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceController
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceStore
@@ -25,10 +27,14 @@ import com.secondpasslibrary.reader.reader.domain.ReaderViewport
 import com.secondpasslibrary.reader.reader.domain.ReaderViewportMovement
 import com.secondpasslibrary.reader.reader.domain.ReaderViewportMovements
 import com.secondpasslibrary.reader.reader.lifecycle.ReaderPositionRetention
+import com.secondpasslibrary.reader.reader.persistence.LocalReaderAccountKey
+import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
+import com.secondpasslibrary.reader.reader.persistence.LocalReaderWriteProvenance
 import com.secondpasslibrary.reader.reader.progress.ReaderProgressWriteOutcome
 import com.secondpasslibrary.reader.reader.progress.ReaderProgressWriter
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionCoordinator
+import com.secondpasslibrary.reader.reader.session.ReaderSessionIdentityKind
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import com.secondpasslibrary.reader.reader.toc.EmptyReaderTableOfContents
 import java.nio.file.Files
@@ -49,46 +55,87 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class ReaderControllerTest {
     @Test
-    fun `offline admitted asset opens read-only without Session or server bootstrap`() = runTest {
-        val file = Files.createTempFile("reader-offline", ".epub").toFile()
-        var sessionCalls = 0
-        var localOnly = false
-        val controller = ReaderController(
-            assetResolver = ReaderBookAssetResolver { request, _ ->
-                localOnly = request.localOnly
-                ResolvedReaderBook(request.titleHint.orEmpty(), file, reused = true)
-            },
-            engineOpener = ReaderEngineOpener { FakeEngine() },
-            sessionCoordinator = ReaderSessionCoordinator { _, _ ->
-                sessionCalls += 1
-                error("Offline Reader must not bootstrap a Session.")
-            },
-            progressWriter = writer(),
-            scope = this,
-            launchPolicy = ReaderLaunchAdmission { _, _, _, _ ->
-                ReaderLaunchDecision.LOCAL_READ_ONLY
-            }
-        )
+    fun `offline admitted asset opens with provisional local Session without server bootstrap`() =
+        runTest {
+            val file = Files.createTempFile("reader-offline", ".epub").toFile()
+            var sessionCalls = 0
+            var localOnly = false
+            val controller = ReaderController(
+                assetResolver = ReaderBookAssetResolver { request, _ ->
+                    localOnly = request.localOnly
+                    ResolvedReaderBook(request.titleHint.orEmpty(), file, reused = true)
+                },
+                engineOpener = ReaderEngineOpener { FakeEngine() },
+                sessionCoordinator = ReaderSessionCoordinator { _, _ ->
+                    sessionCalls += 1
+                    error("Offline Reader must not bootstrap a Session.")
+                },
+                progressWriter = writer(),
+                scope = this,
+                launchPolicy = ReaderLaunchAdmission { _, _, _, _ ->
+                    ReaderLaunchDecision.LOCAL_AVAILABLE
+                },
+                localStateStore = fakeLocalStore()
+            )
 
-        controller.initialize(
-            profile(),
-            "profile-1",
-            "book-1",
-            null,
-            "Cached title",
-            AppAvailability.Offline(AppAvailabilityReason.UNREACHABLE)
-        )
-        advanceUntilIdle()
+            controller.initialize(
+                profile(),
+                "profile-1",
+                "book-1",
+                null,
+                "Cached title",
+                AppAvailability.Offline(AppAvailabilityReason.UNREACHABLE)
+            )
+            advanceUntilIdle()
 
-        val ready = controller.state.value as ReaderState.Ready
-        assertTrue(localOnly)
-        assertEquals("Cached title", ready.title)
-        assertEquals(null, ready.session)
-        assertTrue(ready.localReadOnly)
-        assertEquals(0, sessionCalls)
-        controller.close()
-        advanceUntilIdle()
-    }
+            val ready = controller.state.value as ReaderState.Ready
+            assertTrue(localOnly)
+            assertEquals("Cached title", ready.title)
+            assertEquals("local-session", ready.session?.sessionId)
+            assertEquals(ReaderSessionIdentityKind.PROVISIONAL, ready.session?.identityKind)
+            assertTrue(ready.localOnly)
+            assertEquals(0, sessionCalls)
+            controller.close()
+            advanceUntilIdle()
+        }
+
+    @Test
+    fun `settled offline movement persists exact progress independently of server sync`() =
+        runTest {
+            val file = Files.createTempFile("reader-offline-progress", ".epub").toFile()
+            val engine = FakeEngine()
+            val persisted = mutableListOf<String>()
+            val controller = ReaderController(
+                assetResolver = ReaderBookAssetResolver { _, _ ->
+                    ResolvedReaderBook("Cached title", file, reused = true)
+                },
+                engineOpener = ReaderEngineOpener { engine },
+                sessionCoordinator = ReaderSessionCoordinator { _, _ -> error("server call") },
+                progressWriter = writer(),
+                scope = this,
+                launchPolicy = ReaderLaunchAdmission { _, _, _, _ ->
+                    ReaderLaunchDecision.LOCAL_AVAILABLE
+                },
+                localStateStore = fakeLocalStore { persisted += it }
+            )
+            controller.initialize(
+                profile(),
+                "profile-1",
+                "book-1",
+                null,
+                "Cached title",
+                AppAvailability.Offline(AppAvailabilityReason.UNREACHABLE)
+            )
+            advanceUntilIdle()
+            engine.navigator.currentPositionOutcome = EpubCfiOutcome.Success(EpubCfi(NEXT_CFI))
+
+            engine.move(1)
+            advanceUntilIdle()
+
+            assertEquals(listOf(NEXT_CFI), persisted)
+            controller.close()
+            advanceUntilIdle()
+        }
 
     @Test
     fun `download then publication open reaches ready in order`() = runTest {
@@ -502,6 +549,50 @@ class ReaderControllerTest {
     }
 
     private fun writer() = ReaderProgressWriter { _, _, _ -> ReaderProgressWriteOutcome.Success }
+
+    private fun fakeLocalStore(onProgress: (String) -> Unit = {}) = object : LocalReaderStateStore {
+        override suspend fun selectOfflineSession(account: LocalReaderAccountKey, bookId: String) =
+            ReaderSessionContext(
+                "local-session",
+                ReaderSessionStatus.ACTIVE,
+                null,
+                serverSessionId = null,
+                identityKind = ReaderSessionIdentityKind.PROVISIONAL
+            )
+
+        override suspend fun retainServerSession(
+            account: LocalReaderAccountKey,
+            bookId: String,
+            session: ReaderSessionContext
+        ) = session
+
+        override suspend fun writeProgress(
+            account: LocalReaderAccountKey,
+            localSessionId: String,
+            cfi: String,
+            provenance: LocalReaderWriteProvenance
+        ) = onProgress(cfi)
+
+        override suspend fun readAnnotations(
+            account: LocalReaderAccountKey,
+            localSessionId: String
+        ) = emptyList<ReaderAnnotation>()
+
+        override suspend fun applyAnnotationMutation(
+            account: LocalReaderAccountKey,
+            localSessionId: String,
+            request: ReaderAnnotationMutationRequest
+        ) = emptyList<ReaderAnnotation>()
+
+        override suspend fun replaceAuthoritativeAnnotations(
+            account: LocalReaderAccountKey,
+            localSessionId: String,
+            annotations: List<ReaderAnnotation>,
+            confirmedClientId: String?
+        ) = Unit
+
+        override suspend fun purgeAccount(account: LocalReaderAccountKey) = Unit
+    }
 
     private companion object {
         const val PROGRESS_CFI = "epubcfi(/6/2!/4/2:3)"

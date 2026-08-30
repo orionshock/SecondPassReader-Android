@@ -3,6 +3,9 @@ package com.secondpasslibrary.reader.reader.annotations.mutation
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.selection.readerLocationLabel
+import com.secondpasslibrary.reader.reader.persistence.LocalReaderAccountKey
+import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
+import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
@@ -15,11 +18,13 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 /** Owns bounded online create/edit/delete attempts for the current Reader Session. */
+@Suppress("TooManyFunctions") // Each mutation intent keeps its own bounded transition handler.
 internal class ReaderAnnotationMutationController(
     private val writer: ReaderAnnotationWriter,
     private val scope: CoroutineScope,
     private val onAuthoritativeAnnotations: (String, List<ReaderAnnotation>) -> Unit,
-    private val clientIdFactory: () -> String = { UUID.randomUUID().toString() }
+    private val clientIdFactory: () -> String = { UUID.randomUUID().toString() },
+    private val localStore: LocalReaderStateStore? = null
 ) {
     private val mutableState = MutableStateFlow(ReaderAnnotationMutationState())
     val state = mutableState.asStateFlow()
@@ -29,13 +34,31 @@ internal class ReaderAnnotationMutationController(
     private var generation = 0L
     private var submitJob: Job? = null
 
-    fun select(profile: ConnectionProfile, sessionId: String, status: ReaderSessionStatus) {
-        val next = Owner(profile, sessionId, status)
+    fun select(
+        profile: ConnectionProfile,
+        profileId: String,
+        session: ReaderSessionContext,
+        serverAvailable: Boolean
+    ) {
+        val next = Owner(profile, profileId, session, serverAvailable)
         if (owner == next) return
         submitJob?.cancel()
         generation += 1
         owner = next
         mutableState.value = ReaderAnnotationMutationState()
+    }
+
+    fun select(profile: ConnectionProfile, sessionId: String, status: ReaderSessionStatus) {
+        select(
+            profile,
+            profile.clientSessionId,
+            ReaderSessionContext(sessionId, status, null),
+            serverAvailable = true
+        )
+    }
+
+    fun setServerAvailable(available: Boolean) {
+        owner = owner?.copy(serverAvailable = available)
     }
 
     fun accept(intent: ReaderAnnotationMutationIntent) {
@@ -110,7 +133,7 @@ internal class ReaderAnnotationMutationController(
                 val currentOwner = activeOwner
                 val pending = state.value.pendingCreate
                 if (currentOwner != null && pending != null) {
-                    pending.toRequest(currentOwner.sessionId)?.let { submit(currentOwner, it) }
+                    pending.toRequest(currentOwner.localSessionId)?.let { submit(currentOwner, it) }
                 }
             }
 
@@ -127,7 +150,7 @@ internal class ReaderAnnotationMutationController(
                 createNoteEditorVisible = false,
                 failure = null
             )
-            pending.toRequest(currentOwner.sessionId)?.let { submit(currentOwner, it) }
+            pending.toRequest(currentOwner.localSessionId)?.let { submit(currentOwner, it) }
         }
     }
 
@@ -156,7 +179,7 @@ internal class ReaderAnnotationMutationController(
                     if (draft.unchanged) {
                         mutableState.value = ReaderAnnotationMutationState()
                     } else {
-                        draft.toRequest(currentOwner.sessionId)?.let {
+                        draft.toRequest(currentOwner.localSessionId)?.let {
                             submit(currentOwner, it)
                         }
                     }
@@ -180,11 +203,11 @@ internal class ReaderAnnotationMutationController(
                     )
                 )
                 mutableState.value = ReaderAnnotationMutationState(pendingBookmark = pending)
-                submit(currentOwner, pending.toRequest(currentOwner.sessionId))
+                submit(currentOwner, pending.toRequest(currentOwner.localSessionId))
             }
 
             ReaderAnnotationMutationIntent.RetryBookmark -> state.value.pendingBookmark?.let {
-                submit(currentOwner, it.toRequest(currentOwner.sessionId))
+                submit(currentOwner, it.toRequest(currentOwner.localSessionId))
             }
 
             else -> Unit
@@ -206,8 +229,9 @@ internal class ReaderAnnotationMutationController(
                     submit(
                         currentOwner,
                         ReaderAnnotationMutationRequest.Delete(
-                            currentOwner.sessionId,
-                            annotation.clientId
+                            currentOwner.localSessionId,
+                            annotation.clientId,
+                            annotation
                         )
                     )
                 }
@@ -230,7 +254,33 @@ internal class ReaderAnnotationMutationController(
         val submittedState = state.value.copy(submitting = true, failure = null)
         mutableState.value = submittedState
         submitJob = scope.launch {
-            val result = runCatching { writer.synchronize(owner.profile, request) }
+            val result = runCatching {
+                val account = LocalReaderAccountKey.from(
+                    owner.profile.serverOrigin,
+                    owner.profileId
+                )
+                val localAnnotations = localStore?.applyAnnotationMutation(
+                    account,
+                    owner.localSessionId,
+                    request
+                )
+                if (localAnnotations != null) {
+                    onAuthoritativeAnnotations(owner.localSessionId, localAnnotations)
+                }
+                val serverSessionId = owner.serverSessionId
+                if (owner.serverAvailable && serverSessionId != null) {
+                    writer.synchronize(owner.profile, request.withSessionId(serverSessionId)).also {
+                        localStore?.replaceAuthoritativeAnnotations(
+                            account,
+                            owner.localSessionId,
+                            it,
+                            confirmedClientId = request.clientId
+                        )
+                    }
+                } else {
+                    localAnnotations ?: emptyList()
+                }
+            }
             (result.exceptionOrNull() as? CancellationException)?.let { throw it }
             if (generation != activeGeneration ||
                 this@ReaderAnnotationMutationController.owner != owner
@@ -239,7 +289,7 @@ internal class ReaderAnnotationMutationController(
             }
             result.fold(
                 onSuccess = { annotations ->
-                    onAuthoritativeAnnotations(owner.sessionId, annotations)
+                    onAuthoritativeAnnotations(owner.localSessionId, annotations)
                     mutableState.value = ReaderAnnotationMutationState()
                 },
                 onFailure = { failure -> publishFailure(submittedState, failure) }
@@ -270,10 +320,28 @@ internal class ReaderAnnotationMutationController(
 
     private data class Owner(
         val profile: ConnectionProfile,
-        val sessionId: String,
-        val status: ReaderSessionStatus
-    )
+        val profileId: String,
+        val session: ReaderSessionContext,
+        val serverAvailable: Boolean
+    ) {
+        val localSessionId: String get() = session.sessionId
+        val serverSessionId: String? get() = session.serverSessionId
+        val status: ReaderSessionStatus get() = session.status
+    }
 }
+
+private fun ReaderAnnotationMutationRequest.withSessionId(sessionId: String) = when (this) {
+    is ReaderAnnotationMutationRequest.UpsertHighlight -> copy(sessionId = sessionId)
+    is ReaderAnnotationMutationRequest.UpsertBookmark -> copy(sessionId = sessionId)
+    is ReaderAnnotationMutationRequest.Delete -> copy(sessionId = sessionId)
+}
+
+private val ReaderAnnotationMutationRequest.clientId: String
+    get() = when (this) {
+        is ReaderAnnotationMutationRequest.UpsertHighlight -> clientId
+        is ReaderAnnotationMutationRequest.UpsertBookmark -> clientId
+        is ReaderAnnotationMutationRequest.Delete -> clientId
+    }
 
 private fun ReaderAnnotationMutationState.beginCreate(
     intent: ReaderAnnotationMutationIntent.BeginCreate,

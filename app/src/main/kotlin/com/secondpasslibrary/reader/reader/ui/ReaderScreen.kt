@@ -83,11 +83,12 @@ internal fun ReaderScreen(
     val ready = state as? ReaderState.Ready
     val appearance by remember(ready?.engine) { readyAppearance(ready) }.collectAsState()
     val palette = appearance.theme.readerPalette()
+    val annotationWritesAvailable = ready?.session?.status == ReaderSessionStatus.ACTIVE
     val highlightSelection = writableSelection(
         ready,
         selection,
         annotationMutations,
-        serverWritesAvailable
+        annotationWritesAvailable
     )
     var overlayVisible by remember { mutableStateOf(false) }
     var bookmarkMenuVisible by remember { mutableStateOf(false) }
@@ -117,6 +118,7 @@ internal fun ReaderScreen(
                 scope,
                 dismiss,
                 onMarginaliaIntent,
+                annotationWritesAvailable,
                 serverWritesAvailable,
                 annotationMutations,
                 sessionMetadata,
@@ -135,7 +137,7 @@ internal fun ReaderScreen(
             highlightDetail,
             hud,
             pageBookmarks,
-            serverWritesAvailable,
+            annotationWritesAvailable,
             onBack,
             onRetry,
             onAnnotationMutation,
@@ -160,7 +162,7 @@ private fun ReaderReadingSurface(
     highlightDetail: ReaderReadOnlyHighlightDetail?,
     hud: ReaderHudPresentation,
     pageBookmarks: ReaderVisiblePageBookmarks,
-    serverWritesAvailable: Boolean,
+    annotationWritesAvailable: Boolean,
     onBack: () -> Unit,
     onRetry: () -> Unit,
     onMutation: (ReaderAnnotationMutationIntent) -> Unit,
@@ -204,8 +206,7 @@ private fun ReaderReadingSurface(
                 overlays.openAppearance()
             },
             bookmarks = pageBookmarks.bookmarks,
-            bookmarksWritable = serverWritesAvailable &&
-                ready?.session?.status == ReaderSessionStatus.ACTIVE,
+            bookmarksWritable = annotationWritesAvailable,
             onCreateBookmark = onCreateBookmark,
             onNavigateBookmark = onNavigateBookmark,
             onRemoveBookmark = onRemoveBookmark,
@@ -303,6 +304,7 @@ internal fun ReaderAnnotationsOverlay(
     onDismiss: () -> Unit,
     onMarginaliaIntent: (ReaderMarginaliaIntent) -> Unit,
     editable: Boolean,
+    sessionMetadataEditable: Boolean,
     mutationState: ReaderAnnotationMutationState,
     sessionMetadata: ReaderSessionMetadataState,
     onCreateBookmark: () -> Unit,
@@ -320,6 +322,7 @@ internal fun ReaderAnnotationsOverlay(
         onDismiss = onDismiss,
         onRetryCurrent = { onMarginaliaIntent(ReaderMarginaliaIntent.RetryCurrentAnnotations) },
         currentEditable = editable,
+        currentMetadataEditable = sessionMetadataEditable,
         onLoadLayer = { onMarginaliaIntent(ReaderMarginaliaIntent.LoadPreviousLayer(it)) },
         onSetLayerVisible = { sessionId, visible ->
             onMarginaliaIntent(

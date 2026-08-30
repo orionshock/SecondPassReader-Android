@@ -8,7 +8,7 @@ import javax.inject.Inject
 
 internal enum class ReaderLaunchDecision {
     ONLINE,
-    LOCAL_READ_ONLY,
+    LOCAL_AVAILABLE,
     OFFLINE_ASSET_UNAVAILABLE
 }
 
@@ -33,7 +33,7 @@ internal class ReaderLaunchPolicy @Inject constructor(private val assets: Reader
         if (availability !is AppAvailability.Offline) return ReaderLaunchDecision.ONLINE
         val account = ReaderAccountScope(profile.serverOrigin, profileId)
         return if (assets.findCompleted(account, bookId) != null) {
-            ReaderLaunchDecision.LOCAL_READ_ONLY
+            ReaderLaunchDecision.LOCAL_AVAILABLE
         } else {
             ReaderLaunchDecision.OFFLINE_ASSET_UNAVAILABLE
         }

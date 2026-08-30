@@ -32,6 +32,7 @@ import com.secondpasslibrary.reader.reader.marginalia.SplReaderMarginaliaLayerHi
 import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginaliaLayerPolicyController
 import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginaliaLayerPreferenceStore
 import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginaliaLayerVisibilityStore
+import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
 import com.secondpasslibrary.reader.reader.progress.SplReaderProgressWriter
 import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadataController
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
@@ -62,7 +63,8 @@ internal class ReaderViewModel @Inject constructor(
     marginaliaLayerHistoryLoader: SplReaderMarginaliaLayerHistoryLoader,
     marginaliaLayerPreferenceStore: ReaderMarginaliaLayerPreferenceStore,
     marginaliaLayerVisibilityStore: ReaderMarginaliaLayerVisibilityStore,
-    sessionMetadataWriter: SplReaderSessionMetadataWriter
+    sessionMetadataWriter: SplReaderSessionMetadataWriter,
+    localReaderStateStore: LocalReaderStateStore
 ) : ViewModel() {
     private val progressSyncJob = SupervisorJob()
     private val progressSyncScope = CoroutineScope(progressSyncJob + Dispatchers.IO)
@@ -75,11 +77,13 @@ internal class ReaderViewModel @Inject constructor(
             viewModelScope,
             appearanceStore,
             progressSyncScope,
-            launchPolicy
+            launchPolicy,
+            localReaderStateStore
         )
     private val annotationsController = ReaderAnnotationsController(
         annotationsLoader,
-        viewModelScope
+        viewModelScope,
+        localReaderStateStore
     )
     private val marginaliaLayersController = ReaderMarginaliaLayersController(
         marginaliaLayerHistoryLoader,
@@ -107,7 +111,8 @@ internal class ReaderViewModel @Inject constructor(
         onAuthoritativeAnnotations = { sessionId, annotations ->
             annotationsController.replaceAuthoritative(sessionId, annotations)
             selections.dismiss()
-        }
+        },
+        localStore = localReaderStateStore
     )
     private val highlightActivations = ReaderHighlightActivationController(viewModelScope) {
         annotationMutations.accept(ReaderAnnotationMutationIntent.BeginEdit(it))
@@ -160,13 +165,17 @@ internal class ReaderViewModel @Inject constructor(
                 } else {
                     selections.attach(ready.engine.selectionEvents, ready.engine.cfiNavigator)
                     activeProfile?.let { profile ->
-                        annotationsController.select(profile, session.sessionId)
-                        entryIdentity?.let { entry ->
-                            marginaliaLayersController.select(
-                                profile,
-                                entry.bookId,
-                                session
-                            )
+                        val entry = entryIdentity ?: return@let
+                        annotationsController.select(
+                            profile,
+                            entry.profileId,
+                            session,
+                            ready.localOnly
+                        )
+                        if (ready.localOnly) {
+                            marginaliaLayersController.selectLocal(session)
+                        } else {
+                            marginaliaLayersController.select(profile, entry.bookId, session)
                             marginaliaLayerPolicy.select(
                                 profile.authenticatedConnectionIdentity,
                                 entry.bookId
@@ -174,10 +183,11 @@ internal class ReaderViewModel @Inject constructor(
                         }
                         annotationMutations.select(
                             profile,
-                            session.sessionId,
-                            session.status
+                            entry.profileId,
+                            session,
+                            serverWritesAvailable
                         )
-                        sessionMetadata.select(profile, session)
+                        if (!ready.localOnly) sessionMetadata.select(profile, session)
                     }
                 }
             }
@@ -327,17 +337,13 @@ internal class ReaderViewModel @Inject constructor(
     }
 
     fun mutateAnnotation(intent: ReaderAnnotationMutationIntent) {
-        if (!serverWritesAvailable) return
+        if (controller.state.value !is ReaderState.Ready) return
         annotationMutations.accept(intent)
     }
 
     fun acceptBookmark(intent: ReaderBookmarkHudIntent) {
         val ready = controller.state.value as? ReaderState.Ready
-        if (ready == null ||
-            (!serverWritesAvailable && intent !is ReaderBookmarkHudIntent.Navigate)
-        ) {
-            return
-        }
+        if (ready == null) return
         val session = ready.session ?: return
         when (intent) {
             ReaderBookmarkHudIntent.Create -> when {
@@ -376,6 +382,7 @@ internal class ReaderViewModel @Inject constructor(
 
     fun setAuthorityAvailable(available: Boolean) {
         serverWritesAvailable = available
+        annotationMutations.setServerAvailable(available)
         controller.setAuthorityAvailable(available)
         marginaliaLayerPolicy.setAuthorityAvailable(available)
     }

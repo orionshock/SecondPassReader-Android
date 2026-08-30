@@ -14,9 +14,9 @@ internal fun writableSelection(
     ready: ReaderState.Ready?,
     selection: ReaderSelection?,
     mutations: ReaderAnnotationMutationState,
-    serverWritesAvailable: Boolean = true
+    annotationWritesAvailable: Boolean = true
 ) = selection?.takeIf {
-    serverWritesAvailable && ready?.session?.status == ReaderSessionStatus.ACTIVE &&
+    annotationWritesAvailable && ready?.session?.status == ReaderSessionStatus.ACTIVE &&
         mutations.pendingCreate?.selection?.cfi == it.cfi
 }
 

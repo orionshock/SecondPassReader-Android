@@ -1,0 +1,82 @@
+package com.secondpasslibrary.reader.reader.persistence
+
+import androidx.room3.Entity
+import androidx.room3.ForeignKey
+import androidx.room3.Index
+
+@Entity(
+    tableName = "reader_sessions",
+    primaryKeys = ["accountKey", "localSessionId"],
+    indices = [
+        Index(value = ["accountKey", "bookId"]),
+        Index(value = ["accountKey", "serverSessionId"], unique = true),
+        Index(value = ["accountKey", "activeProvisionalBookId"], unique = true)
+    ]
+)
+internal data class LocalReaderSessionEntity(
+    val accountKey: String,
+    val localSessionId: String,
+    val bookId: String,
+    val serverSessionId: String?,
+    val identityKind: String,
+    val serverStatus: String?,
+    val activeProvisionalBookId: String?,
+    val sessionName: String?,
+    val sessionNotes: String,
+    val startedAt: String?,
+    val closedAt: String?,
+    val lastActivityAt: String?,
+    val annotationCount: Int?,
+    val createdAtEpochMillis: Long,
+    val lastUsedAtEpochMillis: Long
+)
+
+@Entity(
+    tableName = "reader_progress",
+    primaryKeys = ["accountKey", "localSessionId"],
+    foreignKeys = [
+        ForeignKey(
+            entity = LocalReaderSessionEntity::class,
+            parentColumns = ["accountKey", "localSessionId"],
+            childColumns = ["accountKey", "localSessionId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ]
+)
+internal data class LocalReaderProgressEntity(
+    val accountKey: String,
+    val localSessionId: String,
+    val cfi: String,
+    val updatedAtEpochMillis: Long,
+    val provenance: String
+)
+
+@Entity(
+    tableName = "reader_annotations",
+    primaryKeys = ["accountKey", "localSessionId", "clientId"],
+    indices = [Index(value = ["accountKey", "localSessionId", "serverAnnotationId"])],
+    foreignKeys = [
+        ForeignKey(
+            entity = LocalReaderSessionEntity::class,
+            parentColumns = ["accountKey", "localSessionId"],
+            childColumns = ["accountKey", "localSessionId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ]
+)
+internal data class LocalReaderAnnotationEntity(
+    val accountKey: String,
+    val localSessionId: String,
+    val serverAnnotationId: String?,
+    val clientId: String,
+    val kind: String,
+    val cfi: String,
+    val locationLabel: String?,
+    val quote: String?,
+    val prefix: String?,
+    val suffix: String?,
+    val note: String?,
+    val color: String?,
+    val updatedAt: String,
+    val syncState: String
+)

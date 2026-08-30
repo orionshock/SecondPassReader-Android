@@ -34,8 +34,11 @@ internal sealed interface ReaderAnnotationMutationRequest {
         val locationLabel: String
     ) : ReaderAnnotationMutationRequest
 
-    data class Delete(override val sessionId: String, val clientId: String) :
-        ReaderAnnotationMutationRequest
+    data class Delete(
+        override val sessionId: String,
+        val clientId: String,
+        val localSnapshot: ReaderAnnotation? = null
+    ) : ReaderAnnotationMutationRequest
 }
 
 internal fun interface ReaderAnnotationWriter {

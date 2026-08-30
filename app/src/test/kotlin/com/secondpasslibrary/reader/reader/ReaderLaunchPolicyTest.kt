@@ -34,7 +34,7 @@ class ReaderLaunchPolicyTest {
         val offline = AppAvailability.Offline(AppAvailabilityReason.UNREACHABLE)
 
         assertEquals(
-            ReaderLaunchDecision.LOCAL_READ_ONLY,
+            ReaderLaunchDecision.LOCAL_AVAILABLE,
             policy.decide(offline, profile(), "profile-1", "book-1")
         )
         assertEquals(
