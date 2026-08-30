@@ -132,6 +132,48 @@ class ConnectionCoordinatorTest {
     }
 
     @Test
+    fun `different server with same profile ID purges exact old account before replacement`() =
+        runTest {
+            val events = mutableListOf<String>()
+            val oldProfile = profile()
+            val replacement = oldProfile.copy(
+                serverOrigin = "https://other-library.example",
+                serverBaseUrl = "https://other-library.example/",
+                apiBaseUrl = "https://other-library.example/api/v1/",
+                clientSessionId = "other-session"
+            )
+            val accountStore = FakePersistedAccountContextStore(events).apply {
+                stored = PersistedAccountContext(
+                    oldProfile.authenticatedConnectionIdentity,
+                    "profile-1",
+                    oldProfile.serverOrigin
+                )
+            }
+            val cleaner = FakeAccountLocalDataCleaner(events)
+            val coordinator = coordinator(
+                FakeClient(events = events),
+                FakeProfileStore(events).apply { stored = replacement },
+                storedCredential(),
+                accountStore,
+                cleaner
+            )
+
+            coordinator.restore()
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf(AccountLocalDataKey.from(oldProfile.serverOrigin, "profile-1")),
+                cleaner.purged
+            )
+            assertTrue(events.indexOf("purge") < events.lastIndexOf("account"))
+            assertEquals(replacement.serverOrigin, accountStore.stored?.accountServerOrigin)
+            assertEquals(
+                AccountLocalDataKey.from(replacement.serverOrigin, "profile-1"),
+                coordinator.localAccountContext.value?.localDataKey()
+            )
+        }
+
+    @Test
     fun `approved pairing stores credential then profile before verification`() = runTest {
         val events = mutableListOf<String>()
         val client =
@@ -261,7 +303,7 @@ class ConnectionCoordinatorTest {
         assertTrue(accountContextStore.cleared)
         assertEquals(null, accountContextStore.stored)
         assertEquals(
-            listOf(AccountLocalDataKey(profile().serverOrigin, "profile-1")),
+            listOf(AccountLocalDataKey.from(profile().serverOrigin, "profile-1")),
             cleaner.purged
         )
         assertTrue(revocation.sessionIds.isEmpty())
@@ -592,7 +634,7 @@ class ConnectionCoordinatorTest {
 
         assertTrue(coordinator.state.value is ConnectionUiState.Linked)
         assertEquals(
-            listOf(AccountLocalDataKey(oldProfile.serverOrigin, "profile-1")),
+            listOf(AccountLocalDataKey.from(oldProfile.serverOrigin, "profile-1")),
             cleaner.purged
         )
         assertTrue(events.indexOf("purge") < events.lastIndexOf("account"))

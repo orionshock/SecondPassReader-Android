@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.reader.sync
 
+import androidx.work.ExistingWorkPolicy
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.persistence.ReaderBoundOutboxSession
@@ -12,15 +13,20 @@ import org.junit.Test
 
 class ReaderSyncSchedulerTest {
     @Test
-    fun `pending work replaces one account-scoped wakeup`() = runTest {
+    fun `unique work keeps existing retry and backoff state`() {
+        assertEquals(ExistingWorkPolicy.KEEP, READER_SYNC_EXISTING_WORK_POLICY)
+    }
+
+    @Test
+    fun `pending work ensures one account-scoped wakeup without replacement intent`() = runTest {
         val queue = RecordingQueue()
         val scheduler = WorkManagerReaderSyncScheduler(PendingStore(true), queue)
 
-        scheduler.scheduleIfPending(account("one"))
-        scheduler.scheduleIfPending(account("one"))
+        scheduler.ensureEnqueued(account("one"))
+        scheduler.ensureEnqueued(account("one"))
 
-        assertEquals(listOf(account("one"), account("one")), queue.replacements)
-        assertEquals(1, queue.replacements.toSet().size)
+        assertEquals(listOf(account("one"), account("one")), queue.enqueues)
+        assertEquals(1, queue.enqueues.toSet().size)
     }
 
     @Test
@@ -28,9 +34,9 @@ class ReaderSyncSchedulerTest {
         val queue = RecordingQueue()
         val scheduler = WorkManagerReaderSyncScheduler(PendingStore(false), queue)
 
-        scheduler.scheduleIfPending(account("one"))
+        scheduler.ensureEnqueued(account("one"))
 
-        assertEquals(emptyList<LocalReaderAccountKey>(), queue.replacements)
+        assertEquals(emptyList<LocalReaderAccountKey>(), queue.enqueues)
     }
 
     @Test
@@ -45,11 +51,11 @@ class ReaderSyncSchedulerTest {
     }
 
     private class RecordingQueue : ReaderSyncWorkQueue {
-        val replacements = mutableListOf<LocalReaderAccountKey>()
+        val enqueues = mutableListOf<LocalReaderAccountKey>()
         val cancellations = mutableListOf<LocalReaderAccountKey>()
 
-        override fun replace(account: LocalReaderAccountKey) {
-            replacements += account
+        override fun ensureEnqueued(account: LocalReaderAccountKey) {
+            enqueues += account
         }
 
         override fun cancel(account: LocalReaderAccountKey) {

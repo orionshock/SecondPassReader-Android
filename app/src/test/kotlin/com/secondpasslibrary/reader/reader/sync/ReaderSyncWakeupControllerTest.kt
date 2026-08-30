@@ -43,7 +43,7 @@ class ReaderSyncWakeupControllerTest {
     private class RecordingScheduler : ReaderSyncScheduler {
         val scheduled = mutableListOf<LocalReaderAccountKey>()
 
-        override suspend fun scheduleIfPending(account: LocalReaderAccountKey) {
+        override suspend fun ensureEnqueued(account: LocalReaderAccountKey) {
             scheduled += account
         }
 

@@ -28,7 +28,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 internal interface ReaderSyncScheduler {
-    suspend fun scheduleIfPending(account: LocalReaderAccountKey)
+    suspend fun ensureEnqueued(account: LocalReaderAccountKey)
 
     fun cancel(account: LocalReaderAccountKey)
 }
@@ -51,7 +51,7 @@ internal class ReaderSyncWakeupController(
         job?.cancel()
         account = next
         job = next?.let { selected ->
-            scope.launch { scheduler.scheduleIfPending(selected) }
+            scope.launch { scheduler.ensureEnqueued(selected) }
         }
     }
 
@@ -67,9 +67,9 @@ internal class WorkManagerReaderSyncScheduler @Inject constructor(
     private val outbox: ReaderOutboxStore,
     private val queue: ReaderSyncWorkQueue
 ) : ReaderSyncScheduler {
-    override suspend fun scheduleIfPending(account: LocalReaderAccountKey) {
+    override suspend fun ensureEnqueued(account: LocalReaderAccountKey) {
         if (!outbox.hasPendingWork(account)) return
-        queue.replace(account)
+        queue.ensureEnqueued(account)
     }
 
     override fun cancel(account: LocalReaderAccountKey) {
@@ -78,7 +78,7 @@ internal class WorkManagerReaderSyncScheduler @Inject constructor(
 }
 
 internal interface ReaderSyncWorkQueue {
-    fun replace(account: LocalReaderAccountKey)
+    fun ensureEnqueued(account: LocalReaderAccountKey)
 
     fun cancel(account: LocalReaderAccountKey)
 }
@@ -89,11 +89,11 @@ internal class WorkManagerReaderSyncWorkQueue @Inject constructor(
 ) : ReaderSyncWorkQueue {
     private val appContext = context.applicationContext
 
-    override fun replace(account: LocalReaderAccountKey) {
+    override fun ensureEnqueued(account: LocalReaderAccountKey) {
         val request = readerSyncWorkRequest(account)
         workManager().enqueueUniqueWork(
             workName(account),
-            ExistingWorkPolicy.REPLACE,
+            READER_SYNC_EXISTING_WORK_POLICY,
             request
         )
     }
@@ -208,3 +208,4 @@ internal fun workName(account: LocalReaderAccountKey) = "reader-sync:${account.v
 
 internal const val INPUT_ACCOUNT_KEY = "reader_sync_account_key"
 internal const val READER_SYNC_BACKOFF_SECONDS = 30L
+internal val READER_SYNC_EXISTING_WORK_POLICY = ExistingWorkPolicy.KEEP

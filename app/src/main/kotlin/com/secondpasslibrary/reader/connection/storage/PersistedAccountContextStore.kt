@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.PersistedAccountContext
+import com.secondpasslibrary.reader.connection.serverOrigin
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.IOException
 import javax.inject.Inject
@@ -77,7 +78,9 @@ internal fun Preferences.toAccountContext(): PersistedAccountContext? {
     if (apiBaseUrl == null || clientSessionId == null || profileId == null) return null
     return PersistedAccountContext(
         connectionIdentity = AuthenticatedConnectionIdentity(apiBaseUrl, clientSessionId),
-        profileId = profileId
+        profileId = profileId,
+        accountServerOrigin = this[PersistedAccountContextKeys.ACCOUNT_SERVER_ORIGIN]
+            ?: AuthenticatedConnectionIdentity(apiBaseUrl, clientSessionId).serverOrigin
     )
 }
 
@@ -86,16 +89,19 @@ internal fun MutablePreferences.putAccountContext(context: PersistedAccountConte
     this[PersistedAccountContextKeys.CLIENT_SESSION_ID] =
         context.connectionIdentity.clientSessionId
     this[PersistedAccountContextKeys.PROFILE_ID] = context.profileId
+    this[PersistedAccountContextKeys.ACCOUNT_SERVER_ORIGIN] = context.accountServerOrigin
 }
 
 internal fun MutablePreferences.clearAccountContext() {
     remove(PersistedAccountContextKeys.API_BASE_URL)
     remove(PersistedAccountContextKeys.CLIENT_SESSION_ID)
     remove(PersistedAccountContextKeys.PROFILE_ID)
+    remove(PersistedAccountContextKeys.ACCOUNT_SERVER_ORIGIN)
 }
 
 private object PersistedAccountContextKeys {
     val API_BASE_URL = stringPreferencesKey("api_base_url")
     val CLIENT_SESSION_ID = stringPreferencesKey("client_session_id")
     val PROFILE_ID = stringPreferencesKey("profile_id")
+    val ACCOUNT_SERVER_ORIGIN = stringPreferencesKey("account_server_origin")
 }

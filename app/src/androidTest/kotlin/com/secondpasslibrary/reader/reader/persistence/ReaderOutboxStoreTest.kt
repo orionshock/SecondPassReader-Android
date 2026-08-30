@@ -425,7 +425,7 @@ class ReaderOutboxStoreTest {
     private class RecordingSyncScheduler : ReaderSyncScheduler {
         val scheduled = mutableListOf<LocalReaderAccountKey>()
 
-        override suspend fun scheduleIfPending(account: LocalReaderAccountKey) {
+        override suspend fun ensureEnqueued(account: LocalReaderAccountKey) {
             scheduled += account
         }
 

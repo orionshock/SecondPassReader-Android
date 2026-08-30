@@ -432,11 +432,13 @@ internal class ConnectionCoordinator(
             val persistedAccount =
                 PersistedAccountContext(
                     connectionIdentity = profile.authenticatedConnectionIdentity,
-                    profileId = context.currentUser.profileId
+                    profileId = context.currentUser.profileId,
+                    accountServerOrigin = profile.serverOrigin
                 )
-            val previousAccount = mutableLocalAccountContext.value
+            val previousAccount = mutableLocalAccountContext.value?.persistedAccount
+                ?: accountContextStore.read()
             if (previousAccount != null &&
-                previousAccount.persistedAccount.profileId != persistedAccount.profileId
+                previousAccount.localDataKey() != persistedAccount.localDataKey()
             ) {
                 val purgeResult = attempt {
                     accountLocalDataCleaner.purge(previousAccount.localDataKey())
@@ -492,7 +494,7 @@ internal class ConnectionCoordinator(
                     accountContextStore.read()
                         ?.takeIf { account -> profile != null && account.matches(profile) }
                         ?.let { account ->
-                            AccountLocalDataKey(
+                            AccountLocalDataKey.from(
                                 checkNotNull(profile).serverOrigin,
                                 account.profileId
                             )

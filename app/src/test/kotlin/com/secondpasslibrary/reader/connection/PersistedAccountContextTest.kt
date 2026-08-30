@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.connection
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -19,6 +20,39 @@ class PersistedAccountContextTest {
         val context = PersistedAccountContext(profile.authenticatedConnectionIdentity, "profile-1")
 
         assertFalse(context.matches(profile.copy(clientSessionId = "new-session")))
+    }
+
+    @Test
+    fun `account-local identity ignores client Session rotation`() {
+        val profile = profile()
+        val original = PersistedAccountContext(
+            profile.authenticatedConnectionIdentity,
+            "profile-1",
+            profile.serverOrigin
+        )
+        val relinked = PersistedAccountContext(
+            profile.copy(clientSessionId = "new-session").authenticatedConnectionIdentity,
+            "profile-1",
+            profile.serverOrigin
+        )
+
+        assertEquals(original.localDataKey(), relinked.localDataKey())
+    }
+
+    @Test
+    fun `account-local identity distinguishes server and profile`() {
+        val profile = profile()
+        val current = PersistedAccountContext(
+            profile.authenticatedConnectionIdentity,
+            "profile-1",
+            profile.serverOrigin
+        )
+
+        assertFalse(
+            current.localDataKey() ==
+                current.copy(accountServerOrigin = "https://other.example").localDataKey()
+        )
+        assertFalse(current.localDataKey() == current.copy(profileId = "profile-2").localDataKey())
     }
 
     private fun profile() = ConnectionProfile(

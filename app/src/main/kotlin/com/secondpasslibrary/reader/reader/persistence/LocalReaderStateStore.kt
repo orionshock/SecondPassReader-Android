@@ -290,7 +290,7 @@ internal class RoomLocalReaderStateStore @Inject constructor(
 
     private suspend fun schedule(account: LocalReaderAccountKey) {
         try {
-            syncScheduler.scheduleIfPending(account)
+            syncScheduler.ensureEnqueued(account)
         } catch (cancellation: kotlinx.coroutines.CancellationException) {
             throw cancellation
         } catch (_: Exception) {
@@ -367,7 +367,7 @@ private fun ReaderAnnotationMutationRequest.toOutboxIntent(
 }
 
 private data object NoOpReaderSyncScheduler : ReaderSyncScheduler {
-    override suspend fun scheduleIfPending(account: LocalReaderAccountKey) = Unit
+    override suspend fun ensureEnqueued(account: LocalReaderAccountKey) = Unit
 
     override fun cancel(account: LocalReaderAccountKey) = Unit
 }

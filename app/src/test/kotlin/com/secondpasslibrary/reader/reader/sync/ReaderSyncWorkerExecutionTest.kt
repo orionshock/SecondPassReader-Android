@@ -1,6 +1,10 @@
 package com.secondpasslibrary.reader.reader.sync
 
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.connection.ConnectionProfileStore
+import com.secondpasslibrary.reader.connection.PersistedAccountContext
+import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.storage.PersistedAccountContextStore
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.persistence.ReaderBoundOutboxSession
@@ -9,6 +13,7 @@ import com.secondpasslibrary.reader.reader.persistence.ReaderOutboxStore
 import com.secondpasslibrary.reader.reader.persistence.ReaderPendingOutboxSession
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ReaderSyncWorkerExecutionTest {
@@ -95,6 +100,32 @@ class ReaderSyncWorkerExecutionTest {
         assertEquals(0, reconnects)
     }
 
+    @Test
+    fun `stale Worker account cannot resolve replacement account credentials`() = runTest {
+        val replacementProfile = profile().copy(
+            serverOrigin = "https://other-library.example",
+            serverBaseUrl = "https://other-library.example/",
+            apiBaseUrl = "https://other-library.example/api/v1/"
+        )
+        val replacementAccount = LocalReaderAccountKey.from(
+            replacementProfile.serverOrigin,
+            "profile-1"
+        )
+        val resolver = ReaderSyncAccountResolver(
+            FixedProfileStore(replacementProfile),
+            FixedAccountStore(
+                PersistedAccountContext(
+                    replacementProfile.authenticatedConnectionIdentity,
+                    "profile-1",
+                    replacementProfile.serverOrigin
+                )
+            )
+        )
+
+        assertNull(resolver.resolve(account()))
+        assertEquals(replacementProfile, resolver.resolve(replacementAccount))
+    }
+
     private fun execution(
         store: PendingStore,
         resolver: ReaderSyncAccountResolution = ReaderSyncAccountResolution { profile() },
@@ -137,6 +168,24 @@ class ReaderSyncWorkerExecutionTest {
             sent: List<ReaderOutboxIntent>,
             authoritative: List<ReaderAnnotation>
         ) = Unit
+    }
+
+    private class FixedProfileStore(private val profile: ConnectionProfile) :
+        ConnectionProfileStore {
+        override suspend fun read() = profile
+
+        override suspend fun write(profile: ConnectionProfile) = Unit
+
+        override suspend fun clear() = Unit
+    }
+
+    private class FixedAccountStore(private val account: PersistedAccountContext) :
+        PersistedAccountContextStore {
+        override suspend fun read() = account
+
+        override suspend fun write(context: PersistedAccountContext) = Unit
+
+        override suspend fun clear() = Unit
     }
 
     private companion object {
