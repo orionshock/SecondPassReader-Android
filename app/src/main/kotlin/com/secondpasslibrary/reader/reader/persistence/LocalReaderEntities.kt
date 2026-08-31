@@ -138,5 +138,6 @@ internal data class LocalReaderContinuationOutcomeEntity(
     val continuationLocalSessionId: String?,
     val forwardedEditCount: Int,
     val droppedDeleteCount: Int,
-    val createdAtEpochMillis: Long
+    val createdAtEpochMillis: Long,
+    val consumedAtEpochMillis: Long?
 )

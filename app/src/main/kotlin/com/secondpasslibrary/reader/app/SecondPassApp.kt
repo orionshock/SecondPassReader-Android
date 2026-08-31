@@ -29,6 +29,7 @@ fun SecondPassApp(
     val lifecycleActionState by
         connectionViewModel.lifecycleActionState.collectAsStateWithLifecycle()
     val appSessionState by appSessionViewModel.state.collectAsStateWithLifecycle()
+    val syncOutcomeNotice by appSessionViewModel.syncOutcomeNotice.collectAsStateWithLifecycle()
     LaunchedEffect(connectionState, localAccount) {
         appSessionViewModel.updateConnection(connectionState, localAccount)
     }
@@ -40,9 +41,7 @@ fun SecondPassApp(
             }
         }
     }
-    LifecycleEventEffect(Lifecycle.Event.ON_START) {
-        connectionViewModel.pairingForegrounded()
-    }
+    LifecycleEventEffect(Lifecycle.Event.ON_START) { connectionViewModel.pairingForegrounded() }
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
@@ -76,7 +75,10 @@ fun SecondPassApp(
                                 if (availability == HomeRefreshAvailability.UNREACHABLE) {
                                     connectionViewModel.onAuthenticatedRequestUnreachable()
                                 }
-                            }
+                            },
+                        syncOutcomeNotice = syncOutcomeNotice,
+                        onSyncOutcomeNoticeAcknowledged =
+                            appSessionViewModel::acknowledgeSyncOutcomeNotice
                     )
                 }
         }

@@ -28,7 +28,7 @@ import com.secondpasslibrary.reader.reader.persistence.LocalReaderSessionEntity
         LocalReaderOutboxEntity::class,
         LocalReaderContinuationOutcomeEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 internal abstract class SecondPassLocalDatabase : RoomDatabase() {

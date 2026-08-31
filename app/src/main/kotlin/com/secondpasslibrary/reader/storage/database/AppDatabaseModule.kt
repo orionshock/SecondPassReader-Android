@@ -14,7 +14,7 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 @Suppress("MagicNumber")
-private val OBSOLETE_DEVELOPMENT_SCHEMA_VERSIONS = intArrayOf(1, 2, 3, 4, 5)
+private val OBSOLETE_DEVELOPMENT_SCHEMA_VERSIONS = intArrayOf(1, 2, 3, 4, 5, 6)
 
 @Module
 @InstallIn(SingletonComponent::class)

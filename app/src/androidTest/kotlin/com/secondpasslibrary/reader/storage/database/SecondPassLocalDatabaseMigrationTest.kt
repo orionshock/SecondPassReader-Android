@@ -20,9 +20,9 @@ class SecondPassLocalDatabaseMigrationTest {
     )
 
     @Test
-    fun version6IsTheMigrationBaseline() = runBlocking {
+    fun version7IsTheMigrationBaseline() = runBlocking {
         instrumentation.targetContext.deleteDatabase("reader-migration")
-        helper.createDatabase(6).use { connection ->
+        helper.createDatabase(7).use { connection ->
             connection.prepare(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name='reader_sessions'"
             ).use { statement -> assertTrue(statement.step()) }

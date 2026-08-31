@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 6,
-    "identityHash": "5046bdb6eae050bdcff472bfe52c99a9",
+    "version": 7,
+    "identityHash": "cbb5379b9039b1a57c245c570550d32a",
     "entities": [
       {
         "tableName": "home_projection_snapshots",
@@ -753,7 +753,7 @@
       },
       {
         "tableName": "reader_continuation_outcomes",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountKey` TEXT NOT NULL, `sourceLocalSessionId` TEXT NOT NULL, `continuationLocalSessionId` TEXT, `forwardedEditCount` INTEGER NOT NULL, `droppedDeleteCount` INTEGER NOT NULL, `createdAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`accountKey`, `sourceLocalSessionId`), FOREIGN KEY(`accountKey`, `sourceLocalSessionId`) REFERENCES `reader_sessions`(`accountKey`, `localSessionId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountKey` TEXT NOT NULL, `sourceLocalSessionId` TEXT NOT NULL, `continuationLocalSessionId` TEXT, `forwardedEditCount` INTEGER NOT NULL, `droppedDeleteCount` INTEGER NOT NULL, `createdAtEpochMillis` INTEGER NOT NULL, `consumedAtEpochMillis` INTEGER, PRIMARY KEY(`accountKey`, `sourceLocalSessionId`), FOREIGN KEY(`accountKey`, `sourceLocalSessionId`) REFERENCES `reader_sessions`(`accountKey`, `localSessionId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "accountKey",
@@ -789,6 +789,11 @@
             "columnName": "createdAtEpochMillis",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "consumedAtEpochMillis",
+            "columnName": "consumedAtEpochMillis",
+            "affinity": "INTEGER"
           }
         ],
         "primaryKey": {
@@ -829,7 +834,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '5046bdb6eae050bdcff472bfe52c99a9')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'cbb5379b9039b1a57c245c570550d32a')"
     ]
   }
 }

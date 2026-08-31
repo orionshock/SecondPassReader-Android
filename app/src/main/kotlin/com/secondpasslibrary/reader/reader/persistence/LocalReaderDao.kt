@@ -6,6 +6,7 @@ import androidx.room3.OnConflictStrategy
 import androidx.room3.Query
 import androidx.room3.Transaction
 import androidx.room3.Upsert
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 // One cohesive Room boundary exposes explicit Reader table operations.
@@ -273,6 +274,27 @@ internal abstract class LocalReaderDao {
         sourceLocalSessionId: String
     ): LocalReaderContinuationOutcomeEntity?
 
+    @Query(
+        "SELECT * FROM reader_continuation_outcomes WHERE accountKey = :accountKey " +
+            "AND consumedAtEpochMillis IS NULL " +
+            "AND (forwardedEditCount > 0 OR droppedDeleteCount > 0) " +
+            "ORDER BY createdAtEpochMillis, sourceLocalSessionId"
+    )
+    abstract fun pendingContinuationOutcomes(
+        accountKey: String
+    ): Flow<List<LocalReaderContinuationOutcomeEntity>>
+
+    @Query(
+        "UPDATE reader_continuation_outcomes SET consumedAtEpochMillis = :consumedAtEpochMillis " +
+            "WHERE accountKey = :accountKey AND sourceLocalSessionId IN (:sourceLocalSessionIds) " +
+            "AND consumedAtEpochMillis IS NULL"
+    )
+    abstract suspend fun consumeContinuationOutcomes(
+        accountKey: String,
+        sourceLocalSessionIds: List<String>,
+        consumedAtEpochMillis: Long
+    )
+
     @Transaction
     open suspend fun continueClosedSession(
         closedSession: LocalReaderSessionEntity,
@@ -400,7 +422,8 @@ internal abstract class LocalReaderDao {
                 continuation?.localSessionId,
                 forwardedEdits,
                 pending.droppedDeleteCount,
-                now
+                now,
+                null
             )
         )
         return ReaderClosedSessionContinuationResult(

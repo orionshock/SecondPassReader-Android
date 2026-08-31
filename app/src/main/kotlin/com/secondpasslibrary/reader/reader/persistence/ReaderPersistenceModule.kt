@@ -25,4 +25,9 @@ internal abstract class ReaderPersistenceModule {
     abstract fun bindReaderClosedSessionContinuationStore(
         store: RoomReaderClosedSessionContinuationStore
     ): ReaderClosedSessionContinuationStore
+
+    @Binds
+    abstract fun bindReaderContinuationOutcomeNoticeStore(
+        store: RoomReaderContinuationOutcomeNoticeStore
+    ): ReaderContinuationOutcomeNoticeStore
 }

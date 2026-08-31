@@ -15,6 +15,8 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
@@ -33,6 +35,7 @@ import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.app.AppAvailabilityReason
 import com.secondpasslibrary.reader.app.AppSessionAuthority
 import com.secondpasslibrary.reader.app.AppSessionState
+import com.secondpasslibrary.reader.app.ReaderSyncOutcomeNotice
 import com.secondpasslibrary.reader.app.authenticatedFeatureContext
 import com.secondpasslibrary.reader.connection.ConnectionLifecycleActionState
 import com.secondpasslibrary.reader.connection.ConnectionLifecycleActions
@@ -55,6 +58,8 @@ internal fun AccountAppShell(
     lifecycleActions: ConnectionLifecycleActions,
     onAuthenticationRejected: () -> Unit,
     onHomeRefreshAvailabilityChanged: (HomeRefreshAvailability) -> Unit,
+    syncOutcomeNotice: ReaderSyncOutcomeNotice?,
+    onSyncOutcomeNoticeAcknowledged: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val navigation = rememberAppNavigationState()
@@ -62,6 +67,7 @@ internal fun AccountAppShell(
     val currentRoute = navigation.currentRoute
     val drawer = rememberAccountDrawerState()
     val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
     val drawerGestureModifier =
         Modifier.accountDrawerGestureModifier(currentRoute) {
             coroutineScope.launch { drawer.state.open() }
@@ -96,6 +102,7 @@ internal fun AccountAppShell(
                     navigator,
                     onAuthenticationRejected,
                     onHomeRefreshAvailabilityChanged,
+                    snackbarHostState,
                     onOpenDrawer = { coroutineScope.launch { drawer.state.open() } }
                 )
             }
@@ -105,6 +112,11 @@ internal fun AccountAppShell(
     DrawerDismissBackHandler(
         enabled = drawer.gesturesEnabled,
         onDismiss = { coroutineScope.launch { drawer.state.close() } }
+    )
+    ReaderSyncOutcomeSnackbar(
+        syncOutcomeNotice.takeUnless { session.authority is AppSessionAuthority.Healing },
+        snackbarHostState,
+        onSyncOutcomeNoticeAcknowledged
     )
 }
 
@@ -118,11 +130,13 @@ private fun AccountShellScaffold(
     navigator: AppNavigator,
     onAuthenticationRejected: () -> Unit,
     onHomeRefreshAvailabilityChanged: (HomeRefreshAvailability) -> Unit,
+    snackbarHostState: SnackbarHostState,
     onOpenDrawer: () -> Unit
 ) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             if (showsShellTopBar(navigation.selectedDestination, navigation.currentRoute)) {
                 ContextualAppBar(
