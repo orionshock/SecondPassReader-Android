@@ -3,9 +3,9 @@ package com.secondpasslibrary.reader.reader.sync
 import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.app.AppAvailabilityReason
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationBatchWriter
-import com.secondpasslibrary.reader.reader.persistence.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.persistence.ReaderBoundOutboxSession
 import com.secondpasslibrary.reader.reader.persistence.ReaderOutboxIntent
 import com.secondpasslibrary.reader.reader.persistence.ReaderOutboxStore
@@ -309,19 +309,12 @@ class ReaderReconnectOrchestratorTest {
                 }
             }
 
-        override suspend fun pendingSessionEstablishments(account: LocalReaderAccountKey) =
-            intents.filterIsInstance<ReaderOutboxIntent.EstablishSession>()
-
         override suspend fun pendingReaderIntents(
             account: LocalReaderAccountKey,
             localSessionId: String
         ) = intents.filter { it.localSessionId == localSessionId }
 
         override suspend fun hasPendingWork(account: LocalReaderAccountKey) = intents.isNotEmpty()
-
-        override suspend fun acknowledgeIntent(account: LocalReaderAccountKey, outboxId: String) {
-            intents.removeAll { it.id == outboxId }
-        }
 
         override suspend fun acceptProgress(
             account: LocalReaderAccountKey,

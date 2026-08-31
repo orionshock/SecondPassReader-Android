@@ -2,7 +2,7 @@ package com.secondpasslibrary.reader.reader.sync
 
 import androidx.work.BackoffPolicy
 import androidx.work.NetworkType
-import com.secondpasslibrary.reader.reader.persistence.LocalReaderAccountKey
+import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

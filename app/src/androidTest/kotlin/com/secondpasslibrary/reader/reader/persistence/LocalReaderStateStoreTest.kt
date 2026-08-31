@@ -3,13 +3,14 @@ package com.secondpasslibrary.reader.reader.persistence
 import android.content.Context
 import androidx.room3.Room
 import androidx.test.core.app.ApplicationProvider
-import com.secondpasslibrary.reader.home.projection.SecondPassReaderDatabase
+import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationRequest
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionIdentityKind
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
+import com.secondpasslibrary.reader.storage.database.SecondPassLocalDatabase
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -20,7 +21,7 @@ import org.junit.Before
 import org.junit.Test
 
 class LocalReaderStateStoreTest {
-    private lateinit var database: SecondPassReaderDatabase
+    private lateinit var database: SecondPassLocalDatabase
     private lateinit var store: RoomLocalReaderStateStore
 
     @Before
@@ -28,7 +29,7 @@ class LocalReaderStateStoreTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         database = Room.inMemoryDatabaseBuilder(
             context,
-            SecondPassReaderDatabase::class.java
+            SecondPassLocalDatabase::class.java
         ).build()
         store = RoomLocalReaderStateStore(database.localReaderDao())
     }

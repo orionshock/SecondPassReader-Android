@@ -415,15 +415,6 @@ internal abstract class LocalReaderDao {
 
     @Query(
         "SELECT * FROM reader_outbox WHERE accountKey = :accountKey " +
-            "AND operationKind = 'SESSION_ESTABLISHMENT' " +
-            "ORDER BY deliveryOrder, outboxId"
-    )
-    abstract suspend fun pendingSessionEstablishments(
-        accountKey: String
-    ): List<LocalReaderOutboxEntity>
-
-    @Query(
-        "SELECT * FROM reader_outbox WHERE accountKey = :accountKey " +
             "AND localSessionId = :localSessionId ORDER BY deliveryOrder, outboxId"
     )
     abstract suspend fun pendingReaderIntents(

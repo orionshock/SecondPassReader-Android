@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.reader.persistence
 
+import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 
 internal interface ReaderOutboxStore {
@@ -7,18 +8,12 @@ internal interface ReaderOutboxStore {
 
     suspend fun boundPendingSessions(account: LocalReaderAccountKey): List<ReaderBoundOutboxSession>
 
-    suspend fun pendingSessionEstablishments(
-        account: LocalReaderAccountKey
-    ): List<ReaderOutboxIntent>
-
     suspend fun pendingReaderIntents(
         account: LocalReaderAccountKey,
         localSessionId: String
     ): List<ReaderOutboxIntent>
 
     suspend fun hasPendingWork(account: LocalReaderAccountKey): Boolean
-
-    suspend fun acknowledgeIntent(account: LocalReaderAccountKey, outboxId: String)
 
     suspend fun acceptProgress(
         account: LocalReaderAccountKey,
@@ -58,12 +53,6 @@ internal class RoomReaderOutboxStore @javax.inject.Inject constructor(
         )
     }
 
-    override suspend fun pendingSessionEstablishments(
-        account: LocalReaderAccountKey
-    ): List<ReaderOutboxIntent> = dao.pendingSessionEstablishments(account.value).map {
-        it.toIntent()
-    }
-
     override suspend fun pendingReaderIntents(
         account: LocalReaderAccountKey,
         localSessionId: String
@@ -73,10 +62,6 @@ internal class RoomReaderOutboxStore @javax.inject.Inject constructor(
 
     override suspend fun hasPendingWork(account: LocalReaderAccountKey): Boolean =
         dao.hasPendingWork(account.value)
-
-    override suspend fun acknowledgeIntent(account: LocalReaderAccountKey, outboxId: String) {
-        dao.deleteOutbox(account.value, outboxId)
-    }
 
     override suspend fun acceptProgress(
         account: LocalReaderAccountKey,

@@ -3,13 +3,14 @@ package com.secondpasslibrary.reader.reader.persistence
 import android.content.Context
 import androidx.room3.Room
 import androidx.test.core.app.ApplicationProvider
-import com.secondpasslibrary.reader.home.projection.SecondPassReaderDatabase
+import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
+import com.secondpasslibrary.reader.reader.ReaderPendingSyncScheduler
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationRequest
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
-import com.secondpasslibrary.reader.reader.sync.ReaderSyncScheduler
+import com.secondpasslibrary.reader.storage.database.SecondPassLocalDatabase
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -20,7 +21,7 @@ import org.junit.Before
 import org.junit.Test
 
 class ReaderOutboxStoreTest {
-    private lateinit var database: SecondPassReaderDatabase
+    private lateinit var database: SecondPassLocalDatabase
     private lateinit var store: RoomLocalReaderStateStore
     private lateinit var outbox: RoomReaderOutboxStore
 
@@ -29,7 +30,7 @@ class ReaderOutboxStoreTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         database = Room.inMemoryDatabaseBuilder(
             context,
-            SecondPassReaderDatabase::class.java
+            SecondPassLocalDatabase::class.java
         ).build()
         store = RoomLocalReaderStateStore(database.localReaderDao())
         outbox = RoomReaderOutboxStore(database.localReaderDao())
@@ -44,11 +45,8 @@ class ReaderOutboxStoreTest {
         val session = store.selectOfflineSession(account, "book-1")
         store.selectOfflineSession(account, "book-1")
 
-        val establishments = outbox.pendingSessionEstablishments(account)
         val sessionIntents = outbox.pendingReaderIntents(account, session.sessionId)
 
-        assertEquals(1, establishments.size)
-        assertEquals(session.sessionId, establishments.single().localSessionId)
         assertTrue(sessionIntents.single() is ReaderOutboxIntent.EstablishSession)
 
         val confirmed = serverSession("server-1")
@@ -422,7 +420,7 @@ class ReaderOutboxStoreTest {
     private fun serverSession(id: String) =
         ReaderSessionContext(id, ReaderSessionStatus.ACTIVE, CFI)
 
-    private class RecordingSyncScheduler : ReaderSyncScheduler {
+    private class RecordingSyncScheduler : ReaderPendingSyncScheduler {
         val scheduled = mutableListOf<LocalReaderAccountKey>()
 
         override suspend fun ensureEnqueued(account: LocalReaderAccountKey) {

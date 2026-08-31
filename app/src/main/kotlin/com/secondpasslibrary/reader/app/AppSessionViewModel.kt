@@ -6,9 +6,9 @@ import com.secondpasslibrary.reader.connection.ConnectionUiState
 import com.secondpasslibrary.reader.connection.LocalAccountContext
 import com.secondpasslibrary.reader.home.HomeProjectionRepository
 import com.secondpasslibrary.reader.home.HomeRefreshAvailability
+import com.secondpasslibrary.reader.reader.ReaderPendingSyncScheduler
 import com.secondpasslibrary.reader.reader.sync.ReaderReconnectController
 import com.secondpasslibrary.reader.reader.sync.ReaderReconnectOrchestrator
-import com.secondpasslibrary.reader.reader.sync.ReaderSyncScheduler
 import com.secondpasslibrary.reader.reader.sync.ReaderSyncWakeupController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -22,7 +22,7 @@ class AppSessionViewModel
 internal constructor(
     homeRepository: HomeProjectionRepository,
     reconnectOrchestrator: ReaderReconnectOrchestrator,
-    readerSyncScheduler: ReaderSyncScheduler
+    readerSyncScheduler: ReaderPendingSyncScheduler
 ) : ViewModel() {
     private val controller = AppSessionController(homeRepository, viewModelScope)
     private val connectionEventChannel = Channel<AppConnectionEvent>(Channel.BUFFERED)

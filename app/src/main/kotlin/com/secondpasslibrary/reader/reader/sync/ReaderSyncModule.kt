@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.reader.sync
 
+import com.secondpasslibrary.reader.reader.ReaderPendingSyncScheduler
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationBatchWriter
 import com.secondpasslibrary.reader.reader.annotations.mutation.SplReaderAnnotationWriter
 import com.secondpasslibrary.reader.reader.progress.ReaderProgressWriter
@@ -12,6 +13,11 @@ import dagger.hilt.components.SingletonComponent
 @Module
 @InstallIn(SingletonComponent::class)
 internal abstract class ReaderSyncModule {
+    @Binds
+    abstract fun bindReaderPendingSyncScheduler(
+        scheduler: WorkManagerReaderSyncScheduler
+    ): ReaderPendingSyncScheduler
+
     @Binds
     abstract fun bindReaderSyncWorkQueue(queue: WorkManagerReaderSyncWorkQueue): ReaderSyncWorkQueue
 

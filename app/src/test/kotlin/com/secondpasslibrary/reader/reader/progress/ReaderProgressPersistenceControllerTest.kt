@@ -1,9 +1,9 @@
 package com.secondpasslibrary.reader.reader.progress
 
+import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationRequest
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
-import com.secondpasslibrary.reader.reader.persistence.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderWriteProvenance
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext

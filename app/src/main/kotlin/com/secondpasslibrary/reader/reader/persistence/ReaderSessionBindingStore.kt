@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.reader.persistence
 
+import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionIdentityKind
 import java.time.Instant

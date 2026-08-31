@@ -3,11 +3,11 @@ package com.secondpasslibrary.reader.reader.sync
 import com.secondpasslibrary.client.ReadingSessionLifecycleRejection
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationBatchWriter
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationRequest
-import com.secondpasslibrary.reader.reader.persistence.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.persistence.ReaderBoundOutboxSession
 import com.secondpasslibrary.reader.reader.persistence.ReaderOutboxIntent
 import com.secondpasslibrary.reader.reader.persistence.ReaderOutboxStore
@@ -49,7 +49,7 @@ class ReaderOutboxSynchronizerTest {
             }
         )
 
-        val report = synchronizer.syncBoundPendingSessions(profile(), account())
+        val report = synchronizer.syncBoundSession(profile(), account(), LOCAL_SESSION_ID)
 
         assertEquals(listOf("annotations", "progress"), order)
         assertEquals(3, report.deliveredAnnotationIntents)
@@ -71,7 +71,7 @@ class ReaderOutboxSynchronizerTest {
             authoritative()
         })
 
-        val report = synchronizer.syncBoundPendingSessions(profile(), account())
+        val report = synchronizer.syncBoundSession(profile(), account(), LOCAL_SESSION_ID)
 
         assertEquals(listOf(100, 100, 5), sizes)
         assertEquals(205, report.deliveredAnnotationIntents)
@@ -94,7 +94,7 @@ class ReaderOutboxSynchronizerTest {
             }
         )
 
-        val sync = async { synchronizer.syncBoundPendingSessions(profile(), account()) }
+        val sync = async { synchronizer.syncBoundSession(profile(), account(), LOCAL_SESSION_ID) }
         runCurrent()
         store.replace(highlight("h", note = "newer"))
         annotationGate.complete(Unit)
@@ -132,8 +132,12 @@ class ReaderOutboxSynchronizerTest {
             authoritative()
         }
 
-        synchronizer(unbound, writer).syncBoundPendingSessions(profile(), account())
-        synchronizer(establishment, writer).syncBoundPendingSessions(profile(), account())
+        synchronizer(unbound, writer).syncBoundSession(profile(), account(), LOCAL_SESSION_ID)
+        synchronizer(establishment, writer).syncBoundSession(
+            profile(),
+            account(),
+            LOCAL_SESSION_ID
+        )
 
         assertEquals(0, writes)
     }
@@ -147,7 +151,7 @@ class ReaderOutboxSynchronizerTest {
             )
         })
 
-        val report = synchronizer.syncBoundPendingSessions(profile(), account())
+        val report = synchronizer.syncBoundSession(profile(), account(), LOCAL_SESSION_ID)
 
         assertEquals(setOf(LOCAL_SESSION_ID), report.reconciliationSessionIds)
         assertEquals(2, store.intents.size)
@@ -161,11 +165,11 @@ class ReaderOutboxSynchronizerTest {
             progressWriter = ReaderProgressWriter { _, _, _ ->
                 ReaderProgressWriteOutcome.Failure(ReaderProgressSyncFailure.UNAVAILABLE)
             }
-        ).syncBoundPendingSessions(profile(), account())
+        ).syncBoundSession(profile(), account(), LOCAL_SESSION_ID)
         val auth = MemoryOutboxStore(mutableListOf(highlight("h")))
         val authReport = synchronizer(auth, annotationWriter = { _, _, _ ->
             throw SplClientException.AuthenticationRejected()
-        }).syncBoundPendingSessions(profile(), account())
+        }).syncBoundSession(profile(), account(), LOCAL_SESSION_ID)
 
         assertTrue(unavailableReport.unavailable)
         assertTrue(authReport.authenticationRequired)
@@ -185,8 +189,8 @@ class ReaderOutboxSynchronizerTest {
             authoritative()
         })
 
-        synchronizer.syncBoundPendingSessions(profile(), account())
-        synchronizer.syncBoundPendingSessions(profile(), account())
+        synchronizer.syncBoundSession(profile(), account(), LOCAL_SESSION_ID)
+        synchronizer.syncBoundSession(profile(), account(), LOCAL_SESSION_ID)
 
         assertEquals(listOf("h", "h"), clientIds)
         assertTrue(store.intents.isEmpty())
@@ -206,9 +210,9 @@ class ReaderOutboxSynchronizerTest {
             authoritative()
         })
 
-        val first = async { synchronizer.syncBoundPendingSessions(profile(), account()) }
+        val first = async { synchronizer.syncBoundSession(profile(), account(), LOCAL_SESSION_ID) }
         runCurrent()
-        val second = async { synchronizer.syncBoundPendingSessions(profile(), account()) }
+        val second = async { synchronizer.syncBoundSession(profile(), account(), LOCAL_SESSION_ID) }
         runCurrent()
         assertEquals(1, maximumActive)
         gate.complete(Unit)
@@ -245,19 +249,12 @@ class ReaderOutboxSynchronizerTest {
 
         override suspend fun boundPendingSessions(account: LocalReaderAccountKey) = sessions
 
-        override suspend fun pendingSessionEstablishments(account: LocalReaderAccountKey) =
-            intents.filterIsInstance<ReaderOutboxIntent.EstablishSession>()
-
         override suspend fun pendingReaderIntents(
             account: LocalReaderAccountKey,
             localSessionId: String
         ) = intents.toList()
 
         override suspend fun hasPendingWork(account: LocalReaderAccountKey) = intents.isNotEmpty()
-
-        override suspend fun acknowledgeIntent(account: LocalReaderAccountKey, outboxId: String) {
-            intents.removeAll { it.id == outboxId }
-        }
 
         override suspend fun acceptProgress(
             account: LocalReaderAccountKey,

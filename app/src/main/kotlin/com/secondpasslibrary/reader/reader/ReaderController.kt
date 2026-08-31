@@ -1,6 +1,5 @@
 package com.secondpasslibrary.reader.reader
 
-import android.util.Log
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.connection.ConnectionProfile
@@ -14,7 +13,6 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfiFailure
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
-import com.secondpasslibrary.reader.reader.persistence.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
 import com.secondpasslibrary.reader.reader.progress.ReaderProgressController
 import com.secondpasslibrary.reader.reader.progress.ReaderProgressFlushResult
@@ -135,9 +133,6 @@ internal class ReaderController(
 
     suspend fun flushLatestProgress(): ReaderProgressFlushResult {
         val result = progressPersistence?.flushLatestLocal() ?: ReaderProgressFlushResult.CLEAN
-        if (result == ReaderProgressFlushResult.TIMED_OUT) {
-            Log.w(LOG_TAG, "Timed out while durably flushing local Reader progress.")
-        }
         return result
     }
 
@@ -359,7 +354,6 @@ internal class ReaderController(
     }
 
     private companion object {
-        const val LOG_TAG = "ReaderController"
         const val STARTUP_PROGRESS_RESTORE_TIMEOUT_MILLIS = 15_000L
     }
 }

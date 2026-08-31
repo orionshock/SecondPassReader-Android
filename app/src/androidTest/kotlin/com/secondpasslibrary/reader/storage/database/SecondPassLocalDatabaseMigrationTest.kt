@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.home.projection
+package com.secondpasslibrary.reader.storage.database
 
 import androidx.room3.testing.MigrationTestHelper
 import androidx.sqlite.driver.AndroidSQLiteDriver
@@ -8,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
-class SecondPassReaderDatabaseMigrationTest {
+class SecondPassLocalDatabaseMigrationTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
 
     @get:Rule
@@ -16,7 +16,7 @@ class SecondPassReaderDatabaseMigrationTest {
         instrumentation = instrumentation,
         file = instrumentation.targetContext.getDatabasePath("reader-migration"),
         driver = AndroidSQLiteDriver(),
-        databaseClass = SecondPassReaderDatabase::class
+        databaseClass = SecondPassLocalDatabase::class
     )
 
     @Test
@@ -25,15 +25,11 @@ class SecondPassReaderDatabaseMigrationTest {
         helper.createDatabase(6).use { connection ->
             connection.prepare(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name='reader_sessions'"
-            ).use { statement ->
-                assertTrue(statement.step())
-            }
+            ).use { statement -> assertTrue(statement.step()) }
             connection.prepare(
                 "SELECT name FROM sqlite_master WHERE type='table' " +
                     "AND name='reader_continuation_outcomes'"
-            ).use { statement ->
-                assertTrue(statement.step())
-            }
+            ).use { statement -> assertTrue(statement.step()) }
         }
     }
 }

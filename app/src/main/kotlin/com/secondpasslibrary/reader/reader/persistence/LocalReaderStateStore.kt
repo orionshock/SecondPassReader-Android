@@ -1,43 +1,16 @@
 package com.secondpasslibrary.reader.reader.persistence
 
+import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
+import com.secondpasslibrary.reader.reader.ReaderPendingSyncScheduler
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationRequest
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionIdentityKind
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
-import com.secondpasslibrary.reader.reader.sync.ReaderSyncScheduler
-import java.security.MessageDigest
 import java.time.Instant
-import java.util.Locale
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
-
-@JvmInline
-internal value class LocalReaderAccountKey private constructor(val value: String) {
-    companion object {
-        internal fun fromPersistedValue(value: String): LocalReaderAccountKey {
-            require(value.length == ACCOUNT_KEY_HEX_LENGTH && value.all { it in HEX_DIGITS }) {
-                "Invalid persisted Reader account scope."
-            }
-            return LocalReaderAccountKey(value)
-        }
-
-        fun from(serverOrigin: String, profileId: String): LocalReaderAccountKey {
-            val origin = serverOrigin.trim().trimEnd('/').lowercase(Locale.ROOT)
-            val account = profileId.trim()
-            require(origin.isNotEmpty()) { "Server origin is required for Reader cache scope." }
-            require(account.isNotEmpty()) { "Profile ID is required for Reader cache scope." }
-            val digest = MessageDigest.getInstance("SHA-256")
-                .digest("$origin\u0000$account".toByteArray(Charsets.UTF_8))
-                .joinToString("") { byte -> "%02x".format(byte) }
-            return LocalReaderAccountKey(digest)
-        }
-
-        private const val ACCOUNT_KEY_HEX_LENGTH = 64
-        private const val HEX_DIGITS = "0123456789abcdef"
-    }
-}
 
 internal enum class LocalReaderWriteProvenance { SERVER_CONFIRMED, LOCAL_PENDING }
 
@@ -90,16 +63,16 @@ internal interface LocalReaderStateStore {
 @Singleton
 internal class RoomLocalReaderStateStore @Inject constructor(
     private val dao: LocalReaderDao,
-    private val syncScheduler: ReaderSyncScheduler,
+    private val syncScheduler: ReaderPendingSyncScheduler,
     private val sessionBindingStore: ReaderSessionBindingStore
 ) : LocalReaderStateStore {
     constructor(dao: LocalReaderDao) : this(
         dao,
-        NoOpReaderSyncScheduler,
+        NoOpReaderPendingSyncScheduler,
         RoomReaderSessionBindingStore(dao)
     )
 
-    constructor(dao: LocalReaderDao, syncScheduler: ReaderSyncScheduler) : this(
+    constructor(dao: LocalReaderDao, syncScheduler: ReaderPendingSyncScheduler) : this(
         dao,
         syncScheduler,
         RoomReaderSessionBindingStore(dao)
@@ -366,7 +339,7 @@ private fun ReaderAnnotationMutationRequest.toOutboxIntent(
     )
 }
 
-private data object NoOpReaderSyncScheduler : ReaderSyncScheduler {
+private data object NoOpReaderPendingSyncScheduler : ReaderPendingSyncScheduler {
     override suspend fun ensureEnqueued(account: LocalReaderAccountKey) = Unit
 
     override fun cancel(account: LocalReaderAccountKey) = Unit

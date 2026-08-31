@@ -5,8 +5,8 @@ import com.secondpasslibrary.reader.connection.ConnectionProfileStore
 import com.secondpasslibrary.reader.connection.PersistedAccountContext
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.storage.PersistedAccountContextStore
+import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
-import com.secondpasslibrary.reader.reader.persistence.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.persistence.ReaderBoundOutboxSession
 import com.secondpasslibrary.reader.reader.persistence.ReaderOutboxIntent
 import com.secondpasslibrary.reader.reader.persistence.ReaderOutboxStore
@@ -145,16 +145,10 @@ class ReaderSyncWorkerExecutionTest {
         override suspend fun boundPendingSessions(account: LocalReaderAccountKey) =
             emptyList<ReaderBoundOutboxSession>()
 
-        override suspend fun pendingSessionEstablishments(account: LocalReaderAccountKey) =
-            emptyList<ReaderOutboxIntent>()
-
         override suspend fun pendingReaderIntents(
             account: LocalReaderAccountKey,
             localSessionId: String
         ) = emptyList<ReaderOutboxIntent>()
-
-        override suspend fun acknowledgeIntent(account: LocalReaderAccountKey, outboxId: String) =
-            Unit
 
         override suspend fun acceptProgress(
             account: LocalReaderAccountKey,

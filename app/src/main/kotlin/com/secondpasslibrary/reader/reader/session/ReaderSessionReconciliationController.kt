@@ -2,7 +2,7 @@ package com.secondpasslibrary.reader.reader.session
 
 import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.reader.persistence.LocalReaderAccountKey
+import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch

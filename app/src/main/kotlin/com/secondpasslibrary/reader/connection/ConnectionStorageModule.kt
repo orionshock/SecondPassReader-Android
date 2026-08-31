@@ -15,6 +15,12 @@ import javax.inject.Singleton
 abstract class ConnectionStorageModule {
     @Binds
     @Singleton
+    internal abstract fun bindAccountLocalDataCleaner(
+        cleaner: AppAccountLocalDataCleaner
+    ): AccountLocalDataCleaner
+
+    @Binds
+    @Singleton
     abstract fun bindConnectionProfileStore(
         store: DataStoreConnectionProfileStore
     ): ConnectionProfileStore

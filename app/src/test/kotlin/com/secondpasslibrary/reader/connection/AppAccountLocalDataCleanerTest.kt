@@ -7,13 +7,13 @@ import com.secondpasslibrary.reader.home.projection.HomeProjectionSnapshot
 import com.secondpasslibrary.reader.home.projection.HomeProjectionStore
 import com.secondpasslibrary.reader.home.projection.HomeRecentReadingVariant
 import com.secondpasslibrary.reader.home.projection.HomeShelfVariant
+import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
+import com.secondpasslibrary.reader.reader.ReaderPendingSyncScheduler
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationRequest
-import com.secondpasslibrary.reader.reader.persistence.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderWriteProvenance
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
-import com.secondpasslibrary.reader.reader.sync.ReaderSyncScheduler
 import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -49,7 +49,7 @@ class AppAccountLocalDataCleanerTest {
     }
 
     private class RecordingScheduler(private val events: MutableList<String>) :
-        ReaderSyncScheduler {
+        ReaderPendingSyncScheduler {
         val canceled = mutableListOf<LocalReaderAccountKey>()
 
         override suspend fun ensureEnqueued(account: LocalReaderAccountKey) = Unit

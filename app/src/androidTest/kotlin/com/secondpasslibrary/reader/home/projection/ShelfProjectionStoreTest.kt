@@ -3,6 +3,7 @@ package com.secondpasslibrary.reader.home.projection
 import android.content.Context
 import androidx.room3.Room
 import androidx.test.core.app.ApplicationProvider
+import com.secondpasslibrary.reader.storage.database.SecondPassLocalDatabase
 import java.time.Instant
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -14,14 +15,17 @@ import org.junit.Before
 import org.junit.Test
 
 class ShelfProjectionStoreTest {
-    private lateinit var database: SecondPassReaderDatabase
+    private lateinit var database: SecondPassLocalDatabase
     private lateinit var store: HomeProjectionStore
 
     @Before
     fun createDatabase() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         database =
-            Room.inMemoryDatabaseBuilder(context, SecondPassReaderDatabase::class.java).build()
+            Room.inMemoryDatabaseBuilder(
+                context,
+                SecondPassLocalDatabase::class.java
+            ).build()
         store =
             RoomHomeProjectionStore(
                 database.recentReadingProjectionDao(),

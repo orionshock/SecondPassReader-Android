@@ -3,7 +3,7 @@ package com.secondpasslibrary.reader.reader.persistence
 import android.content.Context
 import androidx.room3.Room
 import androidx.test.core.app.ApplicationProvider
-import com.secondpasslibrary.reader.home.projection.SecondPassReaderDatabase
+import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationRequest
@@ -11,6 +11,7 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.progress.ReaderProgressPersistenceController
 import com.secondpasslibrary.reader.reader.progress.ReaderProgressState
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
+import com.secondpasslibrary.reader.storage.database.SecondPassLocalDatabase
 import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -111,7 +112,7 @@ class LocalReaderProcessRecreationTest {
 
     private fun open(context: Context, name: String) = Room.databaseBuilder(
         context,
-        SecondPassReaderDatabase::class.java,
+        SecondPassLocalDatabase::class.java,
         name
     ).build()
 

@@ -3,12 +3,13 @@ package com.secondpasslibrary.reader.reader.persistence
 import android.content.Context
 import androidx.room3.Room
 import androidx.test.core.app.ApplicationProvider
-import com.secondpasslibrary.reader.home.projection.SecondPassReaderDatabase
+import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationRequest
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
+import com.secondpasslibrary.reader.storage.database.SecondPassLocalDatabase
 import java.time.Instant
 import java.util.UUID
 import kotlinx.coroutines.runBlocking
@@ -22,7 +23,7 @@ import org.junit.Before
 import org.junit.Test
 
 class ReaderClosedSessionContinuationStoreTest {
-    private lateinit var database: SecondPassReaderDatabase
+    private lateinit var database: SecondPassLocalDatabase
     private lateinit var local: RoomLocalReaderStateStore
     private lateinit var outbox: RoomReaderOutboxStore
     private lateinit var continuation: RoomReaderClosedSessionContinuationStore
@@ -31,7 +32,7 @@ class ReaderClosedSessionContinuationStoreTest {
     fun createDatabase() {
         database = Room.inMemoryDatabaseBuilder(
             ApplicationProvider.getApplicationContext<Context>(),
-            SecondPassReaderDatabase::class.java
+            SecondPassLocalDatabase::class.java
         ).build()
         val dao = database.localReaderDao()
         local = RoomLocalReaderStateStore(dao)

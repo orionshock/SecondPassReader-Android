@@ -16,7 +16,8 @@ import androidx.work.WorkerParameters
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.ConnectionProfileStore
 import com.secondpasslibrary.reader.connection.storage.PersistedAccountContextStore
-import com.secondpasslibrary.reader.reader.persistence.LocalReaderAccountKey
+import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
+import com.secondpasslibrary.reader.reader.ReaderPendingSyncScheduler
 import com.secondpasslibrary.reader.reader.persistence.ReaderOutboxStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.TimeUnit
@@ -27,15 +28,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-internal interface ReaderSyncScheduler {
-    suspend fun ensureEnqueued(account: LocalReaderAccountKey)
-
-    fun cancel(account: LocalReaderAccountKey)
-}
-
 /** Repairs the durable WorkManager wakeup whenever a persisted account shell is restored. */
 internal class ReaderSyncWakeupController(
-    private val scheduler: ReaderSyncScheduler,
+    private val scheduler: ReaderPendingSyncScheduler,
     private val scope: CoroutineScope
 ) {
     private var account: LocalReaderAccountKey? = null
@@ -66,7 +61,7 @@ internal class ReaderSyncWakeupController(
 internal class WorkManagerReaderSyncScheduler @Inject constructor(
     private val outbox: ReaderOutboxStore,
     private val queue: ReaderSyncWorkQueue
-) : ReaderSyncScheduler {
+) : ReaderPendingSyncScheduler {
     override suspend fun ensureEnqueued(account: LocalReaderAccountKey) {
         if (!outbox.hasPendingWork(account)) return
         queue.ensureEnqueued(account)

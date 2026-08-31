@@ -2,8 +2,8 @@ package com.secondpasslibrary.reader.reader.session
 
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsLoader
-import com.secondpasslibrary.reader.reader.persistence.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.persistence.ReaderClosedSessionContinuationStore
 import com.secondpasslibrary.reader.reader.persistence.ReaderSessionBindingStore
 import javax.inject.Inject

@@ -2,7 +2,7 @@ package com.secondpasslibrary.reader.reader.sync
 
 import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.reader.persistence.LocalReaderAccountKey
+import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.persistence.ReaderOutboxStore
 import com.secondpasslibrary.reader.reader.persistence.ReaderPendingOutboxSession
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext

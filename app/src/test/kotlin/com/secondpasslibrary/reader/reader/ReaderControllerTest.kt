@@ -27,7 +27,6 @@ import com.secondpasslibrary.reader.reader.domain.ReaderViewport
 import com.secondpasslibrary.reader.reader.domain.ReaderViewportMovement
 import com.secondpasslibrary.reader.reader.domain.ReaderViewportMovements
 import com.secondpasslibrary.reader.reader.lifecycle.ReaderPositionRetention
-import com.secondpasslibrary.reader.reader.persistence.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderWriteProvenance
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext

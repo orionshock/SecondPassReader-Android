@@ -1,7 +1,14 @@
-package com.secondpasslibrary.reader.home.projection
+package com.secondpasslibrary.reader.storage.database
 
 import androidx.room3.Database
 import androidx.room3.RoomDatabase
+import com.secondpasslibrary.reader.home.projection.HomeProjectionCleanupDao
+import com.secondpasslibrary.reader.home.projection.HomeProjectionSnapshotEntity
+import com.secondpasslibrary.reader.home.projection.HomeRecentReadingEntity
+import com.secondpasslibrary.reader.home.projection.HomeShelfEntity
+import com.secondpasslibrary.reader.home.projection.HomeShelfPreviewBookEntity
+import com.secondpasslibrary.reader.home.projection.RecentReadingProjectionDao
+import com.secondpasslibrary.reader.home.projection.ShelfProjectionDao
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderAnnotationEntity
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderContinuationOutcomeEntity
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderDao
@@ -24,7 +31,7 @@ import com.secondpasslibrary.reader.reader.persistence.LocalReaderSessionEntity
     version = 6,
     exportSchema = true
 )
-internal abstract class SecondPassReaderDatabase : RoomDatabase() {
+internal abstract class SecondPassLocalDatabase : RoomDatabase() {
     abstract fun recentReadingProjectionDao(): RecentReadingProjectionDao
 
     abstract fun shelfProjectionDao(): ShelfProjectionDao

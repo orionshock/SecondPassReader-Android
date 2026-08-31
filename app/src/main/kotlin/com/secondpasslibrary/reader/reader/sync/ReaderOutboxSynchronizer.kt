@@ -3,11 +3,11 @@ package com.secondpasslibrary.reader.reader.sync
 import com.secondpasslibrary.client.ReadingSessionLifecycleRejection
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationBatchWriter
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationRequest
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.persistence.LocalAnnotationKind
-import com.secondpasslibrary.reader.reader.persistence.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.persistence.ReaderBoundOutboxSession
 import com.secondpasslibrary.reader.reader.persistence.ReaderOutboxIntent
 import com.secondpasslibrary.reader.reader.persistence.ReaderOutboxStore
@@ -36,18 +36,6 @@ internal class ReaderOutboxSynchronizer @Inject constructor(
     private val progress: ReaderProgressWriter
 ) {
     private val syncMutex = Mutex()
-
-    suspend fun syncBoundPendingSessions(
-        profile: ConnectionProfile,
-        account: LocalReaderAccountKey
-    ): ReaderOutboxSyncReport = syncMutex.withLock {
-        var report = ReaderOutboxSyncReport()
-        for (session in outbox.boundPendingSessions(account)) {
-            report += syncSession(profile, account, session)
-            if (report.authenticationRequired) break
-        }
-        report
-    }
 
     suspend fun syncBoundSession(
         profile: ConnectionProfile,

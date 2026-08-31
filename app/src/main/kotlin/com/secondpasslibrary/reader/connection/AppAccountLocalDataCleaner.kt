@@ -2,9 +2,9 @@ package com.secondpasslibrary.reader.connection
 
 import com.secondpasslibrary.reader.home.projection.HomeAccountScopeKey
 import com.secondpasslibrary.reader.home.projection.HomeProjectionStore
-import com.secondpasslibrary.reader.reader.persistence.LocalReaderAccountKey
+import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
+import com.secondpasslibrary.reader.reader.ReaderPendingSyncScheduler
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
-import com.secondpasslibrary.reader.reader.sync.ReaderSyncScheduler
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -13,7 +13,7 @@ import javax.inject.Singleton
 internal class AppAccountLocalDataCleaner @Inject constructor(
     private val home: HomeProjectionStore,
     private val reader: LocalReaderStateStore,
-    private val readerSync: ReaderSyncScheduler
+    private val readerSync: ReaderPendingSyncScheduler
 ) : AccountLocalDataCleaner {
     override suspend fun purge(account: AccountLocalDataKey) {
         val readerAccount = LocalReaderAccountKey.from(account.serverOrigin, account.profileId)

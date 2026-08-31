@@ -1,7 +1,8 @@
 package com.secondpasslibrary.reader.reader.sync
 
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.reader.persistence.LocalReaderAccountKey
+import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
+import com.secondpasslibrary.reader.reader.ReaderPendingSyncScheduler
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -40,7 +41,7 @@ class ReaderSyncWakeupControllerTest {
         )
     }
 
-    private class RecordingScheduler : ReaderSyncScheduler {
+    private class RecordingScheduler : ReaderPendingSyncScheduler {
         val scheduled = mutableListOf<LocalReaderAccountKey>()
 
         override suspend fun ensureEnqueued(account: LocalReaderAccountKey) {
