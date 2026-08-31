@@ -25,20 +25,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 
-private const val NAVIGATOR_TAG = "reader.epub.navigator"
-
-internal fun FragmentActivity.installReaderEngineRestorationFactory() {
-    supportFragmentManager.fragmentFactory = EpubNavigatorFragment.createDummyFactory()
-}
-
-internal fun FragmentActivity.discardRestoredReaderViewport() {
-    supportFragmentManager.findFragmentByTag(NAVIGATOR_TAG)?.let { restored ->
-        supportFragmentManager.beginTransaction()
-            .remove(restored)
-            .commitNowAllowingStateLoss()
-    }
-}
-
 internal class ReadiumReaderViewport(
     private val fragmentFactory: ReadiumNavigatorFragmentFactory,
     private val cfiBinding: ReadiumCfiNavigatorBinding,
@@ -92,7 +78,7 @@ internal class ReadiumReaderViewport(
                         appearanceController.unbind(navigator)
                     }
                     val fragments = activity.supportFragmentManager
-                    fragments.findFragmentByTag(NAVIGATOR_TAG)?.let { navigator ->
+                    fragments.findFragmentByTag(READIUM_NAVIGATOR_TAG)?.let { navigator ->
                         fragments.beginTransaction().remove(navigator)
                             .commitNowAllowingStateLoss()
                     }
@@ -104,7 +90,7 @@ internal class ReadiumReaderViewport(
 
     private fun installNavigator(activity: FragmentActivity): EpubNavigatorFragment {
         val fragments = activity.supportFragmentManager
-        fragments.findFragmentByTag(NAVIGATOR_TAG)?.let { existing ->
+        fragments.findFragmentByTag(READIUM_NAVIGATOR_TAG)?.let { existing ->
             (existing as? EpubNavigatorFragment)?.let(cfiBinding::unbind)
             (existing as? EpubNavigatorFragment)?.let(appearanceController::unbind)
             fragments.beginTransaction().remove(existing).commitNowAllowingStateLoss()
@@ -115,11 +101,11 @@ internal class ReadiumReaderViewport(
                 R.id.reader_navigator_container,
                 EpubNavigatorFragment::class.java,
                 null,
-                NAVIGATOR_TAG
+                READIUM_NAVIGATOR_TAG
             )
             .commitNowAllowingStateLoss()
         return requireNotNull(
-            fragments.findFragmentByTag(NAVIGATOR_TAG) as? EpubNavigatorFragment
+            fragments.findFragmentByTag(READIUM_NAVIGATOR_TAG) as? EpubNavigatorFragment
         )
     }
 }

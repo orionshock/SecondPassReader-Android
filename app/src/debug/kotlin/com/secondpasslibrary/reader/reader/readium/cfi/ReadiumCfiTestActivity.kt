@@ -17,11 +17,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.secondpasslibrary.reader.app.readerActivityRestorationBootstrap
 import com.secondpasslibrary.reader.design.SecondPassTheme
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
+import com.secondpasslibrary.reader.reader.lifecycle.restoreActivity
 import com.secondpasslibrary.reader.reader.readium.ReadiumReaderEngineOpener
-import com.secondpasslibrary.reader.reader.readium.discardRestoredReaderViewport
-import com.secondpasslibrary.reader.reader.readium.installReaderEngineRestorationFactory
 import java.io.File
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -53,10 +53,10 @@ internal class ReadiumCfiTestActivity : FragmentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        installReaderEngineRestorationFactory()
-        super.onCreate(savedInstanceState)
+        applicationContext.readerActivityRestorationBootstrap().restoreActivity(this) {
+            super.onCreate(savedInstanceState)
+        }
         mutableViewportAttached.value = !intent.getBooleanExtra(EXTRA_DEFER_VIEWPORT, false)
-        discardRestoredReaderViewport()
         supportFragmentManager.registerFragmentLifecycleCallbacks(fragmentLifecycle, false)
         setContent {
             SecondPassTheme {
