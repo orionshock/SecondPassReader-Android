@@ -1,6 +1,8 @@
 package com.secondpasslibrary.reader.library.books
 
+import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.client.BookOrdering
+import com.secondpasslibrary.reader.design.book.CompactBookRowLayout
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -9,6 +11,12 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LibraryBooksLayoutTest {
+    @Test
+    fun `Library list uses wide rows only at the tablet breakpoint`() {
+        assertEquals(CompactBookRowLayout.COMPACT, libraryBookRowLayoutForWidth(899.dp))
+        assertEquals(CompactBookRowLayout.WIDE, libraryBookRowLayoutForWidth(900.dp))
+    }
+
     @Test
     fun `display preference loads and changes independently of server query state`() = runTest {
         val preference = FakeDisplayPreferenceStore(LibraryBooksLayout.LIST)

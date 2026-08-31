@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
@@ -22,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.design.components.AnchoredOverflowMenu
@@ -33,14 +35,45 @@ internal fun CompactBookRow(
     book: CompactBookPresentation,
     actions: List<BookCardAction> = emptyList(),
     onAction: (BookCardAction) -> Unit = {},
+    layout: CompactBookRowLayout = CompactBookRowLayout.COMPACT,
     onClick: (() -> Unit)?
 ) {
     var menuExpanded by remember(book.id) { mutableStateOf(false) }
+    when (layout) {
+        CompactBookRowLayout.COMPACT ->
+            CompactBookRowContent(book, actions, onAction, onClick, menuExpanded) {
+                menuExpanded = it
+            }
+
+        CompactBookRowLayout.WIDE ->
+            WideCompactBookRowContent(book, actions, onAction, onClick, menuExpanded) {
+                menuExpanded = it
+            }
+    }
+}
+
+internal enum class CompactBookRowLayout {
+    COMPACT,
+    WIDE
+}
+
+@Composable
+private fun CompactBookRowContent(
+    book: CompactBookPresentation,
+    actions: List<BookCardAction>,
+    onAction: (BookCardAction) -> Unit,
+    onClick: (() -> Unit)?,
+    menuExpanded: Boolean,
+    onMenuExpandedChange: (Boolean) -> Unit
+) {
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .bookCardInteractions(onClick, actions.isNotEmpty()) { menuExpanded = true }
+                .testTag(COMPACT_BOOK_ROW_TAG)
+                .bookCardInteractions(onClick, actions.isNotEmpty()) {
+                    onMenuExpandedChange(true)
+                }
                 .padding(vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
@@ -53,7 +86,7 @@ internal fun CompactBookRow(
             BookOverflow(
                 actions,
                 menuExpanded,
-                { menuExpanded = it },
+                onMenuExpandedChange,
                 onAction,
                 Modifier.align(Alignment.TopEnd).padding(4.dp)
             )
@@ -73,6 +106,71 @@ internal fun CompactBookRow(
             book.series?.let { MetadataLine(it) }
             book.publisher?.let { MetadataLine(it) }
         }
+    }
+}
+
+@Composable
+private fun WideCompactBookRowContent(
+    book: CompactBookPresentation,
+    actions: List<BookCardAction>,
+    onAction: (BookCardAction) -> Unit,
+    onClick: (() -> Unit)?,
+    menuExpanded: Boolean,
+    onMenuExpandedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .testTag(WIDE_BOOK_ROW_TAG)
+                .bookCardInteractions(onClick, actions.isNotEmpty()) {
+                    onMenuExpandedChange(true)
+                }
+                .padding(vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        PublicBookCover(
+            reference = book.cover,
+            title = book.title,
+            modifier = Modifier.size(width = 60.dp, height = 90.dp)
+        )
+        Column(
+            modifier = Modifier.weight(1f).padding(vertical = 2.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                book.title,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            book.authors?.let { MetadataLine(it, MaterialTheme.typography.bodySmall) }
+            book.subtitle?.let { MetadataLine(it) }
+        }
+        WideBookFacts(book, Modifier.width(260.dp))
+        BookOverflow(
+            actions,
+            menuExpanded,
+            onMenuExpandedChange,
+            onAction,
+            Modifier.size(48.dp)
+        )
+    }
+}
+
+@Composable
+private fun WideBookFacts(book: CompactBookPresentation, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        book.series?.let { MetadataLine(it) }
+        book.publisher?.let { MetadataLine(it) }
+        listOfNotNull(book.language, book.format)
+            .takeIf(List<String>::isNotEmpty)
+            ?.joinToString(" · ")
+            ?.let { MetadataLine(it) }
     }
 }
 
@@ -182,3 +280,6 @@ private fun MetadataLine(
         overflow = TextOverflow.Ellipsis
     )
 }
+
+internal const val COMPACT_BOOK_ROW_TAG = "compact-book-row"
+internal const val WIDE_BOOK_ROW_TAG = "wide-book-row"

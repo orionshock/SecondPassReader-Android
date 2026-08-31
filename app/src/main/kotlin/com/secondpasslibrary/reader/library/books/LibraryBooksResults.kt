@@ -1,7 +1,11 @@
 package com.secondpasslibrary.reader.library.books
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -18,11 +22,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.design.book.BookCardAction
 import com.secondpasslibrary.reader.design.book.CompactBookGridCard
 import com.secondpasslibrary.reader.design.book.CompactBookRow
+import com.secondpasslibrary.reader.design.book.CompactBookRowLayout
 import com.secondpasslibrary.reader.library.presentation.LibraryBrowseLoading
 import com.secondpasslibrary.reader.library.presentation.LibraryPagingTriggerPolicy
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -91,27 +98,48 @@ private fun LibraryBooksList(
     onBookAction: (BookCardAction) -> Unit,
     modifier: Modifier
 ) {
-    val listState = rememberLazyListState()
-    NextPageEffect(listState, state, onLoadNextPage)
-    LazyColumn(
-        state = listState,
-        modifier = modifier,
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)
-    ) {
-        items(state.books, key = { it.id }) { book ->
-            CompactBookRow(
-                book = book.toLibraryCompactBookPresentation(),
-                onClick = { onBookSelected(book.id) },
-                actions = book.bookCardActions().takeUnless {
-                    state.offlineDownloadedOnly
-                }.orEmpty(),
-                onAction = onBookAction
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val rowLayout = libraryBookRowLayoutForWidth(maxWidth)
+        val listState = rememberLazyListState()
+        NextPageEffect(listState, state, onLoadNextPage)
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.matchParentSize(),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)
+        ) {
+            items(state.books, key = { it.id }) { book ->
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(Modifier.fillMaxWidth().widthIn(max = LIBRARY_LIST_MAX_WIDTH)) {
+                        CompactBookRow(
+                            book = book.toLibraryCompactBookPresentation(),
+                            onClick = { onBookSelected(book.id) },
+                            actions = book.bookCardActions().takeUnless {
+                                state.offlineDownloadedOnly
+                            }.orEmpty(),
+                            onAction = onBookAction,
+                            layout = rowLayout
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    }
+                }
+            }
+            item { NextPageFooter(state, onRetry) }
         }
-        item { NextPageFooter(state, onRetry) }
     }
 }
+
+internal fun libraryBookRowLayoutForWidth(width: Dp): CompactBookRowLayout =
+    if (width >= LIBRARY_WIDE_LIST_BREAKPOINT) {
+        CompactBookRowLayout.WIDE
+    } else {
+        CompactBookRowLayout.COMPACT
+    }
+
+private val LIBRARY_WIDE_LIST_BREAKPOINT = 900.dp
+private val LIBRARY_LIST_MAX_WIDTH = 1160.dp
 
 @Composable
 private fun LibraryBooksGrid(
