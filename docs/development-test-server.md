@@ -8,4 +8,16 @@ Username: incididunt
 Password: [REMOVED TEST CREDENTIAL]
 ```
 
-Do not embed these values in application source, build configuration, automated login behavior, logs, screenshots, or release artifacts. The Android client should continue to discover the server from user-entered URLs and obtain bearer credentials through the normal pairing flow.
+Do not embed these values in production application source, build configuration, logs, screenshots, or release artifacts. The debug harness below is the sole automated-login exception: it reads this development-only document at runtime, while the Android client still discovers the server and obtains its bearer credential through the normal pairing flow.
+
+## Debug Android pairing harness
+
+The debug APK exposes a pairing activity that drives the normal SPL-client discovery, pairing, credential consumption, and secure persistence path. It is declared only in `app/src/debug` and is absent from release builds.
+
+After installing the debug APK and starting an emulator, run:
+
+```powershell
+.\tools\pair-debug-reader.ps1
+```
+
+The script reads the test values above, starts the debug-only activity with exact intent extras, approves the short-lived request through an authenticated web session, and waits until the app has persisted and verified the issued credential. Each run uses a sortable, collision-resistant client name such as `Second Pass Android debug 20260831-A3F2`. Parameters can override the documented server, account, device serial, client name, and timeout.
