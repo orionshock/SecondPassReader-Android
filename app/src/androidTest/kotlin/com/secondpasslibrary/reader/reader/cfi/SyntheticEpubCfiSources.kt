@@ -8,6 +8,16 @@ internal object SyntheticEpubCfiSources {
 
     const val MIMETYPE = "application/epub+zip"
 
+    private val restoreVectorMarkup = (1..72).joinToString("\n") { index ->
+        """
+        <p id="restore-vector-$index">
+          Restore vector $index has distinctive durable text. Its deliberately repeated sentence
+          gives the paginated renderer enough content to place this target on a stable column.
+          The exact marker for this paragraph is restore-marker-$index.
+        </p>
+        """.trimIndent()
+    }
+
     val containerXml =
         """
         <?xml version="1.0" encoding="UTF-8"?>
@@ -104,6 +114,7 @@ internal object SyntheticEpubCfiSources {
               <p id="cross-spine-target">The second resource proves cross-spine CFI navigation.</p>
               <p id="second-repeated-phrase">A repeated phrase marks this place.</p>
               <p id="second-inline-range">A range crosses <span>several <strong>nested</strong> nodes</span> here.</p>
+              $restoreVectorMarkup
             </section>
           </body>
         </html>

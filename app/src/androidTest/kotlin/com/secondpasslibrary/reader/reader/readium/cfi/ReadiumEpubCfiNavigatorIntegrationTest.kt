@@ -41,6 +41,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.json.JSONObject
+import org.json.JSONTokener
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -488,6 +489,68 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
     }
 
     @Test
+    fun twoColumnRecreationRestoresTheRetainedLogicalSpread() = withFixture(
+        "two-column-restore-fidelity.epub"
+    ) { fixture ->
+        launchHost(fixture).use { scenario ->
+            var host = scenario.awaitReadyHost()
+            val engine = host.engine
+            runBlocking {
+                engine.appearance.update(ReaderAppearance(layoutMode = ReaderLayoutMode.TWO_COLUMN))
+                awaitRenderedColumnCount(host.navigator, 2)
+                val chapterTwo = requireNotNull(
+                    engine.tableOfContents.entries.single { it.title == "Chapter Two" }.target
+                )
+                assertEquals(
+                    ReaderPublicationNavigationResult.NAVIGATED,
+                    engine.tableOfContents.goTo(chapterTwo)
+                )
+            }
+
+            RESTORE_VECTOR_INDICES.forEach { index ->
+                val capture = runBlocking {
+                    val target = "restore-vector-$index"
+                    goForwardUntilTargetVisible(host.navigator, target)
+                    assertEquals(target, selectRestoreMarker(host.navigator, index))
+                    val targetSelection = requireNotNull(awaitCurrentSelection(engine))
+                    assertEquals("restore-marker-$index", targetSelection.selectedText)
+                    clearSelection(host.navigator)
+                    val before = awaitSettledSpreadDiagnostics(
+                        host.navigator,
+                        target,
+                        requireTargetVisible = true
+                    )
+                    val retained = engine.cfiNavigator.currentPosition().requireSuccess()
+                    val resolved = engine.cfiNavigator.resolve(retained).requireSuccess()
+                    assertEquals(SyntheticEpubCfiSources.CHAPTER_TWO_PATH, resolved.resourceHref)
+                    RestoreCapture(
+                        target = target,
+                        retained = retained,
+                        resolvedContext = "${resolved.prefix}|${resolved.suffix}",
+                        before = before
+                    )
+                }
+
+                scenario.recreate()
+                host = scenario.awaitReadyHost()
+                val after = runBlocking {
+                    engine.cfiNavigator.awaitNavigationAvailable().requireSuccess()
+                    engine.cfiNavigator.goTo(capture.retained).requireSuccess()
+                    awaitSettledSpreadDiagnostics(host.navigator, capture.target)
+                }
+
+                assertEquals(
+                    "Retained CFI ${capture.retained} resolved to ${capture.resolvedContext}; " +
+                        "before=${capture.before} after=$after",
+                    capture.before.currentSpreadIndex,
+                    after.currentSpreadIndex
+                )
+                assertEquals(capture.before.visibleRestoreVectors, after.visibleRestoreVectors)
+            }
+        }
+    }
+
+    @Test
     fun explicitLayoutModesRepaginateAndRebindCoreReaderContracts() = withFixture(
         "explicit-layout-modes.epub"
     ) { fixture ->
@@ -818,6 +881,150 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
         error("Unreachable")
     }
 
+    private suspend fun selectRestoreMarker(navigator: EpubNavigatorFragment, index: Int): String =
+        withContext(Dispatchers.Main) {
+            val id = "restore-vector-$index"
+            val result = navigator.evaluateJavascript(
+                """
+            (() => {
+              const element = document.getElementById(${JSONObject.quote(id)});
+              const marker = ${JSONObject.quote("restore-marker-$index")};
+              if (!element) return null;
+              const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+              let node;
+              while ((node = walker.nextNode())) {
+                const offset = node.data.indexOf(marker);
+                if (offset < 0) continue;
+                const range = document.createRange();
+                range.setStart(node, offset);
+                range.setEnd(node, offset + marker.length);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+                return element.id;
+              }
+              return null;
+            })();
+                """.trimIndent()
+            )
+            check(result != "null") { "Restore marker $index was unavailable." }
+            JSONTokener(result).nextValue() as String
+        }
+
+    private suspend fun awaitCurrentSelection(engine: ReaderEngine): EpubCfiSelection? =
+        withTimeout(HOST_TIMEOUT_MILLIS) {
+            while (true) {
+                when (val outcome = engine.cfiNavigator.currentSelection()) {
+                    is EpubCfiOutcome.Success -> return@withTimeout outcome.value
+
+                    EpubCfiOutcome.Failure(EpubCfiFailure.RESOURCE_CHANGED_DURING_OPERATION) ->
+                        delay(50)
+
+                    is EpubCfiOutcome.Failure -> outcome.requireSuccess()
+                }
+            }
+            error("Unreachable")
+        }
+
+    private suspend fun clearSelection(navigator: EpubNavigatorFragment) {
+        withContext(Dispatchers.Main) {
+            navigator.evaluateJavascript("window.getSelection()?.removeAllRanges(); true")
+        }
+    }
+
+    private suspend fun goForwardUntilTargetVisible(
+        navigator: EpubNavigatorFragment,
+        targetId: String
+    ) = withTimeout(HOST_TIMEOUT_MILLIS) {
+        while (!spreadDiagnostics(navigator, targetId).targetVisible) {
+            val moved = withContext(Dispatchers.Main) { navigator.goForward(animated = false) }
+            check(moved) { "Readium reached the end before $targetId became visible." }
+            delay(50)
+        }
+    }
+
+    private suspend fun awaitSettledSpreadDiagnostics(
+        navigator: EpubNavigatorFragment,
+        targetId: String,
+        requireTargetVisible: Boolean = false
+    ): SpreadDiagnostics = withTimeout(HOST_TIMEOUT_MILLIS) {
+        while (true) {
+            val current = try {
+                spreadDiagnostics(navigator, targetId)
+            } catch (_: MissingRestoreTargetException) {
+                delay(50)
+                continue
+            }
+            if (!requireTargetVisible || current.targetVisible) {
+                delay(250)
+                return@withTimeout current
+            }
+            delay(50)
+        }
+        error("Unreachable")
+    }
+
+    private suspend fun spreadDiagnostics(
+        navigator: EpubNavigatorFragment,
+        targetId: String
+    ): SpreadDiagnostics = withContext(Dispatchers.Main) {
+        val encoded = navigator.evaluateJavascript(
+            """
+            (() => {
+              const target = document.getElementById(${JSONObject.quote(targetId)});
+              if (!target) return JSON.stringify({ missing: true });
+              const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+              const viewportHeight = document.documentElement.clientHeight || window.innerHeight;
+              const scrolling = document.scrollingElement;
+              const scrollLeft = scrolling ? scrolling.scrollLeft : window.scrollX;
+              const rect = target.getBoundingClientRect();
+              const visible = rect.right > 0.5 && rect.left < viewportWidth - 0.5 &&
+                rect.bottom > 0.5 && rect.top < viewportHeight - 0.5;
+              const visibleIds = Array.from(document.querySelectorAll('[id^="restore-vector-"]'))
+                .filter((element) => {
+                  const candidate = element.getBoundingClientRect();
+                  return candidate.right > 0.5 && candidate.left < viewportWidth - 0.5 &&
+                    candidate.bottom > 0.5 && candidate.top < viewportHeight - 0.5;
+                })
+                .map((element) => element.id);
+              return JSON.stringify({
+                viewportWidth,
+                viewportHeight,
+                scrollLeft,
+                scrollWidth: scrolling ? scrolling.scrollWidth : document.documentElement.scrollWidth,
+                columnCount: parseInt(getComputedStyle(document.documentElement).columnCount) || 1,
+                targetLeft: rect.left,
+                targetRight: rect.right,
+                targetVisible: visible,
+                currentSpreadIndex: Math.round(scrollLeft / viewportWidth),
+                targetSpreadIndex: Math.floor((scrollLeft + Math.max(rect.left, 0)) / viewportWidth),
+                visibleIds
+              });
+            })();
+            """.trimIndent()
+        )
+        val json = JSONObject(JSONTokener(encoded).nextValue() as String)
+        if (json.optBoolean("missing")) throw MissingRestoreTargetException()
+        SpreadDiagnostics(
+            viewportWidth = json.getDouble("viewportWidth"),
+            viewportHeight = json.getDouble("viewportHeight"),
+            scrollLeft = json.getDouble("scrollLeft"),
+            scrollWidth = json.getDouble("scrollWidth"),
+            columnCount = json.getInt("columnCount"),
+            targetLeft = json.getDouble("targetLeft"),
+            targetRight = json.getDouble("targetRight"),
+            targetVisible = json.getBoolean("targetVisible"),
+            currentSpreadIndex = json.getInt("currentSpreadIndex"),
+            targetSpreadIndex = json.getInt("targetSpreadIndex"),
+            visibleRestoreVectors = buildList {
+                val ids = json.getJSONArray("visibleIds")
+                repeat(ids.length()) { add(ids.getString(it)) }
+            }
+        )
+    }
+
+    private class MissingRestoreTargetException : IllegalStateException()
+
     private fun awaitPublicationResource(engine: ReaderEngine, expectedHref: String) {
         runBlocking {
             withTimeout(HOST_TIMEOUT_MILLIS) {
@@ -990,6 +1197,27 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
 
 private data class ReadyHost(val engine: ReaderEngine, val navigator: EpubNavigatorFragment)
 
+private data class RestoreCapture(
+    val target: String,
+    val retained: EpubCfi,
+    val resolvedContext: String,
+    val before: SpreadDiagnostics
+)
+
+private data class SpreadDiagnostics(
+    val viewportWidth: Double,
+    val viewportHeight: Double,
+    val scrollLeft: Double,
+    val scrollWidth: Double,
+    val columnCount: Int,
+    val targetLeft: Double,
+    val targetRight: Double,
+    val targetVisible: Boolean,
+    val currentSpreadIndex: Int,
+    val targetSpreadIndex: Int,
+    val visibleRestoreVectors: List<String>
+)
+
 private fun <T> EpubCfiOutcome<T>.requireSuccess(): T = when (this) {
     is EpubCfiOutcome.Success -> value
     is EpubCfiOutcome.Failure -> error("Expected CFI success, got $reason")
@@ -1006,6 +1234,7 @@ private const val CROSS_MARKUP_RANGE_CFI =
         "/1:2,/2[nested-span]/2[nested-emphasis]/1:4)"
 
 private const val CROSS_MARKUP_EXPECTED_TEXT = "fore nested inli"
+private val RESTORE_VECTOR_INDICES = listOf(13, 37, 61)
 
 private val CROSS_MARKUP_SELECTION_SCRIPT =
     """

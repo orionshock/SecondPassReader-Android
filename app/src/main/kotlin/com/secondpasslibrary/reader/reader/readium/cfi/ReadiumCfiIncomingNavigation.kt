@@ -45,7 +45,12 @@ internal class ReadiumCfiIncomingNavigation(
                 return@withNavigator EpubCfiOutcome.Failure(resourceFailure)
             }
             val resolution = when (
-                val content = runtime.resolveContent(navigator, cfi, packageDocument, target)
+                val content = awaitResolvedContent(
+                    navigator,
+                    runtime,
+                    cfi,
+                    target
+                )
             ) {
                 is ReadiumCfiJavascriptResult.Failure ->
                     return@withNavigator EpubCfiOutcome.Failure(content.reason)
@@ -74,6 +79,35 @@ internal class ReadiumCfiIncomingNavigation(
                 EpubCfiOutcome.Failure(it)
             } ?: EpubCfiOutcome.Success(Unit)
         } ?: binding.unavailableOutcome()
+    }
+
+    private suspend fun awaitResolvedContent(
+        navigator: EpubNavigatorFragment,
+        runtime: ReadiumCfiJavascriptRuntime,
+        cfi: EpubCfi,
+        target: ReadiumEpubPackageTarget
+    ): ReadiumCfiJavascriptResult<ReadiumContentResolution> {
+        val resolved = withTimeoutOrNull(NAVIGATION_TIMEOUT) {
+            while (true) {
+                if (!navigator.isActiveResource(target)) {
+                    navigateToResource(navigator, runtime, target)?.let { failure ->
+                        return@withTimeoutOrNull ReadiumCfiJavascriptResult.Failure(failure)
+                    }
+                }
+                val attempt = runtime.resolveContent(navigator, cfi, packageDocument, target)
+                if (
+                    attempt !is ReadiumCfiJavascriptResult.Failure ||
+                    !attempt.reason.isTransientResourceArrivalFailure()
+                ) {
+                    return@withTimeoutOrNull attempt
+                }
+                delay(TARGET_VERIFICATION_INTERVAL)
+            }
+            error("Unreachable")
+        }
+        return resolved ?: ReadiumCfiJavascriptResult.Failure(
+            EpubCfiFailure.NAVIGATION_TIMEOUT
+        )
     }
 
     private suspend fun navigateToResource(
@@ -163,3 +197,6 @@ private fun EpubNavigatorFragment.isActiveResource(target: ReadiumEpubPackageTar
 
 private val NAVIGATION_TIMEOUT = 10.seconds
 private val TARGET_VERIFICATION_INTERVAL = 50.milliseconds
+
+internal fun EpubCfiFailure.isTransientResourceArrivalFailure(): Boolean =
+    this == EpubCfiFailure.DOM_TARGET_NOT_FOUND
