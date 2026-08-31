@@ -329,21 +329,27 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
     }
 
     @Test
-    fun activityRecreationRestoresExactTransientReadingPosition() = withFixture(
-        "position-retention.epub"
+    fun activityRecreationRefreshesExistingRetainedPositionBeforeNavigatorLoss() = withFixture(
+        "fresh-position-retention.epub"
     ) { fixture ->
         launchHost(fixture).use { scenario ->
             val initial = scenario.awaitReadyHost()
             initial.engine.positionRetention.completeStartupRestore(null)
+            val retainedA = runBlocking {
+                initial.engine.cfiNavigator.currentPosition().requireSuccess()
+            }
+            initial.engine.positionRetention.retainPosition(retainedA)
             runBlocking {
                 initial.engine.cfiNavigator.goTo(EpubCfi(CROSS_SPINE_POINT_CFI))
                     .requireSuccess()
             }
-            val before = runBlocking {
-                initial.engine.cfiNavigator.currentPosition().requireSuccess()
-            }
             assertTrue(runBlocking { scenario.isPassageVisible("cross-spine-target") })
-            initial.engine.positionRetention.retainPosition(before)
+            runBlocking { initial.engine.positionRetention.awaitPendingCapture() }
+            initial.engine.positionRetention.captureBeforeNavigatorLoss()
+            val freshB = requireNotNull(
+                runBlocking { initial.engine.positionRetention.awaitPendingCapture() }
+            )
+            assertTrue(freshB.value.contains("/6/4[spine-chapter-two]"))
 
             scenario.recreate()
             val recreated = scenario.awaitReadyHost()
@@ -354,10 +360,6 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
                     delay(50)
                 }
             }
-            assertTrue(
-                "The cross-spine passage was not restored after Activity recreation.",
-                runBlocking { scenario.isPassageVisible("cross-spine-target") }
-            )
         }
     }
 

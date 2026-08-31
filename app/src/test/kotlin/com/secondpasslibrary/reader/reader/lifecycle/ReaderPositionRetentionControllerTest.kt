@@ -11,6 +11,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -19,6 +20,27 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ReaderPositionRetentionControllerTest {
+    @Test
+    fun `fresh pre-loss capture replaces existing retained fallback`() = runTest {
+        val navigator = FakeNavigator()
+        val retainedA = EpubCfi("epubcfi(/6/2!/4/2/1:2)")
+        val capturedB = EpubCfi("epubcfi(/6/4!/4/2/1:8)")
+        navigator.positions += completed(EpubCfiOutcome.Success(capturedB))
+        val controller = controller(navigator)
+        val firstAttachment = controller.navigatorAttached()
+        controller.completeStartupRestore(retainedA)
+
+        controller.captureBeforeNavigatorLoss()
+        runCurrent()
+        controller.navigatorDetached(firstAttachment)
+        controller.awaitPendingCapture()
+        controller.navigatorAttached()
+        runCurrent()
+
+        assertEquals(listOf(capturedB), navigator.destinations)
+        controller.close()
+    }
+
     @Test
     fun `successful pre-detach capture restores exact CFI after readiness`() = runTest {
         val navigator = FakeNavigator(EpubCfiReadiness.AwaitingViewport)
@@ -69,12 +91,76 @@ class ReaderPositionRetentionControllerTest {
     }
 
     @Test
-    fun `newest capture wins when an older navigator result completes late`() = runTest {
+    fun `timed out pre-loss capture retains existing fallback`() = runTest {
         val navigator = FakeNavigator()
-        val old = CompletableDeferred<EpubCfiOutcome<EpubCfi>>()
+        val retained = EpubCfi("epubcfi(/6/2!/4/2/1:2)")
+        navigator.positions += CompletableDeferred()
+        val controller = controller(navigator)
+        val firstAttachment = controller.navigatorAttached()
+        controller.completeStartupRestore(retained)
+
+        controller.captureBeforeNavigatorLoss()
+        runCurrent()
+        controller.navigatorDetached(firstAttachment)
+        advanceTimeBy(1_501)
+        controller.awaitPendingCapture()
+        controller.navigatorAttached()
+        runCurrent()
+
+        assertEquals(listOf(retained), navigator.destinations)
+        controller.close()
+    }
+
+    @Test
+    fun `timed out old attachment capture cannot overwrite replacement state`() = runTest {
+        val navigator = FakeNavigator()
+        val retained = EpubCfi("epubcfi(/6/2!/4/2/1:2)")
+        val late = CompletableDeferred<EpubCfiOutcome<EpubCfi>>()
+        navigator.positions += late
+        val controller = controller(navigator)
+        val firstAttachment = controller.navigatorAttached()
+        controller.completeStartupRestore(retained)
+
+        controller.captureBeforeNavigatorLoss()
+        runCurrent()
+        controller.navigatorDetached(firstAttachment)
+        advanceTimeBy(1_501)
+        controller.awaitPendingCapture()
+        controller.navigatorAttached()
+        late.complete(EpubCfiOutcome.Success(EpubCfi("epubcfi(/6/8!/4/2/1:12)")))
+        runCurrent()
+
+        assertEquals(listOf(retained), navigator.destinations)
+        controller.close()
+    }
+
+    @Test
+    fun `newer settled position wins over in-flight pre-loss capture`() = runTest {
+        val navigator = FakeNavigator()
+        val olderCapture = CompletableDeferred<EpubCfiOutcome<EpubCfi>>()
         val newest = EpubCfi("epubcfi(/6/8!/4/2/1:12)")
-        navigator.positions += old
-        navigator.positions += completed(EpubCfiOutcome.Success(newest))
+        navigator.positions += olderCapture
+        val controller = controller(navigator)
+        val firstAttachment = controller.navigatorAttached()
+        controller.completeStartupRestore(EpubCfi("epubcfi(/6/2!/4/2/1:2)"))
+
+        controller.captureBeforeNavigatorLoss()
+        runCurrent()
+        controller.retainPosition(newest)
+        olderCapture.complete(EpubCfiOutcome.Success(EpubCfi("epubcfi(/6/4!/4/2/1:8)")))
+        controller.navigatorDetached(firstAttachment)
+        controller.navigatorAttached()
+        runCurrent()
+
+        assertEquals(listOf(newest), navigator.destinations)
+        controller.close()
+    }
+
+    @Test
+    fun `repeated pre-loss signals coalesce to one bounded capture`() = runTest {
+        val navigator = FakeNavigator()
+        val captured = EpubCfi("epubcfi(/6/8!/4/2/1:12)")
+        navigator.positions += completed(EpubCfiOutcome.Success(captured))
         val controller = controller(navigator)
         val firstAttachment = controller.navigatorAttached()
         controller.completeStartupRestore(null)
@@ -83,13 +169,12 @@ class ReaderPositionRetentionControllerTest {
         runCurrent()
         controller.captureBeforeNavigatorLoss()
         runCurrent()
-        old.complete(EpubCfiOutcome.Success(EpubCfi("epubcfi(/6/4!/4/2/1:4)")))
-        runCurrent()
         controller.navigatorDetached(firstAttachment)
+        controller.awaitPendingCapture()
         controller.navigatorAttached()
         runCurrent()
 
-        assertEquals(listOf(newest), navigator.destinations)
+        assertEquals(listOf(captured), navigator.destinations)
         controller.close()
     }
 
@@ -108,6 +193,35 @@ class ReaderPositionRetentionControllerTest {
         controller.navigatorAttached()
         runCurrent()
         assertEquals(listOf(startup), navigator.destinations)
+        controller.close()
+    }
+
+    @Test
+    fun `rapid recreations retain the freshest capture from each attachment`() = runTest {
+        val navigator = FakeNavigator()
+        val positionB = EpubCfi("epubcfi(/6/4!/4/2/1:8)")
+        val positionC = EpubCfi("epubcfi(/6/8!/4/2/1:12)")
+        navigator.positions += completed(EpubCfiOutcome.Success(positionB))
+        navigator.positions += completed(EpubCfiOutcome.Success(positionC))
+        val controller = controller(navigator)
+        val firstAttachment = controller.navigatorAttached()
+        controller.completeStartupRestore(EpubCfi("epubcfi(/6/2!/4/2/1:2)"))
+
+        controller.captureBeforeNavigatorLoss()
+        runCurrent()
+        controller.navigatorDetached(firstAttachment)
+        controller.awaitPendingCapture()
+        val secondAttachment = controller.navigatorAttached()
+        runCurrent()
+
+        controller.captureBeforeNavigatorLoss()
+        runCurrent()
+        controller.navigatorDetached(secondAttachment)
+        controller.awaitPendingCapture()
+        controller.navigatorAttached()
+        runCurrent()
+
+        assertEquals(listOf(positionB, positionC), navigator.destinations)
         controller.close()
     }
 

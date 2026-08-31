@@ -46,7 +46,6 @@ private class ReadiumReaderEngine(
     private val appearanceController = ReadiumReaderAppearanceController(initialAppearance)
     private val movements = ReadiumViewportMovements()
     private val selections = ReadiumSelectionEvents(cfiBinding)
-    private val hud = ReadiumReaderHudEvents(movements::pageChanged)
     private val readiumCfiNavigator = ReadiumEpubCfiNavigator(
         binding = cfiBinding,
         packageDocument = packageDocument,
@@ -54,12 +53,16 @@ private class ReadiumReaderEngine(
         operations = navigatorOperations
     )
     private val decorations = ReadiumReaderAnnotationDecorations(readiumCfiNavigator)
-    private val visibleBookmarks = ReadiumVisiblePageBookmarks(readiumCfiNavigator, hud, movements)
     private val positionRetentionController = ReaderPositionRetentionController(
         navigator = readiumCfiNavigator,
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
         suppressMovementCapture = movements::suppressSettledMovement
     )
+    private val hud = ReadiumReaderHudEvents {
+        movements.pageChanged()
+        positionRetentionController.captureAfterViewportMovement()
+    }
+    private val visibleBookmarks = ReadiumVisiblePageBookmarks(readiumCfiNavigator, hud, movements)
 
     override val viewport: ReaderViewport = ReadiumReaderViewport(
         fragmentFactory = {

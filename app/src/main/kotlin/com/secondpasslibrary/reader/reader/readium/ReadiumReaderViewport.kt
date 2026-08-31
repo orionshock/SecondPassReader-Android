@@ -1,7 +1,10 @@
 package com.secondpasslibrary.reader.reader.readium
 
+import android.app.Activity
+import android.app.Application
 import android.content.Context
 import android.content.ContextWrapper
+import android.os.Bundle
 import android.view.ViewGroup
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -12,14 +15,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.fragment.app.FragmentActivity
 import androidx.fragment.app.FragmentContainerView
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.secondpasslibrary.reader.R
 import com.secondpasslibrary.reader.reader.domain.ReaderViewport
 import com.secondpasslibrary.reader.reader.lifecycle.ReaderPositionRetentionController
 import com.secondpasslibrary.reader.reader.readium.cfi.ReadiumCfiNavigatorBinding
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 
@@ -51,27 +53,13 @@ internal class ReadiumReaderViewport(
     @Composable
     override fun Content(modifier: Modifier) {
         val activity = LocalContext.current.requireFragmentActivity()
-        val lifecycleOwner = LocalLifecycleOwner.current
         val viewportScope = rememberCoroutineScope()
-        AndroidView(
-            factory = { context ->
-                FragmentContainerView(context).apply {
-                    id = R.id.reader_navigator_container
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                    )
-                }
-            },
-            modifier = modifier.fillMaxSize()
-        )
-        DisposableEffect(activity, lifecycleOwner, this) {
-            val lifecycleObserver = LifecycleEventObserver { _, event ->
-                if (event == Lifecycle.Event.ON_PAUSE) {
-                    positionRetention.captureBeforeNavigatorLoss()
-                }
+        ReaderNavigatorContainer(modifier)
+        DisposableEffect(activity, this) {
+            val prePauseCapture = PrePauseCapture(activity) {
+                positionRetention.captureBeforeNavigatorLoss()
             }
-            lifecycleOwner.lifecycle.addObserver(lifecycleObserver)
+            activity.application.registerActivityLifecycleCallbacks(prePauseCapture)
             val navigator = installNavigator(activity)
             var attached = false
             var retentionAttachment: Long? = null
@@ -88,22 +76,28 @@ internal class ReadiumReaderViewport(
                 retentionAttachment = positionRetention.navigatorAttached()
             }
             onDispose {
-                lifecycleOwner.lifecycle.removeObserver(lifecycleObserver)
+                activity.application.unregisterActivityLifecycleCallbacks(prePauseCapture)
                 attachJob.cancel()
                 retentionAttachment?.let(positionRetention::navigatorDetached)
-                if (attached) {
-                    annotationDecorations.unbind(navigator)
-                    selectionEvents.unbind(navigator)
-                    hudEvents.unbind(navigator)
-                    movements.unbind(navigator)
-                    publicationBinding.unbind(navigator)
-                    appearanceController.unbind(navigator)
+                CoroutineScope(Dispatchers.Main.immediate).launch(
+                    start = CoroutineStart.UNDISPATCHED
+                ) {
+                    positionRetention.awaitPendingCapture()
+                    if (attached) {
+                        annotationDecorations.unbind(navigator)
+                        selectionEvents.unbind(navigator)
+                        hudEvents.unbind(navigator)
+                        movements.unbind(navigator)
+                        publicationBinding.unbind(navigator)
+                        appearanceController.unbind(navigator)
+                    }
+                    val fragments = activity.supportFragmentManager
+                    fragments.findFragmentByTag(NAVIGATOR_TAG)?.let { navigator ->
+                        fragments.beginTransaction().remove(navigator)
+                            .commitNowAllowingStateLoss()
+                    }
+                    fragments.fragmentFactory = EpubNavigatorFragment.createDummyFactory()
                 }
-                val fragments = activity.supportFragmentManager
-                fragments.findFragmentByTag(NAVIGATOR_TAG)?.let { navigator ->
-                    fragments.beginTransaction().remove(navigator).commitNowAllowingStateLoss()
-                }
-                fragments.fragmentFactory = EpubNavigatorFragment.createDummyFactory()
             }
         }
     }
@@ -128,6 +122,45 @@ internal class ReadiumReaderViewport(
             fragments.findFragmentByTag(NAVIGATOR_TAG) as? EpubNavigatorFragment
         )
     }
+}
+
+@Composable
+private fun ReaderNavigatorContainer(modifier: Modifier) {
+    AndroidView(
+        factory = { context ->
+            FragmentContainerView(context).apply {
+                id = R.id.reader_navigator_container
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+            }
+        },
+        modifier = modifier.fillMaxSize()
+    )
+}
+
+private class PrePauseCapture(
+    private val observedActivity: Activity,
+    private val capture: () -> Unit
+) : Application.ActivityLifecycleCallbacks {
+    override fun onActivityPrePaused(activity: Activity) {
+        if (activity === observedActivity) capture()
+    }
+
+    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
+
+    override fun onActivityStarted(activity: Activity) = Unit
+
+    override fun onActivityResumed(activity: Activity) = Unit
+
+    override fun onActivityPaused(activity: Activity) = Unit
+
+    override fun onActivityStopped(activity: Activity) = Unit
+
+    override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+
+    override fun onActivityDestroyed(activity: Activity) = Unit
 }
 
 private tailrec fun Context.requireFragmentActivity(): FragmentActivity = when (this) {

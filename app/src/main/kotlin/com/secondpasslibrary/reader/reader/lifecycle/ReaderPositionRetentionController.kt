@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 /** Retains one canonical position across navigator attachments owned by the same Reader engine. */
+@Suppress("TooManyFunctions") // One cohesive transient capture/restore lifecycle.
 internal class ReaderPositionRetentionController(
     private val navigator: EpubCfiNavigator,
     scope: CoroutineScope,
@@ -31,7 +32,9 @@ internal class ReaderPositionRetentionController(
     private var recreationGeneration = 0L
     private var recreationPending = false
     private var retainedPosition: EpubCfi? = null
+    private var retainedRevision = 0L
     private var currentAttachment: Long? = null
+    private var detachedAttachment: Long? = null
     private var pendingCapture: Deferred<Unit>? = null
     private var restoreJob: Job? = null
 
@@ -39,32 +42,29 @@ internal class ReaderPositionRetentionController(
         synchronized(lock) {
             if (closed) return
             startupComplete = true
-            if (restoredPosition != null) retainedPosition = restoredPosition
+            if (restoredPosition != null) {
+                retainedPosition = restoredPosition
+                retainedRevision += 1
+            }
             launchRestoreIfNeeded()
         }
     }
 
     override fun captureBeforeNavigatorLoss() {
-        val sequence = synchronized(lock) {
-            val captureBlocked = listOf(
-                closed,
-                !startupComplete,
-                retainedPosition != null,
-                restoreJob?.isActive == true
-            ).any { it }
-            if (captureBlocked) return
-            captureSequences.incrementAndGet()
-        }
+        captureCurrentPosition(reuseCompletedCapture = true)
+    }
+
+    fun captureAfterViewportMovement() {
+        captureCurrentPosition(reuseCompletedCapture = false)
+    }
+
+    private fun captureCurrentPosition(reuseCompletedCapture: Boolean) {
+        val request = createCaptureRequest(reuseCompletedCapture) ?: return
         val capture = controllerScope.async(start = CoroutineStart.UNDISPATCHED) {
-            val captured = capturePosition()
-            synchronized(lock) {
-                if (!closed && sequence == captureSequences.get() && captured != null) {
-                    retainedPosition = captured
-                }
-            }
+            acceptCapture(request, capturePosition())
         }
         synchronized(lock) {
-            if (closed || sequence != captureSequences.get()) {
+            if (closed || request.sequence != captureSequences.get()) {
                 capture.cancel()
                 return
             }
@@ -72,21 +72,64 @@ internal class ReaderPositionRetentionController(
         }
     }
 
-    override fun retainPosition(position: EpubCfi) {
+    private fun createCaptureRequest(reuseCompletedCapture: Boolean): CaptureRequest? =
         synchronized(lock) {
-            if (!closed && startupComplete && restoreJob?.isActive != true) {
-                retainedPosition = position
+            if (!reuseCompletedCapture && pendingCapture?.isCompleted == true) {
+                pendingCapture = null
+            }
+            val captureBlocked = listOf(
+                closed,
+                !startupComplete,
+                restoreJob?.isActive == true,
+                currentAttachment == null,
+                pendingCapture != null
+            ).any { it }
+            if (captureBlocked) return@synchronized null
+            CaptureRequest(
+                sequence = captureSequences.incrementAndGet(),
+                attachment = requireNotNull(currentAttachment),
+                retainedRevision = retainedRevision
+            )
+        }
+
+    private fun acceptCapture(request: CaptureRequest, captured: EpubCfi?) {
+        synchronized(lock) {
+            val attachmentMatches = currentAttachment == request.attachment ||
+                (currentAttachment == null && detachedAttachment == request.attachment)
+            val requestIsCurrent = !closed &&
+                request.sequence == captureSequences.get() &&
+                request.retainedRevision == retainedRevision
+            if (requestIsCurrent && attachmentMatches && captured != null) {
+                retainedPosition = captured
+                retainedRevision += 1
             }
         }
+    }
+
+    override fun retainPosition(position: EpubCfi) {
+        val invalidatedCapture = synchronized(lock) {
+            if (!closed && startupComplete && restoreJob?.isActive != true) {
+                captureSequences.incrementAndGet()
+                retainedPosition = position
+                retainedRevision += 1
+                pendingCapture.also { pendingCapture = null }
+            } else {
+                null
+            }
+        }
+        invalidatedCapture?.cancel(
+            CancellationException("Superseded by a newer settled retained position.")
+        )
     }
 
     /** Called by the viewport before its concrete navigator is unbound. */
     fun navigatorDetached(attachment: Long) {
         synchronized(lock) {
-            if (closed) return
+            if (closed || currentAttachment != attachment) return
             recreationGeneration += 1
             recreationPending = true
-            if (currentAttachment == attachment) currentAttachment = null
+            currentAttachment = null
+            detachedAttachment = attachment
             restoreJob?.cancel()
             restoreJob = null
             launchRestoreIfNeeded()
@@ -94,21 +137,22 @@ internal class ReaderPositionRetentionController(
     }
 
     /** Keeps a replacement binding from invalidating the old navigator's bounded capture. */
-    suspend fun awaitPendingCapture() {
+    override suspend fun awaitPendingCapture(): EpubCfi? {
         val capture = synchronized(lock) { pendingCapture }
-        if (capture == null) return
+        if (capture == null) return synchronized(lock) { retainedPosition }
         val completed = withTimeoutOrNull(POSITION_CAPTURE_TIMEOUT_MILLIS) {
             capture.join()
             true
         } == true
-        if (!completed) {
-            synchronized(lock) {
-                if (pendingCapture === capture) {
+        synchronized(lock) {
+            if (pendingCapture === capture) {
+                pendingCapture = null
+                if (!completed) {
                     captureSequences.incrementAndGet()
-                    pendingCapture = null
                     capture.cancel()
                 }
             }
+            return retainedPosition
         }
     }
 
@@ -117,6 +161,7 @@ internal class ReaderPositionRetentionController(
         check(!closed) { "Reader position retention is closed." }
         val attachment = attachmentSequences.incrementAndGet()
         currentAttachment = attachment
+        detachedAttachment = null
         launchRestoreIfNeeded()
         attachment
     }
@@ -167,8 +212,8 @@ internal class ReaderPositionRetentionController(
         withTimeoutOrNull(POSITION_CAPTURE_TIMEOUT_MILLIS) {
             (navigator.currentPosition() as? EpubCfiOutcome.Success)?.value
         }
-    } catch (cancelled: CancellationException) {
-        throw cancelled
+    } catch (_: CancellationException) {
+        null
     } catch (_: Exception) {
         null
     }
@@ -183,11 +228,19 @@ internal class ReaderPositionRetentionController(
             restoreJob?.cancel()
             restoreJob = null
             retainedPosition = null
+            retainedRevision += 1
             recreationPending = false
             currentAttachment = null
+            detachedAttachment = null
         }
         controllerJob.cancel()
     }
+
+    private data class CaptureRequest(
+        val sequence: Long,
+        val attachment: Long,
+        val retainedRevision: Long
+    )
 
     private companion object {
         const val POSITION_CAPTURE_TIMEOUT_MILLIS = 1_500L
