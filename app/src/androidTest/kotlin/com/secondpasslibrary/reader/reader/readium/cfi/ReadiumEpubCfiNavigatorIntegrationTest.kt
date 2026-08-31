@@ -39,6 +39,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -478,6 +479,36 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
             }
 
             assertCurrentResource(host.engine, SyntheticEpubCfiSources.CHAPTER_ONE_PATH)
+        }
+    }
+
+    @Test
+    fun positionCaptureDuringCrossResourceArrivalDoesNotCancelNavigation() = withFixture(
+        "navigation-priority.epub"
+    ) { fixture ->
+        launchHost(fixture).use { scenario ->
+            val host = scenario.awaitReadyHost()
+
+            runBlocking {
+                val navigation = async(start = CoroutineStart.UNDISPATCHED) {
+                    host.engine.cfiNavigator.goTo(EpubCfi(CROSS_SPINE_POINT_CFI))
+                }
+                withTimeout(HOST_TIMEOUT_MILLIS) {
+                    host.navigator.currentLocator.first { locator ->
+                        normalizeEpubHref(locator.href.toString()) ==
+                            SyntheticEpubCfiSources.CHAPTER_TWO_PATH
+                    }
+                }
+                assertFalse(navigation.isCompleted)
+                val positionCapture = async {
+                    host.engine.cfiNavigator.currentPositionWithContext()
+                }
+
+                navigation.await().requireSuccess()
+                positionCapture.await().requireSuccess()
+            }
+
+            assertCurrentResource(host.engine, SyntheticEpubCfiSources.CHAPTER_TWO_PATH)
         }
     }
 

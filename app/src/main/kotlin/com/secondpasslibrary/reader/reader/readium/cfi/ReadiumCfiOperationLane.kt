@@ -8,48 +8,72 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-/**
- * Owns the one live navigator/DOM command lane. A newer command supersedes an older command, then
- * waits for its cancellation cleanup before touching the renderer.
- */
+/** Owns priority and serialization for the one live navigator/DOM command lane. */
 internal class ReadiumCfiOperationLane : AutoCloseable {
     private val lock = Any()
     private val mutex = Mutex()
     private var closed = false
-    private var active: Deferred<*>? = null
+    private var activeNavigation: Deferred<*>? = null
+    private var activeRead: Deferred<*>? = null
 
-    suspend fun <T> runLatest(block: suspend () -> T): T = coroutineScope {
+    suspend fun <T> runNavigation(block: suspend () -> T): T = coroutineScope {
         val operation = async(start = CoroutineStart.LAZY) {
             mutex.withLock { block() }
         }
         val superseded = synchronized(lock) {
             check(!closed) { "The CFI operation lane is closed." }
-            active.also { active = operation }
+            SupersededOperations(
+                navigation = activeNavigation.also { activeNavigation = operation },
+                read = activeRead.also { activeRead = null }
+            )
         }
-        superseded?.cancel(CancellationException("Superseded by a newer CFI operation."))
+        superseded.navigation?.cancel(
+            CancellationException("Superseded by a newer CFI navigation.")
+        )
+        superseded.read?.cancel(CancellationException("Superseded by CFI navigation."))
         operation.start()
         try {
             operation.await()
         } finally {
             synchronized(lock) {
-                if (active === operation) active = null
+                if (activeNavigation === operation) activeNavigation = null
             }
             if (!operation.isCompleted) operation.cancel()
         }
     }
 
-    /** Queues adapter maintenance without superseding a user/navigation command. */
-    suspend fun <T> runSerialized(block: suspend () -> T): T {
-        synchronized(lock) { check(!closed) { "The CFI operation lane is closed." } }
-        return mutex.withLock { block() }
+    suspend fun <T> runLatestRead(block: suspend () -> T): T = coroutineScope {
+        val operation = async(start = CoroutineStart.LAZY) {
+            mutex.withLock { block() }
+        }
+        val supersededRead = synchronized(lock) {
+            check(!closed) { "The CFI operation lane is closed." }
+            activeRead.also { activeRead = operation }
+        }
+        supersededRead?.cancel(CancellationException("Superseded by a newer CFI read."))
+        operation.start()
+        try {
+            operation.await()
+        } finally {
+            synchronized(lock) {
+                if (activeRead === operation) activeRead = null
+            }
+            if (!operation.isCompleted) operation.cancel()
+        }
     }
 
     override fun close() {
         val removed = synchronized(lock) {
             if (closed) return
             closed = true
-            active.also { active = null }
+            SupersededOperations(activeNavigation, activeRead).also {
+                activeNavigation = null
+                activeRead = null
+            }
         }
-        removed?.cancel(CancellationException("The CFI operation lane was closed."))
+        removed.navigation?.cancel(CancellationException("The CFI operation lane was closed."))
+        removed.read?.cancel(CancellationException("The CFI operation lane was closed."))
     }
+
+    private data class SupersededOperations(val navigation: Deferred<*>?, val read: Deferred<*>?)
 }

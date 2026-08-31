@@ -14,12 +14,72 @@ import org.junit.Test
 
 class ReadiumCfiOperationLaneTest {
     @Test
-    fun `new operation cancels old operation before entering live renderer`() = runTest {
+    fun `read arriving during navigation waits for navigation to complete`() = runTest {
+        val lane = ReadiumCfiOperationLane()
+        val navigationStarted = CompletableDeferred<Unit>()
+        val releaseNavigation = CompletableDeferred<Unit>()
+        val readStarted = CompletableDeferred<Unit>()
+        val navigation = async {
+            lane.runNavigation {
+                navigationStarted.complete(Unit)
+                releaseNavigation.await()
+                "navigated"
+            }
+        }
+        navigationStarted.await()
+
+        val read = async {
+            lane.runLatestRead {
+                readStarted.complete(Unit)
+                "captured"
+            }
+        }
+        yield()
+
+        assertFalse(navigation.isCancelled)
+        assertFalse(readStarted.isCompleted)
+        releaseNavigation.complete(Unit)
+        assertEquals("navigated", navigation.await())
+        assertEquals("captured", read.await())
+        lane.close()
+    }
+
+    @Test
+    fun `navigation cancels an active read before entering live renderer`() = runTest {
+        val lane = ReadiumCfiOperationLane()
+        val readStarted = CompletableDeferred<Unit>()
+        val readCleanedUp = CompletableDeferred<Unit>()
+        val read = async {
+            lane.runLatestRead {
+                readStarted.complete(Unit)
+                try {
+                    awaitCancellation()
+                } finally {
+                    readCleanedUp.complete(Unit)
+                }
+            }
+        }
+        readStarted.await()
+
+        val navigation = async {
+            lane.runNavigation {
+                assertTrue(readCleanedUp.isCompleted)
+                "navigated"
+            }
+        }
+
+        assertEquals("navigated", navigation.await())
+        assertTrue(read.isCancelled)
+        lane.close()
+    }
+
+    @Test
+    fun `new navigation cancels old navigation before entering live renderer`() = runTest {
         val lane = ReadiumCfiOperationLane()
         val firstStarted = CompletableDeferred<Unit>()
         val firstCleanedUp = CompletableDeferred<Unit>()
         val first = async {
-            lane.runLatest {
+            lane.runNavigation {
                 firstStarted.complete(Unit)
                 try {
                     awaitCancellation()
@@ -31,25 +91,58 @@ class ReadiumCfiOperationLaneTest {
         firstStarted.await()
 
         val second = async {
-            lane.runLatest {
+            lane.runNavigation {
                 assertTrue(firstCleanedUp.isCompleted)
-                "second"
+                "new destination"
             }
         }
 
-        assertEquals("second", second.await())
+        assertEquals("new destination", second.await())
         assertTrue(first.isCancelled)
         lane.close()
     }
 
     @Test
-    fun `new operation waits for non cooperative renderer call to leave the lane`() = runTest {
+    fun `reads coalesce to latest while navigation is active`() = runTest {
+        val lane = ReadiumCfiOperationLane()
+        val navigationStarted = CompletableDeferred<Unit>()
+        val releaseNavigation = CompletableDeferred<Unit>()
+        val executedReads = mutableListOf<String>()
+        val navigation = async {
+            lane.runNavigation {
+                navigationStarted.complete(Unit)
+                releaseNavigation.await()
+            }
+        }
+        navigationStarted.await()
+
+        val first = async { lane.runLatestRead { executedReads += "first" } }
+        yield()
+        val second = async { lane.runLatestRead { executedReads += "second" } }
+        yield()
+        val third = async { lane.runLatestRead { executedReads += "third" } }
+        yield()
+
+        first.join()
+        second.join()
+        assertTrue(first.isCancelled)
+        assertTrue(second.isCancelled)
+        assertFalse(third.isCompleted)
+        releaseNavigation.complete(Unit)
+        navigation.await()
+        third.await()
+        assertEquals(listOf("third"), executedReads)
+        lane.close()
+    }
+
+    @Test
+    fun `new navigation waits for non cooperative old navigation cleanup`() = runTest {
         val lane = ReadiumCfiOperationLane()
         val firstStarted = CompletableDeferred<Unit>()
         val releaseFirst = CompletableDeferred<Unit>()
         val secondStarted = CompletableDeferred<Unit>()
         val first = async {
-            lane.runLatest {
+            lane.runNavigation {
                 firstStarted.complete(Unit)
                 withContext(NonCancellable) { releaseFirst.await() }
                 "first"
@@ -58,7 +151,7 @@ class ReadiumCfiOperationLaneTest {
         firstStarted.await()
 
         val second = async {
-            lane.runLatest {
+            lane.runNavigation {
                 secondStarted.complete(Unit)
                 "second"
             }
@@ -69,36 +162,6 @@ class ReadiumCfiOperationLaneTest {
         releaseFirst.complete(Unit)
         assertEquals("second", second.await())
         assertTrue(first.isCancelled)
-        lane.close()
-    }
-
-    @Test
-    fun `serialized adapter maintenance waits without superseding navigation`() = runTest {
-        val lane = ReadiumCfiOperationLane()
-        val navigationStarted = CompletableDeferred<Unit>()
-        val releaseNavigation = CompletableDeferred<Unit>()
-        val maintenanceStarted = CompletableDeferred<Unit>()
-        val navigation = async {
-            lane.runLatest {
-                navigationStarted.complete(Unit)
-                releaseNavigation.await()
-                "navigated"
-            }
-        }
-        navigationStarted.await()
-
-        val maintenance = async {
-            lane.runSerialized {
-                maintenanceStarted.complete(Unit)
-                "decorated"
-            }
-        }
-        yield()
-
-        assertFalse(maintenanceStarted.isCompleted)
-        releaseNavigation.complete(Unit)
-        assertEquals("navigated", navigation.await())
-        assertEquals("decorated", maintenance.await())
         lane.close()
     }
 

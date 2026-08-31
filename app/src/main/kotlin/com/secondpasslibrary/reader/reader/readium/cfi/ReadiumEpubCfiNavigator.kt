@@ -39,10 +39,10 @@ internal class ReadiumEpubCfiNavigator(
     override val readiness: StateFlow<EpubCfiReadiness> = binding.readiness
 
     override suspend fun goTo(cfi: EpubCfi): EpubCfiOutcome<Unit> =
-        operations.runLatest { incomingNavigation.goTo(cfi) }
+        operations.runNavigation { incomingNavigation.goTo(cfi) }
 
     override suspend fun currentPositionWithContext(): EpubCfiOutcome<EpubCfiPosition> =
-        operations.runLatest {
+        operations.runLatestRead {
             val captured = binding.withNavigator { navigator, runtime ->
                 val before = binding.resourceIdentity(navigator)
                 val value = runtime.generateVisiblePosition(navigator)
@@ -60,7 +60,7 @@ internal class ReadiumEpubCfiNavigator(
         }
 
     override suspend fun currentSelection(): EpubCfiOutcome<EpubCfiSelection?> =
-        operations.runLatest {
+        operations.runLatestRead {
             val captured = binding.withNavigator { navigator, runtime ->
                 val before = binding.resourceIdentity(navigator)
                 val locator = navigator.currentLocator.value
@@ -136,7 +136,7 @@ internal class ReadiumEpubCfiNavigator(
     )
 
     override suspend fun resolve(cfi: EpubCfi): EpubCfiOutcome<EpubCfiResolution> =
-        operations.runLatest {
+        operations.runLatestRead {
             when (val resolved = resolveForNavigation(cfi)) {
                 is EpubCfiOutcome.Failure -> resolved
                 is EpubCfiOutcome.Success -> resolved.value.toDomainResolution(cfi)
@@ -161,7 +161,7 @@ internal class ReadiumEpubCfiNavigator(
     internal suspend fun resolveDecoration(
         cfi: EpubCfi,
         activeResourceHref: String
-    ): EpubCfiOutcome<ReadiumDecorationCfiTarget> = operations.runSerialized {
+    ): EpubCfiOutcome<ReadiumDecorationCfiTarget> = operations.runLatestRead {
         when (val target = resolvePackage(cfi)) {
             is EpubCfiOutcome.Failure -> target
 
@@ -180,8 +180,8 @@ internal class ReadiumEpubCfiNavigator(
 
     internal suspend fun visiblePointCfis(
         candidates: Map<String, EpubCfi>
-    ): EpubCfiOutcome<Set<String>> = operations.runSerialized {
-        if (candidates.isEmpty()) return@runSerialized EpubCfiOutcome.Success(emptySet())
+    ): EpubCfiOutcome<Set<String>> = operations.runLatestRead {
+        if (candidates.isEmpty()) return@runLatestRead EpubCfiOutcome.Success(emptySet())
         val captured = binding.withNavigator { navigator, runtime ->
             val before = binding.resourceIdentity(navigator)
             val href = before?.href
@@ -200,7 +200,7 @@ internal class ReadiumEpubCfiNavigator(
                 )
             }
             coherentResourceCapture(before, binding.resourceIdentity(navigator), result)
-        } ?: return@runSerialized binding.unavailableOutcome()
+        } ?: return@runLatestRead binding.unavailableOutcome()
         when (captured) {
             ReadiumCfiResourceCapture.Changed -> resourceChanged()
 
