@@ -5,6 +5,7 @@ param(
     [string]$Username,
     [string]$Password,
     [string]$ClientName,
+    [switch]$ClearClientCredentials,
     [int]$TimeoutSeconds = 90
 )
 
@@ -157,6 +158,37 @@ function Approve-Pairing {
     if ($response.status -ne "approved") {
         throw "The test server did not approve the pairing request."
     }
+}
+
+function Clear-AllServerClientCredentials {
+    $session = New-AuthenticatedWebSession
+    $origin = [Uri]$ServerUrl
+    $csrfCookie = $session.Cookies.GetCookies($origin) |
+        Where-Object Name -eq "csrftoken" |
+        Select-Object -First 1
+    if ($null -eq $csrfCookie) {
+        throw "The authenticated test-server session did not issue a CSRF cookie."
+    }
+
+    $revokeUri = [Uri]::new($origin, "/api/v1/accounts/me/client-sessions/revoke-all/")
+    $response = Invoke-WebRequest `
+        -Uri $revokeUri `
+        -Method Post `
+        -WebSession $session `
+        -UseBasicParsing `
+        -Headers @{
+            "X-CSRFToken" = $csrfCookie.Value
+            Referer = ([Uri]::new($origin, "/profile/")).AbsoluteUri
+        }
+    if ($response.StatusCode -ne 204) {
+        throw "The test server returned HTTP $($response.StatusCode) while revoking client pairings."
+    }
+}
+
+if ($ClearClientCredentials) {
+    Clear-AllServerClientCredentials
+    Write-Host "All active client credentials for the development account were revoked."
+    return
 }
 
 Invoke-Adb -AdbArguments @("shell", "am", "force-stop", $packageName)
