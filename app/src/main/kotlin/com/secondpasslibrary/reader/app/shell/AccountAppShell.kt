@@ -41,6 +41,7 @@ import com.secondpasslibrary.reader.connection.ConnectionLifecycleActionState
 import com.secondpasslibrary.reader.connection.ConnectionLifecycleActions
 import com.secondpasslibrary.reader.connection.ConnectionScreen
 import com.secondpasslibrary.reader.connection.ConnectionScreenActions
+import com.secondpasslibrary.reader.connection.ConnectionUiState
 import com.secondpasslibrary.reader.design.components.AppBarNetworkPresentation
 import com.secondpasslibrary.reader.design.components.AppBarNetworkStatus
 import com.secondpasslibrary.reader.design.components.ContextualAppBar
@@ -106,7 +107,7 @@ internal fun AccountAppShell(
                     onOpenDrawer = { coroutineScope.launch { drawer.state.open() } }
                 )
             }
-            AccountHealingOverlay(session.authority, connectionActions)
+            InteractiveConnectionOverlay(session.authority, connectionActions)
         }
     }
     DrawerDismissBackHandler(
@@ -114,7 +115,9 @@ internal fun AccountAppShell(
         onDismiss = { coroutineScope.launch { drawer.state.close() } }
     )
     ReaderSyncOutcomeSnackbar(
-        syncOutcomeNotice.takeUnless { session.authority is AppSessionAuthority.Healing },
+        syncOutcomeNotice.takeUnless {
+            session.authority.requiresInteractiveConnectionPresentation()
+        },
         snackbarHostState,
         onSyncOutcomeNoticeAcknowledged
     )
@@ -223,12 +226,31 @@ private fun Modifier.accountDrawerGestureModifier(
 }
 
 @Composable
-private fun AccountHealingOverlay(
+private fun InteractiveConnectionOverlay(
     authority: AppSessionAuthority,
     connectionActions: ConnectionScreenActions
 ) {
     val healing = authority as? AppSessionAuthority.Healing ?: return
+    if (!healing.connection.requiresInteractiveConnectionPresentation()) return
     ConnectionScreen(healing.connection, connectionActions)
+}
+
+internal fun AppSessionAuthority.requiresInteractiveConnectionPresentation(): Boolean =
+    (this as? AppSessionAuthority.Healing)
+        ?.connection
+        ?.requiresInteractiveConnectionPresentation()
+        ?: false
+
+private fun ConnectionUiState.requiresInteractiveConnectionPresentation(): Boolean = when (this) {
+    is ConnectionUiState.ServerConfirmed,
+    is ConnectionUiState.StartingPairing,
+    is ConnectionUiState.WaitingForApproval,
+    is ConnectionUiState.CompletingPairing,
+    is ConnectionUiState.PersistenceRecovery,
+    is ConnectionUiState.StoredCredentialProblem,
+    is ConnectionUiState.TerminalPairingProblem -> true
+
+    else -> false
 }
 
 internal fun showsShellTopBar(destination: AppDestination, route: NavKey): Boolean =

@@ -194,6 +194,88 @@ class AppSessionControllerTest {
     }
 
     @Test
+    fun `admitted shell never returns to resolving during same-account restore`() = runTest {
+        val account = projectionAccount()
+        val store = FakeHomeProjectionStore()
+        val controller = controller(store)
+        val context = authenticatedContext(account.profileId)
+        controller.updateConnection(
+            ConnectionUiState.Linked(account.profile, context),
+            account.localContext()
+        )
+        store.hasSnapshotCall = { error("An admitted shell must not re-run cache admission") }
+
+        controller.updateConnection(ConnectionUiState.Restoring, account.localContext())
+        runCurrent()
+
+        val shell = controller.state.value as AppSessionState.AccountShell
+        assertEquals(AppSessionAuthority.Restoring, shell.authority)
+        assertEquals(AppAvailability.Syncing, shell.availability)
+        assertSame(context, shell.authenticatedFeatureContext)
+    }
+
+    @Test
+    fun `temporary missing local descriptor does not evict admitted shell`() = runTest {
+        val account = projectionAccount()
+        val controller = controller(FakeHomeProjectionStore())
+        val context = authenticatedContext(account.profileId)
+        controller.updateConnection(
+            ConnectionUiState.Linked(account.profile, context),
+            account.localContext()
+        )
+
+        controller.updateConnection(
+            ConnectionUiState.VerifyingServer(account.profile.serverOrigin),
+            null
+        )
+
+        val shell = controller.state.value as AppSessionState.AccountShell
+        assertEquals(account.profileId, shell.profileId)
+        assertTrue(shell.authority is AppSessionAuthority.Healing)
+        assertEquals(AppAvailability.Syncing, shell.availability)
+        assertSame(context, shell.authenticatedFeatureContext)
+    }
+
+    @Test
+    fun `different account descriptor does not retain admitted shell`() = runTest {
+        val first = projectionAccount(profileId = "first")
+        val second = projectionAccount(profileId = "second")
+        val eligibility = CompletableDeferred<Boolean>()
+        val store = FakeHomeProjectionStore().apply {
+            hasSnapshotCall = { eligibility.await() }
+        }
+        val controller = controller(store)
+        controller.updateConnection(
+            ConnectionUiState.Linked(first.profile, authenticatedContext(first.profileId)),
+            first.localContext()
+        )
+
+        controller.updateConnection(ConnectionUiState.Restoring, second.localContext())
+        runCurrent()
+
+        assertEquals(AppSessionState.Resolving, controller.state.value)
+        eligibility.complete(true)
+        advanceUntilIdle()
+        val shell = controller.state.value as AppSessionState.AccountShell
+        assertEquals(second.profileId, shell.profileId)
+    }
+
+    @Test
+    fun `explicit connection exit removes admitted shell`() = runTest {
+        val account = projectionAccount()
+        val controller = controller(FakeHomeProjectionStore())
+        controller.updateConnection(
+            ConnectionUiState.Linked(account.profile, authenticatedContext(account.profileId)),
+            account.localContext()
+        )
+        val entry = ConnectionUiState.ServerEntry(message = "Logged out")
+
+        controller.updateConnection(entry, null)
+
+        assertEquals(AppSessionState.ConnectionRequired(entry), controller.state.value)
+    }
+
+    @Test
     fun `Home refresh availability updates ambient state without replacing cached shell`() =
         runTest {
             val account = projectionAccount()

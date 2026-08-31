@@ -61,6 +61,39 @@ class ConnectionCoordinatorTest {
     }
 
     @Test
+    fun `matching persisted account is published before protected credential read completes`() =
+        runTest {
+            val restoredProfile = profile()
+            val persistedAccount =
+                PersistedAccountContext(
+                    restoredProfile.authenticatedConnectionIdentity,
+                    "profile-1"
+                )
+            val credentialGate = CompletableDeferred<Unit>()
+            val credentialStore = storedCredential().apply { readGate = credentialGate }
+            val coordinator =
+                coordinator(
+                    FakeClient(),
+                    FakeProfileStore().apply { stored = restoredProfile },
+                    credentialStore,
+                    FakePersistedAccountContextStore().apply { stored = persistedAccount }
+                )
+
+            coordinator.restore()
+            runCurrent()
+
+            assertEquals(
+                LocalAccountContext(restoredProfile, persistedAccount),
+                coordinator.localAccountContext.value
+            )
+            assertTrue(coordinator.state.value is ConnectionUiState.Restoring)
+
+            credentialGate.complete(Unit)
+            advanceUntilIdle()
+            assertTrue(coordinator.state.value is ConnectionUiState.Linked)
+        }
+
+    @Test
     fun `missing persisted account is not published and successful restore populates it`() =
         runTest {
             val restoredProfile = profile()
@@ -902,8 +935,12 @@ class ConnectionCoordinatorTest {
         BearerCredentialStore {
         var stored: StoredCredential? = null
         var cleared = false
+        var readGate: CompletableDeferred<Unit>? = null
 
-        override suspend fun read(): StoredCredential? = stored
+        override suspend fun read(): StoredCredential? {
+            readGate?.await()
+            return stored
+        }
 
         override suspend fun write(
             credential: BearerCredential,

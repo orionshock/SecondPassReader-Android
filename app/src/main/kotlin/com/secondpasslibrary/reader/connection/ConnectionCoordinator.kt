@@ -45,18 +45,7 @@ internal class ConnectionCoordinator(
 
     fun restore() = replaceOperation {
         mutableState.value = ConnectionUiState.Restoring
-        val stored = attempt { credentialStore.read() }.getOrElse {
-            mutableLocalAccountContext.value = null
-            mutableState.value =
-                ConnectionUiState.LocalStorageProblem(ConnectionErrorPresenter.message(it))
-            return@replaceOperation
-        }
-        var profile = attempt { profileStore.read() }.getOrElse {
-            mutableLocalAccountContext.value = null
-            mutableState.value =
-                ConnectionUiState.LocalStorageProblem(ConnectionErrorPresenter.message(it))
-            return@replaceOperation
-        }
+        var (profile, stored) = readPersistedConnection() ?: return@replaceOperation
         if (profile == null && stored?.recoveryProfile != null) {
             profile = stored.recoveryProfile
             attempt { profileStore.write(profile) }.onFailure {
@@ -68,6 +57,7 @@ internal class ConnectionCoordinator(
                     )
                 return@replaceOperation
             }
+            resolveLocalAccountContext(profile)
         }
         if (profile == null || stored == null) {
             if (stored != null || profile != null) {
@@ -81,8 +71,30 @@ internal class ConnectionCoordinator(
             return@replaceOperation
         }
         attempt { credentialStore.markProfileCommitted() }
-        resolveLocalAccountContext(profile)
         verifyStored(profile, stored.credential, restoring = true)
+    }
+
+    private suspend fun readPersistedConnection(): Pair<ConnectionProfile?, StoredCredential?>? {
+        var persistedConnection: Pair<ConnectionProfile?, StoredCredential?>? = null
+        val profileResult = attempt { profileStore.read() }
+        profileResult.onFailure {
+            mutableLocalAccountContext.value = null
+            mutableState.value =
+                ConnectionUiState.LocalStorageProblem(ConnectionErrorPresenter.message(it))
+        }
+        if (profileResult.isSuccess) {
+            val profile = profileResult.getOrNull()
+            profile?.let { resolveLocalAccountContext(it) }
+            val storedResult = attempt { credentialStore.read() }
+            storedResult.onFailure {
+                mutableState.value =
+                    ConnectionUiState.LocalStorageProblem(ConnectionErrorPresenter.message(it))
+            }
+            if (storedResult.isSuccess) {
+                persistedConnection = profile to storedResult.getOrNull()
+            }
+        }
+        return persistedConnection
     }
 
     fun updateServerUrl(value: String) {

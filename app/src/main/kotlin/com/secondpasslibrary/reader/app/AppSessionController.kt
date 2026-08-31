@@ -1,7 +1,9 @@
 package com.secondpasslibrary.reader.app
 
+import com.secondpasslibrary.reader.connection.AccountLocalDataKey
 import com.secondpasslibrary.reader.connection.ConnectionUiState
 import com.secondpasslibrary.reader.connection.LocalAccountContext
+import com.secondpasslibrary.reader.connection.localDataKey
 import com.secondpasslibrary.reader.home.HomeAccountScope
 import com.secondpasslibrary.reader.home.HomeProjectionRepository
 import com.secondpasslibrary.reader.home.HomeRefreshAvailability
@@ -31,6 +33,14 @@ internal class AppSessionController(
     fun updateConnection(connection: ConnectionUiState, localAccount: LocalAccountContext?) {
         connectionState = connection
         this.localAccount = localAccount
+        if (connection.preservesAuthenticatedShell() &&
+            retainAdmittedShell(
+                connection,
+                localAccount
+            )
+        ) {
+            return
+        }
         when (connection) {
             is ConnectionUiState.Linked -> publishVerifiedShell(connection)
 
@@ -128,28 +138,8 @@ internal class AppSessionController(
             mutableState.value = AppSessionState.ConnectionRequired(currentConnection)
             return
         }
-        val authority =
-            when (currentConnection) {
-                ConnectionUiState.Restoring -> AppSessionAuthority.Restoring
-
-                is ConnectionUiState.RestoreProblem ->
-                    AppSessionAuthority.TransientFailure(currentConnection.message)
-
-                is ConnectionUiState.AuthenticationRequired ->
-                    AppSessionAuthority.AuthenticationRequired(currentConnection.message)
-
-                is ConnectionUiState.VerifyingServer,
-                is ConnectionUiState.ServerConfirmed,
-                is ConnectionUiState.StartingPairing,
-                is ConnectionUiState.WaitingForApproval,
-                is ConnectionUiState.CompletingPairing,
-                is ConnectionUiState.PersistenceRecovery,
-                is ConnectionUiState.StoredCredentialProblem,
-                is ConnectionUiState.TerminalPairingProblem ->
-                    AppSessionAuthority.Healing(currentConnection)
-
-                else -> return publishConnectionRequired(currentConnection)
-            }
+        val authority = currentConnection.toShellAuthority()
+            ?: return publishConnectionRequired(currentConnection)
         mutableState.value =
             AppSessionState.AccountShell(
                 profile = account.profile,
@@ -162,10 +152,58 @@ internal class AppSessionController(
             )
     }
 
+    private fun retainAdmittedShell(
+        connection: ConnectionUiState,
+        account: LocalAccountContext?
+    ): Boolean {
+        val shell = mutableState.value as? AppSessionState.AccountShell
+        val sameAccount = shell?.let {
+            account == null ||
+                account.localDataKey() ==
+                AccountLocalDataKey.from(
+                    it.profile.serverOrigin,
+                    it.profileId
+                )
+        } == true
+        if (sameAccount) {
+            eligibilityLoad?.cancel()
+            mutableState.value =
+                AppSessionState.AccountShell(
+                    profile = checkNotNull(shell).profile,
+                    profileId = shell.profileId,
+                    authority = checkNotNull(connection.toShellAuthority()),
+                    retainedContext = shell.authenticatedFeatureContext
+                )
+        }
+        return sameAccount
+    }
+
     private fun publishConnectionRequired(connection: ConnectionUiState) {
         eligibilityLoad?.cancel()
         lastVerifiedContext = null
         lastVerifiedAccount = null
         mutableState.value = AppSessionState.ConnectionRequired(connection)
     }
+}
+
+private fun ConnectionUiState.preservesAuthenticatedShell(): Boolean = toShellAuthority() != null
+
+private fun ConnectionUiState.toShellAuthority(): AppSessionAuthority? = when (this) {
+    ConnectionUiState.Restoring -> AppSessionAuthority.Restoring
+
+    is ConnectionUiState.RestoreProblem -> AppSessionAuthority.TransientFailure(message)
+
+    is ConnectionUiState.AuthenticationRequired ->
+        AppSessionAuthority.AuthenticationRequired(message)
+
+    is ConnectionUiState.VerifyingServer,
+    is ConnectionUiState.ServerConfirmed,
+    is ConnectionUiState.StartingPairing,
+    is ConnectionUiState.WaitingForApproval,
+    is ConnectionUiState.CompletingPairing,
+    is ConnectionUiState.PersistenceRecovery,
+    is ConnectionUiState.StoredCredentialProblem,
+    is ConnectionUiState.TerminalPairingProblem -> AppSessionAuthority.Healing(this)
+
+    else -> null
 }
