@@ -51,6 +51,7 @@ constructor(
             preferences[FONT_SCALE_KEY] = checkNotNull(saved.fontScale)
             preferences[LINE_HEIGHT_KEY] = checkNotNull(saved.lineHeight)
             preferences[PUBLISHER_STYLES_KEY] = checkNotNull(saved.publisherStylesEnabled)
+            preferences[LAYOUT_MODE_KEY] = checkNotNull(saved.layoutMode)
         }
     }
 }
@@ -59,21 +60,24 @@ private fun Preferences.toReaderAppearance() = PersistedReaderAppearance(
     theme = this[THEME_KEY],
     fontScale = this[FONT_SCALE_KEY],
     lineHeight = this[LINE_HEIGHT_KEY],
-    publisherStylesEnabled = this[PUBLISHER_STYLES_KEY]
+    publisherStylesEnabled = this[PUBLISHER_STYLES_KEY],
+    layoutMode = this[LAYOUT_MODE_KEY]
 ).toReaderAppearance()
 
 internal data class PersistedReaderAppearance(
     val theme: String?,
     val fontScale: String?,
     val lineHeight: String?,
-    val publisherStylesEnabled: Boolean?
+    val publisherStylesEnabled: Boolean?,
+    val layoutMode: String? = null
 )
 
 internal fun ReaderAppearance.toPersistedReaderAppearance() = PersistedReaderAppearance(
     theme = theme.name,
     fontScale = fontScale.toString(),
     lineHeight = lineHeight.toString(),
-    publisherStylesEnabled = publisherStylesEnabled
+    publisherStylesEnabled = publisherStylesEnabled,
+    layoutMode = layoutMode.name
 )
 
 internal fun PersistedReaderAppearance.toReaderAppearance(): ReaderAppearance {
@@ -90,7 +94,10 @@ internal fun PersistedReaderAppearance.toReaderAppearance(): ReaderAppearance {
             defaults.lineHeight,
             ReaderAppearance.LINE_HEIGHT_RANGE
         ),
-        publisherStylesEnabled = publisherStylesEnabled ?: defaults.publisherStylesEnabled
+        publisherStylesEnabled = publisherStylesEnabled ?: defaults.publisherStylesEnabled,
+        layoutMode = layoutMode
+            ?.let { saved -> ReaderLayoutMode.entries.firstOrNull { it.name == saved } }
+            ?: defaults.layoutMode
     )
 }
 
@@ -106,6 +113,7 @@ private val THEME_KEY = stringPreferencesKey("theme")
 private val FONT_SCALE_KEY = stringPreferencesKey("font_scale")
 private val LINE_HEIGHT_KEY = stringPreferencesKey("line_height")
 private val PUBLISHER_STYLES_KEY = booleanPreferencesKey("publisher_styles_enabled")
+private val LAYOUT_MODE_KEY = stringPreferencesKey("layout_mode")
 
 @Module
 @InstallIn(SingletonComponent::class)

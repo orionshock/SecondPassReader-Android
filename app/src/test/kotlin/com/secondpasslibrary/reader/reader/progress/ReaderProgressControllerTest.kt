@@ -164,6 +164,8 @@ class ReaderProgressControllerTest {
 
             override fun captureBeforeNavigatorLoss() = Unit
 
+            override suspend fun awaitPendingCapture(): EpubCfi? = null
+
             override fun retainPosition(position: EpubCfi) {
                 retainedPosition = position
             }

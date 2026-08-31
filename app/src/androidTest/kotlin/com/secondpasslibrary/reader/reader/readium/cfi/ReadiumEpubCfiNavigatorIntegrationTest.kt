@@ -5,6 +5,7 @@ import android.content.Intent
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecoration
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecorationActivation
@@ -12,6 +13,7 @@ import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotati
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationKind
 import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelectionController
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
+import com.secondpasslibrary.reader.reader.appearance.ReaderLayoutMode
 import com.secondpasslibrary.reader.reader.appearance.ReaderTheme
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiFailure
@@ -486,6 +488,89 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
     }
 
     @Test
+    fun explicitLayoutModesRepaginateAndRebindCoreReaderContracts() = withFixture(
+        "explicit-layout-modes.epub"
+    ) { fixture ->
+        launchHost(fixture).use { scenario ->
+            var host = scenario.awaitReadyHost()
+            val engine = host.engine
+            val chapterOne = requireNotNull(
+                engine.tableOfContents.entries.single { it.title == "Chapter One" }.target
+            )
+
+            assertEquals(
+                ReaderLayoutMode.SINGLE_COLUMN,
+                engine.appearance.appearance.value.layoutMode
+            )
+            runBlocking { awaitRenderedColumnCount(host.navigator, 1) }
+            assertLayoutNavigationContracts(engine, chapterOne)
+
+            scenario.recreate()
+            host = scenario.awaitReadyHost()
+            assertSame(engine, host.engine)
+            assertEquals(
+                ReaderLayoutMode.SINGLE_COLUMN,
+                engine.appearance.appearance.value.layoutMode
+            )
+            runBlocking { awaitRenderedColumnCount(host.navigator, 1) }
+
+            runBlocking {
+                engine.appearance.update(ReaderAppearance(layoutMode = ReaderLayoutMode.TWO_COLUMN))
+                awaitRenderedColumnCount(host.navigator, 2)
+                engine.cfiNavigator.goTo(EpubCfi(CROSS_MARKUP_RANGE_CFI)).requireSuccess()
+                withContext(Dispatchers.Main) {
+                    host.navigator.evaluateJavascript(CROSS_MARKUP_SELECTION_SCRIPT)
+                }
+                val selection = requireNotNull(
+                    engine.cfiNavigator.currentSelection().requireSuccess()
+                )
+                assertRangeRoundTrip(engine, selection)
+                engine.annotationDecorations.replace(
+                    ReaderAnnotationDecorationGroupId.Current,
+                    listOf(annotationDecoration("two-column", EpubCfi(CROSS_MARKUP_RANGE_CFI)))
+                )
+                awaitDecoration(host.navigator)
+            }
+            assertLayoutNavigationContracts(engine, chapterOne)
+
+            scenario.recreate()
+            host = scenario.awaitReadyHost()
+            assertEquals(ReaderLayoutMode.TWO_COLUMN, engine.appearance.appearance.value.layoutMode)
+            runBlocking {
+                awaitRenderedColumnCount(host.navigator, 2)
+                awaitDecoration(host.navigator)
+                engine.cfiNavigator.goTo(EpubCfi(CROSS_SPINE_POINT_CFI)).requireSuccess()
+                val bookmark = ReaderAnnotation.Bookmark(
+                    id = "bookmark",
+                    clientId = "layout-bookmark",
+                    cfi = CROSS_SPINE_POINT_CFI,
+                    locationLabel = "Chapter Two",
+                    updatedAt = "2026-08-30T00:00:00Z"
+                )
+                assertEquals(
+                    listOf(bookmark),
+                    engine.visiblePageBookmarks.resolve(listOf(bookmark)).bookmarks
+                )
+                withTimeout(HOST_TIMEOUT_MILLIS) {
+                    engine.hudEvents.readingStatus.first { it != null }
+                }
+            }
+
+            runBlocking {
+                engine.appearance.update(ReaderAppearance(layoutMode = ReaderLayoutMode.AUTO))
+            }
+            val autoColumns = runBlocking { awaitRenderedColumnCount(host.navigator) }
+            assertTrue(autoColumns == 1 || autoColumns == 2)
+            assertLayoutNavigationContracts(engine, chapterOne)
+
+            scenario.recreate()
+            host = scenario.awaitReadyHost()
+            assertEquals(ReaderLayoutMode.AUTO, engine.appearance.appearance.value.layoutMode)
+            assertEquals(autoColumns, runBlocking { awaitRenderedColumnCount(host.navigator) })
+        }
+    }
+
+    @Test
     fun positionCaptureDuringCrossResourceArrivalDoesNotCancelNavigation() = withFixture(
         "navigation-priority.epub"
     ) { fixture ->
@@ -696,6 +781,41 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
             engine.cfiNavigator.resolve(current).requireSuccess()
         }
         assertEquals(expectedHref, resolution.resourceHref)
+    }
+
+    private fun assertLayoutNavigationContracts(
+        engine: ReaderEngine,
+        publicationTarget: com.secondpasslibrary.reader.reader.toc.ReaderPublicationTarget
+    ) {
+        runBlocking {
+            engine.cfiNavigator.goTo(EpubCfi(CROSS_SPINE_POINT_CFI)).requireSuccess()
+            assertEquals(
+                EpubCfiTargetKind.POINT,
+                engine.cfiNavigator.resolve(EpubCfi(CROSS_SPINE_POINT_CFI))
+                    .requireSuccess().kind
+            )
+            assertEquals(
+                ReaderPublicationNavigationResult.NAVIGATED,
+                engine.tableOfContents.goTo(publicationTarget)
+            )
+            engine.cfiNavigator.currentPositionWithContext().requireSuccess()
+        }
+    }
+
+    private suspend fun awaitRenderedColumnCount(
+        navigator: EpubNavigatorFragment,
+        expected: Int? = null
+    ): Int = withTimeout(HOST_TIMEOUT_MILLIS) {
+        while (true) {
+            val count = withContext(Dispatchers.Main) {
+                navigator.evaluateJavascript(
+                    "getComputedStyle(document.documentElement).columnCount"
+                )?.trim('"')?.toIntOrNull()
+            }
+            if (count != null && (expected == null || count == expected)) return@withTimeout count
+            delay(50)
+        }
+        error("Unreachable")
     }
 
     private fun awaitPublicationResource(engine: ReaderEngine, expectedHref: String) {

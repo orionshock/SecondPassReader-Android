@@ -8,11 +8,19 @@ internal enum class ReaderTheme {
     SEPIA
 }
 
+/** App-owned paginated layout preference; actual viewport support remains renderer-defined. */
+internal enum class ReaderLayoutMode {
+    SINGLE_COLUMN,
+    AUTO,
+    TWO_COLUMN
+}
+
 internal data class ReaderAppearance(
     val theme: ReaderTheme = ReaderTheme.SEPIA,
     val fontScale: Double = DEFAULT_FONT_SCALE,
     val lineHeight: Double = DEFAULT_LINE_HEIGHT,
-    val publisherStylesEnabled: Boolean = false
+    val publisherStylesEnabled: Boolean = false,
+    val layoutMode: ReaderLayoutMode = ReaderLayoutMode.SINGLE_COLUMN
 ) {
     init {
         require(fontScale in FONT_SCALE_RANGE) { "Font scale is out of range." }

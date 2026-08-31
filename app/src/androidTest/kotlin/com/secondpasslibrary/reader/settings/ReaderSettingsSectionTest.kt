@@ -12,6 +12,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondpasslibrary.reader.design.SecondPassTheme
+import com.secondpasslibrary.reader.reader.appearance.ReaderLayoutMode
 import com.secondpasslibrary.reader.reader.appearance.ReaderTheme
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -42,6 +43,7 @@ class ReaderSettingsSectionTest {
         compose.onNodeWithText("Reader").assertIsDisplayed()
         compose.onNodeWithText("Sepia").assertIsSelected()
         compose.onNodeWithText("Dark").performClick()
+        compose.onNodeWithText("Two-column").performClick()
         compose.onNodeWithContentDescription("Increase Font size").performClick()
         compose.onNodeWithContentDescription("Increase Line height").performClick()
         compose.onNodeWithContentDescription("Publisher styles").performClick()
@@ -50,6 +52,7 @@ class ReaderSettingsSectionTest {
 
         compose.runOnIdle {
             assertTrue(state.appearance.theme == ReaderTheme.DARK)
+            assertTrue(state.appearance.layoutMode == ReaderLayoutMode.TWO_COLUMN)
             assertTrue(state.appearance.fontScale > 1.0)
             assertTrue(state.appearance.lineHeight > 1.4)
             assertTrue(state.appearance.publisherStylesEnabled)

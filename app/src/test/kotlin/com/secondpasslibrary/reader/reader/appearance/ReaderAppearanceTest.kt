@@ -13,6 +13,7 @@ class ReaderAppearanceTest {
         assertEquals(1.0, appearance.fontScale, 0.0)
         assertEquals(1.4, appearance.lineHeight, 0.0)
         assertEquals(false, appearance.publisherStylesEnabled)
+        assertEquals(ReaderLayoutMode.SINGLE_COLUMN, appearance.layoutMode)
     }
 
     @Test

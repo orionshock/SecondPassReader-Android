@@ -47,6 +47,9 @@ internal fun ReaderAppearanceControls(
     ReaderThemeControl(appearance.theme, colors) { theme ->
         onAppearanceChanged(appearance.copy(theme = theme))
     }
+    ReaderLayoutModeControl(appearance.layoutMode, colors) { layoutMode ->
+        onAppearanceChanged(appearance.copy(layoutMode = layoutMode))
+    }
     ReaderStepControl(
         label = "Font size",
         value = appearance.fontScale,
@@ -62,6 +65,48 @@ internal fun ReaderAppearanceControls(
         colors = colors
     ) { onAppearanceChanged(appearance.copy(lineHeight = it)) }
     PublisherStylesControl(appearance, colors, onAppearanceChanged)
+}
+
+@Composable
+private fun ReaderLayoutModeControl(
+    selected: ReaderLayoutMode,
+    colors: ReaderAppearanceControlColors,
+    onSelected: (ReaderLayoutMode) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            "Layout",
+            color = colors.secondaryContent,
+            style = MaterialTheme.typography.labelMedium
+        )
+        Surface(
+            shape = MaterialTheme.shapes.extraLarge,
+            border = BorderStroke(1.dp, colors.secondaryContent.copy(alpha = 0.5f)),
+            color = Color.Transparent
+        ) {
+            Row(Modifier.selectableGroup()) {
+                ReaderLayoutMode.entries.forEach { mode ->
+                    val isSelected = mode == selected
+                    Text(
+                        text = mode.displayName(),
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(
+                                if (isSelected) colors.selectedBackground else Color.Transparent
+                            )
+                            .selectable(
+                                selected = isSelected,
+                                role = Role.RadioButton,
+                                onClick = { onSelected(mode) }
+                            )
+                            .padding(horizontal = 10.dp, vertical = 10.dp),
+                        color = if (isSelected) colors.content else colors.secondaryContent,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -166,5 +211,11 @@ private fun PublisherStylesControl(
 
 internal fun ReaderTheme.displayName(): String =
     name.lowercase().replaceFirstChar { it.titlecase(Locale.US) }
+
+internal fun ReaderLayoutMode.displayName(): String = when (this) {
+    ReaderLayoutMode.SINGLE_COLUMN -> "Single"
+    ReaderLayoutMode.AUTO -> "Auto"
+    ReaderLayoutMode.TWO_COLUMN -> "Two-column"
+}
 
 internal fun formatReaderScale(value: Double): String = String.format(Locale.US, "%.1f×", value)

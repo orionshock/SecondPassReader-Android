@@ -3,6 +3,7 @@ package com.secondpasslibrary.reader.reader.readium
 import androidx.compose.ui.graphics.toArgb
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
+import com.secondpasslibrary.reader.reader.appearance.ReaderLayoutMode
 import com.secondpasslibrary.reader.reader.appearance.ReaderTheme
 import com.secondpasslibrary.reader.reader.appearance.readerPalette
 import kotlinx.coroutines.test.runTest
@@ -10,9 +11,13 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.readium.r2.navigator.preferences.ColumnCount
+import org.readium.r2.navigator.preferences.Spread
 import org.readium.r2.navigator.preferences.Theme
+import org.readium.r2.shared.ExperimentalReadiumApi
 
 @RunWith(AndroidJUnit4::class)
+@OptIn(ExperimentalReadiumApi::class)
 class ReadiumReaderAppearanceControllerTest {
     @Test
     fun appAppearanceMapsToReadiumWhilePaginatedModeRemainsFixed() {
@@ -43,15 +48,38 @@ class ReadiumReaderAppearanceControllerTest {
     }
 
     @Test
+    fun layoutModesMapToExplicitColumnAndSpreadPreferences() {
+        val expected = mapOf(
+            ReaderLayoutMode.SINGLE_COLUMN to (ColumnCount.ONE to Spread.NEVER),
+            ReaderLayoutMode.AUTO to (ColumnCount.AUTO to null),
+            ReaderLayoutMode.TWO_COLUMN to (ColumnCount.TWO to Spread.ALWAYS)
+        )
+
+        expected.forEach { (mode, readium) ->
+            val preferences = ReaderAppearance(layoutMode = mode).toReadiumPreferences()
+
+            assertEquals(readium.first, preferences.columnCount)
+            assertEquals(readium.second, preferences.spread)
+            assertFalse(preferences.scroll ?: true)
+        }
+    }
+
+    @Test
     fun unboundUpdateIsRetainedForNavigatorRecreation() = runTest {
         val controller = ReadiumReaderAppearanceController()
-        val updated = ReaderAppearance(theme = ReaderTheme.SEPIA, fontScale = 1.2)
+        val updated = ReaderAppearance(
+            theme = ReaderTheme.SEPIA,
+            fontScale = 1.2,
+            layoutMode = ReaderLayoutMode.TWO_COLUMN
+        )
 
         controller.update(updated)
 
         assertEquals(updated, controller.appearance.value)
         assertEquals(Theme.SEPIA, controller.initialPreferences().theme)
         assertEquals(1.2, controller.initialPreferences().fontSize)
+        assertEquals(ColumnCount.TWO, controller.initialPreferences().columnCount)
+        assertEquals(Spread.ALWAYS, controller.initialPreferences().spread)
     }
 }
 

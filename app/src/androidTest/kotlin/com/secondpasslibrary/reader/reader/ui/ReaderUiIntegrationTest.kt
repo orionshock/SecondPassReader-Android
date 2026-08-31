@@ -35,6 +35,7 @@ import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderHighlightEditDraft
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderPendingHighlight
 import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelection
+import com.secondpasslibrary.reader.reader.appearance.ReaderLayoutMode
 import com.secondpasslibrary.reader.reader.appearance.ReaderTheme
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.domain.ReaderReadingStatus
@@ -299,6 +300,10 @@ class ReaderUiIntegrationTest {
         compose.onNodeWithText("Reading appearance").assertIsDisplayed()
         compose.onNodeWithText("Sepia").performClick()
         compose.waitUntil { appearance.appearance.value.theme == ReaderTheme.SEPIA }
+        compose.onNodeWithText("Two-column").performClick()
+        compose.waitUntil {
+            appearance.appearance.value.layoutMode == ReaderLayoutMode.TWO_COLUMN
+        }
         compose.onNodeWithContentDescription("Increase Font size").performClick()
         compose.waitUntil { appearance.appearance.value.fontScale > 1.0 }
         compose.onNodeWithContentDescription("Increase Line height").performClick()
