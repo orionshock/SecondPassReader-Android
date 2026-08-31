@@ -63,9 +63,9 @@ internal fun ReaderAmbientHud(
                 style = MaterialTheme.typography.labelSmall
             )
             androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
-            readingStatus?.let {
+            readerReadingStatusLabel(readingStatus)?.let { label ->
                 Text(
-                    text = readerReadingStatusLabel(it),
+                    text = label,
                     modifier = Modifier.testTag(READER_HUD_STATUS_TAG),
                     color = palette.secondaryForeground,
                     style = MaterialTheme.typography.labelSmall
@@ -83,7 +83,8 @@ internal fun millisUntilNextMinute(time: LocalTime): Long {
     return Duration.between(time, nextMinute).toMillis().coerceAtLeast(1L)
 }
 
-internal fun readerReadingStatusLabel(status: ReaderReadingStatus): String {
+internal fun readerReadingStatusLabel(status: ReaderReadingStatus?): String? {
+    if (status == null || status.pagesRemaining <= 0) return null
     val pages = if (status.pagesRemaining == 1) "1 page" else "${status.pagesRemaining} pages"
     return when (status.scope) {
         ReaderReadingStatusScope.SECTION -> "$pages left in section"

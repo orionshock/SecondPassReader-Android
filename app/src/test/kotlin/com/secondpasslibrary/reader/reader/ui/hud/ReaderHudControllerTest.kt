@@ -9,6 +9,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -68,5 +69,26 @@ class ReaderHudControllerTest {
                 ReaderReadingStatus(8, ReaderReadingStatusScope.SECTION)
             )
         )
+    }
+
+    @Test
+    fun `zero and unavailable pagination reserve no HUD status`() {
+        assertNull(readerReadingStatusLabel(null))
+        assertNull(
+            readerReadingStatusLabel(
+                ReaderReadingStatus(0, ReaderReadingStatusScope.SECTION)
+            )
+        )
+    }
+
+    @Test
+    fun `section boundary transitions hide zero and restore positive status`() {
+        val labels = listOf(1, 0, 4).map { remaining ->
+            readerReadingStatusLabel(
+                ReaderReadingStatus(remaining, ReaderReadingStatusScope.SECTION)
+            )
+        }
+
+        assertEquals(listOf("1 page left in section", null, "4 pages left in section"), labels)
     }
 }
