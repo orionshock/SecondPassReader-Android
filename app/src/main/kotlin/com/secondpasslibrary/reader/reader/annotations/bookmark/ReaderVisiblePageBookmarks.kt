@@ -11,8 +11,6 @@ internal data class ReaderVisiblePageBookmarks(
 internal sealed interface ReaderBookmarkHudIntent {
     data object Create : ReaderBookmarkHudIntent
 
-    data class Navigate(val bookmark: ReaderAnnotation.Bookmark) : ReaderBookmarkHudIntent
-
     data class Remove(val bookmark: ReaderAnnotation.Bookmark) : ReaderBookmarkHudIntent
 }
 

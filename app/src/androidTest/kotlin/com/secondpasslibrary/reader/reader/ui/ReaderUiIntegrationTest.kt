@@ -40,6 +40,7 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.domain.ReaderReadingStatus
 import com.secondpasslibrary.reader.reader.domain.ReaderReadingStatusScope
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaIntent
+import com.secondpasslibrary.reader.reader.navigation.ReaderNavigationIntent
 import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadata
 import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadataState
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
@@ -118,7 +119,7 @@ class ReaderUiIntegrationTest {
     @Test
     fun bookmarkHudCreatesFromEmptyAndListsVisibleBookmarksWithoutImmediateDelete() {
         var creates = 0
-        val navigated = mutableListOf<String>()
+        val navigationIntents = mutableListOf<ReaderNavigationIntent>()
         val removed = mutableListOf<String>()
         val first = testBookmark("first", "Chapter 01 · 12%")
         val second = testBookmark("second", "Chapter 01 · 13%")
@@ -131,7 +132,7 @@ class ReaderUiIntegrationTest {
                     onRetry = {},
                     pageBookmarks = visibleBookmarks.value,
                     onCreateBookmark = { creates += 1 },
-                    onNavigateBookmark = { navigated += it.id },
+                    onNavigationIntent = { navigationIntents += it },
                     onRemoveBookmark = { removed += it.id }
                 )
             }
@@ -148,7 +149,12 @@ class ReaderUiIntegrationTest {
         compose.onNodeWithText("Chapter 01 · 13%").assertIsDisplayed()
         compose.runOnIdle { assertTrue(removed.isEmpty()) }
         compose.onAllNodesWithContentDescription("Go to bookmark")[0].performClick()
-        compose.runOnIdle { assertEquals(listOf("first"), navigated) }
+        compose.runOnIdle {
+            assertEquals(
+                listOf(ReaderNavigationIntent.GoToBookmark(first)),
+                navigationIntents
+            )
+        }
 
         compose.onNodeWithContentDescription("2 bookmarks on current page").performClick()
         compose.onAllNodesWithContentDescription("Remove bookmark")[1].performClick()
@@ -176,10 +182,16 @@ class ReaderUiIntegrationTest {
     @Test
     fun readerMenuOwnsNestedTocNavigationDismissalAndCloseBook() {
         val toc = RecordingReaderToc()
+        val navigationIntents = mutableListOf<ReaderNavigationIntent>()
         var exits = 0
         compose.setContent {
             SecondPassTheme {
-                ReaderScreen(readerReadyState(toc), onBack = { exits += 1 }, onRetry = {})
+                ReaderScreen(
+                    readerReadyState(toc),
+                    onBack = { exits += 1 },
+                    onRetry = {},
+                    onNavigationIntent = { navigationIntents += it }
+                )
             }
         }
 
@@ -205,7 +217,11 @@ class ReaderUiIntegrationTest {
         }
         compose.onNodeWithContentDescription("Open Chapter Two").performClick()
         compose.waitForIdle()
-        assertEquals(listOf(TEST_CHAPTER_TWO), toc.destinations)
+        assertEquals(
+            listOf(ReaderNavigationIntent.GoToPublicationTarget(TEST_CHAPTER_TWO)),
+            navigationIntents
+        )
+        assertTrue(toc.destinations.isEmpty())
 
         compose.onNodeWithTag(READER_CHROME_LEFT_CLUSTER_TAG).performTouchInput {
             down(Offset(width * 0.1f, height / 2f))
@@ -299,6 +315,7 @@ class ReaderUiIntegrationTest {
     @Test
     fun annotationDrawerPresentsContentAndNavigatesExactCfiWithoutExiting() {
         val navigator = RecordingReaderCfiNavigator()
+        val navigationIntents = mutableListOf<ReaderNavigationIntent>()
         val annotation = ReaderAnnotation.Highlight(
             id = "annotation-1",
             clientId = "client-annotation-1",
@@ -322,7 +339,8 @@ class ReaderUiIntegrationTest {
                         sessionId = "session-1",
                         annotations = listOf(annotation),
                         loaded = true
-                    )
+                    ),
+                    onNavigationIntent = { navigationIntents += it }
                 )
             }
         }
@@ -333,9 +351,13 @@ class ReaderUiIntegrationTest {
         compose.onNodeWithContentDescription("Highlight actions").performClick()
         assertEquals(emptyList<EpubCfi>(), navigator.destinations)
         compose.onNodeWithText("Go to").performClick()
-        compose.waitUntil { navigator.destinations.isNotEmpty() }
+        compose.waitUntil { navigationIntents.isNotEmpty() }
 
-        assertEquals(listOf(EpubCfi(TEST_ANNOTATION_CFI)), navigator.destinations)
+        assertEquals(
+            listOf(ReaderNavigationIntent.GoToAnnotation(annotation)),
+            navigationIntents
+        )
+        assertTrue(navigator.destinations.isEmpty())
         assertEquals(0, exits)
         assertEquals(0, compose.onAllNodesWithText("A selected passage").fetchSemanticsNodes().size)
     }

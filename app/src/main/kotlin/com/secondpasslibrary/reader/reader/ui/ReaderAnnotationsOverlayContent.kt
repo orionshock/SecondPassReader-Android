@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.reader.ui
 
 import androidx.compose.runtime.Composable
 import com.secondpasslibrary.reader.reader.ReaderState
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsState
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationIntent
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationState
@@ -10,7 +11,6 @@ import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaIntent
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayersState
 import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadataState
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
-import kotlinx.coroutines.CoroutineScope
 
 /** Wires current-session annotation mutation intent into the marginalia overlay. */
 @Composable
@@ -20,7 +20,6 @@ internal fun ReaderAnnotationsOverlayContent(
     layers: ReaderMarginaliaLayersState,
     autoShowPrevious: Boolean,
     palette: ReaderPalette,
-    scope: CoroutineScope,
     dismiss: () -> Unit,
     onMarginaliaIntent: (ReaderMarginaliaIntent) -> Unit,
     annotationWritesAvailable: Boolean,
@@ -28,6 +27,7 @@ internal fun ReaderAnnotationsOverlayContent(
     mutationState: ReaderAnnotationMutationState,
     sessionMetadata: ReaderSessionMetadataState,
     onCreateBookmark: () -> Unit,
+    onNavigateAnnotation: (ReaderAnnotation) -> Unit,
     onMutation: (ReaderAnnotationMutationIntent) -> Unit
 ) {
     ReaderAnnotationsOverlay(
@@ -40,7 +40,6 @@ internal fun ReaderAnnotationsOverlayContent(
             layers
         ),
         palette = palette,
-        scope = scope,
         onDismiss = dismiss,
         onMarginaliaIntent = onMarginaliaIntent,
         editable = annotationWritesAvailable,
@@ -49,6 +48,7 @@ internal fun ReaderAnnotationsOverlayContent(
         mutationState = mutationState,
         sessionMetadata = sessionMetadata,
         onCreateBookmark = onCreateBookmark,
+        onNavigateAnnotation = onNavigateAnnotation,
         onEditHighlight = {
             onMutation(ReaderAnnotationMutationIntent.BeginEdit(it))
         },

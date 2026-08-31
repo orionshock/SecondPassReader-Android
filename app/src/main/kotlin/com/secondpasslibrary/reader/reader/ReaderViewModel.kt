@@ -17,7 +17,6 @@ import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderHighligh
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationController
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationIntent
 import com.secondpasslibrary.reader.reader.annotations.mutation.captureReaderBookmarkPosition
-import com.secondpasslibrary.reader.reader.annotations.navigateToReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelectionController
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceStore
@@ -31,6 +30,8 @@ import com.secondpasslibrary.reader.reader.marginalia.SplReaderMarginaliaLayerHi
 import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginaliaLayerPolicyController
 import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginaliaLayerPreferenceStore
 import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginaliaLayerVisibilityStore
+import com.secondpasslibrary.reader.reader.navigation.ReaderNavigationController
+import com.secondpasslibrary.reader.reader.navigation.ReaderNavigationIntent
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
 import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadataController
 import com.secondpasslibrary.reader.reader.session.ReaderSessionReconciler
@@ -104,6 +105,9 @@ internal class ReaderViewModel @Inject constructor(
             localReaderStateStore,
             foregroundSync::requestSync
         )
+    private val navigation = ReaderNavigationController(controller.state, viewModelScope)
+    val navigationEvents = navigation.events
+    val onNavigationIntent: (ReaderNavigationIntent) -> Unit = navigation::accept
     private val annotationsController = ReaderAnnotationsController(
         annotationsLoader,
         viewModelScope,
@@ -401,10 +405,6 @@ internal class ReaderViewModel @Inject constructor(
                         )
                     }
                 }
-            }
-
-            is ReaderBookmarkHudIntent.Navigate -> viewModelScope.launch {
-                navigateToReaderAnnotation(intent.bookmark, ready.engine.cfiNavigator)
             }
 
             is ReaderBookmarkHudIntent.Remove ->

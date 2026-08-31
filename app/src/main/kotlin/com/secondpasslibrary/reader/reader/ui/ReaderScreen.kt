@@ -16,7 +16,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,7 +29,6 @@ import com.secondpasslibrary.reader.reader.annotations.bookmark.ReaderVisiblePag
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderReadOnlyHighlightDetail
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationIntent
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationState
-import com.secondpasslibrary.reader.reader.annotations.navigateToReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelection
 import com.secondpasslibrary.reader.reader.annotations.ui.ReaderHighlightMutationDialogs
 import com.secondpasslibrary.reader.reader.annotations.ui.ReaderHighlightReadOnlyDialog
@@ -43,6 +41,7 @@ import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaIntent
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayersState
 import com.secondpasslibrary.reader.reader.marginalia.ui.ReaderMarginaliaDrawer
 import com.secondpasslibrary.reader.reader.marginalia.ui.ReaderMarginaliaDrawerState
+import com.secondpasslibrary.reader.reader.navigation.ReaderNavigationIntent
 import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadataState
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import com.secondpasslibrary.reader.reader.toc.ReaderPublicationResource
@@ -50,9 +49,7 @@ import com.secondpasslibrary.reader.reader.toc.ReaderTocDrawer
 import com.secondpasslibrary.reader.reader.ui.hud.ReaderAmbientHud
 import com.secondpasslibrary.reader.reader.ui.hud.ReaderHudPresentation
 import com.secondpasslibrary.reader.reader.ui.hud.rememberReaderHudPresentation
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.launch
 
 @Composable
 // Root layout composes established Reader owners without owning their behavior.
@@ -74,12 +71,11 @@ internal fun ReaderScreen(
     sessionMetadata: ReaderSessionMetadataState = ReaderSessionMetadataState(),
     onAnnotationMutation: (ReaderAnnotationMutationIntent) -> Unit = {},
     onCreateBookmark: () -> Unit = {},
-    onNavigateBookmark: (ReaderAnnotation.Bookmark) -> Unit = {},
+    onNavigationIntent: (ReaderNavigationIntent) -> Unit = {},
     onRemoveBookmark: (ReaderAnnotation.Bookmark) -> Unit = {},
     onDismissSelection: () -> Unit = {},
     onDismissHighlightDetail: () -> Unit = {}
 ) {
-    val scope = rememberCoroutineScope()
     val ready = state as? ReaderState.Ready
     val appearance by remember(ready?.engine) { readyAppearance(ready) }.collectAsState()
     val palette = appearance.theme.readerPalette()
@@ -103,7 +99,7 @@ internal fun ReaderScreen(
         onDismissTransientOverlay = onDismissSelection,
         onOverlayVisibilityChanged = { overlayVisible = it },
         tableOfContents = { dismiss ->
-            ReaderTocDrawerContent(ready, palette, dismiss, scope, onBack)
+            ReaderTocDrawerContent(ready, palette, dismiss, onNavigationIntent, onBack)
         },
         appearance = { dismiss ->
             if (ready != null) ReaderAppearanceOverlay(appearance, onAppearanceChanged, dismiss)
@@ -115,7 +111,6 @@ internal fun ReaderScreen(
                 marginaliaLayers,
                 autoShowPreviousMarginalia,
                 palette,
-                scope,
                 dismiss,
                 onMarginaliaIntent,
                 annotationWritesAvailable,
@@ -123,6 +118,7 @@ internal fun ReaderScreen(
                 annotationMutations,
                 sessionMetadata,
                 onCreateBookmark,
+                { onNavigationIntent(ReaderNavigationIntent.GoToAnnotation(it)) },
                 onAnnotationMutation
             )
         }
@@ -142,7 +138,7 @@ internal fun ReaderScreen(
             onRetry,
             onAnnotationMutation,
             onCreateBookmark,
-            onNavigateBookmark,
+            { onNavigationIntent(ReaderNavigationIntent.GoToBookmark(it)) },
             onRemoveBookmark,
             { bookmarkMenuVisible = it },
             onDismissSelection,
@@ -282,16 +278,6 @@ private fun ReaderSelectionAnnotationOverlays(
 private fun readyAppearance(ready: ReaderState.Ready?) =
     ready?.engine?.appearance?.appearance ?: DEFAULT_READER_APPEARANCE
 
-private fun navigateToAnnotation(
-    scope: CoroutineScope,
-    ready: ReaderState.Ready,
-    annotation: ReaderAnnotation
-) {
-    scope.launch {
-        navigateToReaderAnnotation(annotation, ready.engine.cfiNavigator)
-    }
-}
-
 @Composable
 internal fun ReaderAnnotationsOverlay(
     ready: ReaderState.Ready?,
@@ -300,7 +286,6 @@ internal fun ReaderAnnotationsOverlay(
     autoShowPrevious: Boolean,
     drawerState: ReaderMarginaliaDrawerState,
     palette: ReaderPalette,
-    scope: CoroutineScope,
     onDismiss: () -> Unit,
     onMarginaliaIntent: (ReaderMarginaliaIntent) -> Unit,
     editable: Boolean,
@@ -308,6 +293,7 @@ internal fun ReaderAnnotationsOverlay(
     mutationState: ReaderAnnotationMutationState,
     sessionMetadata: ReaderSessionMetadataState,
     onCreateBookmark: () -> Unit,
+    onNavigateAnnotation: (ReaderAnnotation) -> Unit,
     onEditHighlight: (ReaderAnnotation.Highlight) -> Unit,
     onDeleteAnnotation: (ReaderAnnotation) -> Unit
 ) {
@@ -343,7 +329,7 @@ internal fun ReaderAnnotationsOverlay(
         onDeleteAnnotation = onDeleteAnnotation,
         onNavigateAnnotation = { annotation ->
             onDismiss()
-            navigateToAnnotation(scope, ready, annotation)
+            onNavigateAnnotation(annotation)
         },
         onEditCurrentSessionMetadata = {
             onMarginaliaIntent(ReaderMarginaliaIntent.EditCurrentSessionMetadata)
@@ -399,7 +385,7 @@ private fun ReaderTocDrawerContent(
     ready: ReaderState.Ready?,
     palette: ReaderPalette,
     dismiss: () -> Unit,
-    scope: CoroutineScope,
+    onNavigate: (ReaderNavigationIntent) -> Unit,
     onBack: () -> Unit
 ) {
     val currentResource by remember(ready?.engine) {
@@ -412,9 +398,7 @@ private fun ReaderTocDrawerContent(
         palette = palette,
         onEntrySelected = { target ->
             dismiss()
-            scope.launch {
-                ready?.engine?.tableOfContents?.goTo(target)
-            }
+            onNavigate(ReaderNavigationIntent.GoToPublicationTarget(target))
         },
         onDismiss = dismiss,
         onCloseBook = {

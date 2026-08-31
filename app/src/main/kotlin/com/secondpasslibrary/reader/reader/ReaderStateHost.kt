@@ -77,7 +77,7 @@ internal fun ReaderStateHost(
         sessionMetadata = sessionMetadata,
         onAnnotationMutation = viewModel::mutateAnnotation,
         onCreateBookmark = { viewModel.acceptBookmark(ReaderBookmarkHudIntent.Create) },
-        onNavigateBookmark = { viewModel.acceptBookmark(ReaderBookmarkHudIntent.Navigate(it)) },
+        onNavigationIntent = viewModel.onNavigationIntent,
         onRemoveBookmark = { viewModel.acceptBookmark(ReaderBookmarkHudIntent.Remove(it)) },
         onDismissSelection = viewModel::dismissSelection,
         onDismissHighlightDetail = viewModel.dismissHighlightDetail
