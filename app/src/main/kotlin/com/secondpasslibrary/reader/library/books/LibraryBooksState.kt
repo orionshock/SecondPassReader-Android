@@ -29,6 +29,7 @@ internal sealed interface LibraryBooksOrdering {
 }
 
 internal data class LibraryBooksState(
+    val offlineDownloadedOnly: Boolean = false,
     val mode: LibraryBooksMode = LibraryBooksMode.BROWSE,
     val filter: LibraryBooksFilter? = null,
     val tagSlug: String? = null,

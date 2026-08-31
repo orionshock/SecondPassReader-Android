@@ -64,12 +64,14 @@ internal class LibraryController(
     private var advancedGroupsCapability: Boolean? = null
     private var pendingTagNavigation: LibraryExternalNavigation.Tag? = null
     private var pendingTagResolutionJob: Job? = null
+    private var offline = false
 
     fun initialize(
         profile: ConnectionProfile,
         entry: LibraryBooksEntry,
         advancedGroupsEnabled: Boolean
     ) {
+        offline = false
         val nextConnectionIdentity = profile.authenticatedConnectionIdentity
         val sameConnection = hasSameConnection(nextConnectionIdentity, advancedGroupsEnabled)
         if (sameConnection && entry == entryKey) return
@@ -116,12 +118,26 @@ internal class LibraryController(
         vocabulary.prepare(profile, advancedGroupsEnabled, selectedScope)
     }
 
+    fun initializeOffline(profile: ConnectionProfile, profileId: String, entry: LibraryBooksEntry) {
+        offline = true
+        connectionIdentity = null
+        entryKey = null
+        advancedGroupsCapability = null
+        pendingTagResolutionJob?.cancel()
+        pendingTagNavigation = null
+        chrome.value = LibraryChromeState()
+        val query = (entry as? LibraryBooksEntry.BroadSearch)?.query.orEmpty()
+        books.initializeOffline(profile, profileId, query)
+    }
+
     private fun hasSameConnection(
         identity: AuthenticatedConnectionIdentity,
         advancedGroupsEnabled: Boolean
     ): Boolean = identity == connectionIdentity && advancedGroupsEnabled == advancedGroupsCapability
 
+    @Suppress("ReturnCount") // Offline capability rejection joins the existing validation exits.
     fun selectScope(selected: LibraryScope) {
+        if (offline) return
         var current = chrome.value
         if (selected == current.scope) return
         if (selected is LibraryScope.Group &&
@@ -155,6 +171,7 @@ internal class LibraryController(
     }
 
     fun selectAxis(selected: LibraryAxis) {
+        if (offline) return
         var current = chrome.value
         if (selected == current.axis) {
             if (current.isSelectedAuthorSeriesBooks) clearSelectedAuthorSeries()
@@ -287,6 +304,7 @@ internal class LibraryController(
     fun retryGroups() = vocabulary.retryGroups()
 
     fun selectTag(tag: LibraryCatalogTag?) {
+        if (offline) return
         val current = chrome.value
         if (tag != null &&
             vocabulary.state.value.tagSelector.tags.none {

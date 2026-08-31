@@ -44,7 +44,12 @@ internal fun LibraryBooksResults(
         state.books.isEmpty() && state.error != null ->
             LibraryFailureContent(state.error, onRetry, modifier)
 
-        state.books.isEmpty() && state.currentPage > 0 -> EmptyLibrary(modifier)
+        state.books.isEmpty() && state.currentPage > 0 ->
+            if (state.offlineDownloadedOnly) {
+                OfflineDownloadedLibraryEmpty(modifier)
+            } else {
+                EmptyLibrary(modifier)
+            }
 
         else ->
             Column(modifier) {
@@ -97,7 +102,9 @@ private fun LibraryBooksList(
             CompactBookRow(
                 book = book.toLibraryCompactBookPresentation(),
                 onClick = { onBookSelected(book.id) },
-                actions = book.bookCardActions(),
+                actions = book.bookCardActions().takeUnless {
+                    state.offlineDownloadedOnly
+                }.orEmpty(),
                 onAction = onBookAction
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -129,7 +136,9 @@ private fun LibraryBooksGrid(
             CompactBookGridCard(
                 book = book.toLibraryCompactBookPresentation(),
                 onClick = { onBookSelected(book.id) },
-                actions = book.bookCardActions(),
+                actions = book.bookCardActions().takeUnless {
+                    state.offlineDownloadedOnly
+                }.orEmpty(),
                 onAction = onBookAction
             )
         }

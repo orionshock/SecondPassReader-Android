@@ -10,10 +10,12 @@ import com.secondpasslibrary.client.LibrarySearchOrdering
 import com.secondpasslibrary.client.SeriesOrdering
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.library.books.LibraryBooksController
 import com.secondpasslibrary.reader.library.books.LibraryBooksEntry
 import com.secondpasslibrary.reader.library.books.LibraryBooksLayout
 import com.secondpasslibrary.reader.library.books.LibraryBooksOrdering
 import com.secondpasslibrary.reader.library.books.LibraryDisplayPreferenceStore
+import com.secondpasslibrary.reader.library.offline.OfflineLibraryCatalog
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
@@ -23,10 +25,21 @@ internal class LibraryViewModel
 @Inject
 constructor(
     clientProvider: AuthenticatedClientProvider,
-    displayPreferenceStore: LibraryDisplayPreferenceStore
+    displayPreferenceStore: LibraryDisplayPreferenceStore,
+    offlineCatalog: OfflineLibraryCatalog
 ) : ViewModel() {
     private val controller =
-        LibraryController(clientProvider, displayPreferenceStore, viewModelScope)
+        LibraryController(
+            clientProvider,
+            displayPreferenceStore,
+            viewModelScope,
+            books = LibraryBooksController(
+                clientProvider,
+                displayPreferenceStore,
+                viewModelScope,
+                offlineCatalog
+            )
+        )
 
     val state = controller.state
     val connectionEvents = controller.connectionEvents
@@ -36,6 +49,9 @@ constructor(
         entry: LibraryBooksEntry,
         advancedGroupsEnabled: Boolean
     ) = controller.initialize(profile, entry, advancedGroupsEnabled)
+
+    fun initializeOffline(profile: ConnectionProfile, profileId: String, entry: LibraryBooksEntry) =
+        controller.initializeOffline(profile, profileId, entry)
 
     fun commitSearch(query: String) = controller.commitSearch(query)
 

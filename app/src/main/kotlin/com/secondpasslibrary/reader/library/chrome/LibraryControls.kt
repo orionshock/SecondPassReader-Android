@@ -59,22 +59,26 @@ internal fun LibraryControls(
     var tagSheetOpen by rememberSaveable { mutableStateOf(false) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SearchRow(state, query, { query = it }) { onSearch(query) }
-        LibrarySelectorRow(
-            state,
-            onScopeSelected,
-            onAxisSelected,
-            onRetryGroups,
-            tagControl = { LibraryTagFilterButton(state.selectedTag) { tagSheetOpen = true } },
-            {
-                OrderingMenu(
-                    state,
-                    onBookOrderingSelected,
-                    onAuthorOrderingSelected,
-                    onSeriesOrderingSelected
-                )
-            },
-            { LayoutChoices(state.books.layout, onLayoutSelected) }
-        )
+        if (state.books.offlineDownloadedOnly) {
+            LayoutChoices(state.books.layout, onLayoutSelected)
+        } else {
+            LibrarySelectorRow(
+                state,
+                onScopeSelected,
+                onAxisSelected,
+                onRetryGroups,
+                tagControl = { LibraryTagFilterButton(state.selectedTag) { tagSheetOpen = true } },
+                {
+                    OrderingMenu(
+                        state,
+                        onBookOrderingSelected,
+                        onAuthorOrderingSelected,
+                        onSeriesOrderingSelected
+                    )
+                },
+                { LayoutChoices(state.books.layout, onLayoutSelected) }
+            )
+        }
     }
     if (tagSheetOpen) {
         CatalogTagFilterSheet(

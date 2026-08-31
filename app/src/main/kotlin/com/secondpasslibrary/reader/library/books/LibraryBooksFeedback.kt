@@ -67,6 +67,23 @@ internal fun EmptyLibrary(modifier: Modifier) {
 }
 
 @Composable
+internal fun OfflineDownloadedLibraryEmpty(modifier: Modifier) {
+    Column(
+        modifier = modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text("No downloaded books available offline.")
+        Text(
+            "Connect to your library to browse the full catalog.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(top = 6.dp)
+        )
+    }
+}
+
+@Composable
 internal fun LibraryFailureContent(
     error: LibraryBooksLoadError,
     onRetry: () -> Unit,

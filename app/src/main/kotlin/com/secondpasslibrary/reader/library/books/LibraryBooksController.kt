@@ -11,6 +11,7 @@ import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import com.secondpasslibrary.reader.library.LibraryConnectionEvent
 import com.secondpasslibrary.reader.library.LibraryFailure
+import com.secondpasslibrary.reader.library.offline.OfflineLibraryCatalog
 import com.secondpasslibrary.reader.library.toLibraryFailure
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -26,7 +27,8 @@ import kotlinx.coroutines.launch
 internal class LibraryBooksController(
     private val clientProvider: AuthenticatedClientProvider,
     private val displayPreferenceStore: LibraryDisplayPreferenceStore,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val offlineCatalog: OfflineLibraryCatalog? = null
 ) {
     private val mutableState = MutableStateFlow(LibraryBooksState())
     val state: StateFlow<LibraryBooksState> = mutableState.asStateFlow()
@@ -42,6 +44,7 @@ internal class LibraryBooksController(
     private var loadJob: Job? = null
     private var preferenceJob: Job? = null
     private var unfilteredState: LibraryBooksState? = null
+    private var offlineBooks: List<CompactBook>? = null
 
     fun initialize(
         profile: ConnectionProfile,
@@ -50,6 +53,7 @@ internal class LibraryBooksController(
         scope: LibraryScope,
         tagSlug: String? = null
     ) {
+        offlineBooks = null
         val nextConnectionIdentity = profile.authenticatedConnectionIdentity
         val nextEntryKey = LibraryBooksEntryKey(mode, query, scope, tagSlug)
         if (nextConnectionIdentity == connectionIdentity && nextEntryKey == entryKey) return
@@ -61,6 +65,34 @@ internal class LibraryBooksController(
         loadDisplayPreference()
         mutableState.value = mutableState.value.copy(tagSlug = tagSlug)
         resetAndLoad(mode, query, defaultOrdering(mode), filter = null)
+    }
+
+    fun initializeOffline(profile: ConnectionProfile, profileId: String, query: String) {
+        this.profile = null
+        selectedScope = LibraryScope.Global
+        connectionIdentity = null
+        entryKey = null
+        unfilteredState = null
+        loadJob?.cancel()
+        requestGeneration += 1
+        loadDisplayPreference()
+        mutableState.value = LibraryBooksState(
+            offlineDownloadedOnly = true,
+            committedQuery = query,
+            initialLoading = true,
+            layout = mutableState.value.layout
+        )
+        val generation = requestGeneration
+        loadJob = scope.launch {
+            val books = runCatching {
+                requireNotNull(offlineCatalog) {
+                    "Offline Library catalog is not configured."
+                }.downloadedBooks(profile, profileId)
+            }.getOrDefault(emptyList())
+            if (generation != requestGeneration) return@launch
+            offlineBooks = books
+            applyOfflineQuery(query)
+        }
     }
 
     fun showAuthorBooks(authorId: String, scope: LibraryScope) {
@@ -121,6 +153,10 @@ internal class LibraryBooksController(
     }
 
     fun commitBrowseQuery(query: String) {
+        if (offlineBooks != null) {
+            applyOfflineQuery(query)
+            return
+        }
         val ordering =
             (mutableState.value.ordering as? LibraryBooksOrdering.Browse)?.value
                 ?: BookOrdering.TITLE
@@ -128,6 +164,10 @@ internal class LibraryBooksController(
     }
 
     fun commitBroadSearch(query: String) {
+        if (offlineBooks != null) {
+            applyOfflineQuery(query)
+            return
+        }
         val ordering =
             (mutableState.value.ordering as? LibraryBooksOrdering.BroadSearch)?.value
                 ?: LibrarySearchOrdering.TITLE
@@ -163,6 +203,7 @@ internal class LibraryBooksController(
     }
 
     fun loadNextPage() {
+        if (offlineBooks != null) return
         val current = mutableState.value
         if (loadJob?.isActive == true || current.currentPage == 0 || !current.hasNext) return
         launchPage(current.currentPage + 1, LibraryBooksLoadPhase.NEXT_PAGE)
@@ -176,6 +217,7 @@ internal class LibraryBooksController(
     }
 
     fun refresh() {
+        if (offlineBooks != null) return
         if (profile == null || loadJob?.isActive == true) return
         requestGeneration += 1
         mutableState.value =
@@ -189,6 +231,7 @@ internal class LibraryBooksController(
     }
 
     fun retry() {
+        if (offlineBooks != null) return
         when (mutableState.value.error?.phase) {
             LibraryBooksLoadPhase.INITIAL -> resetCurrentAndLoad()
             LibraryBooksLoadPhase.NEXT_PAGE -> loadNextPage()
@@ -339,6 +382,25 @@ internal class LibraryBooksController(
 
         LibraryBooksMode.BROAD_SEARCH ->
             LibraryBooksOrdering.BroadSearch(LibrarySearchOrdering.TITLE)
+    }
+
+    private fun applyOfflineQuery(query: String) {
+        val normalized = query.trim()
+        val filtered = offlineBooks.orEmpty().filter { book ->
+            normalized.isEmpty() || book.title.contains(normalized, ignoreCase = true)
+        }
+        mutableState.value = mutableState.value.copy(
+            offlineDownloadedOnly = true,
+            committedQuery = query,
+            books = filtered,
+            totalCount = filtered.size,
+            initialLoading = false,
+            nextPageLoading = false,
+            refreshing = false,
+            error = null,
+            hasNext = false,
+            currentPage = 1
+        )
     }
 }
 

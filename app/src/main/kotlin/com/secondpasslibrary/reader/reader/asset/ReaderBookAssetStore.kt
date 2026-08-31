@@ -8,6 +8,7 @@ import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
+import java.util.Base64
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +24,8 @@ internal data class ReaderAccountScope(val serverOrigin: String, val profileId: 
 }
 
 internal data class ReaderBookAsset(val file: File, val reused: Boolean)
+
+internal data class ReaderCompletedBookMetadata(val bookId: String, val title: String)
 
 @Singleton
 internal class ReaderBookAssetStore private constructor(private val root: File) {
@@ -66,10 +69,50 @@ internal class ReaderBookAssetStore private constructor(private val root: File) 
         }
     }
 
+    suspend fun rememberCompletedBook(account: ReaderAccountScope, bookId: String, title: String) =
+        withContext(Dispatchers.IO) {
+            if (title.isBlank() || findCompleted(account, bookId) == null) return@withContext
+            writes.withLock {
+                val destination = metadataFile(account, bookId)
+                destination.parentFile?.mkdirs()
+                destination.writeText(
+                    listOf(bookId, title).joinToString("\n") { value ->
+                        Base64.getEncoder().encodeToString(value.toByteArray(Charsets.UTF_8))
+                    }
+                )
+            }
+        }
+
+    suspend fun completedBooks(account: ReaderAccountScope): List<ReaderCompletedBookMetadata> =
+        withContext(Dispatchers.IO) {
+            accountDirectory(account).listFiles { file -> file.extension == "metadata" }
+                .orEmpty()
+                .mapNotNull { file -> readMetadata(file) }
+                .filter { findCompleted(account, it.bookId) != null }
+        }
+
     internal fun completedFile(account: ReaderAccountScope, bookId: String): File = File(
-        File(root, digest("${account.serverOrigin}\u0000${account.profileId}")),
+        accountDirectory(account),
         "${digest(bookId)}.epub"
     )
+
+    private fun metadataFile(account: ReaderAccountScope, bookId: String): File = File(
+        accountDirectory(account),
+        "${digest(bookId)}.metadata"
+    )
+
+    private fun accountDirectory(account: ReaderAccountScope) =
+        File(root, digest("${account.serverOrigin}\u0000${account.profileId}"))
+
+    private fun readMetadata(file: File): ReaderCompletedBookMetadata? = runCatching {
+        val values = file.readLines().map { encoded ->
+            Base64.getDecoder().decode(encoded).toString(Charsets.UTF_8)
+        }
+        ReaderCompletedBookMetadata(
+            bookId = values[0].takeIf(String::isNotBlank) ?: return@runCatching null,
+            title = values[1].takeIf(String::isNotBlank) ?: return@runCatching null
+        )
+    }.getOrNull()
 
     private fun moveCompleted(partial: File, destination: File) {
         try {

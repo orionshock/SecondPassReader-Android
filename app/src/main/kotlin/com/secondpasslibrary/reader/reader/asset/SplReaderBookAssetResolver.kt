@@ -39,6 +39,9 @@ internal class SplReaderBookAssetResolver @Inject constructor(
         if (request.localOnly) {
             val local = assetStore.findCompleted(account, request.bookId)
                 ?: throw ReaderEpubUnavailableException()
+            request.titleHint?.let { title ->
+                assetStore.rememberCompletedBook(account, request.bookId, title)
+            }
             return ResolvedReaderBook(
                 request.titleHint?.takeIf(String::isNotBlank) ?: "Downloaded book",
                 local.file,
@@ -54,6 +57,7 @@ internal class SplReaderBookAssetResolver @Inject constructor(
             request.bookId,
             onDownloadStarted
         ) { output -> client.library.books.downloadBook(file.download, output) }
+        assetStore.rememberCompletedBook(account, request.bookId, book.title)
         return ResolvedReaderBook(book.title, asset.file, asset.reused)
     }
 }

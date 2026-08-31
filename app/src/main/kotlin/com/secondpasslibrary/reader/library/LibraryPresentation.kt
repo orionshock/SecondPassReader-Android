@@ -16,7 +16,9 @@ internal fun LibraryState.appBarPresentation(): AppBarPresentation {
     val selectedEntity = selectedEntityName()
     val count = resultCount()?.let { "$it ${countLabel(it)}" }
     val metadata =
-        if (axis == LibraryAxis.BOOKS && books.mode == LibraryBooksMode.BROAD_SEARCH) {
+        if (books.offlineDownloadedOnly) {
+            listOfNotNull("Downloaded", count).joinToString(" · ")
+        } else if (axis == LibraryAxis.BOOKS && books.mode == LibraryBooksMode.BROAD_SEARCH) {
             listOfNotNull("Global results", count).joinToString(" · ")
         } else {
             count

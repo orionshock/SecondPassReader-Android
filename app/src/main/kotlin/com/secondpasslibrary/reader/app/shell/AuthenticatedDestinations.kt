@@ -161,41 +161,31 @@ private fun EntryProviderScope<NavKey>.registerLibraryRouteEntries(
     environment: State<AccountDestinationEnvironment>
 ) {
     entry(key = AppDestination.Library) {
-        AuthenticatedDestination(environment) { bindings ->
-            LibraryDestination(bindings, LibraryBooksEntry.Browse)
-        }
+        LibraryDestination(environment.value, LibraryBooksEntry.Browse)
     }
     entry<LibrarySearchRoute> { route ->
-        AuthenticatedDestination(environment) { bindings ->
-            LibraryDestination(bindings, LibraryBooksEntry.BroadSearch(route.query))
-        }
+        LibraryDestination(environment.value, LibraryBooksEntry.BroadSearch(route.query))
     }
     entry<LibraryAuthorRoute> { route ->
-        AuthenticatedDestination(environment) { bindings ->
-            LibraryDestination(
-                bindings,
-                LibraryBooksEntry.Browse,
-                LibraryExternalNavigation.Author(route.authorId)
-            )
-        }
+        LibraryDestination(
+            environment.value,
+            LibraryBooksEntry.Browse,
+            LibraryExternalNavigation.Author(route.authorId)
+        )
     }
     entry<LibrarySeriesRoute> { route ->
-        AuthenticatedDestination(environment) { bindings ->
-            LibraryDestination(
-                bindings,
-                LibraryBooksEntry.Browse,
-                LibraryExternalNavigation.Series(route.seriesId)
-            )
-        }
+        LibraryDestination(
+            environment.value,
+            LibraryBooksEntry.Browse,
+            LibraryExternalNavigation.Series(route.seriesId)
+        )
     }
     entry<LibraryTagRoute> { route ->
-        AuthenticatedDestination(environment) { bindings ->
-            LibraryDestination(
-                bindings,
-                LibraryBooksEntry.Browse,
-                LibraryExternalNavigation.Tag(route.tagId, route.tagSlug)
-            )
-        }
+        LibraryDestination(
+            environment.value,
+            LibraryBooksEntry.Browse,
+            LibraryExternalNavigation.Tag(route.tagId, route.tagSlug)
+        )
     }
 }
 
@@ -283,21 +273,35 @@ private fun AppNavigator.handleMarginaliaNavigation(
 
 @Composable
 private fun LibraryDestination(
-    bindings: AuthenticatedDestinationBindings,
+    environment: AccountDestinationEnvironment,
     entry: LibraryBooksEntry,
     externalNavigation: LibraryExternalNavigation? = null
 ) {
+    val session = environment.session
+    val context = session.authenticatedFeatureContext
+    if (session.availability !is AppAvailability.Offline && context == null) {
+        ConnectionRequiredDestination(
+            session.authority,
+            environment.onRetryConnection,
+            environment.onRelinkAccount,
+            environment.onForgetAccount,
+            environment.onOpenDrawer
+        )
+        return
+    }
     LibraryStateHost(
-        bindings.profile,
-        entry,
-        bindings.context.serverInfo.advancedLibraryGroupsEnabled,
-        bindings.onAuthenticationRejected,
-        bindings.onOpenDrawer,
+        profile = session.profile,
+        profileId = session.profileId,
+        availability = session.availability,
+        entry = entry,
+        advancedGroupsEnabled = context?.serverInfo?.advancedLibraryGroupsEnabled == true,
+        onAuthenticationRejected = environment.onAuthenticationRejected,
+        onOpenDrawer = environment.onOpenDrawer,
         onBookSelected = {
-            bindings.navigator.openBookDetail(it, BookDetailReturnTarget.Library)
+            environment.navigator.openBookDetail(it, BookDetailReturnTarget.Library)
         },
-        onBookAction = bindings.navigator::handleLibraryBookAction,
-        externalNavigation
+        onBookAction = environment.navigator::handleLibraryBookAction,
+        externalNavigation = externalNavigation
     )
 }
 
