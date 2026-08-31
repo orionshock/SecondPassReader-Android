@@ -29,7 +29,7 @@ internal data class ReadingHistoryCardModel(
     val statusIndicator: ReadingStatusIndicator,
     val cover: BookCoverPresentation,
     val primaryIntent: OpenReaderIntent?,
-    val availabilityLabel: String? = null,
+    val unavailableOffline: Boolean = false,
     val contextActions: List<HomeNavigationIntent>
 )
 
@@ -64,7 +64,7 @@ internal object HomePresenter {
             item.book.takeIf { (offline && offlineReadable) || (!offline && it.canOpen) }?.let {
                 OpenReaderIntent(it.id, item.sessionId, it.title)
             },
-        availabilityLabel = "Not available offline".takeIf { offline && !offlineReadable },
+        unavailableOffline = offline && !offlineReadable,
         contextActions = item.contextActions(serverMutationsAvailable = !offline)
     )
 

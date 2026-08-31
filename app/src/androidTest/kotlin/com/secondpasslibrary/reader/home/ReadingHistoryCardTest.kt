@@ -5,6 +5,8 @@ import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondpasslibrary.reader.design.SecondPassTheme
@@ -42,16 +44,46 @@ class ReadingHistoryCardTest {
         compose.runOnIdle { assertEquals(listOf(intent), emitted) }
     }
 
-    private fun card(intent: OpenReaderIntent) = ReadingHistoryCardModel(
-        bookId = intent.bookId,
-        sessionId = intent.sessionId,
-        title = "Test Book",
-        sessionName = null,
-        locationLabel = null,
-        statusLabel = "Active",
-        statusIndicator = ReadingStatusIndicator.Active,
-        cover = BookCoverPresentation.Missing,
-        primaryIntent = intent,
-        contextActions = emptyList()
-    )
+    @Test
+    fun unavailableOfflineCardUsesQuietAccessibleAffordanceWithoutWarningText() {
+        val emitted = mutableListOf<OpenReaderIntent>()
+        compose.setContent {
+            SecondPassTheme {
+                ReadingHistoryCard(
+                    model = card(intent = null, unavailableOffline = true),
+                    onPrimaryAction = emitted::add,
+                    onContextAction = {}
+                )
+            }
+        }
+
+        assertEquals(
+            0,
+            compose.onAllNodesWithText("Not available offline").fetchSemanticsNodes().size
+        )
+        compose.onNodeWithContentDescription(OFFLINE_UNAVAILABLE_DESCRIPTION).assertExists()
+        compose
+            .onNode(
+                hasClickAction() and hasAnyDescendant(hasText("Test Book")),
+                useUnmergedTree = true
+            )
+            .performClick()
+
+        compose.runOnIdle { assertEquals(emptyList<OpenReaderIntent>(), emitted) }
+    }
+
+    private fun card(intent: OpenReaderIntent?, unavailableOffline: Boolean = false) =
+        ReadingHistoryCardModel(
+            bookId = intent?.bookId ?: "book-1",
+            sessionId = intent?.sessionId ?: "session-1",
+            title = "Test Book",
+            sessionName = null,
+            locationLabel = null,
+            statusLabel = "Active",
+            statusIndicator = ReadingStatusIndicator.Active,
+            cover = BookCoverPresentation.Missing,
+            primaryIntent = intent,
+            unavailableOffline = unavailableOffline,
+            contextActions = emptyList()
+        )
 }

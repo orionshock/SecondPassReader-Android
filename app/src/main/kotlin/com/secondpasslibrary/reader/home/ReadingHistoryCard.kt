@@ -25,13 +25,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.design.book.menuLabel
 import com.secondpasslibrary.reader.design.components.AnchoredOverflowMenu
+import com.secondpasslibrary.reader.design.icons.AppIcon
+import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 
 private const val COVER_SCRIM_START = 0.3f
+internal const val OFFLINE_UNAVAILABLE_DESCRIPTION = "Not downloaded for offline reading"
 
 @Composable
 internal fun ReadingHistoryCard(
@@ -69,6 +74,11 @@ private fun ReadingHistoryCardSurface(
             Modifier
                 .width(172.dp)
                 .height(258.dp)
+                .semantics {
+                    if (model.unavailableOffline) {
+                        stateDescription = OFFLINE_UNAVAILABLE_DESCRIPTION
+                    }
+                }
                 .combinedClickable(
                     onClickLabel = model.primaryIntent?.let { "Read ${model.title}" },
                     onClick = onClick,
@@ -125,13 +135,6 @@ private fun ReadingHistoryCardText(model: ReadingHistoryCardModel, modifier: Mod
                 style = MaterialTheme.typography.bodySmall
             )
         }
-        model.availabilityLabel?.let {
-            Text(
-                it,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.labelSmall
-            )
-        }
         ReadingStatus(model)
     }
 }
@@ -152,6 +155,14 @@ private fun ReadingStatus(model: ReadingHistoryCardModel) {
             color = Color.White.copy(alpha = 0.88f),
             style = MaterialTheme.typography.labelSmall
         )
+        if (model.unavailableOffline) {
+            AppIconGraphic(
+                AppIcon.Offline,
+                OFFLINE_UNAVAILABLE_DESCRIPTION,
+                Modifier.size(16.dp),
+                Color.White.copy(alpha = 0.62f)
+            )
+        }
     }
 }
 

@@ -64,10 +64,25 @@ class HomePresenterTest {
             offlineReadable = true,
             offline = true
         )
+        val closedUnavailable = HomePresenter.readingHistory(
+            recent(ReadingSessionStatus.CLOSED),
+            offlineReadable = false,
+            offline = true
+        )
+        val reconnected = HomePresenter.readingHistory(
+            recent(ReadingSessionStatus.ACTIVE),
+            offlineReadable = false,
+            offline = false
+        )
 
         assertNull(unavailable.primaryIntent)
-        assertEquals("Not available offline", unavailable.availabilityLabel)
+        assertEquals(true, unavailable.unavailableOffline)
         assertEquals("book-1", downloaded.primaryIntent?.bookId)
+        assertEquals(false, downloaded.unavailableOffline)
+        assertEquals(ReadingStatusIndicator.Closed, closedUnavailable.statusIndicator)
+        assertEquals(true, closedUnavailable.unavailableOffline)
+        assertEquals(false, reconnected.unavailableOffline)
+        assertEquals("book-1", reconnected.primaryIntent?.bookId)
         assertEquals(
             listOf(
                 HomeNavigationIntent.BookAction(BookCardAction.BookDetails("book-1")),
