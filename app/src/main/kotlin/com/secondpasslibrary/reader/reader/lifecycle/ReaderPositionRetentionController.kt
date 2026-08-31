@@ -156,6 +156,15 @@ internal class ReaderPositionRetentionController(
         }
     }
 
+    /** Test observation which deliberately leaves the capture reusable by pre-loss lifecycle work. */
+    internal suspend fun observePendingCapture(): EpubCfi? {
+        val capture = synchronized(lock) { pendingCapture }
+        if (capture != null) {
+            withTimeoutOrNull(POSITION_CAPTURE_TIMEOUT_MILLIS) { capture.join() }
+        }
+        return synchronized(lock) { retainedPosition }
+    }
+
     /** Called after all capabilities have bound to the replacement navigator. */
     fun navigatorAttached(): Long = synchronized(lock) {
         check(!closed) { "Reader position retention is closed." }

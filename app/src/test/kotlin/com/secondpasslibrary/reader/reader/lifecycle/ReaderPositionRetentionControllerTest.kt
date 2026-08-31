@@ -179,6 +179,30 @@ class ReaderPositionRetentionControllerTest {
     }
 
     @Test
+    fun `passive observation leaves movement capture reusable by pre-loss lifecycle`() = runTest {
+        val navigator = FakeNavigator()
+        val retained = EpubCfi("epubcfi(/6/4!/4/2/1:8)")
+        navigator.positions += completed(EpubCfiOutcome.Success(retained))
+        val controller = controller(navigator)
+        val firstAttachment = controller.navigatorAttached()
+        controller.completeStartupRestore(null)
+
+        controller.captureAfterViewportMovement()
+        runCurrent()
+        assertEquals(retained, controller.observePendingCapture())
+        controller.captureBeforeNavigatorLoss()
+        runCurrent()
+
+        assertEquals(1, navigator.positionRequests)
+        controller.navigatorDetached(firstAttachment)
+        controller.awaitPendingCapture()
+        controller.navigatorAttached()
+        runCurrent()
+        assertEquals(listOf(retained), navigator.destinations)
+        controller.close()
+    }
+
+    @Test
     fun `startup progress is only seeded and is not navigated on initial attachment`() = runTest {
         val navigator = FakeNavigator()
         val startup = EpubCfi("epubcfi(/6/6!/4/2/1:6)")
@@ -254,14 +278,17 @@ class ReaderPositionRetentionControllerTest {
         override val readiness = MutableStateFlow(initialReadiness)
         val positions = ArrayDeque<CompletableDeferred<EpubCfiOutcome<EpubCfi>>>()
         val destinations = mutableListOf<EpubCfi>()
+        var positionRequests = 0
 
         override suspend fun goTo(cfi: EpubCfi): EpubCfiOutcome<Unit> {
             destinations += cfi
             return EpubCfiOutcome.Success(Unit)
         }
 
-        override suspend fun currentPosition(): EpubCfiOutcome<EpubCfi> =
-            positions.removeFirst().await()
+        override suspend fun currentPosition(): EpubCfiOutcome<EpubCfi> {
+            positionRequests += 1
+            return positions.removeFirst().await()
+        }
 
         override suspend fun currentSelection(): EpubCfiOutcome<EpubCfiSelection?> =
             EpubCfiOutcome.Success(null)

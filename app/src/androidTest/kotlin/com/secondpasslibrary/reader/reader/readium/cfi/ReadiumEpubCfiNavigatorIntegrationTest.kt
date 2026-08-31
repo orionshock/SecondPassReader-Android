@@ -25,6 +25,7 @@ import com.secondpasslibrary.reader.reader.cfi.SyntheticEpubCfiSources
 import com.secondpasslibrary.reader.reader.cfi.SyntheticEpubFixtureBuilder
 import com.secondpasslibrary.reader.reader.cfi.normalizeEpubHref
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
+import com.secondpasslibrary.reader.reader.lifecycle.ReaderPositionRetentionController
 import com.secondpasslibrary.reader.reader.toc.ReaderPublicationNavigationResult
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
@@ -338,31 +339,39 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
         launchHost(fixture).use { scenario ->
             val initial = scenario.awaitReadyHost()
             initial.engine.positionRetention.completeStartupRestore(null)
-            val retainedA = runBlocking {
-                initial.engine.cfiNavigator.currentPosition().requireSuccess()
-            }
-            initial.engine.positionRetention.retainPosition(retainedA)
+            initial.engine.positionRetention.retainPosition(EpubCfi(CROSS_MARKUP_RANGE_CFI))
             runBlocking {
                 initial.engine.cfiNavigator.goTo(EpubCfi(CROSS_SPINE_POINT_CFI))
                     .requireSuccess()
             }
             assertTrue(runBlocking { scenario.isPassageVisible("cross-spine-target") })
-            runBlocking { initial.engine.positionRetention.awaitPendingCapture() }
-            initial.engine.positionRetention.captureBeforeNavigatorLoss()
-            val freshB = requireNotNull(
-                runBlocking { initial.engine.positionRetention.awaitPendingCapture() }
+            val retention = initial.engine.positionRetention as ReaderPositionRetentionController
+            val retainedB = requireNotNull(
+                runBlocking { retention.observePendingCapture() }
             )
-            assertTrue(freshB.value.contains("/6/4[spine-chapter-two]"))
+            assertTrue(retainedB.value.contains("/6/4[spine-chapter-two]"))
 
             scenario.recreate()
             val recreated = scenario.awaitReadyHost()
             assertSame(initial.engine, recreated.engine)
+            awaitPublicationResource(
+                recreated.engine,
+                SyntheticEpubCfiSources.CHAPTER_TWO_PATH
+            )
             runBlocking {
-                repeat(100) {
-                    if (scenario.isPassageVisible("cross-spine-target")) return@runBlocking
-                    delay(50)
+                withTimeout(HOST_TIMEOUT_MILLIS) {
+                    while (!scenario.isPassageVisible("cross-spine-target")) {
+                        delay(50)
+                    }
                 }
             }
+            assertTrue(
+                "Retained $retainedB restored resource " +
+                    recreated.engine.tableOfContents.currentResource.value,
+                runBlocking {
+                    scenario.isPassageVisible("cross-spine-target")
+                }
+            )
         }
     }
 
