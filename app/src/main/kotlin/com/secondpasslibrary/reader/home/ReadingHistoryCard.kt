@@ -25,6 +25,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -74,23 +76,28 @@ private fun ReadingHistoryCardSurface(
             Modifier
                 .width(172.dp)
                 .height(258.dp)
-                .semantics {
-                    if (model.unavailableOffline) {
-                        stateDescription = OFFLINE_UNAVAILABLE_DESCRIPTION
-                    }
-                }
                 .combinedClickable(
                     onClickLabel = model.primaryIntent?.let { "Read ${model.title}" },
                     onClick = onClick,
                     onLongClickLabel = "Reading session actions",
                     onLongClick = onLongClick
-                ),
+                )
+                .semantics(mergeDescendants = true) {
+                    contentDescription = model.accessibilityDescription
+                    if (model.unavailableOffline) {
+                        stateDescription = OFFLINE_UNAVAILABLE_DESCRIPTION
+                    }
+                },
         shape = MaterialTheme.shapes.medium,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         color = MaterialTheme.colorScheme.surfaceContainer
     ) {
         Box(Modifier.fillMaxSize()) {
-            HomeBookCover(model.cover, model.title, Modifier.fillMaxSize())
+            HomeBookCover(
+                model.cover,
+                model.title,
+                Modifier.fillMaxSize().clearAndSetSemantics { }
+            )
             Box(
                 Modifier
                     .fillMaxSize()
@@ -117,15 +124,18 @@ private fun ReadingHistoryCardText(model: ReadingHistoryCardModel, modifier: Mod
             overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.titleMedium
         )
-        model.sessionName?.let {
-            Text(
-                it,
-                color = Color.White.copy(alpha = 0.78f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.labelMedium
-            )
-        }
+        Text(
+            model.sessionIdentityLabel,
+            color =
+                Color.White.copy(
+                    alpha =
+                        if (model.statusIndicator == ReadingStatusIndicator.Active) 0.94f else 0.82f
+                ),
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.labelMedium
+        )
         model.locationLabel?.let {
             Text(
                 it,
@@ -145,6 +155,10 @@ private fun ReadingStatus(model: ReadingHistoryCardModel) {
         ReadingStatusIndicator.Active -> MaterialTheme.colorScheme.tertiary
         ReadingStatusIndicator.Closed -> MaterialTheme.colorScheme.outline
     }
+    val labelAlpha = when (model.statusIndicator) {
+        ReadingStatusIndicator.Active -> 0.9f
+        ReadingStatusIndicator.Closed -> 0.68f
+    }
     Row(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -152,7 +166,7 @@ private fun ReadingStatus(model: ReadingHistoryCardModel) {
         Box(Modifier.size(8.dp).background(color, CircleShape))
         Text(
             model.statusLabel,
-            color = Color.White.copy(alpha = 0.88f),
+            color = Color.White.copy(alpha = labelAlpha),
             style = MaterialTheme.typography.labelSmall
         )
         if (model.unavailableOffline) {

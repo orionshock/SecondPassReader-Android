@@ -9,6 +9,8 @@ import com.secondpasslibrary.client.ShelfSummary
 import com.secondpasslibrary.client.ShelfVisibility
 import com.secondpasslibrary.reader.design.book.BookCardAction
 import com.secondpasslibrary.reader.design.icons.AppIcon
+import java.time.ZoneOffset
+import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -27,11 +29,19 @@ class HomePresenterTest {
     }
 
     @Test
-    fun `reading presentation keeps opaque location and suppresses redundant session name`() {
-        val model = HomePresenter.readingHistory(recent(ReadingSessionStatus.ACTIVE))
+    fun `reading presentation uses activity date when Session name repeats Book title`() {
+        val model = HomePresenter.readingHistory(
+            recent(ReadingSessionStatus.ACTIVE),
+            zoneId = ZoneOffset.UTC,
+            locale = Locale.US
+        )
 
         assertEquals("Chapter 4", model.locationLabel)
-        assertNull(model.sessionName)
+        assertEquals("Read Aug 16, 2026", model.sessionIdentityLabel)
+        assertEquals(
+            "The Dispossessed, Read Aug 16, 2026, Chapter 4, Active",
+            model.accessibilityDescription
+        )
         assertEquals(
             OpenReaderIntent(
                 "book-1",
@@ -50,6 +60,48 @@ class HomePresenterTest {
             )
 
         assertNull(model.primaryIntent)
+    }
+
+    @Test
+    fun `explicit Session name is primary identity and malformed date has safe fallback`() {
+        val named = HomePresenter.readingHistory(
+            recent(ReadingSessionStatus.CLOSED).copy(sessionName = "Second pass")
+        )
+        val fallback = HomePresenter.readingHistory(
+            recent(ReadingSessionStatus.CLOSED).copy(
+                sessionName = "",
+                lastActivityAt = "unknown"
+            )
+        )
+
+        assertEquals("Second pass", named.sessionIdentityLabel)
+        assertEquals("Reading session", fallback.sessionIdentityLabel)
+    }
+
+    @Test
+    fun `same Book Sessions retain distinct presentation identities`() {
+        val active = HomePresenter.readingHistory(
+            recent(ReadingSessionStatus.ACTIVE).copy(sessionName = "Current read")
+        )
+        val closedFirst = HomePresenter.readingHistory(
+            recent(ReadingSessionStatus.CLOSED).copy(sessionName = "First pass")
+        )
+        val closedSecond = HomePresenter.readingHistory(
+            recent(ReadingSessionStatus.CLOSED).copy(sessionName = "Reference pass")
+        )
+
+        assertEquals(
+            listOf("Current read", "First pass", "Reference pass"),
+            listOf(active, closedFirst, closedSecond).map { it.sessionIdentityLabel }
+        )
+        assertEquals(
+            listOf(
+                ReadingStatusIndicator.Active,
+                ReadingStatusIndicator.Closed,
+                ReadingStatusIndicator.Closed
+            ),
+            listOf(active, closedFirst, closedSecond).map { it.statusIndicator }
+        )
     }
 
     @Test

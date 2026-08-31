@@ -7,6 +7,11 @@ import com.secondpasslibrary.client.ShelfOwner
 import com.secondpasslibrary.client.ShelfSummary
 import com.secondpasslibrary.reader.design.book.BookCardAction
 import com.secondpasslibrary.reader.design.icons.AppIcon
+import java.time.Instant
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 internal enum class ReadingStatusIndicator {
     Active,
@@ -23,10 +28,11 @@ internal data class ReadingHistoryCardModel(
     val bookId: String,
     val sessionId: String,
     val title: String,
-    val sessionName: String?,
+    val sessionIdentityLabel: String,
     val locationLabel: String?,
     val statusLabel: String,
     val statusIndicator: ReadingStatusIndicator,
+    val accessibilityDescription: String,
     val cover: BookCoverPresentation,
     val primaryIntent: OpenReaderIntent?,
     val unavailableOffline: Boolean = false,
@@ -50,23 +56,32 @@ internal object HomePresenter {
     fun readingHistory(
         item: RecentReadingItem,
         offlineReadable: Boolean = true,
-        offline: Boolean = false
-    ) = ReadingHistoryCardModel(
-        bookId = item.book.id,
-        sessionId = item.sessionId,
-        title = item.book.title,
-        sessionName = item.sessionName.useIfDistinctFrom(item.book.title),
-        locationLabel = item.progress?.locationLabel?.trim()?.ifEmpty { null },
-        statusLabel = item.status.label,
-        statusIndicator = item.status.indicator,
-        cover = item.book.cover.toPresentation(),
-        primaryIntent =
-            item.book.takeIf { (offline && offlineReadable) || (!offline && it.canOpen) }?.let {
-                OpenReaderIntent(it.id, item.sessionId, it.title)
-            },
-        unavailableOffline = offline && !offlineReadable,
-        contextActions = item.contextActions(serverMutationsAvailable = !offline)
-    )
+        offline: Boolean = false,
+        zoneId: ZoneId = ZoneId.systemDefault(),
+        locale: Locale = Locale.getDefault()
+    ): ReadingHistoryCardModel {
+        val sessionIdentity = item.sessionIdentityLabel(zoneId, locale)
+        val location = item.progress?.locationLabel?.trim()?.ifEmpty { null }
+        return ReadingHistoryCardModel(
+            bookId = item.book.id,
+            sessionId = item.sessionId,
+            title = item.book.title,
+            sessionIdentityLabel = sessionIdentity,
+            locationLabel = location,
+            statusLabel = item.status.label,
+            statusIndicator = item.status.indicator,
+            accessibilityDescription =
+                listOfNotNull(item.book.title, sessionIdentity, location, item.status.label)
+                    .joinToString(", "),
+            cover = item.book.cover.toPresentation(),
+            primaryIntent =
+                item.book.takeIf { (offline && offlineReadable) || (!offline && it.canOpen) }?.let {
+                    OpenReaderIntent(it.id, item.sessionId, it.title)
+                },
+            unavailableOffline = offline && !offlineReadable,
+            contextActions = item.contextActions(serverMutationsAvailable = !offline)
+        )
+    }
 
     fun shelf(shelf: ShelfSummary): ShelfCardModel {
         val owner = shelf.owner.toPresentation(shelf.canEdit)
@@ -84,9 +99,6 @@ internal object HomePresenter {
                 }
         )
     }
-
-    private fun String.useIfDistinctFrom(other: String): String? =
-        trim().takeIf { it.isNotEmpty() && !it.equals(other.trim(), ignoreCase = true) }
 
     private fun PublicBookCoverReference?.toPresentation(): BookCoverPresentation =
         this?.let(BookCoverPresentation::Public) ?: BookCoverPresentation.Missing
@@ -132,6 +144,20 @@ internal object HomePresenter {
 
     private val Int.bookCountLabel: String
         get() = "$this ${if (this == 1) "book" else "books"}"
+}
+
+private fun RecentReadingItem.sessionIdentityLabel(zoneId: ZoneId, locale: Locale): String =
+    sessionName
+        .trim()
+        .takeIf { it.isNotEmpty() && !it.equals(book.title.trim(), ignoreCase = true) }
+        ?: lastActivityAt.toReadingDateLabel(zoneId, locale)
+
+private fun String.toReadingDateLabel(zoneId: ZoneId, locale: Locale): String {
+    val instant = runCatching { Instant.parse(this) }
+        .recoverCatching { OffsetDateTime.parse(this).toInstant() }
+        .getOrNull() ?: return "Reading session"
+    val date = DateTimeFormatter.ofPattern("MMM d, uuuu", locale).withZone(zoneId).format(instant)
+    return "Read $date"
 }
 
 private data class ShelfOwnerPresentation(
