@@ -23,11 +23,7 @@ internal class ReadiumReaderTableOfContents(
 
     override suspend fun goTo(target: ReaderPublicationTarget): ReaderPublicationNavigationResult {
         val link = targets[target] ?: return ReaderPublicationNavigationResult.REJECTED
-        return if (binding.goTo(link)) {
-            ReaderPublicationNavigationResult.NAVIGATED
-        } else {
-            ReaderPublicationNavigationResult.UNAVAILABLE
-        }
+        return binding.goTo(link)
     }
 
     private fun mapEntry(link: Link): ReaderTocEntry? {

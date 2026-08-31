@@ -13,6 +13,9 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfiTargetKind
 import com.secondpasslibrary.reader.reader.cfi.EpubLayout
 import com.secondpasslibrary.reader.reader.cfi.EpubPackageDocument
 import com.secondpasslibrary.reader.reader.cfi.EpubSelectionBounds
+import com.secondpasslibrary.reader.reader.readium.ReadiumNavigatorCommandResult
+import com.secondpasslibrary.reader.reader.readium.ReadiumNavigatorOperationLane
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.flow.StateFlow
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.shared.publication.Link
@@ -21,10 +24,10 @@ import org.readium.r2.shared.publication.Link
 internal class ReadiumEpubCfiNavigator(
     private val binding: ReadiumCfiNavigatorBinding,
     private val packageDocument: EpubPackageDocument,
-    readingOrder: List<Link>
+    readingOrder: List<Link>,
+    private val operations: ReadiumNavigatorOperationLane
 ) : EpubCfiNavigator,
     AutoCloseable {
-    private val operations = ReadiumCfiOperationLane()
     private val packageCfiMapper = ReadiumEpubPackageCfiMapper(
         packageDocument = packageDocument,
         readingOrder = readingOrder,
@@ -38,8 +41,16 @@ internal class ReadiumEpubCfiNavigator(
 
     override val readiness: StateFlow<EpubCfiReadiness> = binding.readiness
 
-    override suspend fun goTo(cfi: EpubCfi): EpubCfiOutcome<Unit> =
-        operations.runNavigation { incomingNavigation.goTo(cfi) }
+    override suspend fun goTo(cfi: EpubCfi): EpubCfiOutcome<Unit> = when (
+        val command = operations.runNavigation(CFI_NAVIGATION_COMMAND_TIMEOUT) {
+            incomingNavigation.goTo(cfi)
+        }
+    ) {
+        is ReadiumNavigatorCommandResult.Completed -> command.value
+
+        ReadiumNavigatorCommandResult.TimedOut ->
+            EpubCfiOutcome.Failure(EpubCfiFailure.NAVIGATION_TIMEOUT)
+    }
 
     override suspend fun currentPositionWithContext(): EpubCfiOutcome<EpubCfiPosition> =
         operations.runLatestRead {
@@ -212,10 +223,11 @@ internal class ReadiumEpubCfiNavigator(
     }
 
     override fun close() {
-        operations.close()
         binding.close()
     }
 }
+
+private val CFI_NAVIGATION_COMMAND_TIMEOUT = 60.seconds
 
 private fun RectF.toSelectionBounds(): EpubSelectionBounds? {
     if (!listOf(left, top, right, bottom).all(Float::isFinite)) return null

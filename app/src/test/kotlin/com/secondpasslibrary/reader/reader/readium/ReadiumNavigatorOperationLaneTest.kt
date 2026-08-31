@@ -1,5 +1,10 @@
-package com.secondpasslibrary.reader.reader.readium.cfi
+package com.secondpasslibrary.reader.reader.readium
 
+import com.secondpasslibrary.reader.reader.readium.cfi.ReadiumCfiResourceCapture
+import com.secondpasslibrary.reader.reader.readium.cfi.ReadiumCfiResourceIdentity
+import com.secondpasslibrary.reader.reader.readium.cfi.coherentResourceCapture
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
@@ -12,15 +17,15 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class ReadiumCfiOperationLaneTest {
+class ReadiumNavigatorOperationLaneTest {
     @Test
     fun `read arriving during navigation waits for navigation to complete`() = runTest {
-        val lane = ReadiumCfiOperationLane()
+        val lane = ReadiumNavigatorOperationLane()
         val navigationStarted = CompletableDeferred<Unit>()
         val releaseNavigation = CompletableDeferred<Unit>()
         val readStarted = CompletableDeferred<Unit>()
         val navigation = async {
-            lane.runNavigation {
+            lane.runNavigation(1.seconds) {
                 navigationStarted.complete(Unit)
                 releaseNavigation.await()
                 "navigated"
@@ -39,14 +44,14 @@ class ReadiumCfiOperationLaneTest {
         assertFalse(navigation.isCancelled)
         assertFalse(readStarted.isCompleted)
         releaseNavigation.complete(Unit)
-        assertEquals("navigated", navigation.await())
+        assertEquals("navigated", navigation.await().completedValue())
         assertEquals("captured", read.await())
         lane.close()
     }
 
     @Test
     fun `navigation cancels an active read before entering live renderer`() = runTest {
-        val lane = ReadiumCfiOperationLane()
+        val lane = ReadiumNavigatorOperationLane()
         val readStarted = CompletableDeferred<Unit>()
         val readCleanedUp = CompletableDeferred<Unit>()
         val read = async {
@@ -62,24 +67,24 @@ class ReadiumCfiOperationLaneTest {
         readStarted.await()
 
         val navigation = async {
-            lane.runNavigation {
+            lane.runNavigation(1.seconds) {
                 assertTrue(readCleanedUp.isCompleted)
                 "navigated"
             }
         }
 
-        assertEquals("navigated", navigation.await())
+        assertEquals("navigated", navigation.await().completedValue())
         assertTrue(read.isCancelled)
         lane.close()
     }
 
     @Test
     fun `new navigation cancels old navigation before entering live renderer`() = runTest {
-        val lane = ReadiumCfiOperationLane()
+        val lane = ReadiumNavigatorOperationLane()
         val firstStarted = CompletableDeferred<Unit>()
         val firstCleanedUp = CompletableDeferred<Unit>()
         val first = async {
-            lane.runNavigation {
+            lane.runNavigation(1.seconds) {
                 firstStarted.complete(Unit)
                 try {
                     awaitCancellation()
@@ -91,25 +96,25 @@ class ReadiumCfiOperationLaneTest {
         firstStarted.await()
 
         val second = async {
-            lane.runNavigation {
+            lane.runNavigation(1.seconds) {
                 assertTrue(firstCleanedUp.isCompleted)
                 "new destination"
             }
         }
 
-        assertEquals("new destination", second.await())
+        assertEquals("new destination", second.await().completedValue())
         assertTrue(first.isCancelled)
         lane.close()
     }
 
     @Test
     fun `reads coalesce to latest while navigation is active`() = runTest {
-        val lane = ReadiumCfiOperationLane()
+        val lane = ReadiumNavigatorOperationLane()
         val navigationStarted = CompletableDeferred<Unit>()
         val releaseNavigation = CompletableDeferred<Unit>()
         val executedReads = mutableListOf<String>()
         val navigation = async {
-            lane.runNavigation {
+            lane.runNavigation(1.seconds) {
                 navigationStarted.complete(Unit)
                 releaseNavigation.await()
             }
@@ -129,20 +134,35 @@ class ReadiumCfiOperationLaneTest {
         assertTrue(second.isCancelled)
         assertFalse(third.isCompleted)
         releaseNavigation.complete(Unit)
-        navigation.await()
+        navigation.await().completedValue()
         third.await()
         assertEquals(listOf("third"), executedReads)
         lane.close()
     }
 
     @Test
-    fun `new navigation waits for non cooperative old navigation cleanup`() = runTest {
-        val lane = ReadiumCfiOperationLane()
+    fun `timed out command releases lane for later navigation`() = runTest {
+        val lane = ReadiumNavigatorOperationLane()
+
+        assertEquals(
+            ReadiumNavigatorCommandResult.TimedOut,
+            lane.runNavigation(100.milliseconds) { awaitCancellation() }
+        )
+        assertEquals(
+            "next destination",
+            lane.runNavigation(1.seconds) { "next destination" }.completedValue()
+        )
+        lane.close()
+    }
+
+    @Test
+    fun `new navigation waits for non cooperative old command cleanup`() = runTest {
+        val lane = ReadiumNavigatorOperationLane()
         val firstStarted = CompletableDeferred<Unit>()
         val releaseFirst = CompletableDeferred<Unit>()
         val secondStarted = CompletableDeferred<Unit>()
         val first = async {
-            lane.runNavigation {
+            lane.runNavigation(1.seconds) {
                 firstStarted.complete(Unit)
                 withContext(NonCancellable) { releaseFirst.await() }
                 "first"
@@ -151,7 +171,7 @@ class ReadiumCfiOperationLaneTest {
         firstStarted.await()
 
         val second = async {
-            lane.runNavigation {
+            lane.runNavigation(1.seconds) {
                 secondStarted.complete(Unit)
                 "second"
             }
@@ -160,13 +180,13 @@ class ReadiumCfiOperationLaneTest {
 
         assertFalse(secondStarted.isCompleted)
         releaseFirst.complete(Unit)
-        assertEquals("second", second.await())
+        assertEquals("second", second.await().completedValue())
         assertTrue(first.isCancelled)
         lane.close()
     }
 
     @Test
-    fun `resource identity change rejects captured DOM result`() {
+    fun `resource generation change rejects captured DOM result`() {
         val before = ReadiumCfiResourceIdentity(
             navigatorGeneration = 1,
             resourceGeneration = 4,
@@ -182,18 +202,9 @@ class ReadiumCfiOperationLaneTest {
             coherentResourceCapture(before, after, "content CFI")
         )
     }
+}
 
-    @Test
-    fun `stable resource identity publishes captured DOM result`() {
-        val identity = ReadiumCfiResourceIdentity(
-            navigatorGeneration = 2,
-            resourceGeneration = 8,
-            href = "EPUB/chapter-2.xhtml"
-        )
-
-        assertEquals(
-            ReadiumCfiResourceCapture.Stable(identity, "content CFI"),
-            coherentResourceCapture(identity, identity, "content CFI")
-        )
-    }
+private fun <T> ReadiumNavigatorCommandResult<T>.completedValue(): T = when (this) {
+    is ReadiumNavigatorCommandResult.Completed -> value
+    ReadiumNavigatorCommandResult.TimedOut -> error("Navigator command unexpectedly timed out.")
 }

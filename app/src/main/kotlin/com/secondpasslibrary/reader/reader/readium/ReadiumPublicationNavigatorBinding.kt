@@ -1,7 +1,10 @@
 package com.secondpasslibrary.reader.reader.readium
 
 import com.secondpasslibrary.reader.reader.cfi.normalizeEpubHref
+import com.secondpasslibrary.reader.reader.toc.ReaderPublicationNavigationResult
 import com.secondpasslibrary.reader.reader.toc.ReaderPublicationResource
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
@@ -9,17 +12,16 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.shared.publication.Link
 import org.readium.r2.shared.publication.Locator
 
 /** Lifecycle binding for renderer-neutral publication navigation such as TOC targets. */
-internal class ReadiumPublicationNavigatorBinding : AutoCloseable {
+internal class ReadiumPublicationNavigatorBinding(
+    private val operations: ReadiumNavigatorOperationLane
+) : AutoCloseable {
     private val lock = Any()
-    private val operationMutex = Mutex()
     private val scope = MainScope()
     private val mutableCurrentResource = MutableStateFlow<ReaderPublicationResource?>(null)
     private var navigator: EpubNavigatorFragment? = null
@@ -63,16 +65,32 @@ internal class ReadiumPublicationNavigatorBinding : AutoCloseable {
         }
     }
 
-    suspend fun goTo(link: Link): Boolean = operationMutex.withLock {
+    suspend fun goTo(link: Link): ReaderPublicationNavigationResult = try {
+        operations.runNavigation(TOC_NAVIGATION_COMMAND_TIMEOUT) {
+            submit(link)
+        }.toPublicationNavigationResult()
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        ReaderPublicationNavigationResult.UNAVAILABLE
+    }
+
+    private suspend fun submit(link: Link): Boolean {
         val lease = synchronized(lock) {
-            if (closed) null else navigator?.let { it to generation }
-        } ?: return@withLock false
-        withContext(Dispatchers.Main.immediate) {
-            val current = synchronized(lock) {
-                !closed && navigator === lease.first && generation == lease.second
+            if (closed) null else navigator?.let { NavigatorLease(it, generation) }
+        } ?: return false
+        val accepted = withContext(Dispatchers.Main.immediate) {
+            if (isCurrent(lease)) {
+                lease.navigator.go(link, animated = false)
+            } else {
+                false
             }
-            current && lease.first.go(link, animated = false)
         }
+        return accepted && isCurrent(lease)
+    }
+
+    private fun isCurrent(lease: NavigatorLease): Boolean = synchronized(lock) {
+        !closed && navigator === lease.navigator && generation == lease.generation
     }
 
     override fun close() {
@@ -86,7 +104,21 @@ internal class ReadiumPublicationNavigatorBinding : AutoCloseable {
         mutableCurrentResource.value = null
         scope.cancel()
     }
+
+    private data class NavigatorLease(val navigator: EpubNavigatorFragment, val generation: Long)
 }
 
 private fun Locator.toReaderResource(): ReaderPublicationResource? =
     runCatching { ReaderPublicationResource(normalizeEpubHref(href.toString())) }.getOrNull()
+
+private val TOC_NAVIGATION_COMMAND_TIMEOUT = 10.seconds
+
+private fun ReadiumNavigatorCommandResult<Boolean>.toPublicationNavigationResult() = when (this) {
+    is ReadiumNavigatorCommandResult.Completed -> if (value) {
+        ReaderPublicationNavigationResult.NAVIGATED
+    } else {
+        ReaderPublicationNavigationResult.UNAVAILABLE
+    }
+
+    ReadiumNavigatorCommandResult.TimedOut -> ReaderPublicationNavigationResult.UNAVAILABLE
+}

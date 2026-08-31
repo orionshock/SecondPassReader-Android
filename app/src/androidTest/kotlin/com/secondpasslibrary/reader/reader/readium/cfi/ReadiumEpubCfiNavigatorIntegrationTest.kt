@@ -23,6 +23,7 @@ import com.secondpasslibrary.reader.reader.cfi.SyntheticEpubCfiSources
 import com.secondpasslibrary.reader.reader.cfi.SyntheticEpubFixtureBuilder
 import com.secondpasslibrary.reader.reader.cfi.normalizeEpubHref
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
+import com.secondpasslibrary.reader.reader.toc.ReaderPublicationNavigationResult
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -513,6 +514,104 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
     }
 
     @Test
+    fun positionCaptureWaitsForInFlightTocNavigation() = withFixture(
+        "toc-read-priority.epub"
+    ) { fixture ->
+        launchHost(fixture).use { scenario ->
+            val host = scenario.awaitReadyHost()
+            val chapterTwo = requireNotNull(
+                host.engine.tableOfContents.entries.single { it.title == "Chapter Two" }.target
+            )
+
+            runBlocking {
+                val tocNavigation = async(start = CoroutineStart.UNDISPATCHED) {
+                    host.engine.tableOfContents.goTo(chapterTwo)
+                }
+                assertFalse(tocNavigation.isCompleted)
+                val positionCapture = async {
+                    host.engine.cfiNavigator.currentPositionWithContext()
+                }
+
+                assertEquals(
+                    ReaderPublicationNavigationResult.NAVIGATED,
+                    tocNavigation.await()
+                )
+                positionCapture.await().requireSuccess()
+            }
+
+            awaitPublicationResource(host.engine, SyntheticEpubCfiSources.CHAPTER_TWO_PATH)
+            assertCurrentResource(host.engine, SyntheticEpubCfiSources.CHAPTER_TWO_PATH)
+        }
+    }
+
+    @Test
+    fun cfiNavigationSupersedesInFlightTocNavigation() = withFixture(
+        "cfi-supersedes-toc.epub"
+    ) { fixture ->
+        launchHost(fixture).use { scenario ->
+            val host = scenario.awaitReadyHost()
+            val originalPosition = runBlocking {
+                host.engine.cfiNavigator.currentPosition().requireSuccess()
+            }
+            val chapterTwo = requireNotNull(
+                host.engine.tableOfContents.entries.single { it.title == "Chapter Two" }.target
+            )
+
+            runBlocking {
+                val tocNavigation = async(start = CoroutineStart.UNDISPATCHED) {
+                    host.engine.tableOfContents.goTo(chapterTwo)
+                }
+                assertFalse(tocNavigation.isCompleted)
+                val cfiNavigation = async {
+                    host.engine.cfiNavigator.goTo(originalPosition)
+                }
+
+                runCatching { tocNavigation.await() }
+                cfiNavigation.await().requireSuccess()
+            }
+
+            assertCurrentResource(host.engine, SyntheticEpubCfiSources.CHAPTER_ONE_PATH)
+        }
+    }
+
+    @Test
+    fun tocNavigationSupersedesInFlightCfiNavigation() = withFixture(
+        "toc-supersedes-cfi.epub"
+    ) { fixture ->
+        launchHost(fixture).use { scenario ->
+            val host = scenario.awaitReadyHost()
+            val chapterOne = requireNotNull(
+                host.engine.tableOfContents.entries.single { it.title == "Chapter One" }.target
+            )
+
+            runBlocking {
+                val cfiNavigation = async(start = CoroutineStart.UNDISPATCHED) {
+                    host.engine.cfiNavigator.goTo(EpubCfi(CROSS_SPINE_POINT_CFI))
+                }
+                withTimeout(HOST_TIMEOUT_MILLIS) {
+                    host.navigator.currentLocator.first { locator ->
+                        normalizeEpubHref(locator.href.toString()) ==
+                            SyntheticEpubCfiSources.CHAPTER_TWO_PATH
+                    }
+                }
+                assertFalse(cfiNavigation.isCompleted)
+                val tocNavigation = async {
+                    host.engine.tableOfContents.goTo(chapterOne)
+                }
+
+                runCatching { cfiNavigation.await() }
+                assertEquals(
+                    ReaderPublicationNavigationResult.NAVIGATED,
+                    tocNavigation.await()
+                )
+            }
+
+            awaitPublicationResource(host.engine, SyntheticEpubCfiSources.CHAPTER_ONE_PATH)
+            assertCurrentResource(host.engine, SyntheticEpubCfiSources.CHAPTER_ONE_PATH)
+        }
+    }
+
+    @Test
     fun resourceTransitionDuringBoundCaptureIsRejected() = withFixture(
         "resource-coherence.epub"
     ) { fixture ->
@@ -595,6 +694,14 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
             engine.cfiNavigator.resolve(current).requireSuccess()
         }
         assertEquals(expectedHref, resolution.resourceHref)
+    }
+
+    private fun awaitPublicationResource(engine: ReaderEngine, expectedHref: String) {
+        runBlocking {
+            withTimeout(HOST_TIMEOUT_MILLIS) {
+                engine.tableOfContents.currentResource.first { it?.reference == expectedHref }
+            }
+        }
     }
 
     private fun launchHost(

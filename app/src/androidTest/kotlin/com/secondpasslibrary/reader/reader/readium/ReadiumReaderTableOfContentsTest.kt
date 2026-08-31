@@ -27,7 +27,7 @@ class ReadiumReaderTableOfContentsTest {
                 )
             ),
             readingOrder = listOf(chapterOne, chapterTwo),
-            binding = ReadiumPublicationNavigatorBinding()
+            binding = ReadiumPublicationNavigatorBinding(ReadiumNavigatorOperationLane())
         )
 
         val parent = toc.entries.single()

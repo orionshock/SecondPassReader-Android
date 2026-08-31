@@ -40,8 +40,9 @@ private class ReadiumReaderEngine(
     initialAppearance: ReaderAppearance
 ) : ReaderEngine {
     private val navigatorFactory = EpubNavigatorFactory(publication)
+    private val navigatorOperations = ReadiumNavigatorOperationLane()
     private val cfiBinding = ReadiumCfiNavigatorBinding(ReadiumCfiJavascriptRuntime(context))
-    private val publicationBinding = ReadiumPublicationNavigatorBinding()
+    private val publicationBinding = ReadiumPublicationNavigatorBinding(navigatorOperations)
     private val appearanceController = ReadiumReaderAppearanceController(initialAppearance)
     private val movements = ReadiumViewportMovements()
     private val selections = ReadiumSelectionEvents(cfiBinding)
@@ -49,7 +50,8 @@ private class ReadiumReaderEngine(
     private val readiumCfiNavigator = ReadiumEpubCfiNavigator(
         binding = cfiBinding,
         packageDocument = packageDocument,
-        readingOrder = publication.readingOrder
+        readingOrder = publication.readingOrder,
+        operations = navigatorOperations
     )
     private val decorations = ReadiumReaderAnnotationDecorations(readiumCfiNavigator)
     private val visibleBookmarks = ReadiumVisiblePageBookmarks(readiumCfiNavigator, hud, movements)
@@ -101,6 +103,7 @@ private class ReadiumReaderEngine(
         selections.close()
         hud.close()
         decorations.close()
+        navigatorOperations.close()
         readiumCfiNavigator.close()
         publicationBinding.close()
         appearanceController.close()
