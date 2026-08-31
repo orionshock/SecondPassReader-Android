@@ -1,12 +1,11 @@
-package com.secondpasslibrary.reader.reader.readium
+package com.secondpasslibrary.reader.reader.readium.lifecycle
 
 import androidx.fragment.app.FragmentActivity
 import com.secondpasslibrary.reader.reader.lifecycle.ReaderActivityRestorationBootstrap
+import com.secondpasslibrary.reader.reader.readium.viewport.READIUM_NAVIGATOR_TAG
 import javax.inject.Inject
 import javax.inject.Singleton
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
-
-internal const val READIUM_NAVIGATOR_TAG = "reader.epub.navigator"
 
 /** Contains the Readium fragment workaround required by Android Activity restoration. */
 @Singleton

@@ -1,5 +1,5 @@
 import { colibrio, type ColibrioResolver } from "./colibrio";
-import { parseCfi, validateSupportedFullCfi } from "./protocol";
+import { parseCfi, targetKind, validateSupportedFullCfi } from "./protocol";
 
 export interface PackageTarget {
     readonly packageDocument: Document;
@@ -7,6 +7,51 @@ export interface PackageTarget {
     readonly itemref: Element;
     readonly idref: string;
     readonly spineIndex: number;
+}
+
+interface PackageCandidate { readonly id: string; readonly cfi: string; }
+interface PackageCandidateResolution {
+    readonly id: string;
+    readonly spineIndex: number;
+    readonly itemrefId: string | null;
+    readonly idref: string;
+    readonly kind: "point" | "range";
+}
+
+export function resolvePackageCandidates(
+    serializedCandidates: string,
+    packageDocumentXml: string,
+    packagePath: string
+): PackageCandidateResolution[] {
+    const candidates: unknown = JSON.parse(serializedCandidates);
+    if (!Array.isArray(candidates) || candidates.length > 1000) {
+        throw new Error("INVALID_CFI");
+    }
+    return candidates.map(function (candidate: unknown) {
+        try {
+            if (!isPackageCandidate(candidate)) {
+                return null;
+            }
+            const target = resolvePackageTarget(candidate.cfi, packageDocumentXml, packagePath);
+            return {
+                id: candidate.id,
+                itemrefId: target.itemref.getAttribute("id"),
+                idref: target.idref,
+                spineIndex: target.spineIndex,
+                kind: targetKind(parseCfi(candidate.cfi))
+            };
+        } catch (_error: unknown) {
+            return null;
+        }
+    }).filter(function (result): result is PackageCandidateResolution {
+        return result !== null;
+    });
+}
+
+function isPackageCandidate(value: unknown): value is PackageCandidate {
+    return typeof value === "object" && value !== null &&
+        typeof (value as Record<string, unknown>).id === "string" &&
+        typeof (value as Record<string, unknown>).cfi === "string";
 }
 
 export function parsePackageDocument(packageDocumentXml: unknown): Document {

@@ -13,8 +13,8 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfiTargetKind
 import com.secondpasslibrary.reader.reader.cfi.EpubLayout
 import com.secondpasslibrary.reader.reader.cfi.EpubPackageDocument
 import com.secondpasslibrary.reader.reader.cfi.EpubSelectionBounds
-import com.secondpasslibrary.reader.reader.readium.ReadiumNavigatorCommandResult
-import com.secondpasslibrary.reader.reader.readium.ReadiumNavigatorOperationLane
+import com.secondpasslibrary.reader.reader.readium.viewport.ReadiumNavigatorCommandResult
+import com.secondpasslibrary.reader.reader.readium.viewport.ReadiumNavigatorOperationLane
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.flow.StateFlow
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
@@ -38,6 +38,7 @@ internal class ReadiumEpubCfiNavigator(
         packageDocument = packageDocument,
         packageCfiMapper = packageCfiMapper
     )
+    private val pointVisibility = ReadiumPointVisibility(binding, packageDocument)
 
     override val readiness: StateFlow<EpubCfiReadiness> = binding.readiness
 
@@ -192,34 +193,7 @@ internal class ReadiumEpubCfiNavigator(
     internal suspend fun visiblePointCfis(
         candidates: Map<String, EpubCfi>
     ): EpubCfiOutcome<Set<String>> = operations.runLatestRead {
-        if (candidates.isEmpty()) return@runLatestRead EpubCfiOutcome.Success(emptySet())
-        val captured = binding.withNavigator { navigator, runtime ->
-            val before = binding.resourceIdentity(navigator)
-            val href = before?.href
-            val spineItem = href?.let(packageDocument::spineItemForHref)
-            val result = if (spineItem == null || spineItem.layout == EpubLayout.FIXED) {
-                ReadiumCfiJavascriptResult.Failure(EpubCfiFailure.RESOURCE_NOT_IN_READING_ORDER)
-            } else {
-                runtime.visiblePointTargets(
-                    navigator = navigator,
-                    candidates = candidates,
-                    packageDocument = packageDocument,
-                    spineIndex = spineItem.index,
-                    idref = spineItem.idref,
-                    itemrefId = spineItem.id,
-                    resourceHref = spineItem.resourceHref
-                )
-            }
-            coherentResourceCapture(before, binding.resourceIdentity(navigator), result)
-        } ?: return@runLatestRead binding.unavailableOutcome()
-        when (captured) {
-            ReadiumCfiResourceCapture.Changed -> resourceChanged()
-
-            is ReadiumCfiResourceCapture.Stable -> when (val result = captured.value) {
-                is ReadiumCfiJavascriptResult.Failure -> EpubCfiOutcome.Failure(result.reason)
-                is ReadiumCfiJavascriptResult.Success -> EpubCfiOutcome.Success(result.value)
-            }
-        }
+        pointVisibility.resolve(candidates)
     }
 
     override fun close() {

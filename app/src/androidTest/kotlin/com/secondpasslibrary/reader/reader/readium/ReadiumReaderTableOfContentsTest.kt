@@ -1,6 +1,8 @@
 package com.secondpasslibrary.reader.reader.readium
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.secondpasslibrary.reader.reader.readium.viewport.ReadiumNavigatorOperationLane
+import com.secondpasslibrary.reader.reader.readium.viewport.ReadiumPublicationNavigatorBinding
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue

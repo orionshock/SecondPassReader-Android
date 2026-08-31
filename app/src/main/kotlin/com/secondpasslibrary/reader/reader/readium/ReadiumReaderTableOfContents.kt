@@ -1,6 +1,7 @@
 package com.secondpasslibrary.reader.reader.readium
 
 import com.secondpasslibrary.reader.reader.cfi.normalizeEpubHref
+import com.secondpasslibrary.reader.reader.readium.viewport.ReadiumPublicationNavigatorBinding
 import com.secondpasslibrary.reader.reader.toc.ReaderPublicationNavigationResult
 import com.secondpasslibrary.reader.reader.toc.ReaderPublicationResource
 import com.secondpasslibrary.reader.reader.toc.ReaderPublicationTarget

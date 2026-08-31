@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.reader.readium
+package com.secondpasslibrary.reader.reader.readium.viewport
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow

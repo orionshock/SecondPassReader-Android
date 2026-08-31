@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.reader.readium
+package com.secondpasslibrary.reader.reader.readium.annotations
 
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.bookmark.ReaderVisiblePageBookmarks
@@ -6,20 +6,15 @@ import com.secondpasslibrary.reader.reader.annotations.bookmark.ReaderVisiblePag
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
 import com.secondpasslibrary.reader.reader.readium.cfi.ReadiumEpubCfiNavigator
+import com.secondpasslibrary.reader.reader.readium.viewport.ReadiumReaderHudEvents
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.merge
 
 /** Keeps exact bookmark CFI resolution and rendered-page intersection adapter-local. */
 internal class ReadiumVisiblePageBookmarks(
     private val navigator: ReadiumEpubCfiNavigator,
-    private val hudEvents: ReadiumReaderHudEvents,
-    private val movements: ReadiumViewportMovements
+    private val hudEvents: ReadiumReaderHudEvents
 ) : ReaderVisiblePageBookmarksResolver {
-    override fun invalidations(): Flow<Unit> = merge(
-        hudEvents.paginationChanges(),
-        movements.settled().map { Unit }
-    )
+    override fun invalidations(): Flow<Unit> = hudEvents.paginationChanges()
 
     override suspend fun resolve(
         bookmarks: List<ReaderAnnotation.Bookmark>

@@ -1,9 +1,11 @@
-package com.secondpasslibrary.reader.reader.readium
+package com.secondpasslibrary.reader.reader.readium.viewport
 
 import com.secondpasslibrary.reader.reader.domain.ReaderReadingStatus
 import com.secondpasslibrary.reader.reader.domain.ReaderReadingStatusScope
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ReadiumReaderHudEventsTest {
@@ -27,7 +29,7 @@ class ReadiumReaderHudEventsTest {
     }
 
     @Test
-    fun `stale navigator pagination cannot overwrite a newer attachment`() {
+    fun `stale navigator page and page-loaded signals cannot reach a newer attachment`() {
         val tracker = ReadiumSectionPaginationTracker()
         val oldGeneration = tracker.newGeneration()
         tracker.publish(oldGeneration, pageIndex = 1, totalPages = 10)
@@ -36,6 +38,8 @@ class ReadiumReaderHudEventsTest {
 
         tracker.publish(oldGeneration, pageIndex = 2, totalPages = 100)
 
+        assertFalse(tracker.isCurrent(oldGeneration))
+        assertTrue(tracker.isCurrent(newGeneration))
         assertEquals(
             ReaderReadingStatus(1, ReaderReadingStatusScope.SECTION),
             tracker.status.value

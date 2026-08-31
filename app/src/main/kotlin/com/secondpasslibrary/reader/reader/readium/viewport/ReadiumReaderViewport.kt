@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.reader.readium
+package com.secondpasslibrary.reader.reader.readium.viewport
 
 import android.app.Activity
 import android.app.Application
@@ -18,12 +18,18 @@ import androidx.fragment.app.FragmentContainerView
 import com.secondpasslibrary.reader.R
 import com.secondpasslibrary.reader.reader.domain.ReaderViewport
 import com.secondpasslibrary.reader.reader.lifecycle.ReaderPositionRetentionController
+import com.secondpasslibrary.reader.reader.readium.ReadiumNavigatorFragmentFactory
+import com.secondpasslibrary.reader.reader.readium.ReadiumReaderAppearanceController
+import com.secondpasslibrary.reader.reader.readium.annotations.ReadiumReaderAnnotationDecorations
+import com.secondpasslibrary.reader.reader.readium.annotations.ReadiumSelectionEvents
 import com.secondpasslibrary.reader.reader.readium.cfi.ReadiumCfiNavigatorBinding
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
+
+internal const val READIUM_NAVIGATOR_TAG = "reader.epub.navigator"
 
 internal class ReadiumReaderViewport(
     private val fragmentFactory: ReadiumNavigatorFragmentFactory,

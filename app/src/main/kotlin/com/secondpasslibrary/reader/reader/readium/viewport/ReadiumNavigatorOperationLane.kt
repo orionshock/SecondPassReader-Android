@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.reader.readium
+package com.secondpasslibrary.reader.reader.readium.viewport
 
 import kotlin.time.Duration
 import kotlinx.coroutines.CancellationException

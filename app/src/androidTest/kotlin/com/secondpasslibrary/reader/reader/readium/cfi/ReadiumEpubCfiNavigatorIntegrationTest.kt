@@ -643,6 +643,43 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
     }
 
     @Test
+    fun visibleBookmarksFilterOtherResourcesAndChunkWithoutDroppingCandidates() = withFixture(
+        "bookmark-prefilter-and-chunking.epub"
+    ) { fixture ->
+        launchHost(fixture).use { scenario ->
+            val engine = scenario.awaitReadyHost().engine
+            val visibleCfi = runBlocking {
+                engine.cfiNavigator.currentPosition().requireSuccess().value
+            }
+            val visible = (0..1_000).map { index ->
+                ReaderAnnotation.Bookmark(
+                    id = "visible-$index",
+                    clientId = "visible-$index",
+                    cfi = visibleCfi,
+                    locationLabel = "Visible $index",
+                    updatedAt = "2026-08-31T00:00:00Z"
+                )
+            }
+            val otherResource = ReaderAnnotation.Bookmark(
+                id = "other-resource",
+                clientId = "other-resource",
+                cfi = CROSS_SPINE_POINT_CFI,
+                locationLabel = "Chapter Two",
+                updatedAt = "2026-08-31T00:00:00Z"
+            )
+
+            val result = runBlocking {
+                engine.visiblePageBookmarks.resolve(visible + otherResource)
+            }
+
+            assertEquals(
+                visible.map(ReaderAnnotation.Bookmark::id),
+                result.bookmarks.map { it.id }
+            )
+        }
+    }
+
+    @Test
     fun positionCaptureDuringCrossResourceArrivalDoesNotCancelNavigation() = withFixture(
         "navigation-priority.epub"
     ) { fixture ->

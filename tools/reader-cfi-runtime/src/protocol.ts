@@ -1,6 +1,6 @@
 import { colibrio, type CfiAssertion, type CfiOffset, type CfiPath, type CfiRoot } from "./colibrio";
 
-export const RUNTIME_VERSION = "1.12.8";
+export const RUNTIME_VERSION = "1.12.9";
 export const CONTEXT_LENGTH = 64;
 export const SELECTION_CONTEXT_LENGTH = 2000;
 export const MOVEMENT_QUOTE_LENGTH = 128;

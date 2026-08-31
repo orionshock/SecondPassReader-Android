@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.reader.readium
+package com.secondpasslibrary.reader.reader.readium.annotations
 
 import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelectionEvents
 import com.secondpasslibrary.reader.reader.readium.cfi.ReadiumCfiNavigatorBinding

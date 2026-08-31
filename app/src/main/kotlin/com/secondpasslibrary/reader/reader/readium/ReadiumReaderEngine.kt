@@ -10,9 +10,18 @@ import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpenException
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
 import com.secondpasslibrary.reader.reader.domain.ReaderViewport
 import com.secondpasslibrary.reader.reader.lifecycle.ReaderPositionRetentionController
+import com.secondpasslibrary.reader.reader.readium.annotations.ReadiumReaderAnnotationDecorations
+import com.secondpasslibrary.reader.reader.readium.annotations.ReadiumSelectionEvents
+import com.secondpasslibrary.reader.reader.readium.annotations.ReadiumVisiblePageBookmarks
+import com.secondpasslibrary.reader.reader.readium.annotations.SELECTION_JAVASCRIPT_INTERFACE
 import com.secondpasslibrary.reader.reader.readium.cfi.ReadiumCfiJavascriptRuntime
 import com.secondpasslibrary.reader.reader.readium.cfi.ReadiumCfiNavigatorBinding
 import com.secondpasslibrary.reader.reader.readium.cfi.ReadiumEpubCfiNavigator
+import com.secondpasslibrary.reader.reader.readium.viewport.ReadiumNavigatorOperationLane
+import com.secondpasslibrary.reader.reader.readium.viewport.ReadiumPublicationNavigatorBinding
+import com.secondpasslibrary.reader.reader.readium.viewport.ReadiumReaderHudEvents
+import com.secondpasslibrary.reader.reader.readium.viewport.ReadiumReaderViewport
+import com.secondpasslibrary.reader.reader.readium.viewport.ReadiumViewportMovements
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
@@ -62,7 +71,7 @@ private class ReadiumReaderEngine(
         movements.pageChanged()
         positionRetentionController.captureAfterViewportMovement()
     }
-    private val visibleBookmarks = ReadiumVisiblePageBookmarks(readiumCfiNavigator, hud, movements)
+    private val visibleBookmarks = ReadiumVisiblePageBookmarks(readiumCfiNavigator, hud)
 
     override val viewport: ReaderViewport = ReadiumReaderViewport(
         fragmentFactory = {

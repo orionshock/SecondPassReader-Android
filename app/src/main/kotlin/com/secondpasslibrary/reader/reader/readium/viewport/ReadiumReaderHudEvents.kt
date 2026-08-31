@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.reader.readium
+package com.secondpasslibrary.reader.reader.readium.viewport
 
 import com.secondpasslibrary.reader.reader.domain.ReaderHudEvents
 import com.secondpasslibrary.reader.reader.domain.ReaderReadingStatus
@@ -39,7 +39,7 @@ internal class ReadiumReaderHudEvents(private val onPageChanged: () -> Unit = {}
             }
 
             override fun onPageLoaded() {
-                paginationChanges.tryEmit(Unit)
+                if (pagination.isCurrent(generation)) paginationChanges.tryEmit(Unit)
             }
         }
     }
@@ -85,10 +85,12 @@ internal class ReadiumSectionPaginationTracker {
     }
 
     fun publish(sourceGeneration: Long, pageIndex: Int, totalPages: Int): Boolean {
-        if (sourceGeneration != generation) return false
+        if (!isCurrent(sourceGeneration)) return false
         mutableStatus.value = readerSectionStatus(pageIndex, totalPages)
         return true
     }
+
+    fun isCurrent(sourceGeneration: Long): Boolean = sourceGeneration == generation
 
     fun invalidate() {
         generation += 1

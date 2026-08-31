@@ -40,14 +40,14 @@ class ReadiumCfiJavascriptRuntimeTest {
             harness.evaluate("typeof SecondPassColibrio.EpubCfiParser.parse").jsonString()
         )
         assertEquals(
-            "1.12.8",
+            "1.12.9",
             harness.evaluate("__secondPassEpubCfi.runtimeVersion()").jsonString()
         )
 
         harness.evaluate(asset("reader/cfi/secondpass-epub-cfi-runtime.js"))
 
         assertEquals(
-            "1.12.8",
+            "1.12.9",
             harness.evaluate("__secondPassEpubCfi.runtimeVersion()").jsonString()
         )
     }
@@ -557,6 +557,56 @@ class ReadiumCfiJavascriptRuntimeTest {
             }
 
             assertEquals(result.toString(), setOf("visible", "terminal"), visible)
+        }
+
+    @Test
+    fun packageCandidateBatchResolvesValidTargetsAndIsolatesMalformedCfi() =
+        withHarness { harness ->
+            val contentCfi = harness.generateContentCfi(
+                """
+                const node = document.querySelector("#repeated-phrase").firstChild;
+                builder.appendTerminalDomPosition(node, 0);
+                """.trimIndent()
+            )
+            val chapterOne = harness.compose(harness.packageCfi(), contentCfi)
+            val chapterTwoPackage = successString(
+                harness.runtime(
+                    "generatePackage",
+                    SyntheticEpubCfiSources.packageDocument,
+                    SyntheticEpubCfiSources.PACKAGE_PATH,
+                    1,
+                    "chapter-two",
+                    "spine-chapter-two"
+                )
+            )
+            val chapterTwo = harness.compose(chapterTwoPackage, contentCfi)
+            val candidates = JSONArray()
+                .put(JSONObject().put("id", "one").put("cfi", chapterOne))
+                .put(JSONObject().put("id", "two").put("cfi", chapterTwo))
+                .put(JSONObject().put("id", "malformed").put("cfi", "not-a-cfi"))
+
+            val result = harness.runtime(
+                "resolvePackageCandidates",
+                candidates.toString(),
+                SyntheticEpubCfiSources.packageDocument,
+                SyntheticEpubCfiSources.PACKAGE_PATH
+            )
+            assertTrue(result.toString(), result.getBoolean("ok"))
+            val resolved = result.getJSONArray("value")
+
+            assertEquals(2, resolved.length())
+            assertEquals(
+                listOf("one", "two"),
+                List(resolved.length()) { index ->
+                    resolved.getJSONObject(index).getString("id")
+                }
+            )
+            assertEquals(
+                listOf(0, 1),
+                List(resolved.length()) { index ->
+                    resolved.getJSONObject(index).getInt("spineIndex")
+                }
+            )
         }
 
     @Test

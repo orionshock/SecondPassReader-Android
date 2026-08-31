@@ -1,5 +1,5 @@
 // GENERATED from tools/reader-cfi-runtime; do not edit.
-// Source-SHA256: 373E51D11DDE8AFAAD99964EF29D9D12CDDE060D713C124A9D1D7EACEA300C88
+// Source-SHA256: 72B1324788711D898964181360B759415214F237CBDFF4C78F2833DBB0047787
 // Rebuild: cd tools/reader-cfi-runtime && npm run build
 "use strict";
 (() => {
@@ -13,7 +13,7 @@
   });
 
   // src/protocol.ts
-  var RUNTIME_VERSION = "1.12.8";
+  var RUNTIME_VERSION = "1.12.9";
   var CONTEXT_LENGTH = 64;
   var SELECTION_CONTEXT_LENGTH = 2e3;
   var MOVEMENT_QUOTE_LENGTH = 128;
@@ -99,6 +99,34 @@
   }
 
   // src/package-cfi.ts
+  function resolvePackageCandidates(serializedCandidates, packageDocumentXml, packagePath) {
+    const candidates = JSON.parse(serializedCandidates);
+    if (!Array.isArray(candidates) || candidates.length > 1e3) {
+      throw new Error("INVALID_CFI");
+    }
+    return candidates.map(function(candidate) {
+      try {
+        if (!isPackageCandidate(candidate)) {
+          return null;
+        }
+        const target = resolvePackageTarget(candidate.cfi, packageDocumentXml, packagePath);
+        return {
+          id: candidate.id,
+          itemrefId: target.itemref.getAttribute("id"),
+          idref: target.idref,
+          spineIndex: target.spineIndex,
+          kind: targetKind(parseCfi(candidate.cfi))
+        };
+      } catch (_error) {
+        return null;
+      }
+    }).filter(function(result) {
+      return result !== null;
+    });
+  }
+  function isPackageCandidate(value) {
+    return typeof value === "object" && value !== null && typeof value.id === "string" && typeof value.cfi === "string";
+  }
   function parsePackageDocument(packageDocumentXml) {
     if (typeof packageDocumentXml !== "string" || packageDocumentXml.length === 0) {
       throw new Error("INVALID_PACKAGE_DOCUMENT");
@@ -1194,6 +1222,7 @@
           kind: targetKind(parseCfi(fullCfi))
         };
       }),
+      resolvePackageCandidates: (...values) => safely(() => resolvePackageCandidates(...values)),
       generatePackage: (packageXml, packagePath, spineIndex, expectedIdref, expectedItemrefId) => safely(() => generatePackageCfi(
         packageXml,
         packagePath,

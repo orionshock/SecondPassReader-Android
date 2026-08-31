@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.reader.readium
+package com.secondpasslibrary.reader.reader.readium.viewport
 
 import com.secondpasslibrary.reader.reader.readium.cfi.ReadiumCfiResourceCapture
 import com.secondpasslibrary.reader.reader.readium.cfi.ReadiumCfiResourceIdentity

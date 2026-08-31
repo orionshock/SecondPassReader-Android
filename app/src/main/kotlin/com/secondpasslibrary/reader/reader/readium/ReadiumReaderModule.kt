@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.reader.readium
 
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
 import com.secondpasslibrary.reader.reader.lifecycle.ReaderActivityRestorationBootstrap
+import com.secondpasslibrary.reader.reader.readium.lifecycle.ReadiumReaderActivityRestorationBootstrap
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn

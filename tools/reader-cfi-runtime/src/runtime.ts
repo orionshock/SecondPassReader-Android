@@ -2,6 +2,7 @@ import { visiblePointTargets } from "./bookmark-visibility";
 import { resolveContentTarget, verifyContentTarget } from "./content-target";
 import {
     generatePackageCfi,
+    resolvePackageCandidates,
     resolvePackageTarget,
     serializeComponent
 } from "./package-cfi";
@@ -21,6 +22,11 @@ interface RuntimeFacade {
     isDocumentReady(): RuntimeResult<boolean>;
     parse(cfi: string): RuntimeResult<unknown>;
     resolvePackage(cfi: string, packageXml: string, packagePath: string): RuntimeResult<unknown>;
+    resolvePackageCandidates(
+        serializedCandidates: string,
+        packageXml: string,
+        packagePath: string
+    ): RuntimeResult<unknown>;
     generatePackage(
         packageXml: string,
         packagePath: string,
@@ -78,6 +84,7 @@ if (!existing || existing.runtimeVersion() !== RUNTIME_VERSION) {
                 kind: targetKind(parseCfi(fullCfi))
             };
         }),
+        resolvePackageCandidates: (...values) => safely(() => resolvePackageCandidates(...values)),
         generatePackage: (
             packageXml, packagePath, spineIndex, expectedIdref, expectedItemrefId
         ) => safely(() => generatePackageCfi(
