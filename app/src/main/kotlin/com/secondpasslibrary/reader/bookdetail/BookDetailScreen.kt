@@ -19,11 +19,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.design.components.ContextualAppBar
 
 private const val MEDIUM_COVER_WIDTH_FRACTION = 0.38f
+private val WIDE_CONTENT_MAX_WIDTH = 1080.dp
+private val WIDE_COVER_WIDTH = 252.dp
 
 @Composable
 internal fun BookDetailScreen(
@@ -108,10 +111,11 @@ private fun BookDetailHero(
         ) {
             item {
                 when (layout) {
-                    BookDetailLayout.WIDE -> BookDetailWideHero(
+                    BookDetailLayout.WIDE -> BookDetailWideContent(
                         book,
                         onAuthorSelected,
                         onSeriesSelected,
+                        onTagSelected,
                         onReadBook,
                         onReadingSessions,
                         onAddToShelf,
@@ -142,7 +146,9 @@ private fun BookDetailHero(
                     )
                 }
             }
-            item { BookDetailSupportingContent(book, onTagSelected) }
+            if (layout != BookDetailLayout.WIDE) {
+                item { BookDetailSupportingContent(book, onTagSelected) }
+            }
         }
     }
 }
@@ -156,33 +162,49 @@ internal fun bookDetailLayoutForWidth(width: Dp): BookDetailLayout = when {
 }
 
 @Composable
-private fun BookDetailWideHero(
+private fun BookDetailWideContent(
     book: com.secondpasslibrary.client.LibraryBookDetail,
     onAuthorSelected: (String) -> Unit,
     onSeriesSelected: (String) -> Unit,
+    onTagSelected: (String, String) -> Unit,
     onReadBook: () -> Unit,
     onReadingSessions: () -> Unit,
     onAddToShelf: () -> Unit,
     readAvailable: Boolean,
     serverActionsAvailable: Boolean
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
-        BookDetailCover(book, Modifier.width(280.dp))
-        BookDetailMetadata(
-            book,
-            onAuthorSelected,
-            onSeriesSelected,
-            Modifier.weight(1f)
-        )
-        BookDetailActions(
-            onReadBook,
-            onReadingSessions,
-            onAddToShelf,
-            readBookEnabled = book.hasReadableEpub && readAvailable,
-            serverActionsAvailable = serverActionsAvailable,
-            BookDetailActionLayout.VERTICAL,
-            Modifier.width(184.dp)
-        )
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+        Row(
+            modifier =
+                Modifier
+                    .widthIn(max = WIDE_CONTENT_MAX_WIDTH)
+                    .fillMaxWidth()
+                    .testTag(BOOK_DETAIL_WIDE_TAG),
+            horizontalArrangement = Arrangement.spacedBy(32.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(
+                Modifier.width(WIDE_COVER_WIDTH),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                BookDetailCover(book, Modifier.fillMaxWidth())
+                BookDetailActions(
+                    onReadBook,
+                    onReadingSessions,
+                    onAddToShelf,
+                    readBookEnabled = book.hasReadableEpub && readAvailable,
+                    serverActionsAvailable = serverActionsAvailable,
+                    BookDetailActionLayout.VERTICAL
+                )
+            }
+            Column(
+                Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(28.dp)
+            ) {
+                BookDetailMetadata(book, onAuthorSelected, onSeriesSelected)
+                BookDetailSupportingContent(book, onTagSelected)
+            }
+        }
     }
 }
 
@@ -197,7 +219,10 @@ private fun BookDetailMediumHero(
     readAvailable: Boolean,
     serverActionsAvailable: Boolean
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(
+        Modifier.testTag(BOOK_DETAIL_MEDIUM_TAG),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
         Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
             BookDetailCover(
                 book,
@@ -232,7 +257,10 @@ private fun BookDetailNarrowHero(
     readAvailable: Boolean,
     serverActionsAvailable: Boolean
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(
+        Modifier.testTag(BOOK_DETAIL_NARROW_TAG),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             BookDetailCover(book, Modifier.widthIn(max = 220.dp))
         }
@@ -250,3 +278,7 @@ private fun BookDetailNarrowHero(
 
 private val com.secondpasslibrary.client.LibraryBookDetail.hasReadableEpub: Boolean
     get() = file?.format.equals("epub", ignoreCase = true)
+
+internal const val BOOK_DETAIL_WIDE_TAG = "book-detail-wide"
+internal const val BOOK_DETAIL_MEDIUM_TAG = "book-detail-medium"
+internal const val BOOK_DETAIL_NARROW_TAG = "book-detail-narrow"

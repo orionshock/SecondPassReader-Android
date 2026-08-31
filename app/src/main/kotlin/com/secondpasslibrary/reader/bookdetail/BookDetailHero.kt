@@ -225,7 +225,8 @@ internal fun BookDetailActions(
                 BookDetailActionTile(
                     action,
                     requireNotNull(callbacks[action.kind]),
-                    Modifier.fillMaxWidth()
+                    Modifier.fillMaxWidth(),
+                    height = 72.dp
                 )
             }
         }
@@ -235,7 +236,8 @@ internal fun BookDetailActions(
                 BookDetailActionTile(
                     action,
                     requireNotNull(callbacks[action.kind]),
-                    Modifier.weight(1f)
+                    Modifier.weight(1f),
+                    height = 88.dp
                 )
             }
         }
@@ -246,12 +248,13 @@ internal fun BookDetailActions(
 private fun BookDetailActionTile(
     action: BookDetailActionPresentation,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    height: androidx.compose.ui.unit.Dp
 ) {
     OutlinedButton(
         onClick = onClick,
         enabled = action.enabled,
-        modifier = modifier.height(88.dp).semantics {
+        modifier = modifier.height(height).semantics {
             if (!action.enabled) contentDescription = "${action.label}, unavailable"
         },
         contentPadding = PaddingValues(8.dp)
