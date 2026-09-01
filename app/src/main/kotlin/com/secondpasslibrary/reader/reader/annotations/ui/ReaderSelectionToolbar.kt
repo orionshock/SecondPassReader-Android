@@ -35,6 +35,7 @@ import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationState
 import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelection
 import com.secondpasslibrary.reader.reader.appearance.ReaderPalette
+import com.secondpasslibrary.reader.reader.cfi.EpubSelectionBounds
 import kotlin.math.roundToInt
 
 /** Compact Reader actions positioned from renderer-neutral viewport selection bounds. */
@@ -58,21 +59,23 @@ internal fun ReaderSelectionToolbar(
             viewportWidth = constraints.maxWidth,
             viewportHeight = constraints.maxHeight,
             edgePadding = with(density) { 8.dp.toPx() },
-            selectionSpacing = with(density) { 8.dp.toPx() },
+            // Selection bounds exclude Android's draggable handles. Keep enough clearance for them
+            // without depending on private ActionMode or handle geometry.
+            selectionSpacing = with(density) { 40.dp.toPx() },
             fallbackTop = with(density) { 64.dp.toPx() }
         )
         Surface(
             modifier = Modifier
                 .offset { toolbarOffset }
                 .onSizeChanged { toolbarSize = Size(it.width.toFloat(), it.height.toFloat()) },
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(14.dp),
             color = palette.floatingSurface.copy(alpha = 0.97f),
             contentColor = palette.primaryForeground,
-            shadowElevation = 8.dp,
-            tonalElevation = 3.dp
+            shadowElevation = 5.dp,
+            tonalElevation = 2.dp
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(1.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -85,10 +88,14 @@ internal fun ReaderSelectionToolbar(
                         onClick = { onQuickHighlight(color) }
                     )
                 }
-                IconButton(enabled = !state.submitting, onClick = onNoteRequested) {
+                IconButton(
+                    modifier = Modifier.size(40.dp),
+                    enabled = !state.submitting,
+                    onClick = onNoteRequested
+                ) {
                     AppIconGraphic(AppIcon.HighlightWithNote, "Add note")
                 }
-                IconButton(onClick = onDismiss) {
+                IconButton(modifier = Modifier.size(40.dp), onClick = onDismiss) {
                     AppIconGraphic(AppIcon.Close, "Dismiss highlight toolbar")
                 }
             }
@@ -107,21 +114,47 @@ internal fun selectionToolbarOffset(
 ): IntOffset {
     val width = toolbarSize.width
     val height = toolbarSize.height
-    val bounds = selection.bounds
-    val desiredX = bounds?.let { (it.left + it.right - width) / 2f }
-        ?: (viewportWidth - width) / 2f
-    val above = bounds?.let { it.top - height - selectionSpacing }
-    val desiredY = when {
-        above != null && above >= edgePadding -> above
-        bounds != null -> bounds.bottom + selectionSpacing
-        else -> fallbackTop
-    }
+    val desired = selection.bounds?.let {
+        desiredToolbarPosition(
+            bounds = it,
+            width = width,
+            height = height,
+            viewportWidth = viewportWidth,
+            viewportHeight = viewportHeight,
+            edgePadding = edgePadding,
+            selectionSpacing = selectionSpacing
+        )
+    } ?: ((viewportWidth - width) / 2f to fallbackTop)
     val maxX = (viewportWidth - width - edgePadding).coerceAtLeast(edgePadding)
     val maxY = (viewportHeight - height - edgePadding).coerceAtLeast(edgePadding)
     return IntOffset(
-        desiredX.coerceIn(edgePadding, maxX).roundToInt(),
-        desiredY.coerceIn(edgePadding, maxY).roundToInt()
+        desired.first.coerceIn(edgePadding, maxX).roundToInt(),
+        desired.second.coerceIn(edgePadding, maxY).roundToInt()
     )
+}
+
+private fun desiredToolbarPosition(
+    bounds: EpubSelectionBounds,
+    width: Float,
+    height: Float,
+    viewportWidth: Int,
+    viewportHeight: Int,
+    edgePadding: Float,
+    selectionSpacing: Float
+): Pair<Float, Float> {
+    val centeredX = (bounds.left + bounds.right - width) / 2f
+    val below = bounds.bottom + selectionSpacing
+    val above = bounds.top - height - selectionSpacing
+    val besideY = (bounds.top + bounds.bottom - height) / 2f
+    val right = bounds.right + selectionSpacing
+    val left = bounds.left - width - selectionSpacing
+    return when {
+        below + height <= viewportHeight - edgePadding -> centeredX to below
+        right + width <= viewportWidth - edgePadding -> right to besideY
+        left >= edgePadding -> left to besideY
+        above >= edgePadding -> centeredX to above
+        else -> centeredX to below
+    }
 }
 
 @Composable

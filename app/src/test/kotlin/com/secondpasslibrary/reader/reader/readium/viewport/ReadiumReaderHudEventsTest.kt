@@ -10,6 +10,19 @@ import org.junit.Test
 
 class ReadiumReaderHudEventsTest {
     @Test
+    fun `current page load reaches dependent document observers while stale load does not`() {
+        var pageLoads = 0
+        val events = ReadiumReaderHudEvents(onDocumentLoaded = { pageLoads += 1 })
+        val stale = events.paginationListener()
+        val current = events.paginationListener()
+
+        stale.onPageLoaded()
+        current.onPageLoaded()
+
+        assertEquals(1, pageLoads)
+    }
+
+    @Test
     fun `Readium zero based page index maps to exact remaining section pages`() {
         assertEquals(
             ReaderReadingStatus(8, ReaderReadingStatusScope.SECTION),

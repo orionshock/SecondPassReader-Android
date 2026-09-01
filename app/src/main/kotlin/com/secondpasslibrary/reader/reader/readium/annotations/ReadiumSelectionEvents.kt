@@ -56,6 +56,8 @@ internal class ReadiumSelectionEvents(cfiBinding: ReadiumCfiNavigatorBinding) :
 
     fun javascriptInterface(): Any = documentObserver.javascriptInterface()
 
+    fun documentLoaded() = documentObserver.documentLoaded()
+
     override suspend fun clear() {
         val current = navigator ?: return
         withContext(Dispatchers.Main.immediate) { current.clearSelection() }

@@ -15,8 +15,10 @@ import org.readium.r2.shared.publication.Locator
 
 /** Adapts Readium's live resource pagination and publication taps to Reader HUD events. */
 @OptIn(ExperimentalReadiumApi::class)
-internal class ReadiumReaderHudEvents(private val onPageChanged: () -> Unit = {}) :
-    ReaderHudEvents,
+internal class ReadiumReaderHudEvents(
+    private val onPageChanged: () -> Unit = {},
+    private val onDocumentLoaded: () -> Unit = {}
+) : ReaderHudEvents,
     InputListener,
     AutoCloseable {
     private val pagination = ReadiumSectionPaginationTracker()
@@ -39,7 +41,10 @@ internal class ReadiumReaderHudEvents(private val onPageChanged: () -> Unit = {}
             }
 
             override fun onPageLoaded() {
-                if (pagination.isCurrent(generation)) paginationChanges.tryEmit(Unit)
+                if (pagination.isCurrent(generation)) {
+                    paginationChanges.tryEmit(Unit)
+                    onDocumentLoaded()
+                }
             }
         }
     }

@@ -192,7 +192,7 @@ private fun ReaderReadingSurface(
         ReaderChromeLayer(
             title = ready?.title ?: "Reader",
             palette = palette,
-            visible = hud.visible,
+            visible = hud.visible && selection == null,
             onNavigationMenuRequested = {
                 hud.reveal()
                 overlays.openTableOfContents()
@@ -243,7 +243,13 @@ private fun ReaderSelectionAnnotationOverlays(
                 onMutation(ReaderAnnotationMutationIntent.SubmitQuickCreate(it))
             },
             onNoteRequested = { onMutation(ReaderAnnotationMutationIntent.OpenCreateNote) },
-            onDismiss = onDismissSelection
+            onDismiss = onDismissSelection,
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .padding(top = READER_PUBLICATION_TOP_SAFE_INSET)
+                .navigationBarsPadding()
+                .padding(bottom = READER_PUBLICATION_BOTTOM_SAFE_INSET)
         )
     }
     ReaderHighlightMutationDialogs(

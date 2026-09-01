@@ -50,6 +50,11 @@ internal class ReadiumSelectionDocumentObserver(
         navigator = null
     }
 
+    fun documentLoaded() {
+        val current = navigator ?: return
+        scope.launch { installDocumentObserver(current) }
+    }
+
     /** Registered through Readium's public per-resource JavaScript-interface configuration. */
     fun javascriptInterface(): Any = javascriptBridge
 

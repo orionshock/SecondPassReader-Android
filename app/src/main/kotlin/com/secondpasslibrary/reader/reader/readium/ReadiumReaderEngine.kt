@@ -67,10 +67,13 @@ private class ReadiumReaderEngine(
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
         suppressMovementCapture = movements::suppressSettledMovement
     )
-    private val hud = ReadiumReaderHudEvents {
-        movements.pageChanged()
-        positionRetentionController.captureAfterViewportMovement()
-    }
+    private val hud = ReadiumReaderHudEvents(
+        onPageChanged = {
+            movements.pageChanged()
+            positionRetentionController.captureAfterViewportMovement()
+        },
+        onDocumentLoaded = selections::documentLoaded
+    )
     private val visibleBookmarks = ReadiumVisiblePageBookmarks(readiumCfiNavigator, hud)
 
     override val viewport: ReaderViewport = ReadiumReaderViewport(

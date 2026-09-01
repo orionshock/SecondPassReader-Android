@@ -477,6 +477,12 @@ class ReaderUiIntegrationTest {
             }
         }
 
+        ReaderAnnotationColor.entries.forEach { color ->
+            compose.onNodeWithContentDescription(
+                "${color.name.lowercase().replaceFirstChar(Char::uppercase)} highlight"
+            ).assertIsDisplayed()
+        }
+        compose.onNodeWithContentDescription("Open table of contents").assertIsNotDisplayed()
         compose.onNodeWithContentDescription("Blue highlight").performClick()
         compose.runOnIdle {
             assertEquals(ReaderAnnotationColor.BLUE, createdColor)

@@ -587,12 +587,20 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
             runBlocking { awaitRenderedColumnCount(host.navigator, 1) }
 
             runBlocking {
+                val reloadedDocumentObserved = async(start = CoroutineStart.UNDISPATCHED) {
+                    withTimeout(HOST_TIMEOUT_MILLIS) { engine.selectionEvents.changes().first() }
+                }
                 engine.appearance.update(ReaderAppearance(layoutMode = ReaderLayoutMode.TWO_COLUMN))
                 awaitRenderedColumnCount(host.navigator, 2)
+                reloadedDocumentObserved.await()
                 engine.cfiNavigator.goTo(EpubCfi(CROSS_MARKUP_RANGE_CFI)).requireSuccess()
+                val selectionChanged = async(start = CoroutineStart.UNDISPATCHED) {
+                    withTimeout(HOST_TIMEOUT_MILLIS) { engine.selectionEvents.changes().first() }
+                }
                 withContext(Dispatchers.Main) {
                     host.navigator.evaluateJavascript(CROSS_MARKUP_SELECTION_SCRIPT)
                 }
+                selectionChanged.await()
                 val selection = requireNotNull(
                     engine.cfiNavigator.currentSelection().requireSuccess()
                 )
