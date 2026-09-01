@@ -147,7 +147,7 @@ private fun ReaderChromeActions(
                     if (bookmarks.isEmpty()) onCreateBookmark() else bookmarkMenuExpanded = true
                 }
             ) {
-                ReaderBookmarkHudIcon(bookmarks.size, palette)
+                ReaderBookmarkHudIcon(bookmarks.size, bookmarksWritable, palette)
             }
             ReaderBookmarkHudMenu(
                 expanded = bookmarkMenuExpanded,

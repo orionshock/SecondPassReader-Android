@@ -35,9 +35,9 @@ internal object MaterialSymbolMapper {
 
         AppIcon.Bookmark -> symbol("bookmark", R.drawable.ic_symbol_bookmark)
 
-        AppIcon.AddBookmark -> symbol("bookmark_add", R.drawable.ic_symbol_bookmark_add)
+        AppIcon.BookmarkFilled -> symbol("bookmark", R.drawable.ic_symbol_bookmark_filled)
 
-        AppIcon.RemoveBookmark -> symbol("bookmark_added", R.drawable.ic_symbol_bookmark_added)
+        AppIcon.AddBookmark -> symbol("bookmark_add", R.drawable.ic_symbol_bookmark_add)
 
         AppIcon.Highlight -> symbol("border_color", R.drawable.ic_symbol_border_color)
 

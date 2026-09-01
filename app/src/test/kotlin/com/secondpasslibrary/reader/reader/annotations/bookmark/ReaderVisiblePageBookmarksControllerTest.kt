@@ -42,6 +42,19 @@ class ReaderVisiblePageBookmarksControllerTest {
 
         assertEquals(listOf("new"), controller.state.value.bookmarks.map { it.id })
     }
+
+    @Test
+    fun `annotations from a previous Session cannot replace current page state`() = runTest {
+        val resolver = FakeResolver().apply { visibleIds = setOf("current", "previous") }
+        val controller = ReaderVisiblePageBookmarksController(backgroundScope)
+
+        controller.select("current-session", resolver)
+        controller.replace("previous-session", listOf(bookmark("previous")))
+        controller.replace("current-session", listOf(bookmark("current")))
+        runCurrent()
+
+        assertEquals(listOf("current"), controller.state.value.bookmarks.map { it.id })
+    }
 }
 
 private class FakeResolver : ReaderVisiblePageBookmarksResolver {

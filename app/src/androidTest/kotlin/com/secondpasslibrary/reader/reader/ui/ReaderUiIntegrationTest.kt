@@ -122,8 +122,8 @@ class ReaderUiIntegrationTest {
         var creates = 0
         val navigationIntents = mutableListOf<ReaderNavigationIntent>()
         val removed = mutableListOf<String>()
-        val first = testBookmark("first", "Chapter 01 · 12%")
-        val second = testBookmark("second", "Chapter 01 · 13%")
+        val first = testBookmark("first", "First bookmark")
+        val second = testBookmark("second", "Second bookmark")
         val visibleBookmarks = mutableStateOf(ReaderVisiblePageBookmarks())
         compose.setContent {
             SecondPassTheme {
@@ -132,23 +132,27 @@ class ReaderUiIntegrationTest {
                     onBack = {},
                     onRetry = {},
                     pageBookmarks = visibleBookmarks.value,
-                    onCreateBookmark = { creates += 1 },
+                    onCreateBookmark = {
+                        creates += 1
+                        visibleBookmarks.value = ReaderVisiblePageBookmarks(listOf(first))
+                    },
                     onNavigationIntent = { navigationIntents += it },
-                    onRemoveBookmark = { removed += it.id }
+                    onRemoveBookmark = {
+                        removed += it.id
+                        visibleBookmarks.value = ReaderVisiblePageBookmarks(
+                            visibleBookmarks.value.bookmarks.filterNot { existing ->
+                                existing.id == it.id
+                            }
+                        )
+                    }
                 )
             }
         }
-        compose.onNodeWithContentDescription("Bookmark current page").performClick()
+        compose.onNodeWithContentDescription("Add bookmark").performClick()
         compose.runOnIdle { assertEquals(1, creates) }
-
-        compose.runOnIdle {
-            visibleBookmarks.value = ReaderVisiblePageBookmarks(listOf(first, second))
-        }
-        compose.waitForIdle()
-        compose.onNodeWithContentDescription("2 bookmarks on current page").performClick()
-        compose.onNodeWithText("Chapter 01 · 12%").assertIsDisplayed()
-        compose.onNodeWithText("Chapter 01 · 13%").assertIsDisplayed()
-        compose.runOnIdle { assertTrue(removed.isEmpty()) }
+        compose.onNodeWithContentDescription("1 bookmark on this page").assertIsDisplayed()
+        compose.onNodeWithContentDescription("1 bookmark on this page").performClick()
+        compose.onNodeWithText("First bookmark").assertIsDisplayed()
         compose.onAllNodesWithContentDescription("Go to bookmark")[0].performClick()
         compose.runOnIdle {
             assertEquals(
@@ -157,9 +161,18 @@ class ReaderUiIntegrationTest {
             )
         }
 
-        compose.onNodeWithContentDescription("2 bookmarks on current page").performClick()
+        compose.runOnIdle {
+            visibleBookmarks.value = ReaderVisiblePageBookmarks(listOf(first, second))
+        }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("2 bookmarks on this page").assertIsDisplayed()
+        compose.onNodeWithContentDescription("2 bookmarks on this page").performClick()
+        compose.onNodeWithText("First bookmark").assertIsDisplayed()
+        compose.onNodeWithText("Second bookmark").assertIsDisplayed()
+        compose.runOnIdle { assertTrue(removed.isEmpty()) }
         compose.onAllNodesWithContentDescription("Remove bookmark")[1].performClick()
         compose.runOnIdle { assertEquals(listOf("second"), removed) }
+        compose.onNodeWithContentDescription("1 bookmark on this page").assertIsDisplayed()
     }
 
     @Test
@@ -176,7 +189,8 @@ class ReaderUiIntegrationTest {
             }
         }
 
-        compose.onNodeWithContentDescription("Bookmark current page").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("No bookmarks on this page, read only")
+            .assertIsNotEnabled()
         compose.runOnIdle { assertEquals(0, creates) }
     }
 
