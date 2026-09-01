@@ -15,6 +15,19 @@ internal enum class ReaderLayoutMode {
     TWO_COLUMN
 }
 
+/** Runtime viewport constraint; it never changes the user's persisted layout preference. */
+internal enum class ReaderViewportOrientation {
+    PORTRAIT,
+    LANDSCAPE
+}
+
+internal fun ReaderLayoutMode.effectiveFor(
+    orientation: ReaderViewportOrientation
+): ReaderLayoutMode = when (orientation) {
+    ReaderViewportOrientation.PORTRAIT -> ReaderLayoutMode.SINGLE_COLUMN
+    ReaderViewportOrientation.LANDSCAPE -> this
+}
+
 internal data class ReaderAppearance(
     val theme: ReaderTheme = ReaderTheme.SEPIA,
     val fontScale: Double = DEFAULT_FONT_SCALE,

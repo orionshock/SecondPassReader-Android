@@ -1,8 +1,10 @@
 package com.secondpasslibrary.reader.reader.readium
 
 import android.content.Context
+import android.content.res.Configuration
 import androidx.fragment.app.FragmentFactory
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
+import com.secondpasslibrary.reader.reader.appearance.ReaderViewportOrientation
 import com.secondpasslibrary.reader.reader.cfi.EpubPackageDocument
 import com.secondpasslibrary.reader.reader.cfi.ZipEpubPackageResolver
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
@@ -33,6 +35,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.withContext
 import org.readium.r2.navigator.epub.EpubNavigatorFactory
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
+import org.readium.r2.navigator.epub.css.Length
+import org.readium.r2.navigator.epub.css.RsProperties
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Publication
 import org.readium.r2.shared.util.asset.Asset
@@ -52,7 +56,10 @@ private class ReadiumReaderEngine(
     private val navigatorOperations = ReadiumNavigatorOperationLane()
     private val cfiBinding = ReadiumCfiNavigatorBinding(ReadiumCfiJavascriptRuntime(context))
     private val publicationBinding = ReadiumPublicationNavigatorBinding(navigatorOperations)
-    private val appearanceController = ReadiumReaderAppearanceController(initialAppearance)
+    private val appearanceController = ReadiumReaderAppearanceController(
+        initialAppearance,
+        context.resources.configuration.readerViewportOrientation()
+    )
     private val movements = ReadiumViewportMovements()
     private val selections = ReadiumSelectionEvents(cfiBinding)
     private val readiumCfiNavigator = ReadiumEpubCfiNavigator(
@@ -83,6 +90,7 @@ private class ReadiumReaderEngine(
                 initialPreferences = appearanceController.initialPreferences(),
                 paginationListener = hud.paginationListener(),
                 configuration = EpubNavigatorFragment.Configuration().apply {
+                    readiumCssRsProperties = readerCssProperties()
                     registerJavascriptInterface(SELECTION_JAVASCRIPT_INTERFACE) {
                         selections.javascriptInterface()
                     }
@@ -125,6 +133,22 @@ private class ReadiumReaderEngine(
         publication.close()
     }
 }
+
+@OptIn(ExperimentalReadiumApi::class)
+internal fun readerCssProperties(): RsProperties = RsProperties(
+    maxLineLength = Length.Rem(READER_MAX_LINE_LENGTH_REM),
+    pageGutter = Length.Px(READER_PAGE_GUTTER_PX)
+)
+
+private const val READER_MAX_LINE_LENGTH_REM = 68.0
+private const val READER_PAGE_GUTTER_PX = 32.0
+
+private fun Configuration.readerViewportOrientation(): ReaderViewportOrientation =
+    if (orientation == Configuration.ORIENTATION_PORTRAIT) {
+        ReaderViewportOrientation.PORTRAIT
+    } else {
+        ReaderViewportOrientation.LANDSCAPE
+    }
 
 internal fun interface ReadiumNavigatorFragmentFactory {
     fun create(): FragmentFactory

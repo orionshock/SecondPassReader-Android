@@ -4,14 +4,18 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -22,6 +26,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import java.util.Locale
 
@@ -73,40 +79,14 @@ private fun ReaderLayoutModeControl(
     colors: ReaderAppearanceControlColors,
     onSelected: (ReaderLayoutMode) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            "Layout",
-            color = colors.secondaryContent,
-            style = MaterialTheme.typography.labelMedium
-        )
-        Surface(
-            shape = MaterialTheme.shapes.extraLarge,
-            border = BorderStroke(1.dp, colors.secondaryContent.copy(alpha = 0.5f)),
-            color = Color.Transparent
-        ) {
-            Row(Modifier.selectableGroup()) {
-                ReaderLayoutMode.entries.forEach { mode ->
-                    val isSelected = mode == selected
-                    Text(
-                        text = mode.displayName(),
-                        modifier = Modifier
-                            .weight(1f)
-                            .background(
-                                if (isSelected) colors.selectedBackground else Color.Transparent
-                            )
-                            .selectable(
-                                selected = isSelected,
-                                role = Role.RadioButton,
-                                onClick = { onSelected(mode) }
-                            )
-                            .padding(horizontal = 10.dp, vertical = 10.dp),
-                        color = if (isSelected) colors.content else colors.secondaryContent,
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                }
-            }
-        }
-    }
+    ReaderSegmentedControl(
+        label = "Layout",
+        options = ReaderLayoutMode.entries,
+        selected = selected,
+        displayName = ReaderLayoutMode::displayName,
+        colors = colors,
+        onSelected = onSelected
+    )
 }
 
 @Composable
@@ -115,36 +95,68 @@ private fun ReaderThemeControl(
     colors: ReaderAppearanceControlColors,
     onSelected: (ReaderTheme) -> Unit
 ) {
+    ReaderSegmentedControl(
+        label = "Theme",
+        options = ReaderTheme.entries,
+        selected = selected,
+        displayName = ReaderTheme::displayName,
+        colors = colors,
+        onSelected = onSelected
+    )
+}
+
+@Composable
+private fun <T> ReaderSegmentedControl(
+    label: String,
+    options: List<T>,
+    selected: T,
+    displayName: (T) -> String,
+    colors: ReaderAppearanceControlColors,
+    onSelected: (T) -> Unit
+) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("Theme", color = colors.secondaryContent, style = MaterialTheme.typography.labelMedium)
+        Text(label, color = colors.secondaryContent, style = MaterialTheme.typography.labelMedium)
         Surface(
             shape = MaterialTheme.shapes.extraLarge,
             border = BorderStroke(1.dp, colors.secondaryContent.copy(alpha = 0.5f)),
             color = Color.Transparent
         ) {
             Row(Modifier.selectableGroup()) {
-                ReaderTheme.entries.forEach { theme ->
-                    val selectedTheme = theme == selected
-                    Text(
-                        text = theme.displayName(),
-                        modifier = Modifier
-                            .weight(1f)
-                            .background(
-                                if (selectedTheme) colors.selectedBackground else Color.Transparent
-                            )
-                            .selectable(
-                                selected = selectedTheme,
-                                role = Role.RadioButton,
-                                onClick = { onSelected(theme) }
-                            )
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        color = if (selectedTheme) colors.content else colors.secondaryContent,
-                        style = MaterialTheme.typography.labelMedium
+                options.forEach { option ->
+                    ReaderSegment(
+                        label = displayName(option),
+                        isSelected = option == selected,
+                        colors = colors,
+                        onClick = { onSelected(option) }
                     )
                 }
             }
         }
     }
+}
+
+@Composable
+private fun RowScope.ReaderSegment(
+    label: String,
+    isSelected: Boolean,
+    colors: ReaderAppearanceControlColors,
+    onClick: () -> Unit
+) {
+    Text(
+        text = label,
+        modifier = Modifier
+            .weight(1f)
+            .defaultMinSize(minHeight = 48.dp)
+            .background(if (isSelected) colors.selectedBackground else Color.Transparent)
+            .selectable(selected = isSelected, role = Role.RadioButton, onClick = onClick)
+            .wrapContentHeight(Alignment.CenterVertically)
+            .padding(horizontal = 12.dp),
+        color = if (isSelected) colors.content else colors.secondaryContent,
+        style = MaterialTheme.typography.labelLarge.copy(
+            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+        ),
+        textAlign = TextAlign.Center
+    )
 }
 
 @Composable
@@ -162,23 +174,40 @@ private fun ReaderStepControl(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(label, color = colors.secondaryContent, style = MaterialTheme.typography.bodyMedium)
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Surface(
+            shape = MaterialTheme.shapes.extraLarge,
+            border = BorderStroke(1.dp, colors.secondaryContent.copy(alpha = 0.5f)),
+            color = Color.Transparent
         ) {
-            OutlinedButton(
-                onClick = { onValueChanged((value - step).coerceIn(valueRange)) },
-                enabled = value > valueRange.start,
-                modifier = Modifier.semantics { contentDescription = "Decrease $label" },
-                contentPadding = PaddingValues(horizontal = 14.dp)
-            ) { Text("−") }
-            Text(formatReaderScale(value), style = MaterialTheme.typography.labelLarge)
-            OutlinedButton(
-                onClick = { onValueChanged((value + step).coerceIn(valueRange)) },
-                enabled = value < valueRange.endInclusive,
-                modifier = Modifier.semantics { contentDescription = "Increase $label" },
-                contentPadding = PaddingValues(horizontal = 14.dp)
-            ) { Text("+") }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = { onValueChanged((value - step).coerceIn(valueRange)) },
+                    enabled = value > valueRange.start,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .semantics { contentDescription = "Decrease $label" }
+                ) {
+                    Text("−", style = MaterialTheme.typography.titleMedium)
+                }
+                Text(
+                    text = formatReaderScale(value),
+                    modifier = Modifier.widthIn(min = 64.dp),
+                    color = colors.content,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    textAlign = TextAlign.Center
+                )
+                IconButton(
+                    onClick = { onValueChanged((value + step).coerceIn(valueRange)) },
+                    enabled = value < valueRange.endInclusive,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .semantics { contentDescription = "Increase $label" }
+                ) {
+                    Text("+", style = MaterialTheme.typography.titleMedium)
+                }
+            }
         }
     }
 }

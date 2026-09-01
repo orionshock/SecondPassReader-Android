@@ -5,6 +5,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
 import com.secondpasslibrary.reader.reader.appearance.ReaderLayoutMode
 import com.secondpasslibrary.reader.reader.appearance.ReaderTheme
+import com.secondpasslibrary.reader.reader.appearance.ReaderViewportOrientation
 import com.secondpasslibrary.reader.reader.appearance.readerPalette
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -43,6 +44,7 @@ class ReadiumReaderAppearanceControllerTest {
             assertEquals(1.3, preferences.fontSize)
             assertEquals(1.7, preferences.lineHeight)
             assertEquals(true, preferences.publisherStyles)
+            assertEquals(1.0, preferences.pageMargins)
             assertFalse(preferences.scroll ?: true)
         }
     }
@@ -80,6 +82,35 @@ class ReadiumReaderAppearanceControllerTest {
         assertEquals(1.2, controller.initialPreferences().fontSize)
         assertEquals(ColumnCount.TWO, controller.initialPreferences().columnCount)
         assertEquals(Spread.ALWAYS, controller.initialPreferences().spread)
+    }
+
+    @Test
+    fun portraitOverrideDoesNotMutateSavedTwoColumnPreference() = runTest {
+        val saved = ReaderAppearance(layoutMode = ReaderLayoutMode.TWO_COLUMN)
+        val controller = ReadiumReaderAppearanceController(
+            saved,
+            ReaderViewportOrientation.LANDSCAPE
+        )
+
+        controller.updateViewportOrientation(ReaderViewportOrientation.PORTRAIT)
+
+        assertEquals(saved, controller.appearance.value)
+        assertEquals(ColumnCount.ONE, controller.initialPreferences().columnCount)
+        assertEquals(Spread.NEVER, controller.initialPreferences().spread)
+
+        controller.updateViewportOrientation(ReaderViewportOrientation.LANDSCAPE)
+
+        assertEquals(saved, controller.appearance.value)
+        assertEquals(ColumnCount.TWO, controller.initialPreferences().columnCount)
+        assertEquals(Spread.ALWAYS, controller.initialPreferences().spread)
+    }
+
+    @Test
+    fun readerCssUsesWiderLineLengthAndComfortableGutter() {
+        val properties = readerCssProperties()
+
+        assertEquals("68rem", properties.toCssProperties()["--RS__maxLineLength"])
+        assertEquals("32px", properties.toCssProperties()["--RS__pageGutter"])
     }
 }
 

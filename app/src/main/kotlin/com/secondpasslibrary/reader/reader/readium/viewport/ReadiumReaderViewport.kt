@@ -9,13 +9,16 @@ import android.view.ViewGroup
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.fragment.app.FragmentActivity
 import androidx.fragment.app.FragmentContainerView
 import com.secondpasslibrary.reader.R
+import com.secondpasslibrary.reader.reader.appearance.ReaderViewportOrientation
 import com.secondpasslibrary.reader.reader.domain.ReaderViewport
 import com.secondpasslibrary.reader.reader.lifecycle.ReaderPositionRetentionController
 import com.secondpasslibrary.reader.reader.readium.ReadiumNavigatorFragmentFactory
@@ -45,7 +48,11 @@ internal class ReadiumReaderViewport(
     @Composable
     override fun Content(modifier: Modifier) {
         val activity = LocalContext.current.requireFragmentActivity()
+        val orientation = LocalConfiguration.current.orientation.toReaderViewportOrientation()
         val viewportScope = rememberCoroutineScope()
+        LaunchedEffect(appearanceController, orientation) {
+            appearanceController.updateViewportOrientation(orientation)
+        }
         ReaderNavigatorContainer(modifier)
         DisposableEffect(activity, this) {
             val prePauseCapture = PrePauseCapture(activity) {
@@ -115,6 +122,13 @@ internal class ReadiumReaderViewport(
         )
     }
 }
+
+private fun Int.toReaderViewportOrientation(): ReaderViewportOrientation =
+    if (this == android.content.res.Configuration.ORIENTATION_PORTRAIT) {
+        ReaderViewportOrientation.PORTRAIT
+    } else {
+        ReaderViewportOrientation.LANDSCAPE
+    }
 
 @Composable
 private fun ReaderNavigatorContainer(modifier: Modifier) {
