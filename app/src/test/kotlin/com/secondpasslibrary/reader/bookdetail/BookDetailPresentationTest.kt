@@ -26,19 +26,13 @@ class BookDetailPresentationTest {
     }
 
     @Test
-    fun `description strips markup hidden blocks and normalizes whitespace`() {
-        val source = """
-            <h2>First &amp; foremost</h2>
-            <p>A   paragraph<br>with a line.</p>
-            <ul><li>One</li><li>Two &#8212; yes</li></ul>
-            <script>secret()</script>
-        """.trimIndent()
+    fun `description remains the exact opaque server value for presentation`() {
+        val source = "<p>A   paragraph with &amp; an entity.</p>"
 
         assertEquals(
-            "First & foremost\nA paragraph\nwith a line.\n\u2022 One\n\u2022 Two \u2014 yes",
-            BookDescriptionPresenter.present(source)
+            source,
+            libraryBookDetail("book").copy(description = source).toPresentation().description
         )
-        assertNull(BookDescriptionPresenter.present("<p> &nbsp; </p>"))
     }
 
     @Test

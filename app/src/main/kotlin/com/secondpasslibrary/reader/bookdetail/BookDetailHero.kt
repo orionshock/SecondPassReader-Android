@@ -17,12 +17,7 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -38,8 +33,6 @@ import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 
 private const val BOOK_COVER_ASPECT_RATIO = 2f / 3f
-private const val COLLAPSED_DESCRIPTION_LINES = 8
-private const val EXPANDABLE_DESCRIPTION_LENGTH = 500
 
 @Composable
 internal fun BookDetailCover(book: LibraryBookDetail, modifier: Modifier = Modifier) {
@@ -146,25 +139,7 @@ internal fun BookDetailSupportingContent(
                 }
             }
         }
-        Description(presentation.description)
-    }
-}
-
-@Composable
-private fun Description(description: String?) {
-    if (description == null) return
-    var expanded by rememberSaveable(description) { mutableStateOf(false) }
-    Text("Description", style = MaterialTheme.typography.titleMedium)
-    Text(
-        description,
-        maxLines = if (expanded) Int.MAX_VALUE else COLLAPSED_DESCRIPTION_LINES,
-        overflow = TextOverflow.Ellipsis,
-        style = MaterialTheme.typography.bodyMedium
-    )
-    if (description.length > EXPANDABLE_DESCRIPTION_LENGTH) {
-        TextButton(onClick = { expanded = !expanded }) {
-            Text(if (expanded) "Show less" else "Show more")
-        }
+        BookDescription(presentation.description)
     }
 }
 

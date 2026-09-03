@@ -40,47 +40,11 @@ internal fun LibraryBookDetail.toPresentation() = BookDetailPresentation(
     authorsLabel = authors.joinToString(", ") { it.name }.takeIf(String::isNotBlank),
     authorNavigationId = authors.singleOrNull()?.id,
     publicationLabel = publicationLabel(),
-    description = BookDescriptionPresenter.present(description),
+    description = description.takeIf(String::isNotBlank),
     fileLabel = file?.let {
         "${it.format.uppercase(Locale.ROOT)} \u00b7 ${fileSizeLabel(it.fileSize)}"
     }
 )
-
-internal object BookDescriptionPresenter {
-    private val hiddenBlocks = Regex("(?is)<(script|style)[^>]*>.*?</\\1>")
-    private val lineBreaks = Regex("(?i)<br\\s*/?>|</p\\s*>|</div\\s*>|</li\\s*>|</h[1-6]\\s*>")
-    private val listItems = Regex("(?i)<li(?:\\s[^>]*)?>")
-    private val tags = Regex("(?s)<[^>]+>")
-    private val horizontalWhitespace = Regex("[\\t\\x0B\\f\\r ]+")
-    private val numericEntity = Regex("&#(\\d+);")
-
-    fun present(value: String): String? {
-        val text = value
-            .replace(hiddenBlocks, "")
-            .replace(lineBreaks, "\n")
-            .replace(listItems, "\n\u2022 ")
-            .replace(tags, "")
-            .decodeEntities()
-            .lineSequence()
-            .map { it.replace(horizontalWhitespace, " ").trim() }
-            .filter(String::isNotBlank)
-            .joinToString("\n")
-            .trim()
-        return text.takeIf(String::isNotBlank)
-    }
-
-    private fun String.decodeEntities(): String = numericEntity.replace(
-        replace("&nbsp;", " ", ignoreCase = true)
-            .replace("&amp;", "&", ignoreCase = true)
-            .replace("&lt;", "<", ignoreCase = true)
-            .replace("&gt;", ">", ignoreCase = true)
-            .replace("&quot;", "\"", ignoreCase = true)
-            .replace("&#39;", "'", ignoreCase = true)
-    ) { match ->
-        match.groupValues[1].toIntOrNull()?.takeIf(Character::isValidCodePoint)
-            ?.let(Character::toChars)?.concatToString() ?: ""
-    }
-}
 
 internal fun fileSizeLabel(bytes: Long): String {
     require(bytes >= 0) { "File size must not be negative." }

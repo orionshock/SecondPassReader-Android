@@ -140,6 +140,7 @@ class LibraryBooksClientTest {
             assertEquals(listOf("award", "science-fiction"), detail.catalogTags.map { it.slug })
             assertEquals(listOf("Private", "Public"), detail.groups.map { it.name })
             assertEquals(listOf("isbn_13", "other"), detail.identifiers.map { it.scheme })
+            assertEquals("<p>Description</p>", detail.description)
             assertEquals(1234567L, detail.file?.fileSize)
             assertNull(detail.file?.checksum)
             assertEquals(

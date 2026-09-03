@@ -13,6 +13,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondpasslibrary.client.BookAuthorSummary
@@ -69,6 +70,31 @@ class BookDetailScreenTest {
         compose.onNodeWithText("Read book").assertIsNotEnabled()
         compose.onNodeWithText("Reading sessions").assertIsNotEnabled()
         compose.onNodeWithText("Add to shelf").assertIsNotEnabled()
+    }
+
+    @Test
+    fun richHtmlDescriptionRendersAsOneReadableAccessibleTextNode() {
+        val description = "<p>A first paragraph with <em>emphasis</em> &amp; meaning.</p>" +
+            "<p>A second paragraph.</p>" +
+            "<ul><li>One item</li><li>Another item</li></ul>"
+        setBookDetail(widthDp = 1000, book = richBook().copy(description = description))
+
+        compose.onNodeWithText(
+            "A first paragraph with emphasis & meaning.\n" +
+                "A second paragraph.\n\u2022 One item\n\u2022 Another item"
+        ).assertExists()
+        compose.onAllNodesWithText("<p>", substring = true).assertCountEquals(0)
+        compose.onAllNodesWithText("<li>", substring = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun longStructuredDescriptionExpandsFromActualRenderedOverflow() {
+        val description = (1..12).joinToString("") { "<p>Paragraph $it has readable text.</p>" }
+        setBookDetail(widthDp = 1000, book = richBook().copy(description = description))
+
+        compose.onNodeWithText("Show more").performClick()
+        compose.onNodeWithText("Show less").assertExists()
+        compose.onNodeWithText("Paragraph 12", substring = true).assertExists()
     }
 
     private fun setBookDetail(
