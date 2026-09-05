@@ -79,6 +79,7 @@ dependencies {
     implementation(libs.androidx.navigation3.ui)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.core)
+    implementation(libs.jsoup)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.room3.runtime)

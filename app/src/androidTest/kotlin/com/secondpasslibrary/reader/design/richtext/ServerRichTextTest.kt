@@ -94,6 +94,20 @@ class ServerRichTextTest {
     }
 
     @Test
+    fun activeAndUnsupportedMarkupCannotReachTheRenderer() {
+        val rendered = render(
+            "before<script>alert(1)</script><style>body{display:none}</style>" +
+                "<a href='https://example.com'>safe label</a>" +
+                "<strong onclick='bad()'>after</strong>"
+        )
+
+        assertEquals("beforesafe labelafter", rendered.text)
+        assertFalse(rendered.text.contains("alert"))
+        assertFalse(rendered.text.contains("display"))
+        assertStyled(rendered, "after", fontWeight = FontWeight.Bold)
+    }
+
+    @Test
     fun expansionIsBasedOnRenderedOverflow() {
         compose.setContent {
             SecondPassTheme {

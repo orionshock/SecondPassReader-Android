@@ -22,7 +22,6 @@ import androidx.core.text.HtmlCompat
 import java.util.Locale
 
 private val listTag = Regex("(?i)<\\s*(/?)\\s*(ol|ul|li)\\s*>")
-private val fallbackTag = Regex("(?s)<[^>]*>")
 
 /** Presents the server-sanitized descriptive-markup contract without changing its source value. */
 @Composable
@@ -59,11 +58,11 @@ internal fun ServerRichText(
 }
 
 internal fun renderServerRichText(value: String?): AnnotatedString? {
-    if (value.isNullOrBlank()) return null
+    val sanitized = ServerRichTextSanitizer.sanitize(value) ?: return null
     val rendered = runCatching {
-        AnnotatedString.fromHtml(value.withOrderedListMarkers())
+        AnnotatedString.fromHtml(sanitized.withOrderedListMarkers())
     }.getOrElse {
-        AnnotatedString(value.readableFallback())
+        AnnotatedString(sanitized.readablePlainText())
     }
     return rendered.trimmedOrNull()
 }
@@ -133,11 +132,9 @@ private fun listItemTag(
     }
 }
 
-private fun String.readableFallback(): String = runCatching {
+private fun String.readablePlainText(): String = runCatching {
     HtmlCompat.fromHtml(this, HtmlCompat.FROM_HTML_MODE_COMPACT).toString()
-}.getOrElse {
-    replace(fallbackTag, "")
-}
+}.getOrDefault("")
 
 private fun AnnotatedString.trimmedOrNull(): AnnotatedString? {
     val start = text.indexOfFirst { !it.isWhitespace() }
