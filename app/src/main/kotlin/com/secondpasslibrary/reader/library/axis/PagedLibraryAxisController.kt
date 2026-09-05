@@ -245,6 +245,7 @@ internal class PagedLibraryAxisController<T, O>(
             current.copy(
                 items = items,
                 contextualCatalogTags = page.catalogTags,
+                hasContextualCatalogTagsResponse = true,
                 totalCount = page.totalCount,
                 initialLoading = false,
                 nextPageLoading = false,

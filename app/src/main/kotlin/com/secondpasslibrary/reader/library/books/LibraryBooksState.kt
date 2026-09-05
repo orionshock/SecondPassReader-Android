@@ -40,6 +40,7 @@ internal data class LibraryBooksState(
     val layout: LibraryBooksLayout = LibraryBooksLayout.GRID,
     val books: List<CompactBook> = emptyList(),
     val contextualCatalogTags: List<LibraryCatalogTag> = emptyList(),
+    val hasContextualCatalogTagsResponse: Boolean = false,
     val totalCount: Int = 0,
     val initialLoading: Boolean = true,
     val nextPageLoading: Boolean = false,

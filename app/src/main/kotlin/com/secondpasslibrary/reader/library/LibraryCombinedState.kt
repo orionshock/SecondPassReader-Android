@@ -6,6 +6,7 @@ import com.secondpasslibrary.reader.library.axis.LibraryAuthorsState
 import com.secondpasslibrary.reader.library.axis.LibrarySeriesState
 import com.secondpasslibrary.reader.library.books.LibraryBooksState
 import com.secondpasslibrary.reader.library.chrome.LibraryFilterVocabularyState
+import com.secondpasslibrary.reader.library.chrome.LibraryTagSelectorState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -34,11 +35,33 @@ internal data class LibraryChromeState(
         advancedGroupsEnabled,
         vocabulary.groupSelector,
         selectedTag,
-        vocabulary.tagSelector,
+        activeTagSelector(vocabulary.tagSelector, books, authors, series),
         books,
         authors,
         series
     )
+
+    private fun activeTagSelector(
+        scopeTags: LibraryTagSelectorState,
+        books: LibraryBooksState,
+        authors: LibraryAuthorsState,
+        series: LibrarySeriesState
+    ): LibraryTagSelectorState {
+        val contextual = when {
+            resultKind == LibraryResultKind.BOOKS ->
+                books.contextualCatalogTags to books.hasContextualCatalogTagsResponse
+
+            axis == LibraryAxis.AUTHORS ->
+                authors.contextualCatalogTags to authors.hasContextualCatalogTagsResponse
+
+            else -> series.contextualCatalogTags to series.hasContextualCatalogTagsResponse
+        }
+        return if (contextual.second) {
+            LibraryTagSelectorState(loaded = true, tags = contextual.first)
+        } else {
+            scopeTags
+        }
+    }
 }
 
 internal val LibraryAxis.indexResultKind: LibraryResultKind

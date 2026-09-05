@@ -354,6 +354,7 @@ internal class LibraryBooksController(
             current.copy(
                 books = books,
                 contextualCatalogTags = page.catalogTags,
+                hasContextualCatalogTagsResponse = true,
                 totalCount = page.totalCount,
                 initialLoading = false,
                 nextPageLoading = false,
@@ -409,6 +410,7 @@ private fun LibraryBooksState.invalidatedForTag(tagSlug: String?): LibraryBooksS
     tagSlug = tagSlug,
     books = emptyList(),
     contextualCatalogTags = emptyList(),
+    hasContextualCatalogTagsResponse = false,
     totalCount = 0,
     initialLoading = true,
     nextPageLoading = false,

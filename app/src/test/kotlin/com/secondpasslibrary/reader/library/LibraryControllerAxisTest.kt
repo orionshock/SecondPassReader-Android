@@ -437,7 +437,18 @@ class LibraryControllerAxisTest {
         val selected = catalogTag("fiction", "fiction")
         val client = FakeLibraryAxisClient().apply {
             bookList = { options ->
-                axisPage(options.page, emptyList(), hasNext = options.page == 1)
+                axisPage(
+                    options.page,
+                    emptyList(),
+                    hasNext = options.page == 1,
+                    catalogTags = listOf(selected, catalogTag("history"))
+                )
+            }
+            authorList = {
+                axisPage(it.page, emptyList(), catalogTags = listOf(selected))
+            }
+            seriesList = {
+                axisPage(it.page, emptyList(), catalogTags = listOf(selected))
             }
             tags = { _, options ->
                 if (options.page == 1) {
@@ -478,10 +489,12 @@ class LibraryControllerAxisTest {
         controller.selectAxis(LibraryAxis.AUTHORS)
         advanceUntilIdle()
         assertEquals("fiction", client.authorRequests.last().tagSlug)
+        assertEquals(listOf("fiction"), controller.state.value.tagSelector.tags.map { it.slug })
 
         controller.selectAxis(LibraryAxis.SERIES)
         advanceUntilIdle()
         assertEquals("fiction", client.seriesRequests.last().tagSlug)
+        assertEquals(listOf("fiction"), controller.state.value.tagSelector.tags.map { it.slug })
     }
 
     @Test
@@ -489,6 +502,7 @@ class LibraryControllerAxisTest {
         val selected = catalogTag("fiction", "fiction")
         val client = FakeLibraryAxisClient().apply {
             tags = { _, options -> libraryPage(options.page, listOf(selected)) }
+            bookList = { axisPage(it.page, emptyList(), catalogTags = listOf(selected)) }
         }
         val controller = controller(client)
         controller.initialize(libraryProfile(), LibraryBooksEntry.Browse, false)
@@ -521,7 +535,20 @@ class LibraryControllerAxisTest {
                         listOf(if (scope == LibraryScope.Global) globalTag else scopedTag)
                     )
                 }
-                bookList = { axisPage(it.page, listOf(axisBook("book"))) }
+                bookList = {
+                    axisPage(
+                        it.page,
+                        listOf(axisBook("book")),
+                        catalogTags = listOf(globalTag)
+                    )
+                }
+                groupBookList = { _, options ->
+                    axisPage(
+                        options.page,
+                        listOf(axisBook("book")),
+                        catalogTags = listOf(scopedTag)
+                    )
+                }
             }
             val controller = controller(client)
             controller.initialize(libraryProfile(), LibraryBooksEntry.Browse, true)
@@ -544,9 +571,16 @@ class LibraryControllerAxisTest {
         }
 
     @Test
-    fun `tag vocabulary failure does not destroy loaded Books`() = runTest {
+    fun `authoritative contextual tags supersede a scope tag vocabulary failure`() = runTest {
+        val contextual = catalogTag("contextual")
         val client = FakeLibraryAxisClient().apply {
-            bookList = { axisPage(it.page, listOf(axisBook("book"))) }
+            bookList = {
+                axisPage(
+                    it.page,
+                    listOf(axisBook("book")),
+                    catalogTags = listOf(contextual)
+                )
+            }
             tags = { _, _ -> throw SplClientException.ProtocolInvalid("tags") }
         }
         val controller = controller(client)
@@ -555,7 +589,14 @@ class LibraryControllerAxisTest {
         advanceUntilIdle()
 
         assertEquals(listOf("book"), controller.state.value.books.books.map { it.id })
-        assertEquals(LibraryFailure.PROTOCOL_INVALID, controller.state.value.tagSelector.failure)
+        assertEquals(listOf("contextual"), controller.state.value.tagSelector.tags.map { it.slug })
+        assertEquals(null, controller.state.value.tagSelector.failure)
+
+        controller.selectTag(contextual)
+        advanceUntilIdle()
+
+        assertEquals("contextual", controller.state.value.selectedTag?.slug)
+        assertEquals("contextual", client.bookRequests.last().tagSlug)
     }
 
     private fun kotlinx.coroutines.test.TestScope.controller(

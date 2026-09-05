@@ -10,6 +10,7 @@ internal data class PagedLibraryAxisState<T, O>(
     val pageSize: Int = DEFAULT_LIBRARY_PAGE_SIZE,
     val items: List<T> = emptyList(),
     val contextualCatalogTags: List<LibraryCatalogTag> = emptyList(),
+    val hasContextualCatalogTagsResponse: Boolean = false,
     val totalCount: Int = 0,
     val initialLoading: Boolean = false,
     val nextPageLoading: Boolean = false,

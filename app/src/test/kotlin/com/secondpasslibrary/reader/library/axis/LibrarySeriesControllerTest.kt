@@ -47,6 +47,7 @@ class LibrarySeriesControllerTest {
             listOf("series-context"),
             controller.state.value.contextualCatalogTags.map { it.slug }
         )
+        assertTrue(controller.state.value.hasContextualCatalogTagsResponse)
     }
 
     @Test

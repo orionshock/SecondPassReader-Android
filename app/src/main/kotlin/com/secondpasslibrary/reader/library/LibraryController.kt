@@ -306,8 +306,10 @@ internal class LibraryController(
     fun selectTag(tag: LibraryCatalogTag?) {
         if (offline) return
         val current = chrome.value
+        val selectableTags =
+            state.value.tagSelector.tags + vocabulary.state.value.tagSelector.tags
         if (tag != null &&
-            vocabulary.state.value.tagSelector.tags.none {
+            selectableTags.none {
                 it.id == tag.id && it.slug == tag.slug
             }
         ) {

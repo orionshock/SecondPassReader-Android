@@ -73,6 +73,7 @@ class LibraryBooksPagingTest {
             advanceUntilIdle()
 
             assertEquals(91, controller.state.value.contextualCatalogTags.single().bookCount)
+            assertTrue(controller.state.value.hasContextualCatalogTagsResponse)
             controller.loadNextPage()
             advanceUntilIdle()
 
