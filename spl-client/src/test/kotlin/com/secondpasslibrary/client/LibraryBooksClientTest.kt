@@ -177,6 +177,10 @@ class LibraryBooksClientTest {
         assertEquals(40, page.pageSize)
         assertTrue(page.hasNext)
         assertTrue(page.hasPrevious)
+        assertEquals(
+            listOf("fiction" to 37, "history" to 9),
+            page.catalogTags.map { it.slug to it.bookCount }
+        )
         val book = page.results.single()
         assertEquals("book-1", book.id)
         assertEquals("Book, The", book.sortTitle)
@@ -299,7 +303,7 @@ class LibraryBooksClientTest {
         var request: HttpRequestData? = null
         val client = authenticatedClient { captured ->
             request = captured
-            jsonResponse(EMPTY_PAGE)
+            jsonResponse(SEARCH_PAGE)
         }
 
         val page =
@@ -307,6 +311,7 @@ class LibraryBooksClientTest {
                 options =
                     LibrarySearchOptions(
                         q = "",
+                        tagSlug = "fiction",
                         ordering = LibrarySearchOrdering.SERIES_DESCENDING,
                         page = 4,
                         pageSize = 200
@@ -315,6 +320,7 @@ class LibraryBooksClientTest {
 
         assertEquals("/api/v1/library/search", request?.url?.encodedPath)
         assertEquals("", request?.url?.parameters?.get("q"))
+        assertEquals("fiction", request?.url?.parameters?.get("tag"))
         assertEquals("-series", request?.url?.parameters?.get("ordering"))
         assertEquals("4", request?.url?.parameters?.get("page"))
         assertEquals("200", request?.url?.parameters?.get("page_size"))
@@ -322,6 +328,25 @@ class LibraryBooksClientTest {
         assertTrue(page.results.isEmpty())
         assertFalse(page.hasNext)
         assertFalse(page.hasPrevious)
+        assertEquals(listOf("searched" to 14), page.catalogTags.map { it.slug to it.bookCount })
+    }
+
+    @Test
+    fun `empty catalog aggregate remains a present empty collection`() = runBlocking {
+        val page = authenticatedClient { jsonResponse(EMPTY_PAGE) }.library.books.list()
+
+        assertTrue(page.catalogTags.isEmpty())
+    }
+
+    @Test
+    fun `missing required contextual catalog aggregate is rejected`() {
+        val client = authenticatedClient {
+            jsonResponse("""{"count":0,"next":null,"previous":null,"results":[]}""")
+        }
+
+        assertThrows(SplClientException.ProtocolInvalid::class.java) {
+            runBlocking { client.library.books.list() }
+        }
     }
 
     @Test
@@ -357,7 +382,7 @@ class LibraryBooksClientTest {
     fun `missing required compact field is rejected as invalid protocol`() {
         val client = authenticatedClient {
             jsonResponse(
-                """{"count":1,"results":[{
+                """{"count":1,"catalog_tags":[],"results":[{
                     "id":"book-1","sort_title":"Book","subtitle":"","authors":[],
                     "series":null,"catalog_tags":[],"language":null,"publisher":null,
                     "published_year":null,"published_month":null,"published_day":null,
@@ -425,11 +450,14 @@ class LibraryBooksClientTest {
                 "file":$FILE_JSON,
                 "groups":[{"id":"group-2","name":"Private","description":"Private room","is_public_group":false},{"id":"group-1","name":"Public","description":"Common room","is_public_group":true}]
             }"""
-        const val EMPTY_PAGE = """{"count":0,"next":null,"previous":null,"results":[]}"""
+        const val EMPTY_PAGE =
+            """{"count":0,"next":null,"previous":null,"catalog_tags":[],"results":[]}"""
+        const val SEARCH_PAGE =
+            """{"count":0,"next":null,"previous":null,"catalog_tags":[{"id":"search-tag","name":"Searched","slug":"searched","book_count":14}],"results":[]}"""
         const val PRECISION_PLACEHOLDER = "__PRECISION__"
         const val NULLABLE_BOOK_PAGE =
             """{
-                "count":1,"next":null,"previous":null,"results":[{
+                "count":1,"next":null,"previous":null,"catalog_tags":[],"results":[{
                     "id":"book-2","title":"Book","sort_title":"Book","subtitle":"",
                     "authors":[],"series":null,"catalog_tags":[],"language":null,
                     "publisher":null,"published_year":null,"published_month":null,
@@ -442,6 +470,10 @@ class LibraryBooksClientTest {
                 "count":41,
                 "next":"https://library.example/api/v1/library/books/?page=3",
                 "previous":"https://library.example/api/v1/library/books/?page=1",
+                "catalog_tags":[
+                    {"id":"aggregate-1","name":"Fiction","slug":"fiction","book_count":37},
+                    {"id":"aggregate-2","name":"History","slug":"history","book_count":9}
+                ],
                 "results":[{
                     "id":"book-1","title":"The Book","sort_title":"Book, The",
                     "subtitle":"A subtitle",

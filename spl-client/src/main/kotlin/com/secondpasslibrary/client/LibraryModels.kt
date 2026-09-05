@@ -150,6 +150,7 @@ enum class CatalogTagOrdering(internal val queryValue: String) {
 
 data class LibraryGroupSummary(val id: String, val name: String, val isPublicGroup: Boolean)
 
+/** A Catalog Tag and its distinct matching Book count in the containing server context. */
 data class LibraryCatalogTag(val id: String, val name: String, val slug: String, val bookCount: Int)
 
 data class LibraryPreviewBook(
@@ -179,6 +180,17 @@ data class LibrarySeries(
 data class LibraryPage<T>(
     val totalCount: Int,
     val results: List<T>,
+    val hasNext: Boolean,
+    val hasPrevious: Boolean,
+    val page: Int,
+    val pageSize: Int
+)
+
+/** A catalog result page plus tag counts for the full server-filtered Book population. */
+data class CatalogResultPage<T>(
+    val totalCount: Int,
+    val results: List<T>,
+    val catalogTags: List<LibraryCatalogTag>,
     val hasNext: Boolean,
     val hasPrevious: Boolean,
     val page: Int,

@@ -1,7 +1,7 @@
 package com.secondpasslibrary.client.internal.library
 
+import com.secondpasslibrary.client.CatalogResultPage
 import com.secondpasslibrary.client.LibraryAuthor
-import com.secondpasslibrary.client.LibraryPage
 import com.secondpasslibrary.client.LibraryPreviewBook
 import com.secondpasslibrary.client.LibrarySeries
 import com.secondpasslibrary.client.PublicBookCoverReference
@@ -14,11 +14,17 @@ private const val SERIES_CONTEXT = "library series"
 private const val SERIES_PAGE_CONTEXT = "library series page"
 private const val PREVIEW_BOOK_CONTEXT = "library preview book"
 
-internal fun LibraryAuthorPageWire.toModel(page: Int, pageSize: Int): LibraryPage<LibraryAuthor> =
-    toLibraryPage(page, pageSize, AUTHOR_PAGE_CONTEXT, LibraryAuthorWire::toModel)
+internal fun LibraryAuthorPageWire.toModel(
+    page: Int,
+    pageSize: Int
+): CatalogResultPage<LibraryAuthor> =
+    toCatalogResultPage(page, pageSize, AUTHOR_PAGE_CONTEXT, LibraryAuthorWire::toModel)
 
-internal fun LibrarySeriesPageWire.toModel(page: Int, pageSize: Int): LibraryPage<LibrarySeries> =
-    toLibraryPage(page, pageSize, SERIES_PAGE_CONTEXT, LibrarySeriesWire::toModel)
+internal fun LibrarySeriesPageWire.toModel(
+    page: Int,
+    pageSize: Int
+): CatalogResultPage<LibrarySeries> =
+    toCatalogResultPage(page, pageSize, SERIES_PAGE_CONTEXT, LibrarySeriesWire::toModel)
 
 internal fun LibraryAuthorWire.toModel(): LibraryAuthor {
     val count = bookCount.validCount(AUTHOR_CONTEXT)
@@ -55,16 +61,18 @@ private fun Int?.validCount(context: String): Int {
     return count.takeIf { it >= 0 } ?: invalidProtocol(context)
 }
 
-private fun <W, T> LibraryAxisPageWire<W>.toLibraryPage(
+private fun <W, T> LibraryAxisPageWire<W>.toCatalogResultPage(
     page: Int,
     pageSize: Int,
     context: String,
     mapper: (W) -> T
-): LibraryPage<T> {
+): CatalogResultPage<T> {
     val totalCount = count.validCount(context)
-    return LibraryPage(
+    return CatalogResultPage(
         totalCount = totalCount,
         results = results?.map(mapper) ?: invalidProtocol(context),
+        catalogTags =
+            catalogTags?.map(LibraryCatalogTagWire::toModel) ?: invalidProtocol(context),
         hasNext = next != null,
         hasPrevious = previous != null,
         page = page,
@@ -76,21 +84,22 @@ private data class LibraryAxisPageWire<W>(
     val count: Int?,
     val next: String?,
     val previous: String?,
+    val catalogTags: List<LibraryCatalogTagWire>?,
     val results: List<W>?
 )
 
-private fun <T> LibraryAuthorPageWire.toLibraryPage(
+private fun <T> LibraryAuthorPageWire.toCatalogResultPage(
     page: Int,
     pageSize: Int,
     context: String,
     mapper: (LibraryAuthorWire) -> T
-): LibraryPage<T> = LibraryAxisPageWire(count, next, previous, results)
-    .toLibraryPage(page, pageSize, context, mapper)
+): CatalogResultPage<T> = LibraryAxisPageWire(count, next, previous, catalogTags, results)
+    .toCatalogResultPage(page, pageSize, context, mapper)
 
-private fun <T> LibrarySeriesPageWire.toLibraryPage(
+private fun <T> LibrarySeriesPageWire.toCatalogResultPage(
     page: Int,
     pageSize: Int,
     context: String,
     mapper: (LibrarySeriesWire) -> T
-): LibraryPage<T> = LibraryAxisPageWire(count, next, previous, results)
-    .toLibraryPage(page, pageSize, context, mapper)
+): CatalogResultPage<T> = LibraryAxisPageWire(count, next, previous, catalogTags, results)
+    .toCatalogResultPage(page, pageSize, context, mapper)

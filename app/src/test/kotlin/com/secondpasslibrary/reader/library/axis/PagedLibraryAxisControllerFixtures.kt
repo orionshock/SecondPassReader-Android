@@ -8,6 +8,7 @@ import com.secondpasslibrary.client.AuthenticatedLibraryTagsClient
 import com.secondpasslibrary.client.AuthenticatedSecondPassClient
 import com.secondpasslibrary.client.AuthorListOptions
 import com.secondpasslibrary.client.BookListOptions
+import com.secondpasslibrary.client.CatalogResultPage
 import com.secondpasslibrary.client.CatalogTagListOptions
 import com.secondpasslibrary.client.CompactBook
 import com.secondpasslibrary.client.LibraryAuthor
@@ -58,28 +59,28 @@ internal class FakeLibraryAxisClient :
     val groupRequests = mutableListOf<LibraryGroupListOptions>()
     val tagRequests = mutableListOf<Pair<LibraryScope, CatalogTagListOptions>>()
 
-    var authorList: suspend (AuthorListOptions) -> LibraryPage<LibraryAuthor> = {
-        axisPage(it.page, emptyList())
+    var authorList: suspend (AuthorListOptions) -> CatalogResultPage<LibraryAuthor> = {
+        catalogPage(it.page, emptyList())
     }
-    var groupAuthorList: suspend (String, AuthorListOptions) -> LibraryPage<LibraryAuthor> =
-        { _, options -> axisPage(options.page, emptyList()) }
+    var groupAuthorList: suspend (String, AuthorListOptions) -> CatalogResultPage<LibraryAuthor> =
+        { _, options -> catalogPage(options.page, emptyList()) }
     var authorDetail: suspend (String) -> LibraryAuthor = { author(it) }
-    var seriesList: suspend (SeriesListOptions) -> LibraryPage<LibrarySeries> = {
-        axisPage(it.page, emptyList())
+    var seriesList: suspend (SeriesListOptions) -> CatalogResultPage<LibrarySeries> = {
+        catalogPage(it.page, emptyList())
     }
-    var groupSeriesList: suspend (String, SeriesListOptions) -> LibraryPage<LibrarySeries> =
-        { _, options -> axisPage(options.page, emptyList()) }
+    var groupSeriesList: suspend (String, SeriesListOptions) -> CatalogResultPage<LibrarySeries> =
+        { _, options -> catalogPage(options.page, emptyList()) }
     var seriesDetail: suspend (String) -> LibrarySeries = { series(it) }
     var groups: suspend (LibraryGroupListOptions) -> LibraryPage<LibraryGroupSummary> = {
-        axisPage(it.page, emptyList())
+        libraryPage(it.page, emptyList())
     }
     var tags: suspend (LibraryScope, CatalogTagListOptions) -> LibraryPage<LibraryCatalogTag> =
-        { _, options -> axisPage(options.page, emptyList()) }
-    var bookList: suspend (BookListOptions) -> LibraryPage<CompactBook> = {
-        axisPage(it.page, emptyList())
+        { _, options -> libraryPage(options.page, emptyList()) }
+    var bookList: suspend (BookListOptions) -> CatalogResultPage<CompactBook> = {
+        catalogPage(it.page, emptyList())
     }
-    var groupBookList: suspend (String, BookListOptions) -> LibraryPage<CompactBook> =
-        { _, options -> axisPage(options.page, emptyList()) }
+    var groupBookList: suspend (String, BookListOptions) -> CatalogResultPage<CompactBook> =
+        { _, options -> catalogPage(options.page, emptyList()) }
     var bookDetail: suspend (String) -> LibraryBookDetail = { libraryBookDetail(it) }
     val bookDetailRequests = mutableListOf<String>()
 
@@ -96,7 +97,7 @@ internal class FakeLibraryAxisClient :
     override suspend fun list(
         scope: LibraryScope,
         options: BookListOptions
-    ): LibraryPage<CompactBook> = when (scope) {
+    ): CatalogResultPage<CompactBook> = when (scope) {
         LibraryScope.Global -> {
             bookRequests += options
             bookList(options)
@@ -111,15 +112,15 @@ internal class FakeLibraryAxisClient :
     override suspend fun search(
         scope: LibraryScope,
         options: LibrarySearchOptions
-    ): LibraryPage<CompactBook> {
+    ): CatalogResultPage<CompactBook> {
         searchRequests += scope to options
-        return axisPage(options.page, emptyList())
+        return catalogPage(options.page, emptyList())
     }
 
     override suspend fun list(
         scope: LibraryScope,
         options: AuthorListOptions
-    ): LibraryPage<LibraryAuthor> = when (scope) {
+    ): CatalogResultPage<LibraryAuthor> = when (scope) {
         LibraryScope.Global -> {
             authorRequests += options
             authorList(options)
@@ -142,7 +143,7 @@ internal class FakeLibraryAxisClient :
     override suspend fun list(
         scope: LibraryScope,
         options: SeriesListOptions
-    ): LibraryPage<LibrarySeries> = when (scope) {
+    ): CatalogResultPage<LibrarySeries> = when (scope) {
         LibraryScope.Global -> {
             seriesRequests += options
             seriesList(options)
@@ -231,12 +232,32 @@ internal fun libraryBookDetail(id: String) = LibraryBookDetail(
     groups = emptyList()
 )
 
+internal fun <T> catalogPage(
+    page: Int,
+    items: List<T>,
+    total: Int = items.size,
+    hasNext: Boolean = false,
+    catalogTags: List<LibraryCatalogTag> = emptyList()
+) = CatalogResultPage(
+    total,
+    items,
+    catalogTags,
+    hasNext,
+    page > 1,
+    page,
+    DEFAULT_LIBRARY_PAGE_SIZE
+)
+
 internal fun <T> axisPage(
     page: Int,
     items: List<T>,
     total: Int = items.size,
-    hasNext: Boolean = false
-) = LibraryPage(total, items, hasNext, page > 1, page, DEFAULT_LIBRARY_PAGE_SIZE)
+    hasNext: Boolean = false,
+    catalogTags: List<LibraryCatalogTag> = emptyList()
+) = catalogPage(page, items, total, hasNext, catalogTags)
+
+internal fun <T> libraryPage(page: Int, items: List<T>) =
+    LibraryPage(items.size, items, false, page > 1, page, DEFAULT_LIBRARY_PAGE_SIZE)
 
 internal fun libraryProfile() = ConnectionProfile(
     serverOrigin = "https://library.example",

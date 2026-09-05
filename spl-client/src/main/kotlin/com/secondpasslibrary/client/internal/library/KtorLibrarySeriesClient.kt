@@ -1,8 +1,8 @@
 package com.secondpasslibrary.client.internal.library
 
 import com.secondpasslibrary.client.AuthenticatedLibrarySeriesClient
+import com.secondpasslibrary.client.CatalogResultPage
 import com.secondpasslibrary.client.LibraryEntityDetailOptions
-import com.secondpasslibrary.client.LibraryPage
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.LibrarySeries
 import com.secondpasslibrary.client.SeriesListOptions
@@ -20,7 +20,7 @@ internal class KtorLibrarySeriesClient(
     override suspend fun list(
         scope: LibraryScope,
         options: SeriesListOptions
-    ): LibraryPage<LibrarySeries> = listAt(scope.path("series/"), options)
+    ): CatalogResultPage<LibrarySeries> = listAt(scope.path("series/"), options)
 
     override suspend fun getSeries(
         seriesId: String,
@@ -40,7 +40,7 @@ internal class KtorLibrarySeriesClient(
     private suspend fun listAt(
         path: String,
         options: SeriesListOptions
-    ): LibraryPage<LibrarySeries> {
+    ): CatalogResultPage<LibrarySeries> {
         val parameters = buildList {
             options.q?.let { add("q" to it) }
             options.tagSlug?.let { add("tag" to it) }

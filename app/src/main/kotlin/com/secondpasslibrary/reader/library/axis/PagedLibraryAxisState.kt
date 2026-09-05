@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.library.axis
 
+import com.secondpasslibrary.client.LibraryCatalogTag
 import com.secondpasslibrary.reader.library.DEFAULT_LIBRARY_PAGE_SIZE
 import com.secondpasslibrary.reader.library.LibraryFailure
 
@@ -8,6 +9,7 @@ internal data class PagedLibraryAxisState<T, O>(
     val ordering: O,
     val pageSize: Int = DEFAULT_LIBRARY_PAGE_SIZE,
     val items: List<T> = emptyList(),
+    val contextualCatalogTags: List<LibraryCatalogTag> = emptyList(),
     val totalCount: Int = 0,
     val initialLoading: Boolean = false,
     val nextPageLoading: Boolean = false,

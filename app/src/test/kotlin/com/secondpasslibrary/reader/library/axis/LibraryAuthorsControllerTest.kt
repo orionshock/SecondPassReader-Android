@@ -23,7 +23,7 @@ class LibraryAuthorsControllerTest {
     @Test
     fun `initial load uses name order page size and bounded previews`() = runTest {
         val client = FakeLibraryAxisClient().apply {
-            authorList = { axisPage(1, listOf(author("b"), author("a")), 8, hasNext = true) }
+            authorList = { catalogPage(1, listOf(author("b"), author("a")), 8, hasNext = true) }
         }
         val controller = controller(client)
 
@@ -63,10 +63,21 @@ class LibraryAuthorsControllerTest {
         val client = FakeLibraryAxisClient().apply {
             authorList = { request ->
                 if (request.page == 1) {
-                    axisPage(1, listOf(author("first")), 2, hasNext = true)
+                    catalogPage(
+                        1,
+                        listOf(author("first")),
+                        2,
+                        hasNext = true,
+                        catalogTags = listOf(catalogTag("first-context"))
+                    )
                 } else {
                     gate.await()
-                    axisPage(2, listOf(author("second")), 2)
+                    catalogPage(
+                        2,
+                        listOf(author("second")),
+                        2,
+                        catalogTags = listOf(catalogTag("second-context"))
+                    )
                 }
             }
         }
@@ -83,6 +94,10 @@ class LibraryAuthorsControllerTest {
         advanceUntilIdle()
 
         assertEquals(listOf("first", "second"), controller.state.value.items.map { it.id })
+        assertEquals(
+            listOf("second-context"),
+            controller.state.value.contextualCatalogTags.map { it.slug }
+        )
     }
 
     @Test
@@ -93,12 +108,12 @@ class LibraryAuthorsControllerTest {
                 when (request.q) {
                     "old" -> withContext(NonCancellable) {
                         staleGate.await()
-                        axisPage(1, listOf(author("stale")))
+                        catalogPage(1, listOf(author("stale")))
                     }
 
-                    "new" -> axisPage(1, listOf(author("current")))
+                    "new" -> catalogPage(1, listOf(author("current")))
 
-                    else -> axisPage(1, emptyList())
+                    else -> catalogPage(1, emptyList())
                 }
             }
         }
@@ -120,7 +135,7 @@ class LibraryAuthorsControllerTest {
     @Test
     fun `group scope uses group Authors and clears selected detail`() = runTest {
         val client = FakeLibraryAxisClient().apply {
-            groupAuthorList = { _, options -> axisPage(options.page, listOf(author("group"))) }
+            groupAuthorList = { _, options -> catalogPage(options.page, listOf(author("group"))) }
         }
         val controller = controller(client)
         controller.prepare(libraryProfile(), LibraryScope.Global)
@@ -167,11 +182,11 @@ class LibraryAuthorsControllerTest {
         val client = FakeLibraryAxisClient().apply {
             authorList = { request ->
                 if (request.page == 1) {
-                    axisPage(1, listOf(author("first")), 2, hasNext = true)
+                    catalogPage(1, listOf(author("first")), 2, hasNext = true)
                 } else {
                     attempts += 1
                     if (attempts == 1) throw SplClientException.ServerUnreachable()
-                    axisPage(2, listOf(author("second")), 2)
+                    catalogPage(2, listOf(author("second")), 2)
                 }
             }
         }

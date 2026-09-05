@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.library.books
 
 import com.secondpasslibrary.client.BookOrdering
 import com.secondpasslibrary.client.CompactBook
+import com.secondpasslibrary.client.LibraryCatalogTag
 import com.secondpasslibrary.client.LibrarySearchOrdering
 import com.secondpasslibrary.reader.library.DEFAULT_LIBRARY_PAGE_SIZE
 import com.secondpasslibrary.reader.library.LibraryFailure
@@ -38,6 +39,7 @@ internal data class LibraryBooksState(
     val pageSize: Int = DEFAULT_LIBRARY_PAGE_SIZE,
     val layout: LibraryBooksLayout = LibraryBooksLayout.GRID,
     val books: List<CompactBook> = emptyList(),
+    val contextualCatalogTags: List<LibraryCatalogTag> = emptyList(),
     val totalCount: Int = 0,
     val initialLoading: Boolean = true,
     val nextPageLoading: Boolean = false,

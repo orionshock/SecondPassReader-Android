@@ -46,6 +46,7 @@ class LibraryAxesClientTest {
         assertEquals(40, page.pageSize)
         assertTrue(page.hasNext)
         assertTrue(page.hasPrevious)
+        assertEquals(listOf("fiction" to 22), page.catalogTags.map { it.slug to it.bookCount })
         assertEquals(listOf("Omitted", "Empty", "Populated"), page.results.map { it.name })
         assertNull(page.results[0].previewBooks)
         assertEquals(emptyList<LibraryPreviewBook>(), page.results[1].previewBooks)
@@ -77,6 +78,7 @@ class LibraryAxesClientTest {
         assertNull(page.results.single().previewBooks?.single()?.cover)
         assertFalse(page.hasNext)
         assertFalse(page.hasPrevious)
+        assertEquals(listOf("fantasy" to 7), page.catalogTags.map { it.slug to it.bookCount })
     }
 
     @Test
@@ -113,17 +115,17 @@ class LibraryAxesClientTest {
         val client = authenticatedClient {
             requests += it
             if (it.url.encodedPath.endsWith("authors/")) {
-                jsonResponse(EMPTY_PAGE)
+                jsonResponse(AUTHOR_PAGE)
             } else {
                 jsonResponse(SERIES_PAGE)
             }
         }
 
-        client.library.authors.list(
+        val authorPage = client.library.authors.list(
             LibraryScope.Group("group/one"),
             AuthorListOptions(q = "author")
         )
-        client.library.series.list(
+        val seriesPage = client.library.series.list(
             LibraryScope.Group("group/one"),
             SeriesListOptions(ordering = SeriesOrdering.NAME_DESCENDING)
         )
@@ -135,6 +137,8 @@ class LibraryAxesClientTest {
         requests.forEach {
             assertEquals("Bearer spl_secret", it.headers[HttpHeaders.Authorization])
         }
+        assertEquals(listOf("fiction"), authorPage.catalogTags.map { it.slug })
+        assertEquals(listOf("fantasy"), seriesPage.catalogTags.map { it.slug })
     }
 
     @Test
@@ -162,8 +166,16 @@ class LibraryAxesClientTest {
     @Test
     fun `malformed required author series and preview fields are rejected`() {
         val malformedPayloads = listOf(
-            """{"count":1,"results":[{"id":"a","name":"A","sort_name":"A","book_count":1}]}""",
-            """{"count":1,"results":[{"id":"s","name":"S","sort_name":"S","summary":"","book_count":-1}]}""",
+            """{
+                "count":1,"catalog_tags":[],
+                "results":[{"id":"a","name":"A","sort_name":"A","book_count":1}]
+            }
+            """.trimIndent(),
+            """{
+                "count":1,"catalog_tags":[],
+                "results":[{"id":"s","name":"S","sort_name":"S","summary":"","book_count":-1}]
+            }
+            """.trimIndent(),
             """{"id":"a","name":"A","sort_name":"A","biography":"","book_count":1,"preview_books":[{"id":"b"}]}"""
         )
 
@@ -219,7 +231,8 @@ class LibraryAxesClientTest {
         respond(body, headers = headersOf(HttpHeaders.ContentType, "application/json"))
 
     private companion object {
-        const val EMPTY_PAGE = """{"count":0,"next":null,"previous":null,"results":[]}"""
+        const val EMPTY_PAGE =
+            """{"count":0,"next":null,"previous":null,"catalog_tags":[],"results":[]}"""
         const val AUTHOR_DETAIL =
             """{"id":"a","name":"Author","sort_name":"Author","biography":"Bio","book_count":2}"""
         const val SERIES_DETAIL =
@@ -227,6 +240,7 @@ class LibraryAxesClientTest {
         const val AUTHOR_PAGE =
             """{
                 "count":3,"next":"https://library.example/next","previous":"https://library.example/previous",
+                "catalog_tags":[{"id":"tag-1","name":"Fiction","slug":"fiction","book_count":22}],
                 "results":[
                     {"id":"a1","name":"Omitted","sort_name":"Omitted","biography":"","book_count":1},
                     {"id":"a2","name":"Empty","sort_name":"Empty","biography":"","book_count":0,"preview_books":[]},
@@ -237,6 +251,7 @@ class LibraryAxesClientTest {
         const val SERIES_PAGE =
             """{
                 "count":1,"next":null,"previous":null,
+                "catalog_tags":[{"id":"tag-2","name":"Fantasy","slug":"fantasy","book_count":7}],
                 "results":[{"id":"s1","name":"Cycle","sort_name":"Cycle","summary":"A summary","book_count":4,
                 "preview_books":[{"id":"b1","title":"Book","cover_url":null}]}]
             }"""

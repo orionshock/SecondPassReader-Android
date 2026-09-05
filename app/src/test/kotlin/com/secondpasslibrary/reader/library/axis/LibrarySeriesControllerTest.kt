@@ -23,7 +23,15 @@ class LibrarySeriesControllerTest {
     @Test
     fun `initial load uses name order page size and bounded previews`() = runTest {
         val client = FakeLibraryAxisClient().apply {
-            seriesList = { axisPage(1, listOf(series("b"), series("a")), 8, hasNext = true) }
+            seriesList = {
+                catalogPage(
+                    1,
+                    listOf(series("b"), series("a")),
+                    8,
+                    hasNext = true,
+                    catalogTags = listOf(catalogTag("series-context"))
+                )
+            }
         }
         val controller = controller(client)
         controller.prepare(libraryProfile(), LibraryScope.Global)
@@ -35,6 +43,10 @@ class LibrarySeriesControllerTest {
         assertEquals(DEFAULT_LIBRARY_PAGE_SIZE, client.seriesRequests.single().pageSize)
         assertEquals(LIBRARY_AXIS_PREVIEW_LIMIT, client.seriesRequests.single().previewLimit)
         assertTrue(controller.state.value.hasNext)
+        assertEquals(
+            listOf("series-context"),
+            controller.state.value.contextualCatalogTags.map { it.slug }
+        )
     }
 
     @Test
@@ -62,10 +74,10 @@ class LibrarySeriesControllerTest {
         val client = FakeLibraryAxisClient().apply {
             seriesList = { request ->
                 if (request.page == 1) {
-                    axisPage(1, listOf(series("first")), 2, hasNext = true)
+                    catalogPage(1, listOf(series("first")), 2, hasNext = true)
                 } else {
                     gate.await()
-                    axisPage(2, listOf(series("second")), 2)
+                    catalogPage(2, listOf(series("second")), 2)
                 }
             }
         }
@@ -92,12 +104,12 @@ class LibrarySeriesControllerTest {
                 when (request.q) {
                     "old" -> withContext(NonCancellable) {
                         staleGate.await()
-                        axisPage(1, listOf(series("stale")))
+                        catalogPage(1, listOf(series("stale")))
                     }
 
-                    "new" -> axisPage(1, listOf(series("current")))
+                    "new" -> catalogPage(1, listOf(series("current")))
 
-                    else -> axisPage(1, emptyList())
+                    else -> catalogPage(1, emptyList())
                 }
             }
         }
@@ -119,7 +131,7 @@ class LibrarySeriesControllerTest {
     @Test
     fun `group scope uses group Series and clears selected detail`() = runTest {
         val client = FakeLibraryAxisClient().apply {
-            groupSeriesList = { _, options -> axisPage(options.page, listOf(series("group"))) }
+            groupSeriesList = { _, options -> catalogPage(options.page, listOf(series("group"))) }
         }
         val controller = controller(client)
         controller.prepare(libraryProfile(), LibraryScope.Global)
@@ -166,11 +178,11 @@ class LibrarySeriesControllerTest {
         val client = FakeLibraryAxisClient().apply {
             seriesList = { request ->
                 if (request.page == 1) {
-                    axisPage(1, listOf(series("first")), 2, hasNext = true)
+                    catalogPage(1, listOf(series("first")), 2, hasNext = true)
                 } else {
                     attempts += 1
                     if (attempts == 1) throw SplClientException.ServerUnreachable()
-                    axisPage(2, listOf(series("second")), 2)
+                    catalogPage(2, listOf(series("second")), 2)
                 }
             }
         }

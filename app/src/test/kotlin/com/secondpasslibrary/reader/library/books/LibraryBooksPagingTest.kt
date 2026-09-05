@@ -46,6 +46,47 @@ class LibraryBooksPagingTest {
     }
 
     @Test
+    fun `page results accumulate while contextual tags remain authoritative response metadata`() =
+        runTest {
+            val client = FakeLibraryClient().apply {
+                listCall = { request ->
+                    if (request.page == 1) {
+                        page(
+                            1,
+                            listOf("only-result"),
+                            2,
+                            hasNext = true,
+                            catalogTags = listOf(aggregateTag("fiction", 91))
+                        )
+                    } else {
+                        page(
+                            2,
+                            listOf("second-result"),
+                            2,
+                            catalogTags = listOf(aggregateTag("history", 47))
+                        )
+                    }
+                }
+            }
+            val controller = libraryBooksController(client)
+            controller.initializeBrowse(profile())
+            advanceUntilIdle()
+
+            assertEquals(91, controller.state.value.contextualCatalogTags.single().bookCount)
+            controller.loadNextPage()
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf("only-result", "second-result"),
+                controller.state.value.books.map { it.id }
+            )
+            assertEquals(
+                listOf("history" to 47),
+                controller.state.value.contextualCatalogTags.map { it.slug to it.bookCount }
+            )
+        }
+
+    @Test
     fun `duplicate next page requests are suppressed while one is active`() = runTest {
         val pageTwoGate = CompletableDeferred<Unit>()
         val client = FakeLibraryClient().apply {
@@ -83,7 +124,13 @@ class LibraryBooksPagingTest {
                         page(1, listOf("stale"), 1)
                     }
 
-                    "new" -> page(1, listOf("current"), 1)
+                    "new" ->
+                        page(
+                            1,
+                            listOf("current"),
+                            1,
+                            catalogTags = listOf(aggregateTag("new-context", 12))
+                        )
 
                     else -> page(1, emptyList(), 0)
                 }
@@ -102,6 +149,10 @@ class LibraryBooksPagingTest {
 
         assertEquals("new", controller.state.value.committedQuery)
         assertEquals(listOf("current"), controller.state.value.books.map { it.id })
+        assertEquals(
+            listOf("new-context"),
+            controller.state.value.contextualCatalogTags.map { it.slug }
+        )
     }
 
     @Test

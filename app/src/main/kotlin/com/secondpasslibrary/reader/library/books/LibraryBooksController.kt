@@ -1,8 +1,8 @@
 package com.secondpasslibrary.reader.library.books
 
 import com.secondpasslibrary.client.BookOrdering
+import com.secondpasslibrary.client.CatalogResultPage
 import com.secondpasslibrary.client.CompactBook
-import com.secondpasslibrary.client.LibraryPage
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.LibrarySearchOrdering
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
@@ -340,7 +340,7 @@ internal class LibraryBooksController(
             )
     }
 
-    private fun applyPage(page: LibraryPage<CompactBook>, phase: LibraryBooksLoadPhase) {
+    private fun applyPage(page: CatalogResultPage<CompactBook>, phase: LibraryBooksLoadPhase) {
         val current = mutableState.value
         val books =
             if (phase ==
@@ -353,6 +353,7 @@ internal class LibraryBooksController(
         mutableState.value =
             current.copy(
                 books = books,
+                contextualCatalogTags = page.catalogTags,
                 totalCount = page.totalCount,
                 initialLoading = false,
                 nextPageLoading = false,
@@ -407,6 +408,7 @@ internal class LibraryBooksController(
 private fun LibraryBooksState.invalidatedForTag(tagSlug: String?): LibraryBooksState = copy(
     tagSlug = tagSlug,
     books = emptyList(),
+    contextualCatalogTags = emptyList(),
     totalCount = 0,
     initialLoading = true,
     nextPageLoading = false,

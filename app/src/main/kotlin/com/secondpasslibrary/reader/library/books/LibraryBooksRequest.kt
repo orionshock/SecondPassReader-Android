@@ -2,8 +2,8 @@ package com.secondpasslibrary.reader.library.books
 
 import com.secondpasslibrary.client.AuthenticatedLibraryBooksClient
 import com.secondpasslibrary.client.BookListOptions
+import com.secondpasslibrary.client.CatalogResultPage
 import com.secondpasslibrary.client.CompactBook
-import com.secondpasslibrary.client.LibraryPage
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.LibrarySearchOptions
 
@@ -17,7 +17,7 @@ internal data class LibraryBooksRequest(
     val page: Int,
     val pageSize: Int
 ) {
-    suspend fun load(client: AuthenticatedLibraryBooksClient): LibraryPage<CompactBook> =
+    suspend fun load(client: AuthenticatedLibraryBooksClient): CatalogResultPage<CompactBook> =
         when (mode) {
             LibraryBooksMode.BROWSE ->
                 client.list(

@@ -8,6 +8,7 @@ import com.secondpasslibrary.client.AuthenticatedLibrarySeriesClient
 import com.secondpasslibrary.client.AuthenticatedLibraryTagsClient
 import com.secondpasslibrary.client.AuthorListOptions
 import com.secondpasslibrary.client.BookListOptions
+import com.secondpasslibrary.client.CatalogResultPage
 import com.secondpasslibrary.client.CatalogTagListOptions
 import com.secondpasslibrary.client.CompactBook
 import com.secondpasslibrary.client.LibraryAuthor
@@ -41,19 +42,19 @@ private object UnsupportedLibraryBooksClient : AuthenticatedLibraryBooksClient {
     override suspend fun list(
         scope: LibraryScope,
         options: BookListOptions
-    ): LibraryPage<CompactBook> = unsupported()
+    ): CatalogResultPage<CompactBook> = unsupported()
 
     override suspend fun search(
         scope: LibraryScope,
         options: LibrarySearchOptions
-    ): LibraryPage<CompactBook> = unsupported()
+    ): CatalogResultPage<CompactBook> = unsupported()
 }
 
 private object UnsupportedLibraryAuthorsClient : AuthenticatedLibraryAuthorsClient {
     override suspend fun list(
         scope: LibraryScope,
         options: AuthorListOptions
-    ): LibraryPage<LibraryAuthor> = unsupported()
+    ): CatalogResultPage<LibraryAuthor> = unsupported()
 
     override suspend fun getAuthor(
         authorId: String,
@@ -65,7 +66,7 @@ private object UnsupportedLibrarySeriesClient : AuthenticatedLibrarySeriesClient
     override suspend fun list(
         scope: LibraryScope,
         options: SeriesListOptions
-    ): LibraryPage<LibrarySeries> = unsupported()
+    ): CatalogResultPage<LibrarySeries> = unsupported()
 
     override suspend fun getSeries(
         seriesId: String,

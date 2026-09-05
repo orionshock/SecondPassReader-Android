@@ -118,19 +118,19 @@ interface AuthenticatedLibraryBooksClient {
     suspend fun list(
         scope: LibraryScope = LibraryScope.Global,
         options: BookListOptions = BookListOptions()
-    ): LibraryPage<CompactBook>
+    ): CatalogResultPage<CompactBook>
 
     suspend fun search(
         scope: LibraryScope = LibraryScope.Global,
         options: LibrarySearchOptions = LibrarySearchOptions()
-    ): LibraryPage<CompactBook>
+    ): CatalogResultPage<CompactBook>
 }
 
 interface AuthenticatedLibraryAuthorsClient {
     suspend fun list(
         scope: LibraryScope = LibraryScope.Global,
         options: AuthorListOptions = AuthorListOptions()
-    ): LibraryPage<LibraryAuthor>
+    ): CatalogResultPage<LibraryAuthor>
 
     suspend fun getAuthor(
         authorId: String,
@@ -142,7 +142,7 @@ interface AuthenticatedLibrarySeriesClient {
     suspend fun list(
         scope: LibraryScope = LibraryScope.Global,
         options: SeriesListOptions = SeriesListOptions()
-    ): LibraryPage<LibrarySeries>
+    ): CatalogResultPage<LibrarySeries>
 
     suspend fun getSeries(
         seriesId: String,

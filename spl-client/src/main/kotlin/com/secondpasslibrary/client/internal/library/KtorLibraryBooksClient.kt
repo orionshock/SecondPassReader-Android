@@ -3,9 +3,9 @@ package com.secondpasslibrary.client.internal.library
 import com.secondpasslibrary.client.AuthenticatedBookDownloadReference
 import com.secondpasslibrary.client.AuthenticatedLibraryBooksClient
 import com.secondpasslibrary.client.BookListOptions
+import com.secondpasslibrary.client.CatalogResultPage
 import com.secondpasslibrary.client.CompactBook
 import com.secondpasslibrary.client.LibraryBookDetail
-import com.secondpasslibrary.client.LibraryPage
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.LibrarySearchOptions
 import com.secondpasslibrary.client.internal.transport.AuthenticatedRequestExecutor
@@ -47,7 +47,7 @@ internal class KtorLibraryBooksClient(
     override suspend fun list(
         scope: LibraryScope,
         options: BookListOptions
-    ): LibraryPage<CompactBook> {
+    ): CatalogResultPage<CompactBook> {
         val parameters = buildList {
             options.q?.let { add("q" to it) }
             options.authorId?.let { add("author" to it) }
@@ -63,7 +63,7 @@ internal class KtorLibraryBooksClient(
     override suspend fun search(
         scope: LibraryScope,
         options: LibrarySearchOptions
-    ): LibraryPage<CompactBook> {
+    ): CatalogResultPage<CompactBook> {
         val parameters = buildList {
             add("q" to options.q)
             options.tagSlug?.let { add("tag" to it) }
@@ -79,7 +79,7 @@ internal class KtorLibraryBooksClient(
         parameters: List<Pair<String, String>>,
         page: Int,
         pageSize: Int
-    ): LibraryPage<CompactBook> {
+    ): CatalogResultPage<CompactBook> {
         val response = requests.get(path, parameters)
         return json.decodeProtocolBody<CompactBookPageWire>(response.body(), "book page")
             .toModel(page, pageSize)

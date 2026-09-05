@@ -2,6 +2,7 @@ package com.secondpasslibrary.client.internal.library
 
 import com.secondpasslibrary.client.BookAuthorSummary
 import com.secondpasslibrary.client.BookSeriesSummary
+import com.secondpasslibrary.client.CatalogResultPage
 import com.secondpasslibrary.client.CatalogTagSummary
 import com.secondpasslibrary.client.CompactBook
 import com.secondpasslibrary.client.LibraryGroupSummary
@@ -17,12 +18,15 @@ private const val BOOK_PAGE_CONTEXT = "book page"
 private const val GROUP_CONTEXT = "library group"
 private const val GROUP_PAGE_CONTEXT = "library group page"
 
-internal fun CompactBookPageWire.toModel(page: Int, pageSize: Int): LibraryPage<CompactBook> {
+internal fun CompactBookPageWire.toModel(page: Int, pageSize: Int): CatalogResultPage<CompactBook> {
     val totalCount = count ?: invalidProtocol(BOOK_PAGE_CONTEXT)
     if (totalCount < 0) invalidProtocol(BOOK_PAGE_CONTEXT)
-    return LibraryPage(
+    return CatalogResultPage(
         totalCount = totalCount,
         results = results?.map(CompactBookWire::toModel) ?: invalidProtocol(BOOK_PAGE_CONTEXT),
+        catalogTags =
+            catalogTags?.map(LibraryCatalogTagWire::toModel)
+                ?: invalidProtocol(BOOK_PAGE_CONTEXT),
         hasNext = next != null,
         hasPrevious = previous != null,
         page = page,

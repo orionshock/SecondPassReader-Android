@@ -3,6 +3,7 @@ package com.secondpasslibrary.reader.library
 import com.secondpasslibrary.client.AuthorOrdering
 import com.secondpasslibrary.client.BookOrdering
 import com.secondpasslibrary.client.LibraryGroupSummary
+import com.secondpasslibrary.client.LibraryPage
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.LibrarySearchOrdering
 import com.secondpasslibrary.client.SeriesOrdering
@@ -15,6 +16,7 @@ import com.secondpasslibrary.reader.library.axis.author
 import com.secondpasslibrary.reader.library.axis.axisBook
 import com.secondpasslibrary.reader.library.axis.axisPage
 import com.secondpasslibrary.reader.library.axis.catalogTag
+import com.secondpasslibrary.reader.library.axis.libraryPage
 import com.secondpasslibrary.reader.library.axis.libraryProfile
 import com.secondpasslibrary.reader.library.axis.series
 import com.secondpasslibrary.reader.library.books.LibraryBooksController
@@ -186,7 +188,7 @@ class LibraryControllerAxisTest {
         val client = FakeLibraryAxisClient().apply {
             tags = { _, options ->
                 releaseTags.await()
-                axisPage(options.page, listOf(requested))
+                libraryPage(options.page, listOf(requested))
             }
         }
         val controller = controller(client)
@@ -207,7 +209,7 @@ class LibraryControllerAxisTest {
     fun `external Book Detail metadata intent enters coordinated Library context`() = runTest {
         val tag = catalogTag("tag-1", "fiction")
         val client = FakeLibraryAxisClient().apply {
-            tags = { _, options -> axisPage(options.page, listOf(tag)) }
+            tags = { _, options -> libraryPage(options.page, listOf(tag)) }
         }
         val controller = controller(client)
         controller.initialize(libraryProfile(), LibraryBooksEntry.Browse, false)
@@ -257,7 +259,7 @@ class LibraryControllerAxisTest {
     fun `scope change propagates to active child and preserves axis`() = runTest {
         val group = LibraryGroupSummary("group-1", "Group", false)
         val client = FakeLibraryAxisClient().apply {
-            groups = { axisPage(it.page, listOf(group)) }
+            groups = { libraryPage(it.page, listOf(group)) }
             groupAuthorList = { _, options -> axisPage(options.page, listOf(author("scoped"))) }
         }
         val controller = controller(client)
@@ -374,7 +376,7 @@ class LibraryControllerAxisTest {
             val groupOne = LibraryGroupSummary("group-1", "One", false)
             val groupTwo = LibraryGroupSummary("group-2", "Two", false)
             val client = FakeLibraryAxisClient().apply {
-                groups = { axisPage(it.page, listOf(groupOne, groupTwo)) }
+                groups = { libraryPage(it.page, listOf(groupOne, groupTwo)) }
             }
             val controller = controller(client)
             controller.initialize(libraryProfile(), LibraryBooksEntry.Browse, true)
@@ -439,9 +441,16 @@ class LibraryControllerAxisTest {
             }
             tags = { _, options ->
                 if (options.page == 1) {
-                    axisPage(1, listOf(selected), total = 2, hasNext = true)
+                    LibraryPage(2, listOf(selected), true, false, 1, DEFAULT_LIBRARY_PAGE_SIZE)
                 } else {
-                    axisPage(2, listOf(catalogTag("history")), total = 2)
+                    LibraryPage(
+                        2,
+                        listOf(catalogTag("history")),
+                        false,
+                        true,
+                        2,
+                        DEFAULT_LIBRARY_PAGE_SIZE
+                    )
                 }
             }
         }
@@ -479,7 +488,7 @@ class LibraryControllerAxisTest {
     fun `selected entity Books retain shared tag and selecting it again clears it`() = runTest {
         val selected = catalogTag("fiction", "fiction")
         val client = FakeLibraryAxisClient().apply {
-            tags = { _, options -> axisPage(options.page, listOf(selected)) }
+            tags = { _, options -> libraryPage(options.page, listOf(selected)) }
         }
         val controller = controller(client)
         controller.initialize(libraryProfile(), LibraryBooksEntry.Browse, false)
@@ -505,9 +514,9 @@ class LibraryControllerAxisTest {
             val globalTag = catalogTag("global")
             val scopedTag = catalogTag("scoped")
             val client = FakeLibraryAxisClient().apply {
-                groups = { axisPage(it.page, listOf(group)) }
+                groups = { libraryPage(it.page, listOf(group)) }
                 tags = { scope, options ->
-                    axisPage(
+                    libraryPage(
                         options.page,
                         listOf(if (scope == LibraryScope.Global) globalTag else scopedTag)
                     )

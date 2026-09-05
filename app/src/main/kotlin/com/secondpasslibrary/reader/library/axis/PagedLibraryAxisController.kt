@@ -1,7 +1,7 @@
 package com.secondpasslibrary.reader.library.axis
 
 import com.secondpasslibrary.client.AuthenticatedSecondPassClient
-import com.secondpasslibrary.client.LibraryPage
+import com.secondpasslibrary.client.CatalogResultPage
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
@@ -26,7 +26,7 @@ internal class PagedLibraryAxisController<T, O>(
     private val coroutineScope: CoroutineScope,
     defaultOrdering: O,
     private val pageLoader: suspend (AuthenticatedSecondPassClient, PagedLibraryAxisRequest<O>) ->
-    LibraryPage<T>,
+    CatalogResultPage<T>,
     private val detailLoader: suspend (AuthenticatedSecondPassClient, String) -> T
 ) {
     private val mutableState =
@@ -233,7 +233,7 @@ internal class PagedLibraryAxisController<T, O>(
         }
     }
 
-    private fun applyPage(page: LibraryPage<T>, phase: PagedLibraryAxisLoadPhase) {
+    private fun applyPage(page: CatalogResultPage<T>, phase: PagedLibraryAxisLoadPhase) {
         val current = mutableState.value
         val items =
             if (phase == PagedLibraryAxisLoadPhase.NEXT_PAGE) {
@@ -244,6 +244,7 @@ internal class PagedLibraryAxisController<T, O>(
         mutableState.value =
             current.copy(
                 items = items,
+                contextualCatalogTags = page.catalogTags,
                 totalCount = page.totalCount,
                 initialLoading = false,
                 nextPageLoading = false,

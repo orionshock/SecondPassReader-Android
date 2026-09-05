@@ -8,6 +8,7 @@ internal data class CompactBookPageWire(
     val count: Int? = null,
     val next: String? = null,
     val previous: String? = null,
+    @SerialName("catalog_tags") val catalogTags: List<LibraryCatalogTagWire>? = null,
     val results: List<CompactBookWire>? = null
 )
 
@@ -47,6 +48,7 @@ internal data class LibraryAuthorPageWire(
     val count: Int? = null,
     val next: String? = null,
     val previous: String? = null,
+    @SerialName("catalog_tags") val catalogTags: List<LibraryCatalogTagWire>? = null,
     val results: List<LibraryAuthorWire>? = null
 )
 
@@ -55,6 +57,7 @@ internal data class LibrarySeriesPageWire(
     val count: Int? = null,
     val next: String? = null,
     val previous: String? = null,
+    @SerialName("catalog_tags") val catalogTags: List<LibraryCatalogTagWire>? = null,
     val results: List<LibrarySeriesWire>? = null
 )
 

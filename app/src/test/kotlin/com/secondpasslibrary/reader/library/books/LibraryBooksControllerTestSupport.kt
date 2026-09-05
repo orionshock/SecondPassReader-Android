@@ -4,7 +4,9 @@ import com.secondpasslibrary.client.AuthenticatedLibraryBooksClient
 import com.secondpasslibrary.client.AuthenticatedLibraryGroupsClient
 import com.secondpasslibrary.client.AuthenticatedSecondPassClient
 import com.secondpasslibrary.client.BookListOptions
+import com.secondpasslibrary.client.CatalogResultPage
 import com.secondpasslibrary.client.CompactBook
+import com.secondpasslibrary.client.LibraryCatalogTag
 import com.secondpasslibrary.client.LibraryGroupListOptions
 import com.secondpasslibrary.client.LibraryGroupSummary
 import com.secondpasslibrary.client.LibraryPage
@@ -71,16 +73,16 @@ internal class FakeLibraryClient :
     val groupRequests = mutableListOf<LibraryGroupListOptions>()
     val groupBookRequests = mutableListOf<Pair<String, BookListOptions>>()
     val scopedSearchRequests = mutableListOf<Pair<LibraryScope, LibrarySearchOptions>>()
-    var listCall: suspend (BookListOptions) -> LibraryPage<CompactBook> = {
+    var listCall: suspend (BookListOptions) -> CatalogResultPage<CompactBook> = {
         page(it.page, emptyList(), 0)
     }
-    var searchCall: suspend (LibrarySearchOptions) -> LibraryPage<CompactBook> = {
+    var searchCall: suspend (LibrarySearchOptions) -> CatalogResultPage<CompactBook> = {
         page(it.page, emptyList(), 0)
     }
     var groupCall: suspend (LibraryGroupListOptions) -> LibraryPage<LibraryGroupSummary> = {
         LibraryPage(0, emptyList(), false, false, it.page, it.pageSize)
     }
-    var groupBookCall: suspend (String, BookListOptions) -> LibraryPage<CompactBook> =
+    var groupBookCall: suspend (String, BookListOptions) -> CatalogResultPage<CompactBook> =
         { _, options -> page(options.page, emptyList(), 0) }
 
     override suspend fun getBook(bookId: String): com.secondpasslibrary.client.LibraryBookDetail =
@@ -94,7 +96,7 @@ internal class FakeLibraryClient :
     override suspend fun list(
         scope: LibraryScope,
         options: BookListOptions
-    ): LibraryPage<CompactBook> = when (scope) {
+    ): CatalogResultPage<CompactBook> = when (scope) {
         LibraryScope.Global -> {
             bookRequests += options
             listCall(options)
@@ -109,7 +111,7 @@ internal class FakeLibraryClient :
     override suspend fun search(
         scope: LibraryScope,
         options: LibrarySearchOptions
-    ): LibraryPage<CompactBook> {
+    ): CatalogResultPage<CompactBook> {
         searchRequests += options
         scopedSearchRequests += scope to options
         return searchCall(options)
@@ -135,15 +137,24 @@ internal fun groupPage(number: Int, groups: List<LibraryGroupSummary>, hasNext: 
         pageSize = 200
     )
 
-internal fun page(number: Int, ids: List<String>, total: Int, hasNext: Boolean = false) =
-    LibraryPage(
-        totalCount = total,
-        results = ids.map(::book),
-        hasNext = hasNext,
-        hasPrevious = number > 1,
-        page = number,
-        pageSize = DEFAULT_LIBRARY_PAGE_SIZE
-    )
+internal fun page(
+    number: Int,
+    ids: List<String>,
+    total: Int,
+    hasNext: Boolean = false,
+    catalogTags: List<LibraryCatalogTag> = emptyList()
+) = CatalogResultPage(
+    totalCount = total,
+    results = ids.map(::book),
+    catalogTags = catalogTags,
+    hasNext = hasNext,
+    hasPrevious = number > 1,
+    page = number,
+    pageSize = DEFAULT_LIBRARY_PAGE_SIZE
+)
+
+internal fun aggregateTag(slug: String, bookCount: Int) =
+    LibraryCatalogTag("tag-$slug", slug, slug, bookCount)
 
 internal fun book(id: String) = CompactBook(
     id = id,

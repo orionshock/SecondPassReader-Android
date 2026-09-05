@@ -2,9 +2,9 @@ package com.secondpasslibrary.client.internal.library
 
 import com.secondpasslibrary.client.AuthenticatedLibraryAuthorsClient
 import com.secondpasslibrary.client.AuthorListOptions
+import com.secondpasslibrary.client.CatalogResultPage
 import com.secondpasslibrary.client.LibraryAuthor
 import com.secondpasslibrary.client.LibraryEntityDetailOptions
-import com.secondpasslibrary.client.LibraryPage
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.internal.transport.AuthenticatedRequestExecutor
 import com.secondpasslibrary.client.internal.transport.decodeProtocolBody
@@ -20,7 +20,7 @@ internal class KtorLibraryAuthorsClient(
     override suspend fun list(
         scope: LibraryScope,
         options: AuthorListOptions
-    ): LibraryPage<LibraryAuthor> = listAt(scope.path("authors/"), options)
+    ): CatalogResultPage<LibraryAuthor> = listAt(scope.path("authors/"), options)
 
     override suspend fun getAuthor(
         authorId: String,
@@ -40,7 +40,7 @@ internal class KtorLibraryAuthorsClient(
     private suspend fun listAt(
         path: String,
         options: AuthorListOptions
-    ): LibraryPage<LibraryAuthor> {
+    ): CatalogResultPage<LibraryAuthor> {
         val parameters = buildList {
             options.q?.let { add("q" to it) }
             options.tagSlug?.let { add("tag" to it) }

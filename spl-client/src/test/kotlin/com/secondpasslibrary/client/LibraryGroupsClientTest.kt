@@ -47,7 +47,7 @@ class LibraryGroupsClientTest {
             jsonResponse(EMPTY_PAGE)
         }
 
-        client.library.books.list(
+        val page = client.library.books.list(
             LibraryScope.Group("group/one"),
             BookListOptions(
                 q = "title only",
@@ -65,6 +65,7 @@ class LibraryGroupsClientTest {
         assertEquals("series-id", request?.url?.parameters?.get("series"))
         assertEquals("-author", request?.url?.parameters?.get("ordering"))
         assertEquals("Bearer spl_secret", request?.headers?.get(HttpHeaders.Authorization))
+        assertEquals(listOf("group-tag" to 6), page.catalogTags.map { it.slug to it.bookCount })
     }
 
     @Test
@@ -75,7 +76,7 @@ class LibraryGroupsClientTest {
             jsonResponse(EMPTY_PAGE)
         }
 
-        client.library.books.search(
+        val page = client.library.books.search(
             LibraryScope.Group("group/one"),
             LibrarySearchOptions(
                 q = "author or title",
@@ -88,6 +89,7 @@ class LibraryGroupsClientTest {
         assertEquals("author or title", request?.url?.parameters?.get("q"))
         assertEquals("fiction", request?.url?.parameters?.get("tag"))
         assertEquals("author", request?.url?.parameters?.get("ordering"))
+        assertEquals(listOf("group-tag" to 6), page.catalogTags.map { it.slug to it.bookCount })
     }
 
     @Test
@@ -131,7 +133,8 @@ class LibraryGroupsClientTest {
         respond(body, headers = headersOf(HttpHeaders.ContentType, "application/json"))
 
     private companion object {
-        const val EMPTY_PAGE = """{"count":0,"next":null,"previous":null,"results":[]}"""
+        const val EMPTY_PAGE =
+            """{"count":0,"next":null,"previous":null,"catalog_tags":[{"id":"tag","name":"Group Tag","slug":"group-tag","book_count":6}],"results":[]}"""
         const val GROUP_PAGE =
             """{
                 "count":2,"next":null,"previous":"https://library.example/previous",
