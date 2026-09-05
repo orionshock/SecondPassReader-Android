@@ -3,6 +3,7 @@ package com.secondpasslibrary.reader.settings
 import com.secondpasslibrary.client.AuthenticatedContext
 import com.secondpasslibrary.client.AuthenticatedServerInfo
 import com.secondpasslibrary.client.CurrentUser
+import com.secondpasslibrary.client.ServerPublicGroup
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -36,6 +37,17 @@ class SettingsPresentationTest {
         assertEquals("reader", details["Client type"])
         assertFalse(details.keys.any { it.contains("token", ignoreCase = true) })
         assertFalse(details.values.any { it.contains("spl_secret") })
+    }
+
+    @Test
+    fun `server descriptive markup remains unchanged for presentation`() {
+        val presentation =
+            settingsPresentation(profile(), context(), SettingsConnectionStatus.CONNECTED)
+
+        assertEquals("<p>Server &amp; description.</p>", presentation.serverDescription)
+        assertEquals("<strong>Maintenance</strong><br>Tonight", presentation.serverBannerMessage)
+        assertEquals("Common Room", presentation.publicGroup?.name)
+        assertEquals("<ul><li>Shared books</li></ul>", presentation.publicGroup?.description)
     }
 
     @Test
@@ -91,12 +103,17 @@ class SettingsPresentationTest {
         serverInfo =
             AuthenticatedServerInfo(
                 name = "Second Pass Library",
-                description = "Description",
-                bannerMessage = "",
+                description = "<p>Server &amp; description.</p>",
+                bannerMessage = "<strong>Maintenance</strong><br>Tonight",
                 advancedLibraryGroupsEnabled = true,
                 readingClientBaseUrl = null,
                 marginaliaProfileUri = "https://library.example/profile",
-                publicGroup = null,
+                publicGroup =
+                    ServerPublicGroup(
+                        id = "public-1",
+                        name = "Common Room",
+                        description = "<ul><li>Shared books</li></ul>"
+                    ),
                 version = "1.2",
                 releaseDate = "2026-08-23"
             )

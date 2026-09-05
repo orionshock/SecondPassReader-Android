@@ -151,6 +151,31 @@ class LibraryAuthorSeriesPresentationTest {
     }
 
     @Test
+    fun `Author biography and Series summary preserve server markup exactly`() {
+        val biography = "<p>Author &amp; <strong>historian</strong>.</p>"
+        val summary = "<ol><li>First book</li><li>Second book</li></ol>"
+        val author = PagedLibraryAxisDetailState(
+            "a",
+            detail = LibraryAuthor("a", "Author", "Author", biography, 2, emptyList())
+        )
+        val series = PagedLibraryAxisDetailState(
+            "s",
+            detail = LibrarySeries("s", "Series", "Series", summary, 2, emptyList())
+        )
+
+        assertEquals(
+            biography,
+            (author.toAuthorDetailPresentation() as LibraryAuthorSeriesDetailPresentation.Content)
+                .description
+        )
+        assertEquals(
+            summary,
+            (series.toSeriesDetailPresentation() as LibraryAuthorSeriesDetailPresentation.Content)
+                .description
+        )
+    }
+
+    @Test
     fun `paging trigger remains based on proximity rather than axis type`() {
         assertTrue(
             LibraryPagingTriggerPolicy.shouldRequestNextPage(lastVisibleIndex = 14, itemCount = 20)

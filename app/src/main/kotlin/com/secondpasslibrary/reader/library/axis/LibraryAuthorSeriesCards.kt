@@ -12,12 +12,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -26,10 +21,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.design.book.PublicBookCover
 import com.secondpasslibrary.reader.design.book.separatedPreviewCapacity
+import com.secondpasslibrary.reader.design.richtext.ServerRichText
 import com.secondpasslibrary.reader.library.LibraryFailure
 
 @Composable
@@ -153,7 +148,7 @@ internal fun SelectedAuthorSeriesHeader(
         )
 
         is LibraryAuthorSeriesDetailPresentation.Content -> detail.description?.let { description ->
-            SelectedAuthorSeriesDescription(detail.id, description)
+            SelectedAuthorSeriesDescription(description)
         }
     }
 }
@@ -174,35 +169,17 @@ private fun EntityDetailFailure(failure: LibraryFailure, onRetry: () -> Unit) {
 }
 
 @Composable
-private fun SelectedAuthorSeriesDescription(id: String, description: String) {
-    var expanded by rememberSaveable(id) { mutableStateOf(false) }
-    var canExpand by rememberSaveable(id) { mutableStateOf(false) }
+private fun SelectedAuthorSeriesDescription(description: String) {
     OutlinedCard(Modifier.fillMaxWidth().padding(top = 12.dp)) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            CollapsibleDescriptionText(description, expanded) { canExpand = it }
-            if (canExpand) {
-                TextButton(onClick = { expanded = !expanded }) {
-                    Text(if (expanded) "Less" else "More")
-                }
-            }
-        }
+        ServerRichText(
+            value = description,
+            modifier = Modifier.padding(14.dp),
+            collapsedMaxLines = 3,
+            expandOverflow = true,
+            moreLabel = "More",
+            lessLabel = "Less",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
-}
-
-@Composable
-private fun CollapsibleDescriptionText(
-    description: String,
-    expanded: Boolean,
-    onOverflowChanged: (Boolean) -> Unit
-) {
-    Text(
-        description,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        style = MaterialTheme.typography.bodyMedium,
-        maxLines = if (expanded) Int.MAX_VALUE else 3,
-        overflow = TextOverflow.Ellipsis,
-        onTextLayout = { result ->
-            if (!expanded) onOverflowChanged(result.hasVisualOverflow)
-        }
-    )
 }

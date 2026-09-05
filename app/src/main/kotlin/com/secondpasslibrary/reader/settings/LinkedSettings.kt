@@ -33,6 +33,7 @@ import com.secondpasslibrary.reader.design.components.InformationCard
 import com.secondpasslibrary.reader.design.components.InformationDetail
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
+import com.secondpasslibrary.reader.design.richtext.ServerRichText
 
 private enum class SettingsConfirmation { LOGOUT, FORGET }
 
@@ -57,6 +58,7 @@ internal fun LinkedSettings(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         IdentitySections(presentation)
+        ServerMetadataSection(presentation)
         ReaderSettingsStateHost()
         TechnicalDetailsSection(
             presentation.technicalDetails,
@@ -83,6 +85,57 @@ internal fun LinkedSettings(
                 }
             },
             onDismiss = { confirmation = null }
+        )
+    }
+}
+
+@Composable
+internal fun ServerMetadataSection(presentation: SettingsPresentation) {
+    val hasContent =
+        presentation.serverDescription != null ||
+            presentation.serverBannerMessage != null ||
+            presentation.publicGroup?.description != null
+    if (!hasContent) return
+    InformationCard("About this library", icon = AppIcon.LibraryScope) {
+        presentation.serverDescription?.let {
+            LabeledServerRichText("Description", it, collapsedMaxLines = 6, expandOverflow = true)
+        }
+        presentation.publicGroup?.let { group ->
+            group.description?.let {
+                LabeledServerRichText(
+                    "${group.name} group",
+                    it,
+                    collapsedMaxLines = 6,
+                    expandOverflow = true
+                )
+            }
+        }
+        presentation.serverBannerMessage?.let {
+            LabeledServerRichText("Message", it, collapsedMaxLines = 3, expandOverflow = false)
+        }
+    }
+}
+
+@Composable
+private fun LabeledServerRichText(
+    label: String,
+    value: String,
+    collapsedMaxLines: Int,
+    expandOverflow: Boolean
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            label,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelMedium
+        )
+        ServerRichText(
+            value = value,
+            style = MaterialTheme.typography.bodyLarge,
+            collapsedMaxLines = collapsedMaxLines,
+            expandOverflow = expandOverflow,
+            moreLabel = "Show more",
+            lessLabel = "Show less"
         )
     }
 }

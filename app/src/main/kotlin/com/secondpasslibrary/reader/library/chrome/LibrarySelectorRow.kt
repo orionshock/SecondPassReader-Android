@@ -23,11 +23,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.client.LibraryGroupSummary
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
+import com.secondpasslibrary.reader.design.richtext.serverRichTextPlainText
 import com.secondpasslibrary.reader.library.LibraryAxis
 import com.secondpasslibrary.reader.library.LibraryResultKind
 import com.secondpasslibrary.reader.library.LibraryState
@@ -111,7 +113,8 @@ private fun LibraryScopeMenu(
             ScopeMenuItem(
                 "All Library",
                 AppIcon.LibraryScope,
-                state.scope == LibraryScope.Global
+                state.scope == LibraryScope.Global,
+                description = null
             ) {
                 expanded = false
                 onScopeSelected(LibraryScope.Global)
@@ -120,7 +123,8 @@ private fun LibraryScopeMenu(
                 ScopeMenuItem(
                     group.name,
                     if (group.isPublicGroup) AppIcon.PublicGroup else AppIcon.Group,
-                    state.scope == LibraryScope.Group(group.id)
+                    state.scope == LibraryScope.Group(group.id),
+                    description = group.compactDescription()
                 ) {
                     expanded = false
                     onScopeSelected(LibraryScope.Group(group.id))
@@ -144,9 +148,28 @@ private fun LibraryScopeMenu(
 }
 
 @Composable
-private fun ScopeMenuItem(label: String, icon: AppIcon, selected: Boolean, onClick: () -> Unit) {
+private fun ScopeMenuItem(
+    label: String,
+    icon: AppIcon,
+    selected: Boolean,
+    description: String?,
+    onClick: () -> Unit
+) {
     DropdownMenuItem(
-        text = { Text(label) },
+        text = {
+            Column {
+                Text(label)
+                description?.let {
+                    Text(
+                        it,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        },
         onClick = onClick,
         leadingIcon = { AppIconGraphic(icon, null) },
         trailingIcon = { if (selected) AppIconGraphic(AppIcon.Confirm, null) }
@@ -177,6 +200,9 @@ private fun AxisChoices(
         AxisChip(LibraryAxis.SERIES, AppIcon.Series, selected, returnContextAxis, onSelected)
     }
 }
+
+internal fun LibraryGroupSummary.compactDescription(): String? =
+    serverRichTextPlainText(description)
 
 @Composable
 private fun AxisChip(

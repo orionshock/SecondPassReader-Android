@@ -20,12 +20,17 @@ internal data class SettingsUserPresentation(
 
 internal data class SettingsTechnicalDetail(val label: String, val value: String)
 
+internal data class SettingsLibraryGroupPresentation(val name: String, val description: String?)
+
 internal data class SettingsPresentation(
     val libraryName: String,
     val serverHost: String,
     val status: SettingsConnectionStatus,
     val user: SettingsUserPresentation?,
     val clientName: String,
+    val serverDescription: String?,
+    val serverBannerMessage: String?,
+    val publicGroup: SettingsLibraryGroupPresentation?,
     val technicalDetails: List<SettingsTechnicalDetail>
 )
 
@@ -61,6 +66,15 @@ internal fun settingsPresentation(
     status = status,
     user = context?.toUserPresentation(),
     clientName = profile.clientName,
+    serverDescription =
+        (context?.serverInfo?.description ?: profile.serverDescription).takeIf(String::isNotBlank),
+    serverBannerMessage = context?.serverInfo?.bannerMessage?.takeIf(String::isNotBlank),
+    publicGroup = context?.serverInfo?.publicGroup?.let {
+        SettingsLibraryGroupPresentation(
+            name = it.name,
+            description = it.description.takeIf(String::isNotBlank)
+        )
+    },
     technicalDetails = technicalDetails(profile, context)
 )
 

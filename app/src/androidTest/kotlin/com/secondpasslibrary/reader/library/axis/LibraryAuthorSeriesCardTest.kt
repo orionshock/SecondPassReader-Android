@@ -7,6 +7,7 @@ import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -58,6 +59,26 @@ class LibraryAuthorSeriesCardTest {
                 .fetchSemanticsNodes()
                 .isEmpty()
         )
+    }
+
+    @Test
+    fun selectedAuthorOrSeriesDescriptionRendersRichTextWithoutMarkup() {
+        compose.setContent {
+            SecondPassTheme {
+                SelectedAuthorSeriesHeader(
+                    LibraryAuthorSeriesDetailPresentation.Content(
+                        "author-1",
+                        "<p>Writer &amp; <em>historian</em>.</p>" +
+                            "<ul><li>First work</li><li>Second work</li></ul>"
+                    ),
+                    onRetry = {}
+                )
+            }
+        }
+
+        compose.onNodeWithText(
+            "Writer & historian.\n\u2022 First work\n\u2022 Second work"
+        ).assertExists()
     }
 
     private fun card(id: String, name: String, previewCount: Int = 1) =

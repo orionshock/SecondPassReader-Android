@@ -1,28 +1,37 @@
-package com.secondpasslibrary.reader.bookdetail
+package com.secondpasslibrary.reader.design.richtext
 
+import androidx.activity.ComponentActivity
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.secondpasslibrary.reader.design.SecondPassTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
-class BookDescriptionTest {
+class ServerRichTextTest {
+    @get:Rule
+    val compose = createAndroidComposeRule<ComponentActivity>()
+
     @Test
     fun plainTextParagraphsBreaksAndEntitiesRenderAsReadableText() {
-        assertEquals(
-            "Just an ordinary plain-text description.",
-            render("Just an ordinary plain-text description.").text
-        )
+        assertEquals("A simple description.", render("A simple description.").text)
         assertEquals(
             "First paragraph.\nSecond paragraph.",
-            render(
-                "<p>First paragraph.</p><p>Second paragraph.</p>"
-            ).text
+            render("<p>First paragraph.</p><p>Second paragraph.</p>").text
         )
         assertEquals("Before\nafter", render("Before<br>after").text)
         assertEquals("A & B C", render("A &amp; B&#x20;C").text)
@@ -47,6 +56,12 @@ class BookDescriptionTest {
 
         assertEquals("\u2022 One item\n\u2022 Another item", unordered.text)
         assertEquals("1. First item\n2. Second item", ordered.text)
+        assertEquals(
+            "\u2022 One item\n\u2022 Another item",
+            serverRichTextPlainText(
+                "<ul><li>One item</li><li>Another item</li></ul>"
+            )
+        )
     }
 
     @Test
@@ -66,10 +81,10 @@ class BookDescriptionTest {
     }
 
     @Test
-    fun emptyAndMalformedDescriptionsFailReadableWithoutRawTags() {
-        assertNull(renderBookDescription(null))
-        assertNull(renderBookDescription(""))
-        assertNull(renderBookDescription("<p>&#x20;</p>"))
+    fun emptyAndMalformedValuesFailReadableWithoutRawTags() {
+        assertNull(renderServerRichText(null))
+        assertNull(renderServerRichText(""))
+        assertNull(renderServerRichText("<p>&#x20;</p>"))
 
         val malformed = render("<unexpected><p>Still <strong>readable")
 
@@ -78,7 +93,29 @@ class BookDescriptionTest {
         assertFalse(malformed.text.contains(">"))
     }
 
-    private fun render(source: String) = checkNotNull(renderBookDescription(source))
+    @Test
+    fun expansionIsBasedOnRenderedOverflow() {
+        compose.setContent {
+            SecondPassTheme {
+                Box(Modifier.width(180.dp)) {
+                    ServerRichText(
+                        value = (1..8).joinToString("") { "<p>Paragraph $it is visible text.</p>" },
+                        style = MaterialTheme.typography.bodyMedium,
+                        collapsedMaxLines = 2,
+                        expandOverflow = true,
+                        moreLabel = "Show more",
+                        lessLabel = "Show less"
+                    )
+                }
+            }
+        }
+
+        compose.onNodeWithText("Show more").performClick()
+        compose.onNodeWithText("Show less").assertExists()
+        compose.onNodeWithText("Paragraph 8", substring = true).assertExists()
+    }
+
+    private fun render(source: String) = checkNotNull(renderServerRichText(source))
 
     private fun assertStyled(
         rendered: androidx.compose.ui.text.AnnotatedString,

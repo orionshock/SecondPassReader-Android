@@ -148,7 +148,12 @@ enum class CatalogTagOrdering(internal val queryValue: String) {
     BOOK_COUNT_DESCENDING("-book_count")
 }
 
-data class LibraryGroupSummary(val id: String, val name: String, val isPublicGroup: Boolean)
+data class LibraryGroupSummary(
+    val id: String,
+    val name: String,
+    val isPublicGroup: Boolean,
+    val description: String = ""
+)
 
 /** A Catalog Tag and its distinct matching Book count in the containing server context. */
 data class LibraryCatalogTag(val id: String, val name: String, val slug: String, val bookCount: Int)

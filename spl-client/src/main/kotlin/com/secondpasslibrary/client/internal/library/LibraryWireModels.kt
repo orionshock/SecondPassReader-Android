@@ -24,6 +24,7 @@ internal data class LibraryGroupPageWire(
 internal data class LibraryGroupWire(
     val id: String? = null,
     val name: String? = null,
+    val description: String? = null,
     @SerialName("is_public_group") val isPublicGroup: Boolean? = null
 )
 

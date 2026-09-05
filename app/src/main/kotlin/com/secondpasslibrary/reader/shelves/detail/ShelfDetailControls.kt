@@ -1,7 +1,6 @@
 package com.secondpasslibrary.reader.shelves.detail
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,11 +20,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.client.Shelf
 import com.secondpasslibrary.client.ShelfItemOrdering
@@ -33,6 +30,7 @@ import com.secondpasslibrary.reader.design.components.BinarySegmentedIconToggle
 import com.secondpasslibrary.reader.design.components.SegmentedIconOption
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
+import com.secondpasslibrary.reader.design.richtext.ServerRichText
 import com.secondpasslibrary.reader.shelves.ShelfCardPresentation
 import com.secondpasslibrary.reader.shelves.label
 import com.secondpasslibrary.reader.shelves.message
@@ -133,28 +131,29 @@ private fun ShelfContextDescription(
     rawDescription: String?,
     modifier: Modifier
 ) {
-    val description = rawDescription?.trim()?.takeIf(String::isNotEmpty)
-    var expanded by rememberSaveable(model.id) { mutableStateOf(false) }
     val icon = when (model.ownerKind) {
         com.secondpasslibrary.reader.shelves.ShelfOwnerKind.PERSONAL -> AppIcon.User
         com.secondpasslibrary.reader.shelves.ShelfOwnerKind.SHARED_USER -> AppIcon.SharedShelf
         com.secondpasslibrary.reader.shelves.ShelfOwnerKind.GROUP -> AppIcon.GroupShelf
     }
-    Row(
-        modifier = modifier.then(
-            if (description == null) Modifier else Modifier.clickable { expanded = !expanded }
-        ),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        AppIconGraphic(icon, null, Modifier.size(18.dp))
-        Text(
-            listOfNotNull(model.ownerContextLabel, description).joinToString(" — "),
-            modifier = Modifier.weight(1f),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AppIconGraphic(icon, null, Modifier.size(18.dp))
+            Text(
+                model.ownerContextLabel,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+        ServerRichText(
+            value = rawDescription,
             style = MaterialTheme.typography.bodyMedium,
-            maxLines = if (expanded) Int.MAX_VALUE else 1,
-            overflow = TextOverflow.Ellipsis
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            collapsedMaxLines = 3,
+            expandOverflow = true
         )
     }
 }

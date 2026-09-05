@@ -34,6 +34,10 @@ class LibraryGroupsClientTest {
         assertEquals("2", request?.url?.parameters?.get("page"))
         assertEquals("200", request?.url?.parameters?.get("page_size"))
         assertEquals(listOf("Common Room", "Private Group"), page.results.map { it.name })
+        assertEquals(
+            listOf("<p>Public &amp; shared.</p>", "Plain private group."),
+            page.results.map { it.description }
+        )
         assertTrue(page.results.first().isPublicGroup)
         assertFalse(page.results.last().isPublicGroup)
         assertTrue(page.hasPrevious)
@@ -139,8 +143,8 @@ class LibraryGroupsClientTest {
             """{
                 "count":2,"next":null,"previous":"https://library.example/previous",
                 "results":[
-                    {"id":"public","name":"Common Room","is_public_group":true},
-                    {"id":"private","name":"Private Group","is_public_group":false}
+                    {"id":"public","name":"Common Room","description":"<p>Public &amp; shared.</p>","is_public_group":true},
+                    {"id":"private","name":"Private Group","description":"Plain private group.","is_public_group":false}
                 ]
             }"""
     }
