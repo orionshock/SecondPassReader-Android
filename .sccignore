@@ -1,0 +1,9 @@
+# Project source scope for scc reports.
+*
+!*/
+!/app/src/main/**/*.kt
+!/app/src/main/**/*.java
+!/app/src/main/**/*.xml
+!/spl-client/src/main/**/*.kt
+!/spl-client/src/main/**/*.java
+!/spl-client/src/main/**/*.xml

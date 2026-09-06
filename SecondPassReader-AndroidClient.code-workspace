@@ -29,16 +29,7 @@
       "**/Thumbs.db": true,
       "**/.DS_Store": true
     },
-    "LineCount.showStatusBarItem": true,
-    "LineCount.includes": [
-      "app/src/main/**/*.kt",
-      "app/src/main/**/*.java",
-      "app/src/main/**/*.xml",
-      "spl-client/src/main/**/*.kt",
-      "spl-client/src/main/**/*.java",
-      "spl-client/src/main/**/*.xml"
-    ],
-    "LineCount.excludes": [
+    "repoStats.excludePatterns": [
       "**/.git/**",
       "**/.gradle/**",
       "**/.kotlin/**",
@@ -46,41 +37,8 @@
       "**/.vscode/**",
       "**/build/**",
       "**/captures/**",
-      "**/out/**",
-      "**/.linecount/**"
+      "**/out/**"
     ],
-    "LineCount.comment": [
-      {
-        "ext": ["kt", "kts", "java"],
-        "separator": {
-          "linecomment": "//",
-          "linetol": false,
-          "blockstart": "/*",
-          "blockend": "*/",
-          "blocktol": false,
-          "string": {
-            "doublequotes": true,
-            "singlequotes": true
-          }
-        }
-      },
-      {
-        "ext": ["xml"],
-        "separator": {
-          "blockstart": "<!--",
-          "blockend": "-->"
-        }
-      }
-    ],
-    "LineCount.output": {
-      "txt": true,
-      "json": false,
-      "csv": false,
-      "md": false,
-      "outdir": ".linecount"
-    },
-    "LineCount.sort": "filename",
-    "LineCount.order": "asc",
     "gradle.autoDetect": "off",
     "java.gradle.buildServer.enabled": "off"
   }

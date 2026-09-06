@@ -1,6 +1,5 @@
 .gradle/
 .kotlin/
-.linecount/
 **/build/
 local.properties
 .idea/

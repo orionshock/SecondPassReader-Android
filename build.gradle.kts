@@ -37,7 +37,6 @@ val hygieneFiles =
             ".gradle/**",
             ".idea/**",
             ".kotlin/**",
-            ".linecount/**",
             ".vscode/**",
             "**/build/**",
             "**/node_modules/**",
