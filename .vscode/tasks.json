@@ -128,21 +128,20 @@
       "problemMatcher": []
     },
     {
-      "label": "Reader: validation gate",
+      "label": "Verify: all",
       "type": "process",
       "command": "${workspaceFolder}/gradlew",
       "windows": {
         "command": "${workspaceFolder}\\gradlew.bat"
       },
       "args": [
-        "test",
-        "detekt",
-        "ktlintCheck",
-        "staticHygiene",
-        "assembleDebug",
-        "readerBoundaryCheck"
+        "check",
+        "assembleDebug"
       ],
-      "group": "test",
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
       "problemMatcher": []
     }
   ],

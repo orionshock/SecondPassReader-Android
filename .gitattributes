@@ -1,1 +1,17 @@
-app/src/main/assets/reader/cfi/*.js text eol=lf
+* text=auto eol=lf
+
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+*.aab binary
+*.apk binary
+*.epub binary
+*.gif binary
+*.hprof binary
+*.ico binary
+*.jar binary
+*.jpeg binary
+*.jpg binary
+*.png binary
+*.webp binary
+*.zip binary
