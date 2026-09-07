@@ -84,9 +84,18 @@ Pagination, compact/preview Books, cover references, scope, and shared Library v
 
 Marginalia reads preserve server ordering and historical Book context after current visibility is lost; `canOpen` remains advisory. Session status stays `active` or `closed`, while counts and activity timestamps remain server-owned. Active lookup/open/start-over return one bootstrap boundary containing Book context, the nullable active Session, current annotations, and the first closed-history page. Ordinary Session detail does not load annotations.
 
-Open/resume converges on the server's one-active-Session rule rather than creating Sessions client-side. Close can atomically finalize metadata/progress. Start-over requires a caller-owned stable `MarginaliaIdempotencyKey`; the SDK validates and reuses it for transport execution but does not persist it. App orchestration must retain that key across logical-operation retries.
+Active lookup is a non-mutating authority check. Open/resume is the normal convergent lazy create-or-resume operation under the server's one-active-Session rule; clients accept the exact server-returned identity. Close can atomically finalize metadata/progress. Start-over is strictly an explicit user recovery action, never an automatic reconnect behavior. It requires a caller-owned stable `MarginaliaIdempotencyKey`; the SDK validates and reuses it for transport execution but does not persist it. The key is scoped per authenticated user across that user's idempotent requests, bound to method, complete path, and normalized body, and replayable with identical input for exactly 24 hours. App orchestration must retain the same key and exact request across logical-operation retries.
 
-Progress is Session metadata with whole-value replacement; CFI and location labels remain opaque. Annotations form a complete authoritative child collection synchronized through explicit Bookmark/Highlight upserts and client-ID deletes. Synchronization is deliberately capped at the server's 100-operation atomic batch rather than implying cross-request atomicity through automatic chunking. Stable client IDs are Session-scoped; successful server responses replace client assumptions.
+Progress is Session metadata with last-write-wins whole-value replacement and no revision or timestamp conflict protection; clients must coalesce and serialize pending writes so an older request cannot arrive last. CFI and location labels remain opaque. Annotations form a complete authoritative child collection synchronized through explicit Bookmark/Highlight upserts and client-ID deletes. Upserts are last-write-wins for a Session-scoped client ID, and every successful synchronization response contains the complete authoritative collection. The server accepts an opaque nonblank 1-255-character value and does not enforce UUID syntax; Android conventionally generates random UUID v4 values. This client-owned identity is separate from the server annotation UUID and remains stable across retries and cross-Session continuation. Delete is idempotent, including unknown and already-deleted client IDs; a later upsert restores the tombstoned identity. Synchronization is deliberately capped at the server's 100-operation atomic batch rather than implying cross-request atomicity through automatic chunking.
+
+Structurally valid progress or annotation writes to a closed Session return HTTP `409` with `SESSION_CLOSED`; malformed request bodies fail validation first with `400`. HTTP `404` intentionally reveals only that the resource is unavailable to the credential and must not be interpreted as proof of deletion or nonexistence. Owned Sessions with lost Book visibility return `403 PERMISSION_DENIED`. The complete retry classification and remote-close behavior are recorded in the offline product contract.
+
+After an annotation batch receives `SESSION_CLOSED`, clients retain unresolved upserts, call normal
+Book `open` once, and replay them against the returned active Session with their original
+Session-scoped client IDs. This makes an edit from the closed Session a distinct authored copy in
+the writable Session without changing identity across retries. Deletes are not forwarded. If the
+Book cannot be opened, the upserts remain locally unsynchronized. Start-over is never used for this
+recovery.
 
 Shelf reads preserve discriminated user/group ownership, private/listed visibility, item identity separately from Book identity, non-contiguous stored positions, matched Book items, and omitted versus empty previews. Normal item pages expose only visible Compact Books; the editor projection represents unavailable retained items without inventing Book metadata.
 
@@ -98,7 +107,25 @@ Library reads resolve an explicit SDK-owned scope (`Global` or `Group`) before a
 
 Reader-safe Authors and Series use the same scoped list operation for Global and Group reads; their detail endpoints remain globally owned. They reuse the Library page envelope and public cover reference. Preview limits are bounded to 0-24; omitted preview books remain distinct from a returned empty preview list.
 
-Catalog Tags are a shared scoped Library filter. Their slug composes with Books browse/broad search and Authors/Series axis search, while the app retains tag identity and display data separately. Changing scope invalidates the available tag vocabulary rather than carrying a coincidentally equal slug across scopes.
+Catalog Tags are a shared scoped Library filter. Library and Group `/tags/` responses are unqualified tag universes for their exact scope. Contextual Catalog Tag aggregates belong to the complete result query that produced them, including axis, scope, search, selected tag, and other qualifiers; they are never globalized, merged across pages, or derived from page results. Their slug composes with Books browse/broad search and Authors/Series axis search, while the app retains tag identity and display data separately. Changing scope invalidates the available tag vocabulary rather than carrying a coincidentally equal slug across scopes.
+
+## Offline product contract
+
+Cross-client offline authority, continuation, future offline-close ordering, Catalog Tag cache identity,
+publication identity, and account-cleanup behavior are recorded in
+[Offline and cached product contract](offline-product-contract.md).
+
+The important future close ordering is pending Reader changes first, close second. If the intended
+Session is already closed server-side, the client resolves a writable continuation and applies the
+normal forwarding policy rather than writing into history. Android does not currently queue Session
+close, so this paragraph records settled product behavior rather than current app capability.
+
+An EPUB is identified by its immutable file hash. A changed EPUB or different edition is a distinct
+Book with a distinct CFI address space; metadata edits do not invalidate the publication asset.
+Authenticated Book detail exposes the accepted byte stream's lowercase SHA-256 checksum, while the
+download response has no checksum header. The SDK preserves this optional field. Android's current
+download path does not yet hash and compare the completed file, so checksum enforcement remains a
+known client gap.
 
 `PublicBookCoverReference` wraps a server-provided absolute HTTP(S) URL. Covers are public assets, require no bearer credential, may use an external host, and are limited by contract to JPEG, PNG, or WebP. The SDK neither reconstructs cover paths nor fetches image bytes; a future image-loading layer may consume the public reference directly.
 
@@ -106,7 +133,12 @@ Catalog Tags are a shared scoped Library filter. Their slug composes with Books 
 
 Reader logout revokes the exact bearer-owned client session with `DELETE /accounts/me/client-sessions/{client_session_id}/`. Confirmed revocation, or authentication rejection proving the bearer is already unusable, is followed by the standard local-account reset. Ambiguous remote failure retains local state for retry. Explicit Forget skips remote cooperation and invokes that same destructive local reset immediately.
 
-Also deferred: mDNS discovery, known-server presets, remaining Library capabilities and UI, general offline Library behavior, nested feature navigation, and all reader features.
+The settled product contract additionally requires an online attempt to synchronize pending Reader
+work before logout/forget cleanup. If pending offline-authored work cannot be synchronized, the user
+must be warned that continuing will discard it. Android does not yet implement that preflight and
+warning; the current immediate Forget behavior is a known gap, not cross-client precedent.
+
+Also deferred: mDNS discovery, known-server presets, explicit offline Session close, general cache/download management, terminal failed-outbox repair UI, and broader offline Library administration.
 
 ## Reference SDK differences
 
