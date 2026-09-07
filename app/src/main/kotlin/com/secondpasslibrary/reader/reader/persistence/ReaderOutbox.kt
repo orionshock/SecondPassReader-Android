@@ -72,6 +72,7 @@ internal class RoomReaderOutboxStore @javax.inject.Inject constructor(
             account.value,
             localSessionId,
             sent.cfi,
+            sent.locationLabel,
             java.time.Instant.now().toEpochMilli()
         )
     }
@@ -117,7 +118,8 @@ internal sealed interface ReaderOutboxIntent {
         override val id: String,
         override val bookId: String,
         override val localSessionId: String,
-        val cfi: String
+        val cfi: String,
+        val locationLabel: String? = null
     ) : ReaderOutboxIntent
 
     data class AnnotationUpsert(
@@ -175,7 +177,8 @@ internal fun LocalReaderOutboxEntity.toIntent(): ReaderOutboxIntent {
             outboxId,
             bookId,
             localSessionId,
-            requireNotNull(cfi)
+            requireNotNull(cfi),
+            locationLabel
         )
 
         ReaderOutboxOperation.ANNOTATION_UPSERT -> ReaderOutboxIntent.AnnotationUpsert(
@@ -211,24 +214,25 @@ internal fun LocalReaderSessionEntity.toEstablishmentOutbox(now: Long) = emptyOu
     now
 )
 
-internal fun LocalReaderProgressEntity.toOutbox(bookId: String) = LocalReaderOutboxEntity(
-    accountKey,
-    ReaderOutboxIdentity.progress(localSessionId),
-    bookId,
-    localSessionId,
-    ReaderOutboxOperation.PROGRESS,
-    null,
-    READER_MUTATION_DELIVERY_ORDER,
-    cfi,
-    null,
-    null,
-    null,
-    null,
-    null,
-    null,
-    null,
-    updatedAtEpochMillis
-)
+internal fun LocalReaderProgressEntity.toOutbox(bookId: String, locationLabel: String? = null) =
+    LocalReaderOutboxEntity(
+        accountKey = accountKey,
+        outboxId = ReaderOutboxIdentity.progress(localSessionId),
+        bookId = bookId,
+        localSessionId = localSessionId,
+        operationKind = ReaderOutboxOperation.PROGRESS,
+        annotationClientId = null,
+        deliveryOrder = READER_MUTATION_DELIVERY_ORDER,
+        cfi = cfi,
+        annotationKind = null,
+        locationLabel = locationLabel,
+        quote = null,
+        prefix = null,
+        suffix = null,
+        note = null,
+        color = null,
+        updatedAtEpochMillis = updatedAtEpochMillis
+    )
 
 internal fun LocalReaderAnnotationEntity.toUpsertOutbox(bookId: String, now: Long) =
     LocalReaderOutboxEntity(

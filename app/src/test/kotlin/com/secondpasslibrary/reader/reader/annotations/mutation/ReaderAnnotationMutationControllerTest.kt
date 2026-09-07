@@ -14,9 +14,9 @@ import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelection
-import com.secondpasslibrary.reader.reader.annotations.selection.readerLocationLabel
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiPosition
+import com.secondpasslibrary.reader.reader.location.ReaderSavedLocationLabelPolicy
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderWriteProvenance
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
@@ -171,6 +171,7 @@ class ReaderAnnotationMutationControllerTest {
         assertEquals(original.clientId, edit.clientId)
         assertNotEquals(original.id, edit.clientId)
         assertEquals(original.cfi, edit.cfi)
+        assertEquals(original.locationLabel, edit.locationLabel)
         assertEquals("Revised", edit.note)
 
         controller.accept(ReaderAnnotationMutationIntent.RequestDelete(original))
@@ -202,7 +203,7 @@ class ReaderAnnotationMutationControllerTest {
             as ReaderAnnotationMutationRequest.UpsertBookmark
         assertTrue(runCatching { UUID.fromString(create.clientId) }.isSuccess)
         assertEquals(CFI, create.cfi)
-        assertEquals(readerLocationLabel(3, 0.42), create.locationLabel)
+        assertEquals("042% - Chapter Three", create.locationLabel)
 
         controller.accept(ReaderAnnotationMutationIntent.RequestDelete(bookmark(create.clientId)))
         controller.accept(ReaderAnnotationMutationIntent.ConfirmDelete)
@@ -252,7 +253,7 @@ class ReaderAnnotationMutationControllerTest {
                     SESSION_ID,
                     "client-bookmark",
                     CFI,
-                    readerLocationLabel(3, 0.42)
+                    savedLabel()
                 ),
                 ReaderAnnotationMutationRequest.Delete(SESSION_ID, "client-delete")
             )
@@ -303,7 +304,8 @@ class ReaderAnnotationMutationControllerTest {
             account: LocalReaderAccountKey,
             localSessionId: String,
             cfi: String,
-            provenance: LocalReaderWriteProvenance
+            provenance: LocalReaderWriteProvenance,
+            locationLabel: String?
         ) = Unit
 
         override suspend fun acknowledgeProgress(
@@ -377,11 +379,13 @@ class ReaderAnnotationMutationControllerTest {
         "server-bookmark",
         clientId,
         CFI,
-        readerLocationLabel(3, 0.42),
+        savedLabel(),
         "2026-08-25T00:00:00Z"
     )
 
-    private fun position() = EpubCfiPosition(EpubCfi(CFI), 3, 0.42)
+    private fun position() = EpubCfiPosition(EpubCfi(CFI), 3, 0.42, "Chapter Three")
+
+    private fun savedLabel() = ReaderSavedLocationLabelPolicy.create(0.42, null, 3)
 
     private fun upsertRequest() = ReaderAnnotationMutationRequest.UpsertHighlight(
         SESSION_ID, "client-existing", CFI, "Chapter 03 · 42%", "Original quote",

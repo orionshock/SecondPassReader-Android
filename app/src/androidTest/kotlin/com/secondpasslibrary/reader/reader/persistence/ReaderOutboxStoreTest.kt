@@ -86,25 +86,23 @@ class ReaderOutboxStoreTest {
             account,
             session.sessionId,
             CFI,
-            LocalReaderWriteProvenance.LOCAL_PENDING
+            LocalReaderWriteProvenance.LOCAL_PENDING,
+            "014% - PROLOGUE"
         )
         store.writeProgress(
             account,
             session.sessionId,
             NEXT_CFI,
-            LocalReaderWriteProvenance.LOCAL_PENDING
+            LocalReaderWriteProvenance.LOCAL_PENDING,
+            "042% - Chapter 08"
         )
 
         val intents = outbox.pendingReaderIntents(account, session.sessionId)
         assertTrue(intents.first() is ReaderOutboxIntent.EstablishSession)
-        assertEquals(
-            NEXT_CFI,
-            (
-                intents.single {
-                    it is ReaderOutboxIntent.Progress
-                } as ReaderOutboxIntent.Progress
-                ).cfi
-        )
+        val progress = intents.single { it is ReaderOutboxIntent.Progress }
+            as ReaderOutboxIntent.Progress
+        assertEquals(NEXT_CFI, progress.cfi)
+        assertEquals("042% - Chapter 08", progress.locationLabel)
         assertEquals(2, intents.size)
 
         store.acknowledgeProgress(account, session.sessionId, CFI)

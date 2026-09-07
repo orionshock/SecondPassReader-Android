@@ -85,7 +85,8 @@ class ReaderClosedSessionContinuationStoreTest {
             account,
             active.sessionId,
             OFFLINE_CFI,
-            LocalReaderWriteProvenance.LOCAL_PENDING
+            LocalReaderWriteProvenance.LOCAL_PENDING,
+            "042% - Chapter 08"
         )
         local.applyAnnotationMutation(
             account,
@@ -165,6 +166,10 @@ class ReaderClosedSessionContinuationStoreTest {
         val intents = outbox.pendingReaderIntents(account, next.sessionId)
         assertEquals(5, intents.size)
         assertEquals(1, intents.count { it is ReaderOutboxIntent.Progress })
+        assertEquals(
+            "042% - Chapter 08",
+            intents.filterIsInstance<ReaderOutboxIntent.Progress>().single().locationLabel
+        )
         assertEquals(3, intents.count { it is ReaderOutboxIntent.AnnotationUpsert })
         assertTrue(intents.any { it is ReaderOutboxIntent.EstablishSession })
         assertTrue(outbox.pendingReaderIntents(account, active.sessionId).isEmpty())

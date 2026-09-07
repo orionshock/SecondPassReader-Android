@@ -115,7 +115,7 @@ class ReaderReconnectOrchestratorTest {
         val synchronizer = ReaderOutboxSynchronizer(
             store,
             ReaderAnnotationBatchWriter { _, _, _ -> emptyList() },
-            ReaderProgressWriter { _, _, _ ->
+            ReaderProgressWriter { _, _, _, _ ->
                 ReaderProgressWriteOutcome.Failure(ReaderProgressSyncFailure.UNAVAILABLE)
             }
         )
@@ -233,7 +233,7 @@ class ReaderReconnectOrchestratorTest {
             events += "annotations"
             emptyList()
         }
-        val progressWriter = ReaderProgressWriter { _, _, _ ->
+        val progressWriter = ReaderProgressWriter { _, _, _, _ ->
             events += "progress"
             ReaderProgressWriteOutcome.Success
         }

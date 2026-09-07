@@ -30,7 +30,8 @@ internal interface LocalReaderStateStore {
         account: LocalReaderAccountKey,
         localSessionId: String,
         cfi: String,
-        provenance: LocalReaderWriteProvenance
+        provenance: LocalReaderWriteProvenance,
+        locationLabel: String? = null
     )
 
     suspend fun acknowledgeProgress(
@@ -146,7 +147,8 @@ internal class RoomLocalReaderStateStore @Inject constructor(
         account: LocalReaderAccountKey,
         localSessionId: String,
         cfi: String,
-        provenance: LocalReaderWriteProvenance
+        provenance: LocalReaderWriteProvenance,
+        locationLabel: String?
     ) {
         val session = dao.session(account.value, localSessionId) ?: return
         if (session.serverStatus == ReaderSessionStatus.CLOSED.name &&
@@ -165,7 +167,7 @@ internal class RoomLocalReaderStateStore @Inject constructor(
         dao.writeProgress(
             progress,
             if (provenance == LocalReaderWriteProvenance.LOCAL_PENDING) {
-                progress.toOutbox(session.bookId)
+                progress.toOutbox(session.bookId, locationLabel)
             } else {
                 null
             }
@@ -178,10 +180,14 @@ internal class RoomLocalReaderStateStore @Inject constructor(
         localSessionId: String,
         cfi: String
     ) {
+        val locationLabel = dao.pendingReaderIntents(account.value, localSessionId)
+            .singleOrNull { it.operationKind == ReaderOutboxOperation.PROGRESS }
+            ?.locationLabel
         dao.acknowledgeProgress(
             account.value,
             localSessionId,
             cfi,
+            locationLabel,
             Instant.now().toEpochMilli()
         )
     }

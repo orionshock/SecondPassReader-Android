@@ -16,7 +16,8 @@ internal fun interface ReaderProgressWriter {
     suspend fun replace(
         profile: ConnectionProfile,
         sessionId: String,
-        cfi: EpubCfi
+        cfi: EpubCfi,
+        locationLabel: String?
     ): ReaderProgressWriteOutcome
 }
 
@@ -41,19 +42,21 @@ internal class SplReaderProgressWriter @Inject constructor(
     override suspend fun replace(
         profile: ConnectionProfile,
         sessionId: String,
-        cfi: EpubCfi
+        cfi: EpubCfi,
+        locationLabel: String?
     ): ReaderProgressWriteOutcome = deliveryMutex.withLock {
-        replaceSerially(profile, sessionId, cfi)
+        replaceSerially(profile, sessionId, cfi, locationLabel)
     }
 
     private suspend fun replaceSerially(
         profile: ConnectionProfile,
         sessionId: String,
-        cfi: EpubCfi
+        cfi: EpubCfi,
+        locationLabel: String?
     ): ReaderProgressWriteOutcome = try {
         val authoritative = clientProvider.forProfile(profile).marginalia.sessions.replaceProgress(
             sessionId,
-            ReadingProgressInput(cfi.value)
+            ReadingProgressInput(cfi.value, locationLabel)
         )
         if (authoritative.cfi == cfi.value) {
             ReaderProgressWriteOutcome.Success

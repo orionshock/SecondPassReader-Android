@@ -113,7 +113,12 @@ internal class ReaderOutboxSynchronizer @Inject constructor(
         session: ReaderBoundOutboxSession,
         sent: ReaderOutboxIntent.Progress
     ): ReaderOutboxSyncReport = when (
-        val outcome = progress.replace(profile, session.serverSessionId, EpubCfi(sent.cfi))
+        val outcome = progress.replace(
+            profile,
+            session.serverSessionId,
+            EpubCfi(sent.cfi),
+            sent.locationLabel
+        )
     ) {
         ReaderProgressWriteOutcome.Success -> {
             outbox.acceptProgress(account, session.localSessionId, sent)

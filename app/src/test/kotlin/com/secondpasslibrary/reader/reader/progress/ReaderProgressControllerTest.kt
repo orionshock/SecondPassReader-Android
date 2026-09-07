@@ -6,6 +6,7 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiFailure
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiNavigator
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
+import com.secondpasslibrary.reader.reader.cfi.EpubCfiPosition
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiReadiness
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiResolution
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiSelection
@@ -182,6 +183,15 @@ class ReaderProgressControllerTest {
                 positionRequests += 1
                 return position()
             }
+
+            override suspend fun currentPositionWithContext(): EpubCfiOutcome<EpubCfiPosition> =
+                when (val captured = currentPosition()) {
+                    is EpubCfiOutcome.Failure -> captured
+
+                    is EpubCfiOutcome.Success -> EpubCfiOutcome.Success(
+                        EpubCfiPosition(captured.value, 3, 0.42, "Chapter Three")
+                    )
+                }
 
             override suspend fun currentSelection(): EpubCfiOutcome<EpubCfiSelection?> =
                 error("Selection is not used by progress capture tests.")

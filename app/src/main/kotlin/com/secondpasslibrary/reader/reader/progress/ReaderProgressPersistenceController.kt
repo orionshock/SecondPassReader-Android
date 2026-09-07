@@ -87,7 +87,8 @@ internal class ReaderProgressPersistenceController(
                             selected.account,
                             selected.session.sessionId,
                             cfi.value,
-                            LocalReaderWriteProvenance.LOCAL_PENDING
+                            LocalReaderWriteProvenance.LOCAL_PENDING,
+                            candidate.latestLocationLabel
                         )
                         if (owner !== selected || generation.get() != activeGeneration) {
                             ReaderProgressFlushResult.OWNERSHIP_CHANGED
@@ -145,7 +146,8 @@ internal class ReaderProgressPersistenceController(
                             selected.account,
                             selected.session.sessionId,
                             cfi.value,
-                            LocalReaderWriteProvenance.LOCAL_PENDING
+                            LocalReaderWriteProvenance.LOCAL_PENDING,
+                            candidate.latestLocationLabel
                         )
                         val stillCurrent = owner === selected &&
                             generation.get() == activeGeneration

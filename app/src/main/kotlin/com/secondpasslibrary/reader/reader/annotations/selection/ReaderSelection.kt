@@ -3,7 +3,7 @@ package com.secondpasslibrary.reader.reader.annotations.selection
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiSelection
 import com.secondpasslibrary.reader.reader.cfi.EpubSelectionBounds
-import kotlin.math.roundToInt
+import com.secondpasslibrary.reader.reader.location.ReaderSavedLocationLabelPolicy
 
 internal data class ReaderSelection(
     val cfi: EpubCfi,
@@ -21,17 +21,11 @@ internal fun EpubCfiSelection.toReaderSelection(): ReaderSelection? {
         selectedText = selectedText,
         prefix = prefix,
         suffix = suffix,
-        locationLabel = readerLocationLabel(chapterOrdinal, totalProgression),
+        locationLabel = ReaderSavedLocationLabelPolicy.create(
+            totalProgression,
+            sectionLabel,
+            chapterOrdinal
+        ),
         bounds = bounds
     )
-}
-
-internal fun readerLocationLabel(chapterOrdinal: Int, totalProgression: Double?): String {
-    require(chapterOrdinal > 0) { "Chapter ordinal must be positive." }
-    val chapter = chapterOrdinal.toString().padStart(2, '0')
-    val percentage = totalProgression
-        ?.coerceIn(0.0, 1.0)
-        ?.times(100)
-        ?.roundToInt()
-    return if (percentage == null) "Chapter $chapter" else "Chapter $chapter · $percentage%"
 }

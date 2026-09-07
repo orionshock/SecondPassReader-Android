@@ -103,8 +103,7 @@ internal object LocalReaderPersistedStateValidator {
             )
 
             ReaderOutboxOperation.PROGRESS -> invalidUnless(
-                !entity.cfi.isNullOrBlank() && entity.annotationClientId == null &&
-                    body.drop(1).all { it == null },
+                entity.isValidProgressPayload(),
                 "reader_outbox",
                 entity.outboxId,
                 "progress payload is malformed"
@@ -154,3 +153,7 @@ internal object LocalReaderPersistedStateValidator {
     private fun invalid(table: String, identity: String, reason: String): Nothing =
         throw InvalidLocalReaderStateException(table, identity, reason)
 }
+
+private fun LocalReaderOutboxEntity.isValidProgressPayload(): Boolean =
+    !cfi.isNullOrBlank() && annotationClientId == null && annotationKind == null &&
+        quote == null && prefix == null && suffix == null && note == null && color == null

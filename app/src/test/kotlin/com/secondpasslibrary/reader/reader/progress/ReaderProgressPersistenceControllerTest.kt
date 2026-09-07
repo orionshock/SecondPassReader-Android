@@ -34,7 +34,8 @@ class ReaderProgressPersistenceControllerTest {
         progress.value = activeProgress(CFI_A, 1)
         runCurrent()
 
-        assertEquals(listOf(CFI_A), store.progressWrites)
+        assertEquals(listOf(CFI_A), store.progressWrites.map { it.first })
+        assertEquals("014% - PROLOGUE", store.progressWrites.single().second)
         assertEquals(0, syncRequests)
         advanceTimeBy(2_999)
         runCurrent()
@@ -62,7 +63,7 @@ class ReaderProgressPersistenceControllerTest {
         advanceTimeBy(2_999)
         runCurrent()
 
-        assertEquals(listOf(CFI_A, CFI_B), store.progressWrites)
+        assertEquals(listOf(CFI_A, CFI_B), store.progressWrites.map { it.first })
         assertEquals(0, syncRequests)
         advanceTimeBy(1)
         runCurrent()
@@ -82,7 +83,7 @@ class ReaderProgressPersistenceControllerTest {
         val result = controller.flushLatestLocal()
 
         assertEquals(ReaderProgressFlushResult.PERSISTED, result)
-        assertEquals(CFI_A, store.progressWrites.last())
+        assertEquals(CFI_A, store.progressWrites.last().first)
         assertEquals(0, syncRequests)
     }
 
@@ -144,7 +145,7 @@ class ReaderProgressPersistenceControllerTest {
         runCurrent()
 
         assertEquals(ReaderProgressFlushResult.PERSISTED, flush.await())
-        assertEquals(listOf(CFI_A, CFI_B), store.progressWrites)
+        assertEquals(listOf(CFI_A, CFI_B), store.progressWrites.map { it.first })
     }
 
     @Test
@@ -170,7 +171,8 @@ class ReaderProgressPersistenceControllerTest {
         ReaderSessionStatus.ACTIVE,
         captureEnabled = true,
         EpubCfi(cfi),
-        version
+        version,
+        "014% - PROLOGUE"
     )
 
     private fun session(status: ReaderSessionStatus = ReaderSessionStatus.ACTIVE) =
@@ -185,7 +187,7 @@ class ReaderProgressPersistenceControllerTest {
         private val firstWriteStarted: CompletableDeferred<Unit>? = null,
         private val releaseFirstWrite: CompletableDeferred<Unit>? = null
     ) : LocalReaderStateStore {
-        val progressWrites = mutableListOf<String>()
+        val progressWrites = mutableListOf<Pair<String, String?>>()
 
         override suspend fun selectOfflineSession(account: LocalReaderAccountKey, bookId: String) =
             error("unused")
@@ -200,7 +202,8 @@ class ReaderProgressPersistenceControllerTest {
             account: LocalReaderAccountKey,
             localSessionId: String,
             cfi: String,
-            provenance: LocalReaderWriteProvenance
+            provenance: LocalReaderWriteProvenance,
+            locationLabel: String?
         ) {
             if (
                 progressWrites.isEmpty() &&
@@ -210,7 +213,7 @@ class ReaderProgressPersistenceControllerTest {
                 firstWriteStarted.complete(Unit)
                 releaseFirstWrite.await()
             }
-            progressWrites += cfi
+            progressWrites += cfi to locationLabel
         }
 
         override suspend fun acknowledgeProgress(

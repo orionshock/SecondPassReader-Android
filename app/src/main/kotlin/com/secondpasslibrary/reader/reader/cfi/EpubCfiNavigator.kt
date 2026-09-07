@@ -56,7 +56,8 @@ internal sealed interface EpubCfiReadiness {
 internal data class EpubCfiPosition(
     val cfi: EpubCfi,
     val chapterOrdinal: Int,
-    val totalProgression: Double?
+    val totalProgression: Double?,
+    val sectionLabel: String? = null
 )
 
 internal sealed interface EpubCfiOutcome<out T> {
@@ -72,6 +73,7 @@ internal data class EpubCfiSelection(
     val suffix: String?,
     val chapterOrdinal: Int,
     val totalProgression: Double?,
+    val sectionLabel: String? = null,
     val bounds: EpubSelectionBounds? = null
 )
 

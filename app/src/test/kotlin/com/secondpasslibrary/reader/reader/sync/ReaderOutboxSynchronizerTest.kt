@@ -41,10 +41,11 @@ class ReaderOutboxSynchronizerTest {
                 requests += batch
                 authoritative()
             },
-            progressWriter = ReaderProgressWriter { _, serverSessionId, cfi ->
+            progressWriter = ReaderProgressWriter { _, serverSessionId, cfi, locationLabel ->
                 order += "progress"
                 assertEquals(SERVER_SESSION_ID, serverSessionId)
                 assertEquals("cfi-1", cfi.value)
+                assertEquals("042% - Chapter 08", locationLabel)
                 ReaderProgressWriteOutcome.Success
             }
         )
@@ -88,7 +89,7 @@ class ReaderOutboxSynchronizerTest {
                 annotationGate.await()
                 authoritative()
             },
-            progressWriter = ReaderProgressWriter { _, _, _ ->
+            progressWriter = ReaderProgressWriter { _, _, _, _ ->
                 progressGate.await()
                 ReaderProgressWriteOutcome.Success
             }
@@ -162,7 +163,7 @@ class ReaderOutboxSynchronizerTest {
         val unavailable = MemoryOutboxStore(mutableListOf(progress("cfi-1")))
         val unavailableReport = synchronizer(
             unavailable,
-            progressWriter = ReaderProgressWriter { _, _, _ ->
+            progressWriter = ReaderProgressWriter { _, _, _, _ ->
                 ReaderProgressWriteOutcome.Failure(ReaderProgressSyncFailure.UNAVAILABLE)
             }
         ).syncBoundSession(profile(), account(), LOCAL_SESSION_ID)
@@ -227,7 +228,7 @@ class ReaderOutboxSynchronizerTest {
         annotationWriter: ReaderAnnotationBatchWriter = ReaderAnnotationBatchWriter { _, _, _ ->
             authoritative()
         },
-        progressWriter: ReaderProgressWriter = ReaderProgressWriter { _, _, _ ->
+        progressWriter: ReaderProgressWriter = ReaderProgressWriter { _, _, _, _ ->
             ReaderProgressWriteOutcome.Success
         }
     ) = ReaderOutboxSynchronizer(store, annotationWriter, progressWriter)
@@ -315,7 +316,8 @@ class ReaderOutboxSynchronizerTest {
         "progress:$LOCAL_SESSION_ID",
         BOOK_ID,
         LOCAL_SESSION_ID,
-        cfi
+        cfi,
+        "042% - Chapter 08"
     )
 
     private fun authoritative() = listOf(

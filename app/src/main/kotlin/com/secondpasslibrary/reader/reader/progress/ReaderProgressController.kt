@@ -2,7 +2,9 @@ package com.secondpasslibrary.reader.reader.progress
 
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
+import com.secondpasslibrary.reader.reader.cfi.EpubCfiPosition
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
+import com.secondpasslibrary.reader.reader.location.ReaderSavedLocationLabelPolicy
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import kotlinx.coroutines.CancellationException
@@ -22,7 +24,8 @@ internal data class ReaderProgressState(
     val sessionStatus: ReaderSessionStatus,
     val captureEnabled: Boolean,
     val latestCandidate: EpubCfi?,
-    val candidateVersion: Long
+    val candidateVersion: Long,
+    val latestLocationLabel: String? = null
 )
 
 /** Owns in-memory progress capture for the Reading Session currently rendered by Reader. */
@@ -60,32 +63,37 @@ internal class ReaderProgressController(private val scope: CoroutineScope) {
     }
 
     private suspend fun captureCurrentPosition(capture: PreparedCapture, writesProgress: Boolean) {
-        val cfi = capturePosition(capture.engine)
+        val position = capturePosition(capture.engine)
         currentCoroutineContext().ensureActive()
-        if (capture.generation == generation && cfi != null) {
-            capture.engine.positionRetention.retainPosition(cfi)
-            if (writesProgress) publishCandidate(capture.session.sessionId, cfi)
+        if (capture.generation == generation && position != null) {
+            capture.engine.positionRetention.retainPosition(position.cfi)
+            if (writesProgress) publishCandidate(capture.session.sessionId, position)
         }
     }
 
-    private suspend fun capturePosition(engine: ReaderEngine): EpubCfi? = try {
-        (engine.cfiNavigator.currentPosition() as? EpubCfiOutcome.Success)?.value
+    private suspend fun capturePosition(engine: ReaderEngine): EpubCfiPosition? = try {
+        (engine.cfiNavigator.currentPositionWithContext() as? EpubCfiOutcome.Success)?.value
     } catch (cancellation: CancellationException) {
         throw cancellation
     } catch (_: Exception) {
         null
     }
 
-    private fun publishCandidate(sessionId: String, cfi: EpubCfi) {
+    private fun publishCandidate(sessionId: String, position: EpubCfiPosition) {
         mutableState.update { current ->
             if (current == null || current.sessionId != sessionId ||
-                current.latestCandidate == cfi
+                current.latestCandidate == position.cfi
             ) {
                 current
             } else {
                 current.copy(
-                    latestCandidate = cfi,
-                    candidateVersion = current.candidateVersion + 1
+                    latestCandidate = position.cfi,
+                    candidateVersion = current.candidateVersion + 1,
+                    latestLocationLabel = ReaderSavedLocationLabelPolicy.create(
+                        position.totalProgression,
+                        position.sectionLabel,
+                        position.chapterOrdinal
+                    )
                 )
             }
         }

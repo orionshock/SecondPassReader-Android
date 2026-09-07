@@ -115,7 +115,8 @@ class AppAccountLocalDataCleanerTest {
             account: LocalReaderAccountKey,
             localSessionId: String,
             cfi: String,
-            provenance: LocalReaderWriteProvenance
+            provenance: LocalReaderWriteProvenance,
+            locationLabel: String?
         ) = Unit
 
         override suspend fun acknowledgeProgress(

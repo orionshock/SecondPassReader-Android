@@ -3,7 +3,7 @@ package com.secondpasslibrary.reader.reader.annotations.mutation
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
-import com.secondpasslibrary.reader.reader.annotations.selection.readerLocationLabel
+import com.secondpasslibrary.reader.reader.location.ReaderSavedLocationLabelPolicy
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
@@ -183,9 +183,10 @@ internal class ReaderAnnotationMutationController(
                 val pending = ReaderPendingBookmark(
                     clientId = clientIdFactory().also(::validateClientId),
                     position = intent.position,
-                    locationLabel = readerLocationLabel(
-                        intent.position.chapterOrdinal,
-                        intent.position.totalProgression
+                    locationLabel = ReaderSavedLocationLabelPolicy.create(
+                        intent.position.totalProgression,
+                        intent.position.sectionLabel,
+                        intent.position.chapterOrdinal
                     )
                 )
                 mutableState.value = ReaderAnnotationMutationState(pendingBookmark = pending)

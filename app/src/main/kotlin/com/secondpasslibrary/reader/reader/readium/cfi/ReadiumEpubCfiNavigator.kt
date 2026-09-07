@@ -63,7 +63,8 @@ internal class ReadiumEpubCfiNavigator(
                     binding.resourceIdentity(navigator),
                     PositionCapture(
                         value,
-                        navigator.currentLocator.value.locations.totalProgression
+                        navigator.currentLocator.value.locations.totalProgression,
+                        navigator.currentLocator.value.title
                     )
                 )
             }
@@ -81,7 +82,12 @@ internal class ReadiumEpubCfiNavigator(
                 coherentResourceCapture(
                     before,
                     binding.resourceIdentity(navigator),
-                    SelectionCapture(value, locator.locations.totalProgression, bounds)
+                    SelectionCapture(
+                        value,
+                        locator.locations.totalProgression,
+                        locator.title,
+                        bounds
+                    )
                 )
             }
             when (captured) {
@@ -110,6 +116,7 @@ internal class ReadiumEpubCfiNavigator(
                     resourceHref,
                     selection,
                     capture.totalProgression,
+                    capture.sectionLabel,
                     capture.selectionBounds
                 )
             }
@@ -120,6 +127,7 @@ internal class ReadiumEpubCfiNavigator(
         resourceHref: String,
         selection: ReadiumContentSelection,
         totalProgression: Double?,
+        sectionLabel: String?,
         selectionBounds: EpubSelectionBounds?
     ): EpubCfiOutcome<EpubCfiSelection> {
         val chapterOrdinal = packageDocument.spineItemForHref(resourceHref)?.index?.plus(1)
@@ -135,6 +143,7 @@ internal class ReadiumEpubCfiNavigator(
                     suffix = selection.suffix,
                     chapterOrdinal = chapterOrdinal,
                     totalProgression = totalProgression,
+                    sectionLabel = sectionLabel,
                     bounds = selectionBounds
                 )
             )
@@ -144,6 +153,7 @@ internal class ReadiumEpubCfiNavigator(
     private data class SelectionCapture(
         val result: ReadiumCfiJavascriptResult<ReadiumContentSelection?>,
         val totalProgression: Double?,
+        val sectionLabel: String?,
         val selectionBounds: EpubSelectionBounds?
     )
 
@@ -215,7 +225,8 @@ private fun RectF.toSelectionBounds(): EpubSelectionBounds? {
 
 private data class PositionCapture(
     val result: ReadiumCfiJavascriptResult<EpubCfi>,
-    val totalProgression: Double?
+    val totalProgression: Double?,
+    val sectionLabel: String?
 )
 
 private suspend fun ReadiumCfiResourceCapture<PositionCapture>.toPositionOutcome(
@@ -254,7 +265,7 @@ private fun EpubPackageDocument.position(
     val chapterOrdinal = spineItemForHref(resourceHref)?.index?.plus(1)
         ?: return EpubCfiOutcome.Failure(EpubCfiFailure.RESOURCE_NOT_IN_READING_ORDER)
     return EpubCfiOutcome.Success(
-        EpubCfiPosition(cfi, chapterOrdinal, capture.totalProgression)
+        EpubCfiPosition(cfi, chapterOrdinal, capture.totalProgression, capture.sectionLabel)
     )
 }
 

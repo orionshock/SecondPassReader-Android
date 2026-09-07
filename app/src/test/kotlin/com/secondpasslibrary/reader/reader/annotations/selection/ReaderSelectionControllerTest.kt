@@ -31,6 +31,7 @@ class ReaderSelectionControllerTest {
                 "After",
                 chapterOrdinal = 3,
                 totalProgression = 0.427,
+                sectionLabel = "PROLOGUE",
                 bounds = EpubSelectionBounds(12f, 34f, 56f, 78f)
             )
         )
@@ -45,7 +46,7 @@ class ReaderSelectionControllerTest {
         assertEquals("Before", controller.selection.value?.prefix)
         assertEquals("After", controller.selection.value?.suffix)
         assertEquals(EpubSelectionBounds(12f, 34f, 56f, 78f), controller.selection.value?.bounds)
-        assertEquals("Chapter 03 · 43%", controller.selection.value?.locationLabel)
+        assertEquals("043% - PROLOGUE", controller.selection.value?.locationLabel)
     }
 
     @Test
@@ -86,13 +87,6 @@ class ReaderSelectionControllerTest {
 
         assertNull(controller.selection.value)
         assertEquals(1, events.clearCount)
-    }
-
-    @Test
-    fun `location label is bounded and never contains raw CFI`() {
-        assertEquals("Chapter 01 · 0%", readerLocationLabel(1, -1.0))
-        assertEquals("Chapter 12 · 100%", readerLocationLabel(12, 2.0))
-        assertEquals("Chapter 09", readerLocationLabel(9, null))
     }
 
     private class FakeSelectionEvents : ReaderSelectionEvents {

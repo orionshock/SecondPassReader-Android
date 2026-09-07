@@ -153,10 +153,13 @@ internal abstract class LocalReaderDao {
         accountKey: String,
         localSessionId: String,
         cfi: String,
+        locationLabel: String?,
         updatedAtEpochMillis: Long
     ) {
         val current = progress(accountKey, localSessionId)
-        if (current?.cfi == cfi) {
+        val currentIntent = pendingReaderIntents(accountKey, localSessionId)
+            .singleOrNull { it.operationKind == ReaderOutboxOperation.PROGRESS }
+        if (current?.cfi == cfi && currentIntent?.locationLabel == locationLabel) {
             upsertProgress(
                 current.copy(
                     provenance = LocalReaderWriteProvenance.SERVER_CONFIRMED.name,
@@ -331,10 +334,13 @@ internal abstract class LocalReaderDao {
         source: LocalReaderSessionEntity
     ): ClosedSessionPendingState {
         val annotations = pendingAnnotations(source.accountKey, source.localSessionId)
+        val progressIntent = pendingReaderIntents(source.accountKey, source.localSessionId)
+            .singleOrNull { it.operationKind == ReaderOutboxOperation.PROGRESS }
         return ClosedSessionPendingState(
             progress(source.accountKey, source.localSessionId)?.takeIf {
                 it.provenance == LocalReaderWriteProvenance.LOCAL_PENDING.name
             },
+            progressIntent?.locationLabel,
             annotations.filter { it.syncState == LocalAnnotationSync.LOCAL_PENDING },
             annotations.count {
                 it.syncState == LocalAnnotationSync.LOCAL_DELETED &&
@@ -384,7 +390,7 @@ internal abstract class LocalReaderDao {
         now: Long
     ) {
         upsertOutbox(continuation.toEstablishmentOutbox(now))
-        pending.progress?.let { forwardProgress(it, continuation) }
+        pending.progress?.let { forwardProgress(it, pending.progressLocationLabel, continuation) }
         pending.movableAnnotations.forEach { annotation ->
             val target = annotation.toContinuation(source, continuation)
             upsertAnnotation(target)
@@ -394,18 +400,26 @@ internal abstract class LocalReaderDao {
 
     private suspend fun forwardProgress(
         source: LocalReaderProgressEntity,
+        sourceLocationLabel: String?,
         continuation: LocalReaderSessionEntity
     ) {
         val current = progress(source.accountKey, continuation.localSessionId)
-        val selected = if (current == null ||
+        val sourceSelected = current == null ||
             source.updatedAtEpochMillis >= current.updatedAtEpochMillis
-        ) {
+        val selected = if (sourceSelected) {
             source.copy(localSessionId = continuation.localSessionId)
         } else {
-            current
+            requireNotNull(current)
+        }
+        val locationLabel = if (sourceSelected) {
+            sourceLocationLabel
+        } else {
+            pendingReaderIntents(source.accountKey, continuation.localSessionId)
+                .singleOrNull { it.operationKind == ReaderOutboxOperation.PROGRESS }
+                ?.locationLabel
         }
         upsertProgress(selected)
-        upsertOutbox(selected.toOutbox(continuation.bookId))
+        upsertOutbox(selected.toOutbox(continuation.bookId, locationLabel))
     }
 
     private suspend fun recordContinuationOutcome(
@@ -521,6 +535,7 @@ internal abstract class LocalReaderDao {
 
 private data class ClosedSessionPendingState(
     val progress: LocalReaderProgressEntity?,
+    val progressLocationLabel: String?,
     val movableAnnotations: List<LocalReaderAnnotationEntity>,
     val droppedDeleteCount: Int
 )
