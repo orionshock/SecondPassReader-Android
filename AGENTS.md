@@ -179,6 +179,8 @@ Preserve internal diagnostics without leaking secrets or meaningless protocol te
 
 Features must not reach laterally into one another's internals: `library` does not manipulate private `sessions`, `reader` does not reach into private `shelves`, and `sessions` does not invoke renderer internals. Find the nearest common owner, define the smallest contract, route intent through it, and keep implementations private. Share stable dependency-neutral values when useful; do not disguise behavioral coupling as utilities.
 
+Apply the delete test to small abstractions: mentally inline the implementation into its callers without removing behavior. Delete the abstraction when this makes the code simpler with only trivial repetition; keep it when inlining would duplicate knowledge, scatter a domain concept, expose implementation details, or spread future changes across callers. Call-site count alone proves nothing: a one-use abstraction may define a valuable seam, while a widely used trivial wrapper may still be shallow. Extract when a stable concept or ownership seam is evident, not merely on the second occurrence.
+
 Favor understandable seams over multifunction files without mechanically creating one file per class. File size is evidence, not a rule:
 
 - ~100 lines: comfortable focused unit;
