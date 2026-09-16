@@ -7,6 +7,7 @@ import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceStore
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetRequest
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetResolver
+import com.secondpasslibrary.reader.reader.asset.ReaderEpubIntegrityException
 import com.secondpasslibrary.reader.reader.asset.ReaderEpubUnavailableException
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiFailure
@@ -59,7 +60,14 @@ internal enum class ReaderProgressRestore {
     SKIPPED
 }
 
-internal enum class ReaderFailure { DOWNLOAD, OPEN, NO_EPUB, OFFLINE_ASSET_UNAVAILABLE, SESSION }
+internal enum class ReaderFailure {
+    DOWNLOAD,
+    INTEGRITY,
+    OPEN,
+    NO_EPUB,
+    OFFLINE_ASSET_UNAVAILABLE,
+    SESSION
+}
 
 internal sealed interface ReaderConnectionEvent {
     data object AuthenticationRejected : ReaderConnectionEvent
@@ -233,6 +241,8 @@ internal class ReaderController(
                                 ReaderFailure.OFFLINE_ASSET_UNAVAILABLE
 
                             is ReaderEpubUnavailableException -> ReaderFailure.NO_EPUB
+
+                            is ReaderEpubIntegrityException -> ReaderFailure.INTEGRITY
 
                             else -> failureKind
                         }

@@ -453,6 +453,9 @@ private fun ReaderFailureContent(
     val message = when (kind) {
         ReaderFailure.DOWNLOAD -> "Couldn’t download this Book. Check your connection and retry."
 
+        ReaderFailure.INTEGRITY ->
+            "Couldn’t verify this Book download. Connect and try downloading it again."
+
         ReaderFailure.OPEN -> "Couldn’t open this Book. Retry or go back."
 
         ReaderFailure.NO_EPUB -> "This Book doesn’t include a supported EPUB."

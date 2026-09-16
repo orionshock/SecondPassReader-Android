@@ -120,7 +120,13 @@ function New-AuthenticatedWebSession {
             next = "/"
         } `
         -Headers @{ Referer = $loginUri.AbsoluteUri }
-    if ($loginResult.BaseResponse.ResponseUri.AbsolutePath -eq "/login/") {
+    $responseUriProperty = $loginResult.BaseResponse.PSObject.Properties["ResponseUri"]
+    $responseUri = if ($null -ne $responseUriProperty) {
+        $responseUriProperty.Value
+    } else {
+        $loginResult.BaseResponse.RequestMessage.RequestUri
+    }
+    if ($responseUri.AbsolutePath -eq "/login/") {
         throw "The documented development test-server login was rejected."
     }
     return $session

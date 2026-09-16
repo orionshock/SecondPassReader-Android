@@ -3,6 +3,7 @@ package com.secondpasslibrary.reader.reader.readium.cfi
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfileStore
 import com.secondpasslibrary.reader.connection.storage.PersistedAccountContextStore
+import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetStore
 import com.secondpasslibrary.reader.reader.asset.SplReaderBookAssetResolver
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
@@ -19,4 +20,6 @@ internal interface RealSplCfiInteropEntryPoint {
     fun authenticatedClientProvider(): AuthenticatedClientProvider
 
     fun readerBookAssetResolver(): SplReaderBookAssetResolver
+
+    fun readerBookAssetStore(): ReaderBookAssetStore
 }

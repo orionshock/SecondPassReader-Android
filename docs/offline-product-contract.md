@@ -212,8 +212,8 @@ The checksum covers the accepted byte stream; clients can hash downloaded bytes 
 download response has no `Digest` or checksum header, so validation uses the Book-detail field. A
 blank checksum means that a legacy, damaged, or unavailable file cannot be validated. Marginalia
 archives use the distinct textual form `sha256:<hex>` and must not be compared without removing that
-prefix deliberately. The Android SDK preserves the Book-detail checksum, but Android's current EPUB
-download path does not yet perform this byte validation.
+prefix deliberately. The Android SDK preserves the Book-detail checksum. Android hashes downloaded
+and retained EPUB bytes before treating them as complete or available offline.
 
 The approximately two-minute catalog cache is server-internal Django caching of the set of Book IDs
 visible to a user for ordinary browse/list projections. It does not authorize Android, Web, browser,

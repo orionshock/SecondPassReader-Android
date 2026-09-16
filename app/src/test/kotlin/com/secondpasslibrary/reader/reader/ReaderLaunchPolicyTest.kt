@@ -4,8 +4,10 @@ import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.app.AppAvailabilityReason
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.reader.asset.ReaderAccountScope
+import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetChecksum
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetStore
 import java.nio.file.Files
+import java.security.MessageDigest
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -25,11 +27,15 @@ class ReaderLaunchPolicyTest {
     fun `offline launch allows only exact account completed EPUB`() = runTest {
         val root = Files.createTempDirectory("reader-launch").toFile()
         val store = ReaderBookAssetStore.forTests(root)
+        val account = ReaderAccountScope("https://library.example", "profile-1")
+        val checksum = checksum(EPUB_BYTES)
         store.acquire(
-            ReaderAccountScope("https://library.example", "profile-1"),
+            account,
             "book-1",
+            checksum,
             {}
-        ) { it.write("epub".toByteArray()) }
+        ) { it.write(EPUB_BYTES) }
+        store.rememberCompletedBook(account, "book-1", "Book", checksum)
         val policy = ReaderLaunchPolicy(store)
         val offline = AppAvailability.Offline(AppAvailabilityReason.UNREACHABLE)
 
@@ -40,6 +46,27 @@ class ReaderLaunchPolicyTest {
         assertEquals(
             ReaderLaunchDecision.OFFLINE_ASSET_UNAVAILABLE,
             policy.decide(offline, profile(), "profile-2", "book-1")
+        )
+    }
+
+    @Test
+    fun `offline launch rejects corrupt completed EPUB`() = runTest {
+        val root = Files.createTempDirectory("reader-launch-corrupt").toFile()
+        val store = ReaderBookAssetStore.forTests(root)
+        val account = ReaderAccountScope("https://library.example", "profile-1")
+        val checksum = checksum(EPUB_BYTES)
+        store.acquire(account, "book-1", checksum, {}) { it.write(EPUB_BYTES) }
+        store.rememberCompletedBook(account, "book-1", "Book", checksum)
+        store.completedFile(account, "book-1").writeBytes("damaged".toByteArray())
+
+        assertEquals(
+            ReaderLaunchDecision.OFFLINE_ASSET_UNAVAILABLE,
+            ReaderLaunchPolicy(store).decide(
+                AppAvailability.Offline(AppAvailabilityReason.UNREACHABLE),
+                profile(),
+                "profile-1",
+                "book-1"
+            )
         )
     }
 
@@ -59,4 +86,15 @@ class ReaderLaunchPolicyTest {
         clientName = "Reader",
         clientType = "reader"
     )
+
+    private fun checksum(bytes: ByteArray): ReaderBookAssetChecksum {
+        val value = MessageDigest.getInstance("SHA-256")
+            .digest(bytes)
+            .joinToString("") { byte -> "%02x".format(byte) }
+        return ReaderBookAssetChecksum.fromServer(value)
+    }
+
+    private companion object {
+        val EPUB_BYTES = "epub".toByteArray()
+    }
 }

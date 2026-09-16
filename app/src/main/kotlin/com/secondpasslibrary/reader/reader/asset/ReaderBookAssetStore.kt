@@ -25,7 +25,11 @@ internal data class ReaderAccountScope(val serverOrigin: String, val profileId: 
 
 internal data class ReaderBookAsset(val file: File, val reused: Boolean)
 
-internal data class ReaderCompletedBookMetadata(val bookId: String, val title: String)
+internal data class ReaderCompletedBookMetadata(
+    val bookId: String,
+    val title: String,
+    val checksum: ReaderBookAssetChecksum
+)
 
 @Singleton
 internal class ReaderBookAssetStore private constructor(private val root: File) {
@@ -37,30 +41,36 @@ internal class ReaderBookAssetStore private constructor(private val root: File) 
     suspend fun findCompleted(account: ReaderAccountScope, bookId: String): ReaderBookAsset? =
         withContext(Dispatchers.IO) {
             require(bookId.isNotBlank()) { "Book ID must not be blank." }
-            completedFile(account, bookId)
-                .takeIf { it.isFile && it.length() > 0L }
-                ?.let { ReaderBookAsset(it, reused = true) }
+            writes.withLock {
+                val metadata = readMetadata(metadataFile(account, bookId))
+                    ?.takeIf { it.bookId == bookId }
+                if (metadata == null) {
+                    completedFile(account, bookId).delete()
+                    metadataFile(account, bookId).delete()
+                    return@withLock null
+                }
+                verifiedCompleted(account, bookId, metadata.checksum)
+            }
         }
 
     suspend fun acquire(
         account: ReaderAccountScope,
         bookId: String,
+        checksum: ReaderBookAssetChecksum,
         onDownloadStarted: () -> Unit,
         download: suspend (OutputStream) -> Unit
     ): ReaderBookAsset = withContext(Dispatchers.IO) {
         require(bookId.isNotBlank()) { "Book ID must not be blank." }
         writes.withLock {
             val destination = completedFile(account, bookId)
-            if (destination.isFile && destination.length() > 0L) {
-                return@withLock ReaderBookAsset(destination, reused = true)
-            }
+            verifiedCompleted(account, bookId, checksum)?.let { return@withLock it }
             destination.parentFile?.mkdirs()
             val partial = File(destination.parentFile, "${destination.name}.part")
             partial.delete()
             try {
                 onDownloadStarted()
                 partial.outputStream().buffered().use { output -> download(output) }
-                check(partial.length() > 0L) { "The downloaded EPUB is empty." }
+                if (!checksum.matches(partial)) throw ReaderEpubIntegrityException()
                 moveCompleted(partial, destination)
                 ReaderBookAsset(destination, reused = false)
             } finally {
@@ -69,26 +79,37 @@ internal class ReaderBookAssetStore private constructor(private val root: File) 
         }
     }
 
-    suspend fun rememberCompletedBook(account: ReaderAccountScope, bookId: String, title: String) =
-        withContext(Dispatchers.IO) {
-            if (title.isBlank() || findCompleted(account, bookId) == null) return@withContext
-            writes.withLock {
-                val destination = metadataFile(account, bookId)
-                destination.parentFile?.mkdirs()
-                destination.writeText(
-                    listOf(bookId, title).joinToString("\n") { value ->
-                        Base64.getEncoder().encodeToString(value.toByteArray(Charsets.UTF_8))
-                    }
-                )
-            }
+    suspend fun rememberCompletedBook(
+        account: ReaderAccountScope,
+        bookId: String,
+        title: String,
+        checksum: ReaderBookAssetChecksum
+    ) = withContext(Dispatchers.IO) {
+        if (title.isBlank()) return@withContext
+        writes.withLock {
+            if (verifiedCompleted(account, bookId, checksum) == null) return@withLock
+            val destination = metadataFile(account, bookId)
+            destination.parentFile?.mkdirs()
+            destination.writeText(
+                listOf(bookId, title, checksum.value).joinToString("\n") { value ->
+                    Base64.getEncoder().encodeToString(value.toByteArray(Charsets.UTF_8))
+                }
+            )
         }
+    }
 
     suspend fun completedBooks(account: ReaderAccountScope): List<ReaderCompletedBookMetadata> =
         withContext(Dispatchers.IO) {
-            accountDirectory(account).listFiles { file -> file.extension == "metadata" }
-                .orEmpty()
-                .mapNotNull { file -> readMetadata(file) }
-                .filter { findCompleted(account, it.bookId) != null }
+            writes.withLock {
+                accountDirectory(account).listFiles { file -> file.extension == "metadata" }
+                    .orEmpty()
+                    .mapNotNull { file ->
+                        readMetadata(file)?.takeIf {
+                            metadataFile(account, it.bookId) == file
+                        }
+                    }
+                    .filter { verifiedCompleted(account, it.bookId, it.checksum) != null }
+            }
         }
 
     internal fun completedFile(account: ReaderAccountScope, bookId: String): File = File(
@@ -110,9 +131,22 @@ internal class ReaderBookAssetStore private constructor(private val root: File) 
         }
         ReaderCompletedBookMetadata(
             bookId = values[0].takeIf(String::isNotBlank) ?: return@runCatching null,
-            title = values[1].takeIf(String::isNotBlank) ?: return@runCatching null
+            title = values[1].takeIf(String::isNotBlank) ?: return@runCatching null,
+            checksum = ReaderBookAssetChecksum.fromServer(values.getOrNull(2))
         )
     }.getOrNull()
+
+    private fun verifiedCompleted(
+        account: ReaderAccountScope,
+        bookId: String,
+        checksum: ReaderBookAssetChecksum
+    ): ReaderBookAsset? {
+        val completed = completedFile(account, bookId)
+        if (checksum.matches(completed)) return ReaderBookAsset(completed, reused = true)
+        completed.delete()
+        metadataFile(account, bookId).delete()
+        return null
+    }
 
     private fun moveCompleted(partial: File, destination: File) {
         try {

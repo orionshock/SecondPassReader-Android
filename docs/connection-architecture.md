@@ -123,9 +123,8 @@ close, so this paragraph records settled product behavior rather than current ap
 An EPUB is identified by its immutable file hash. A changed EPUB or different edition is a distinct
 Book with a distinct CFI address space; metadata edits do not invalidate the publication asset.
 Authenticated Book detail exposes the accepted byte stream's lowercase SHA-256 checksum, while the
-download response has no checksum header. The SDK preserves this optional field. Android's current
-download path does not yet hash and compare the completed file, so checksum enforcement remains a
-known client gap.
+download response has no checksum header. The SDK preserves this optional field. Android hashes the
+downloaded file before promotion and rechecks retained EPUBs before reuse or offline admission.
 
 `PublicBookCoverReference` wraps a server-provided absolute HTTP(S) URL. Covers are public assets, require no bearer credential, may use an external host, and are limited by contract to JPEG, PNG, or WebP. The SDK neither reconstructs cover paths nor fetches image bytes; a future image-loading layer may consume the public reference directly.
 

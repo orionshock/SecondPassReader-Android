@@ -11,6 +11,7 @@ import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceController
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceStore
 import com.secondpasslibrary.reader.reader.appearance.ReaderTheme
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetResolver
+import com.secondpasslibrary.reader.reader.asset.ReaderEpubIntegrityException
 import com.secondpasslibrary.reader.reader.asset.ReaderEpubUnavailableException
 import com.secondpasslibrary.reader.reader.asset.ResolvedReaderBook
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
@@ -441,6 +442,27 @@ class ReaderControllerTest {
         advanceUntilIdle()
 
         assertEquals(ReaderState.Failure(ReaderFailure.DOWNLOAD), controller.state.value)
+        assertTrue(!opened)
+        controller.close()
+    }
+
+    @Test
+    fun `integrity failure is classified without opening a publication`() = runTest {
+        var opened = false
+        val controller = ReaderController(
+            ReaderBookAssetResolver { _, _ -> throw ReaderEpubIntegrityException() },
+            ReaderEngineOpener {
+                opened = true
+                FakeEngine()
+            },
+            coordinator(),
+            this
+        )
+
+        controller.initialize(profile(), "profile-1", "book-1", null)
+        advanceUntilIdle()
+
+        assertEquals(ReaderState.Failure(ReaderFailure.INTEGRITY), controller.state.value)
         assertTrue(!opened)
         controller.close()
     }
