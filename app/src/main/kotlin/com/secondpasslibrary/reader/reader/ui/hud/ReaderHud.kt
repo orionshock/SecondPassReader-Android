@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.reader.appearance.ReaderPalette
 import com.secondpasslibrary.reader.reader.domain.ReaderReadingStatus
@@ -56,20 +57,24 @@ internal fun ReaderAmbientHud(
             Modifier.fillMaxWidth().align(Alignment.BottomCenter),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = time,
-                modifier = Modifier.testTag(READER_HUD_CLOCK_TAG),
-                color = palette.secondaryForeground,
-                style = MaterialTheme.typography.labelSmall
-            )
-            androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
-            readerReadingStatusLabel(readingStatus)?.let { label ->
+            Box(Modifier.testTag(READER_HUD_CLOCK_TAG)) {
                 Text(
-                    text = label,
-                    modifier = Modifier.testTag(READER_HUD_STATUS_TAG),
+                    text = time,
+                    modifier = Modifier.clearAndSetSemantics { },
                     color = palette.secondaryForeground,
                     style = MaterialTheme.typography.labelSmall
                 )
+            }
+            androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+            readerReadingStatusLabel(readingStatus)?.let { label ->
+                Box(Modifier.testTag(READER_HUD_STATUS_TAG)) {
+                    Text(
+                        text = label,
+                        modifier = Modifier.clearAndSetSemantics { },
+                        color = palette.secondaryForeground,
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
             }
         }
     }

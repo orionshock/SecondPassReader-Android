@@ -22,6 +22,7 @@ import com.secondpasslibrary.client.CompactBook
 import com.secondpasslibrary.client.PublicationDatePrecision
 import com.secondpasslibrary.client.SeriesIndex
 import com.secondpasslibrary.reader.design.SecondPassTheme
+import com.secondpasslibrary.reader.design.book.COMPACT_BOOK_COVER_TAG
 import com.secondpasslibrary.reader.design.book.COMPACT_BOOK_ROW_TAG
 import com.secondpasslibrary.reader.design.book.WIDE_BOOK_ROW_TAG
 import org.junit.Assert.assertTrue
@@ -39,19 +40,15 @@ class LibraryBooksResultsTest {
         setResults(widthDp = 1100, book = richBook())
 
         compose.onNodeWithTag(WIDE_BOOK_ROW_TAG).assertHasClickAction()
-        val cover =
-            compose
-                .onNodeWithContentDescription(
-                    "No cover available for $LONG_TITLE",
-                    useUnmergedTree = true
-                )
-                .fetchSemanticsNode()
+        val cover = compose.onNodeWithTag(COMPACT_BOOK_COVER_TAG).fetchSemanticsNode()
         val title =
             compose.onNodeWithText(LONG_TITLE, useUnmergedTree = true).fetchSemanticsNode()
         val series =
             compose.onNodeWithText("Tablet Series · 12.50", useUnmergedTree = true)
                 .fetchSemanticsNode()
-        val actions = compose.onNodeWithContentDescription("Book actions").fetchSemanticsNode()
+        val actions =
+            compose.onNodeWithContentDescription("Book actions for $LONG_TITLE")
+                .fetchSemanticsNode()
 
         assertTrue(title.boundsInRoot.left > cover.boundsInRoot.right)
         assertTrue(title.boundsInRoot.right <= series.boundsInRoot.left)
@@ -76,7 +73,7 @@ class LibraryBooksResultsTest {
         compose.onNodeWithTag(WIDE_BOOK_ROW_TAG).assertHasClickAction()
         assertTrue(
             compose
-                .onAllNodesWithContentDescription("Book actions")
+                .onAllNodesWithContentDescription("Book actions for $LONG_TITLE")
                 .fetchSemanticsNodes()
                 .isEmpty()
         )

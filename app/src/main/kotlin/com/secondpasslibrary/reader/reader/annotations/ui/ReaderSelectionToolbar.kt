@@ -89,13 +89,13 @@ internal fun ReaderSelectionToolbar(
                     )
                 }
                 IconButton(
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(48.dp),
                     enabled = !state.submitting,
                     onClick = onNoteRequested
                 ) {
                     AppIconGraphic(AppIcon.HighlightWithNote, "Add note")
                 }
-                IconButton(modifier = Modifier.size(40.dp), onClick = onDismiss) {
+                IconButton(modifier = Modifier.size(48.dp), onClick = onDismiss) {
                     AppIconGraphic(AppIcon.Close, "Dismiss highlight toolbar")
                 }
             }
@@ -166,7 +166,7 @@ internal fun ReaderColorButton(
     onClick: () -> Unit
 ) {
     IconButton(
-        modifier = Modifier.size(40.dp).semantics {
+        modifier = Modifier.size(48.dp).semantics {
             contentDescription = "${color.displayName} highlight"
             this.selected = selected
         },

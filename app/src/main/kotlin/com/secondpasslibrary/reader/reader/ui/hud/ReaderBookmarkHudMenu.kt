@@ -103,6 +103,7 @@ internal fun ReaderBookmarkHudMenu(
         modifier = Modifier.widthIn(min = 240.dp, max = 340.dp)
     ) {
         bookmarks.forEachIndexed { index, bookmark ->
+            val bookmarkLabel = bookmark.locationLabel ?: "bookmark ${index + 1}"
             if (index > 0) HorizontalDivider(color = palette.border)
             Row(
                 modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
@@ -117,11 +118,11 @@ internal fun ReaderBookmarkHudMenu(
                     )
                 }
                 IconButton(onClick = { onNavigate(bookmark) }) {
-                    AppIconGraphic(AppIcon.JumpToLocation, "Go to bookmark")
+                    AppIconGraphic(AppIcon.JumpToLocation, "Go to $bookmarkLabel")
                 }
                 if (writable) {
                     IconButton(onClick = { onRemove(bookmark) }) {
-                        AppIconGraphic(AppIcon.Delete, "Remove bookmark")
+                        AppIconGraphic(AppIcon.Delete, "Remove $bookmarkLabel")
                     }
                 }
             }

@@ -3,6 +3,7 @@ package com.secondpasslibrary.reader.settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -11,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -49,7 +51,17 @@ internal fun ReaderSettingsSection(
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Text("Marginalia", style = MaterialTheme.typography.titleSmall)
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .toggleable(
+                        value = state.autoShowPreviousMarginalia,
+                        role = Role.Switch,
+                        onValueChange = onAutoShowPreviousChanged
+                    )
+                    .semantics {
+                        contentDescription = "Show previous marginalia automatically"
+                    },
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -61,10 +73,7 @@ internal fun ReaderSettingsSection(
             )
             Switch(
                 checked = state.autoShowPreviousMarginalia,
-                onCheckedChange = onAutoShowPreviousChanged,
-                modifier = Modifier.semantics {
-                    contentDescription = "Show previous marginalia automatically"
-                }
+                onCheckedChange = null
             )
         }
     }

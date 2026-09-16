@@ -12,6 +12,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.error
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.marginalia.detail.close.ReadingSessionCloseState
 import com.secondpasslibrary.reader.marginalia.detail.metadata.ReadingSessionMetadataEditState
@@ -105,7 +107,12 @@ private fun SessionMetadataDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = onNameChanged,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier =
+                        Modifier.fillMaxWidth().then(
+                            nameError?.let { fieldError ->
+                                Modifier.semantics { error(fieldError.message()) }
+                            } ?: Modifier
+                        ),
                     enabled = fieldsEnabled,
                     label = { Text("Name") },
                     singleLine = true,

@@ -12,6 +12,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.error
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.reader.appearance.ReaderPalette
 import com.secondpasslibrary.reader.reader.session.MAX_SESSION_NAME_LENGTH
@@ -95,7 +97,12 @@ private fun ReaderMetadataField(
     OutlinedTextField(
         value = value,
         onValueChange = onValueChanged,
-        modifier = Modifier.fillMaxWidth(),
+        modifier =
+            Modifier.fillMaxWidth().then(
+                supportingText?.let { message ->
+                    Modifier.semantics { error(message) }
+                } ?: Modifier
+            ),
         enabled = enabled,
         label = { Text(label) },
         singleLine = singleLine,

@@ -5,6 +5,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -46,9 +48,13 @@ class ReaderSettingsSectionTest {
         compose.onNodeWithText("Two-column").performClick()
         compose.onNodeWithContentDescription("Increase Font size").performClick()
         compose.onNodeWithContentDescription("Increase Line height").performClick()
-        compose.onNodeWithContentDescription("Publisher styles").performClick()
+        compose.onNodeWithContentDescription("Publisher styles").assertIsOff().performClick()
+        compose.onNodeWithContentDescription("Publisher styles").assertIsOn()
         compose.onNodeWithContentDescription("Show previous marginalia automatically")
+            .assertIsOn()
             .performClick()
+        compose.onNodeWithContentDescription("Show previous marginalia automatically")
+            .assertIsOff()
 
         compose.runOnIdle {
             assertTrue(state.appearance.theme == ReaderTheme.DARK)

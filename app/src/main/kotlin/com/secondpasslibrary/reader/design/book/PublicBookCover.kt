@@ -23,7 +23,8 @@ internal fun PublicBookCover(
     reference: PublicBookCoverReference?,
     title: String,
     modifier: Modifier = Modifier,
-    contentScale: ContentScale = ContentScale.Crop
+    contentScale: ContentScale = ContentScale.Crop,
+    contentDescription: String? = "Cover of $title"
 ) {
     Box(
         modifier =
@@ -33,15 +34,17 @@ internal fun PublicBookCover(
         contentAlignment = Alignment.Center
     ) {
         if (reference == null) {
-            MissingBookCover(title)
+            MissingBookCover(contentDescription?.let { "No cover available for $title" })
         } else {
             SubcomposeAsyncImage(
                 model = reference.url,
-                contentDescription = "Cover of $title",
+                contentDescription = contentDescription,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = contentScale,
                 loading = { CoverLoading() },
-                error = { MissingBookCover(title) },
+                error = {
+                    MissingBookCover(contentDescription?.let { "No cover available for $title" })
+                },
                 success = { SubcomposeAsyncImageContent() }
             )
         }
@@ -58,10 +61,10 @@ private fun CoverLoading() {
 }
 
 @Composable
-private fun MissingBookCover(title: String) {
+private fun MissingBookCover(contentDescription: String?) {
     AppIconGraphic(
         icon = AppIcon.Library,
-        contentDescription = "No cover available for $title",
+        contentDescription = contentDescription,
         modifier = Modifier.size(36.dp),
         tint = MaterialTheme.colorScheme.onSurfaceVariant
     )

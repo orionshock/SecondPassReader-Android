@@ -54,7 +54,7 @@ private fun <T> Segment(selected: Boolean, option: SegmentedIconOption<T>, onCli
     Box(
         modifier =
             Modifier
-                .size(width = 48.dp, height = 40.dp)
+                .size(48.dp)
                 .clip(MaterialTheme.shapes.extraLarge)
                 .background(background)
                 .selectable(selected = selected, role = Role.RadioButton, onClick = onClick),

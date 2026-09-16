@@ -17,6 +17,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.client.ShelfEditorItem
 import com.secondpasslibrary.reader.design.book.PublicBookCover
@@ -36,7 +38,12 @@ internal fun AvailableShelfEditorRow(
 ) {
     val book = entry.book.toCompactBookPresentation()
     ShelfEditorRowSurface {
-        PublicBookCover(book.cover, book.title, Modifier.size(width = 52.dp, height = 76.dp))
+        PublicBookCover(
+            book.cover,
+            book.title,
+            Modifier.size(width = 52.dp, height = 76.dp),
+            contentDescription = null
+        )
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(book.title, style = MaterialTheme.typography.titleMedium)
             book.authors?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
@@ -50,6 +57,7 @@ internal fun AvailableShelfEditorRow(
             )
         }
         EditorMoveActions(
+            book.title,
             directPositionAvailable,
             enabled,
             onMoveUp,
@@ -83,13 +91,18 @@ internal fun UnavailableShelfEditorRow(
             )
         }
         IconButton(onClick = onRemove, enabled = enabled) {
-            AppIconGraphic(AppIcon.Delete, "Remove unavailable item from shelf")
+            AppIconGraphic(
+                AppIcon.Delete,
+                "Remove unavailable shelf item at position " +
+                    userFacingShelfPosition(entry.position)
+            )
         }
     }
 }
 
 @Composable
 private fun EditorMoveActions(
+    bookTitle: String,
     directPositionAvailable: Boolean,
     enabled: Boolean,
     onMoveUp: () -> Unit,
@@ -99,17 +112,20 @@ private fun EditorMoveActions(
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onMoveUp, enabled = enabled) {
-            AppIconGraphic(AppIcon.MoveShelfItemUp, "Move up")
+            AppIconGraphic(AppIcon.MoveShelfItemUp, "Move $bookTitle up")
         }
         IconButton(onClick = onMoveDown, enabled = enabled) {
-            AppIconGraphic(AppIcon.MoveShelfItemDown, "Move down")
+            AppIconGraphic(AppIcon.MoveShelfItemDown, "Move $bookTitle down")
         }
         OutlinedButton(
             onClick = onMoveToPosition,
-            enabled = enabled && directPositionAvailable
+            enabled = enabled && directPositionAvailable,
+            modifier = Modifier.semantics {
+                contentDescription = "Move $bookTitle to a shelf position"
+            }
         ) { Text("Move to…") }
         IconButton(onClick = onRemove, enabled = enabled) {
-            AppIconGraphic(AppIcon.Delete, "Remove from shelf")
+            AppIconGraphic(AppIcon.Delete, "Remove $bookTitle from shelf")
         }
     }
 }

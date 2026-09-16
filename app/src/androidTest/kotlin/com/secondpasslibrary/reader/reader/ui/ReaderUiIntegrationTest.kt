@@ -106,8 +106,9 @@ class ReaderUiIntegrationTest {
         }
 
         compose.onNodeWithTag(com.secondpasslibrary.reader.reader.ui.hud.READER_HUD_CLOCK_TAG)
-            .assertIsDisplayed()
-        compose.onNodeWithText("8 pages left in section").assertIsDisplayed()
+            .assertExists()
+        compose.onNodeWithTag(com.secondpasslibrary.reader.reader.ui.hud.READER_HUD_STATUS_TAG)
+            .assertExists()
         compose.onNodeWithContentDescription("Open table of contents").assertIsDisplayed()
 
         compose.mainClock.advanceTimeBy(3_500)
@@ -153,7 +154,7 @@ class ReaderUiIntegrationTest {
         compose.onNodeWithContentDescription("1 bookmark on this page").assertIsDisplayed()
         compose.onNodeWithContentDescription("1 bookmark on this page").performClick()
         compose.onNodeWithText("First bookmark").assertIsDisplayed()
-        compose.onAllNodesWithContentDescription("Go to bookmark")[0].performClick()
+        compose.onNodeWithContentDescription("Go to First bookmark").performClick()
         compose.runOnIdle {
             assertEquals(
                 listOf(ReaderNavigationIntent.GoToBookmark(first)),
@@ -170,7 +171,7 @@ class ReaderUiIntegrationTest {
         compose.onNodeWithText("First bookmark").assertIsDisplayed()
         compose.onNodeWithText("Second bookmark").assertIsDisplayed()
         compose.runOnIdle { assertTrue(removed.isEmpty()) }
-        compose.onAllNodesWithContentDescription("Remove bookmark")[1].performClick()
+        compose.onNodeWithContentDescription("Remove Second bookmark").performClick()
         compose.runOnIdle { assertEquals(listOf("second"), removed) }
         compose.onNodeWithContentDescription("1 bookmark on this page").assertIsDisplayed()
     }
@@ -310,7 +311,7 @@ class ReaderUiIntegrationTest {
             }
         }
 
-        compose.onNodeWithContentDescription("Reading appearance").performClick()
+        compose.onNodeWithContentDescription("Open reading appearance").performClick()
         compose.onNodeWithText("Reading appearance").assertIsDisplayed()
         compose.onNodeWithText("Sepia").performClick()
         compose.waitUntil { appearance.appearance.value.theme == ReaderTheme.SEPIA }
@@ -364,10 +365,10 @@ class ReaderUiIntegrationTest {
             }
         }
 
-        compose.onNodeWithContentDescription("Reading annotations").performClick()
+        compose.onNodeWithContentDescription("Open Marginalia").performClick()
         compose.onAllNodesWithText("1 annotation")[0].assertIsDisplayed()
         compose.onNodeWithText("A selected passage").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Highlight actions").performClick()
+        compose.onNodeWithContentDescription("More highlight actions").performClick()
         assertEquals(emptyList<EpubCfi>(), navigator.destinations)
         compose.onNodeWithText("Go to").performClick()
         compose.waitUntil { navigationIntents.isNotEmpty() }
@@ -401,7 +402,7 @@ class ReaderUiIntegrationTest {
             }
         }
 
-        compose.onNodeWithContentDescription("Reading annotations").performClick()
+        compose.onNodeWithContentDescription("Open Marginalia").performClick()
         compose.onNodeWithContentDescription("Close annotations").assertIsDisplayed()
         compose.runOnUiThread {
             state.value = ReaderAnnotationsState(
@@ -610,10 +611,10 @@ class ReaderUiIntegrationTest {
             }
         }
 
-        compose.onNodeWithContentDescription("Reading annotations").performClick()
+        compose.onNodeWithContentDescription("Open Marginalia").performClick()
         compose.onNodeWithContentDescription("Bookmark current location").performClick()
         compose.runOnIdle { assertEquals(1, bookmarkCreates) }
-        compose.onNodeWithContentDescription("Highlight actions").performClick()
+        compose.onNodeWithContentDescription("More highlight actions").performClick()
         compose.onNodeWithText("Edit").performClick()
         compose.onNodeWithText("Edit highlight").assertIsDisplayed()
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
@@ -622,7 +623,7 @@ class ReaderUiIntegrationTest {
             assertEquals(0, exits)
         }
 
-        compose.onNodeWithContentDescription("Highlight actions").performClick()
+        compose.onNodeWithContentDescription("More highlight actions").performClick()
         compose.onNodeWithText("Edit").performClick()
         compose.onNodeWithText("Note (optional)").performTextReplacement("Revised note")
         compose.onNodeWithContentDescription("Purple highlight").performClick()
@@ -632,7 +633,7 @@ class ReaderUiIntegrationTest {
         compose.runOnUiThread {
             mutations.value = ReaderAnnotationMutationState()
         }
-        compose.onNodeWithContentDescription("Highlight actions").performClick()
+        compose.onNodeWithContentDescription("More highlight actions").performClick()
         compose.onNodeWithText("Delete").performClick()
         compose.onNodeWithText("Delete this highlight?").assertIsDisplayed()
         compose.onNodeWithText("Delete").performClick()
@@ -641,7 +642,7 @@ class ReaderUiIntegrationTest {
         compose.runOnUiThread {
             mutations.value = ReaderAnnotationMutationState()
         }
-        compose.onNodeWithContentDescription("Bookmark actions").performClick()
+        compose.onNodeWithContentDescription("More bookmark actions").performClick()
         compose.onNodeWithText("Delete").performClick()
         compose.onNodeWithText("Delete this bookmark?").assertIsDisplayed()
         compose.onNodeWithText("Delete").performClick()
@@ -653,12 +654,12 @@ class ReaderUiIntegrationTest {
             status.value = ReaderSessionStatus.CLOSED
         }
         compose.waitForIdle()
-        compose.onNodeWithContentDescription("Highlight actions").performClick()
+        compose.onNodeWithContentDescription("More highlight actions").performClick()
         compose.onNodeWithText("Go to").assertIsDisplayed()
         assertEquals(0, compose.onAllNodesWithText("Edit").fetchSemanticsNodes().size)
         assertEquals(0, compose.onAllNodesWithText("Delete").fetchSemanticsNodes().size)
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
-        compose.onNodeWithContentDescription("Bookmark actions").performClick()
+        compose.onNodeWithContentDescription("More bookmark actions").performClick()
         compose.onNodeWithText("Go to").assertIsDisplayed()
         assertEquals(0, compose.onAllNodesWithText("Delete").fetchSemanticsNodes().size)
         assertEquals(
@@ -707,7 +708,7 @@ class ReaderUiIntegrationTest {
             }
         }
 
-        compose.onNodeWithContentDescription("Reading annotations").performClick()
+        compose.onNodeWithContentDescription("Open Marginalia").performClick()
         compose.onAllNodesWithText("Morning read")[1].assertIsDisplayed()
         compose.onNodeWithContentDescription("Edit current session").performClick()
         compose.onNodeWithText("Session name").performTextReplacement("Evening read")

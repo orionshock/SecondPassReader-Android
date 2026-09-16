@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -219,7 +220,17 @@ private fun PublisherStylesControl(
     onAppearanceChanged: (ReaderAppearance) -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .toggleable(
+                    value = appearance.publisherStylesEnabled,
+                    role = Role.Switch,
+                    onValueChange = {
+                        onAppearanceChanged(appearance.copy(publisherStylesEnabled = it))
+                    }
+                )
+                .semantics { contentDescription = "Publisher styles" },
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -230,10 +241,7 @@ private fun PublisherStylesControl(
         )
         Switch(
             checked = appearance.publisherStylesEnabled,
-            modifier = Modifier.semantics { contentDescription = "Publisher styles" },
-            onCheckedChange = {
-                onAppearanceChanged(appearance.copy(publisherStylesEnabled = it))
-            }
+            onCheckedChange = null
         )
     }
 }

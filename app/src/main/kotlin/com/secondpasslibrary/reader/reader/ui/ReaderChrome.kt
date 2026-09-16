@@ -137,7 +137,7 @@ private fun ReaderChromeActions(
             modifier = Modifier.size(READER_CHROME_CONTROL_SIZE),
             onClick = onAppearanceRequested
         ) {
-            AppIconGraphic(AppIcon.Settings, "Reading appearance")
+            AppIconGraphic(AppIcon.Settings, "Open reading appearance")
         }
         Box {
             IconButton(
@@ -169,7 +169,7 @@ private fun ReaderChromeActions(
             modifier = Modifier.size(READER_CHROME_CONTROL_SIZE),
             onClick = onAnnotationsRequested
         ) {
-            AppIconGraphic(AppIcon.Marginalia, "Reading annotations")
+            AppIconGraphic(AppIcon.Marginalia, "Open Marginalia")
         }
     }
 }

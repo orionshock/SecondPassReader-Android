@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -132,7 +133,18 @@ private fun ReaderMarginaliaAutoShowPreference(
     actions: ReaderMarginaliaDrawerActions
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .toggleable(
+                    value = model.autoShowPrevious,
+                    role = Role.Switch,
+                    onValueChange = actions.autoShowPreviousChanged
+                )
+                .semantics {
+                    contentDescription = "Show previous marginalia automatically"
+                }
+                .padding(horizontal = 12.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -144,10 +156,7 @@ private fun ReaderMarginaliaAutoShowPreference(
         )
         Switch(
             checked = model.autoShowPrevious,
-            onCheckedChange = actions.autoShowPreviousChanged,
-            modifier = Modifier.semantics {
-                contentDescription = "Show previous marginalia automatically"
-            }
+            onCheckedChange = null
         )
     }
 }

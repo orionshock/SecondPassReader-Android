@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -85,11 +86,22 @@ internal fun ReaderOverlayLayout(
         drawerContent = { tableOfContents(dismissDrawer) }
     ) {
         Box(Modifier.fillMaxSize()) {
-            content(actions)
+            ReaderContentBehindPanel(panel, actions, content)
             if (panel == ReaderOverlayPanel.APPEARANCE) appearance(dismissPanel)
             if (panel == ReaderOverlayPanel.ANNOTATIONS) annotations(dismissPanel)
         }
     }
+}
+
+@Composable
+private fun ReaderContentBehindPanel(
+    panel: ReaderOverlayPanel,
+    actions: ReaderOverlayHost,
+    content: @Composable (ReaderOverlayHost) -> Unit
+) {
+    val accessibilityModifier =
+        if (panel == ReaderOverlayPanel.NONE) Modifier else Modifier.clearAndSetSemantics { }
+    Box(Modifier.fillMaxSize().then(accessibilityModifier)) { content(actions) }
 }
 
 private fun readerOverlayActions(

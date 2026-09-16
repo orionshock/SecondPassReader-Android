@@ -16,6 +16,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.client.AuthorOrdering
 import com.secondpasslibrary.client.LibraryCatalogTag
@@ -156,6 +158,7 @@ private fun OrderingMenu(
 @Composable
 private fun OrderingItem(label: String, selected: Boolean, onClick: () -> Unit) {
     DropdownMenuItem(
+        modifier = Modifier.semantics { this.selected = selected },
         text = { Text(label) },
         onClick = onClick,
         leadingIcon = { if (selected) AppIconGraphic(AppIcon.Confirm, null) }

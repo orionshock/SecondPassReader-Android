@@ -23,6 +23,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -138,7 +140,7 @@ private fun TagRows(
 private fun TagRow(name: String, countLabel: String?, selected: Boolean, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().semantics { this.selected = selected },
         color =
             if (selected) {
                 MaterialTheme.colorScheme.primaryContainer
@@ -161,7 +163,7 @@ private fun TagRow(name: String, countLabel: String?, selected: Boolean, onClick
                     style = MaterialTheme.typography.labelMedium
                 )
             }
-            if (selected) AppIconGraphic(AppIcon.Confirm, "Selected")
+            if (selected) AppIconGraphic(AppIcon.Confirm, null)
         }
     }
 }

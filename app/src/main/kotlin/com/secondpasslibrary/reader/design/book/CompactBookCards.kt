@@ -24,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.design.components.AnchoredOverflowMenu
@@ -81,9 +82,11 @@ private fun CompactBookRowContent(
             PublicBookCover(
                 reference = book.cover,
                 title = book.title,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                contentDescription = null
             )
             BookOverflow(
+                book.title,
                 actions,
                 menuExpanded,
                 onMenuExpandedChange,
@@ -133,7 +136,10 @@ private fun WideCompactBookRowContent(
         PublicBookCover(
             reference = book.cover,
             title = book.title,
-            modifier = Modifier.size(width = 60.dp, height = 90.dp)
+            modifier =
+                Modifier.size(width = 60.dp, height = 90.dp)
+                    .testTag(COMPACT_BOOK_COVER_TAG),
+            contentDescription = null
         )
         Column(
             modifier = Modifier.weight(1f).padding(vertical = 2.dp),
@@ -150,6 +156,7 @@ private fun WideCompactBookRowContent(
         }
         WideBookFacts(book, Modifier.width(260.dp))
         BookOverflow(
+            book.title,
             actions,
             menuExpanded,
             onMenuExpandedChange,
@@ -195,9 +202,11 @@ internal fun CompactBookGridCard(
                 PublicBookCover(
                     reference = book.cover,
                     title = book.title,
-                    modifier = Modifier.fillMaxWidth().aspectRatio(BOOK_COVER_ASPECT_RATIO)
+                    modifier = Modifier.fillMaxWidth().aspectRatio(BOOK_COVER_ASPECT_RATIO),
+                    contentDescription = null
                 )
                 BookOverflow(
+                    book.title,
                     actions,
                     menuExpanded,
                     { menuExpanded = it },
@@ -232,6 +241,7 @@ private fun BookGridMetadata(book: CompactBookPresentation) {
 
 @Composable
 private fun BookOverflow(
+    bookTitle: String,
     actions: List<BookCardAction>,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
@@ -245,7 +255,7 @@ private fun BookOverflow(
         label = BookCardAction::menuLabel,
         onSelected = onAction,
         modifier = modifier,
-        contentDescription = "Book actions"
+        contentDescription = "Book actions for $bookTitle"
     )
 }
 
@@ -260,9 +270,9 @@ private fun Modifier.bookCardInteractions(
             onClick = onClick,
             onLongClickLabel = "Book actions",
             onLongClick = onLongClick
-        )
+        ).semantics(mergeDescendants = true) { }
 
-    onClick != null -> combinedClickable(onClick = onClick)
+    onClick != null -> combinedClickable(onClick = onClick).semantics(mergeDescendants = true) { }
 
     else -> this
 }
@@ -283,3 +293,4 @@ private fun MetadataLine(
 
 internal const val COMPACT_BOOK_ROW_TAG = "compact-book-row"
 internal const val WIDE_BOOK_ROW_TAG = "wide-book-row"
+internal const val COMPACT_BOOK_COVER_TAG = "compact-book-cover"

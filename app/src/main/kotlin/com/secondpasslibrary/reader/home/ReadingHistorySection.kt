@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -22,6 +23,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.client.RecentReadingItem
 import com.secondpasslibrary.reader.design.icons.AppIcon
@@ -172,8 +176,20 @@ private fun ReadingHistoryControls(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Switch(checked = showClosed, onCheckedChange = onShowClosedChanged)
-        Text("Show closed", style = MaterialTheme.typography.bodyMedium)
+        Row(
+            modifier =
+                Modifier
+                    .toggleable(
+                        value = showClosed,
+                        role = Role.Switch,
+                        onValueChange = onShowClosedChanged
+                    )
+                    .semantics { contentDescription = "Show closed reading sessions" },
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Switch(checked = showClosed, onCheckedChange = null)
+            Text("Show closed", style = MaterialTheme.typography.bodyMedium)
+        }
         IconButton(onClick = onPrevious, enabled = listState.canScrollBackward) {
             AppIconGraphic(AppIcon.Previous, "Scroll reading history left")
         }

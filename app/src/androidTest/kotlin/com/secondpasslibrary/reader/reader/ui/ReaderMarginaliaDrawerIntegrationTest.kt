@@ -87,7 +87,7 @@ class ReaderMarginaliaDrawerIntegrationTest {
             }
         }
 
-        compose.onNodeWithContentDescription("Reading annotations").performClick()
+        compose.onNodeWithContentDescription("Open Marginalia").performClick()
         compose.onNodeWithContentDescription("Marginalia layer Current Session")
             .assertIsSelected()
         compose.onNodeWithContentDescription("Show previous marginalia automatically")
@@ -142,7 +142,7 @@ class ReaderMarginaliaDrawerIntegrationTest {
 
         compose.onNodeWithText("Load more sessions").performClick()
         compose.runOnIdle { assertEquals(1, loadMore) }
-        compose.onNodeWithContentDescription("Highlight actions").performClick()
+        compose.onNodeWithContentDescription("More highlight actions").performClick()
         compose.onNodeWithText("Go to").assertIsDisplayed()
         assertEquals(0, compose.onAllNodesWithText("Edit").fetchSemanticsNodes().size)
         assertEquals(0, compose.onAllNodesWithText("Delete").fetchSemanticsNodes().size)

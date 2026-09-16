@@ -29,6 +29,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -88,7 +89,11 @@ private fun SessionList(
 @Composable
 private fun ReadingSessionRow(model: ReadingSessionRowPresentation, onClick: () -> Unit) {
     Surface(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .semantics(mergeDescendants = true) { },
         shape = MaterialTheme.shapes.small,
         color = MaterialTheme.colorScheme.surfaceContainer,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
@@ -104,7 +109,8 @@ private fun ReadingSessionRow(model: ReadingSessionRowPresentation, onClick: () 
                 PublicBookCover(
                     reference = model.cover,
                     title = model.bookTitle,
-                    modifier = Modifier.width(56.dp).height(80.dp)
+                    modifier = Modifier.width(56.dp).height(80.dp),
+                    contentDescription = null
                 )
                 Column(
                     modifier = Modifier.weight(1f),

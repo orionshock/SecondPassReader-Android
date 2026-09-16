@@ -2,7 +2,6 @@ package com.secondpasslibrary.reader.reader.annotations.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +15,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MenuDefaults
+import androidx.compose.material3.MenuItemColors
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -24,7 +24,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
@@ -52,18 +51,13 @@ internal fun ReaderAnnotationRow(
 ) {
     var actionsExpanded by remember(annotation.id) { mutableStateOf(false) }
     BackHandler(enabled = actionsExpanded) { actionsExpanded = false }
-    val actionsDescription = when (annotation) {
-        is ReaderAnnotation.Bookmark -> "Bookmark actions"
-        is ReaderAnnotation.Highlight -> "Highlight actions"
-    }
     val tone = (annotation as? ReaderAnnotation.Highlight)?.color?.toTone()
     val palette = tone?.let { annotationHighlightPalette(it) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp)
-            .semantics { contentDescription = actionsDescription }
-            .clickable(role = Role.Button) { actionsExpanded = true }
+            .semantics(mergeDescendants = true) { }
             .padding(horizontal = 14.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -134,6 +128,7 @@ private fun ReaderAnnotationActionsMenu(
     onEditHighlight: (ReaderAnnotation.Highlight) -> Unit,
     onDelete: (ReaderAnnotation) -> Unit
 ) {
+    val context = annotation.accessibilityContext()
     val itemColors = MenuDefaults.itemColors(
         textColor = palette.primaryForeground,
         leadingIconColor = palette.primaryForeground
@@ -154,39 +149,64 @@ private fun ReaderAnnotationActionsMenu(
             onDismissRequest = onDismiss,
             containerColor = palette.panelSurface
         ) {
-            DropdownMenuItem(
-                text = { Text("Go to") },
-                leadingIcon = { AppIconGraphic(AppIcon.JumpToLocation, null) },
-                colors = itemColors,
-                onClick = {
-                    onDismiss()
-                    onNavigate(annotation)
-                }
-            )
+            ReaderAnnotationMenuItem(
+                "Go to",
+                "Go to $context",
+                AppIcon.JumpToLocation,
+                itemColors
+            ) {
+                onDismiss()
+                onNavigate(annotation)
+            }
             if (writable && annotation is ReaderAnnotation.Highlight) {
-                DropdownMenuItem(
-                    text = { Text("Edit") },
-                    leadingIcon = { AppIconGraphic(AppIcon.EditAnnotation, null) },
-                    colors = itemColors,
-                    onClick = {
-                        onDismiss()
-                        onEditHighlight(annotation)
-                    }
-                )
+                ReaderAnnotationMenuItem(
+                    "Edit",
+                    "Edit $context",
+                    AppIcon.EditAnnotation,
+                    itemColors
+                ) {
+                    onDismiss()
+                    onEditHighlight(annotation)
+                }
             }
             if (writable) {
-                DropdownMenuItem(
-                    text = { Text("Delete") },
-                    leadingIcon = { AppIconGraphic(AppIcon.Delete, null) },
-                    colors = itemColors,
-                    onClick = {
-                        onDismiss()
-                        onDelete(annotation)
-                    }
-                )
+                ReaderAnnotationMenuItem(
+                    "Delete",
+                    "Delete $context",
+                    AppIcon.Delete,
+                    itemColors
+                ) {
+                    onDismiss()
+                    onDelete(annotation)
+                }
             }
         }
     }
+}
+
+@Composable
+private fun ReaderAnnotationMenuItem(
+    label: String,
+    accessibilityLabel: String,
+    icon: AppIcon,
+    colors: MenuItemColors,
+    onClick: () -> Unit
+) {
+    DropdownMenuItem(
+        modifier = Modifier.semantics { contentDescription = accessibilityLabel },
+        text = { Text(label) },
+        leadingIcon = { AppIconGraphic(icon, null) },
+        colors = colors,
+        onClick = onClick
+    )
+}
+
+private fun ReaderAnnotation.accessibilityContext(): String = when (this) {
+    is ReaderAnnotation.Bookmark -> locationLabel?.let { "bookmark at $it" } ?: "bookmark"
+
+    is ReaderAnnotation.Highlight ->
+        locationLabel?.let { "highlight at $it" }
+            ?: "highlight ${quote.take(ACCESSIBILITY_QUOTE_LENGTH)}"
 }
 
 private fun ReaderAnnotation.icon(): AppIcon = when (this) {
@@ -207,3 +227,5 @@ private fun ReaderAnnotationColor.toTone(): AnnotationHighlightTone = when (this
     ReaderAnnotationColor.PURPLE -> AnnotationHighlightTone.PURPLE
     ReaderAnnotationColor.ORANGE -> AnnotationHighlightTone.ORANGE
 }
+
+private const val ACCESSIBILITY_QUOTE_LENGTH = 60

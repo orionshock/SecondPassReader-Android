@@ -60,7 +60,7 @@ internal fun ReadingHistoryCard(
             label = HomeNavigationIntent::menuLabel,
             onSelected = onContextAction,
             modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
-            contentDescription = "Reading session actions"
+            contentDescription = "Open ${model.sessionIdentityLabel} actions"
         )
     }
 }
@@ -79,7 +79,7 @@ private fun ReadingHistoryCardSurface(
                 .combinedClickable(
                     onClickLabel = model.primaryIntent?.let { "Read ${model.title}" },
                     onClick = onClick,
-                    onLongClickLabel = "Reading session actions",
+                    onLongClickLabel = "Open ${model.sessionIdentityLabel} actions",
                     onLongClick = onLongClick
                 )
                 .semantics(mergeDescendants = true) {
