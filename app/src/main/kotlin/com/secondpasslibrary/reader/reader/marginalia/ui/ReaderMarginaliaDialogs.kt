@@ -32,13 +32,13 @@ internal fun ReaderSessionMetadataDialog(
     BackHandler(onBack = onDismiss)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit reading session") },
+        title = { Text("Edit Reading Session") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 ReaderMetadataField(
                     value = state.draftName,
                     onValueChanged = onNameChanged,
-                    label = "Session name",
+                    label = "Reading Session name",
                     palette = palette,
                     enabled = !state.saving,
                     singleLine = true,
@@ -51,14 +51,14 @@ internal fun ReaderSessionMetadataDialog(
                 ReaderMetadataField(
                     value = state.draftNotes,
                     onValueChanged = onNotesChanged,
-                    label = "Session note",
+                    label = "Reading Session notes",
                     palette = palette,
                     enabled = !state.saving,
                     singleLine = false
                 )
                 if (state.failure) {
                     Text(
-                        "Session could not be saved. Try again.",
+                        "Couldn’t save the Reading Session. Try again.",
                         color = palette.secondaryForeground
                     )
                 }

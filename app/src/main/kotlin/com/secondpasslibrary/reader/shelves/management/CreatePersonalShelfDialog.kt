@@ -20,7 +20,7 @@ internal fun CreatePersonalShelfDialog(
 ) {
     AlertDialog(
         onDismissRequest = { if (!state.submitting) onDismiss() },
-        title = { Text("Create shelf") },
+        title = { Text("Create Shelf") },
         text = {
             Column {
                 ShelfMetadataFields(
@@ -54,13 +54,19 @@ internal fun CreatePersonalShelfDialog(
 private fun CreateShelfFieldError.message(): String = when (this) {
     CreateShelfFieldError.REQUIRED -> "Name is required."
     CreateShelfFieldError.TOO_LONG -> "Name must be 255 characters or fewer."
-    CreateShelfFieldError.SERVER_REJECTED -> "The library rejected this value."
+    CreateShelfFieldError.SERVER_REJECTED -> "Second Pass Library rejected this value."
 }
 
 private fun CreateShelfFailure.message(): String = when (this) {
-    CreateShelfFailure.UNREACHABLE -> "The library is currently unreachable."
-    CreateShelfFailure.AUTHENTICATION_REJECTED -> "Library authentication was rejected."
-    CreateShelfFailure.REJECTED -> "The library rejected this shelf."
+    CreateShelfFailure.UNREACHABLE ->
+        "Couldn’t reach the Library. Check your connection and retry."
+
+    CreateShelfFailure.AUTHENTICATION_REJECTED ->
+        "Your connection is no longer authorized. Repair it in Settings."
+
+    CreateShelfFailure.REJECTED -> "Second Pass Library rejected this Shelf. Check its details."
+
     CreateShelfFailure.FIELD_VALIDATION -> "Check the highlighted fields."
-    CreateShelfFailure.OTHER -> "The shelf could not be created."
+
+    CreateShelfFailure.OTHER -> "Couldn’t create the Shelf. Retry."
 }

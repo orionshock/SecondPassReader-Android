@@ -30,7 +30,7 @@ internal fun HomeSectionLoading(label: String) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 2.dp)
-        Text("Loading $label...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Loading $label", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -127,13 +127,13 @@ internal fun HomeSectionCachedFailure(
 }
 
 private fun HomeProjectionRefresh.Failed.messageWithCache(): String = when (reason) {
-    HomeProjectionFailure.Unreachable -> "Offline — showing cached data"
+    HomeProjectionFailure.Unreachable -> "Offline — showing saved details"
 
     HomeProjectionFailure.AuthenticationRejected ->
-        "Authorization was rejected — showing cached data"
+        "Connection needs repair — showing saved details"
 
     HomeProjectionFailure.ProtocolInvalid ->
-        "Refresh returned invalid data — showing cached data"
+        "Couldn’t refresh — showing saved details"
 
-    HomeProjectionFailure.Other -> "Refresh failed — showing cached data"
+    HomeProjectionFailure.Other -> "Couldn’t refresh — showing saved details"
 }

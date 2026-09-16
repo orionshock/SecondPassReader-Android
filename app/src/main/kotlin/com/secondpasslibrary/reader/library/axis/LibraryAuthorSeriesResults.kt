@@ -44,8 +44,8 @@ internal fun LibraryAuthorsResults(
 ) {
     LibraryAuthorSeriesResults(
         state,
-        "authors",
-        "author",
+        "Authors",
+        "Author",
         LibraryAuthor::toLibraryAuthorSeriesPresentation,
         { it.toAuthorDetailPresentation() },
         onSelect,
@@ -67,8 +67,8 @@ internal fun LibrarySeriesResults(
 ) {
     LibraryAuthorSeriesResults(
         state,
-        "series",
-        "series",
+        "Series",
+        "Series",
         LibrarySeries::toLibraryAuthorSeriesPresentation,
         { it.toSeriesDetailPresentation() },
         onSelect,
@@ -165,7 +165,7 @@ private fun <T, O> AuthorSeriesNextPageFooter(
             )
 
             state.error?.phase == PagedLibraryAxisLoadPhase.NEXT_PAGE ->
-                OutlinedButton(onClick = onRetry) { Text("Could not load more - Retry") }
+                OutlinedButton(onClick = onRetry) { Text("Retry loading more") }
         }
     }
 }
@@ -207,8 +207,14 @@ private fun InlineAuthorSeriesFailure(
 
 internal fun authorSeriesFailureMessage(failure: LibraryFailure, subject: String): String =
     when (failure) {
-        LibraryFailure.UNREACHABLE -> "Library is currently unreachable."
-        LibraryFailure.AUTHENTICATION_REJECTED -> "Library authentication was rejected."
-        LibraryFailure.PROTOCOL_INVALID -> "The library returned invalid $subject data."
-        LibraryFailure.OTHER -> "Library $subject could not be loaded."
+        LibraryFailure.UNREACHABLE ->
+            "Couldn’t reach the Library. Check your connection and retry."
+
+        LibraryFailure.AUTHENTICATION_REJECTED ->
+            "Your connection is no longer authorized. Repair it in Settings."
+
+        LibraryFailure.PROTOCOL_INVALID ->
+            "Couldn’t read $subject from the Library. Retry or repair the connection in Settings."
+
+        LibraryFailure.OTHER -> "Couldn’t load $subject. Retry."
     }

@@ -6,38 +6,40 @@ internal object ConnectionErrorPresenter {
     fun message(error: Throwable): String = storageMessage(error) ?: clientMessage(error)
 
     private fun storageMessage(error: Throwable): String? = when (error) {
-        is CredentialStorageException -> error.message ?: "Secure credential storage failed."
+        is CredentialStorageException ->
+            "Couldn’t save the connection securely. Retry or remove its local data."
 
         is ConnectionProfileStorageException ->
-            error.message
-                ?: "Connection profile storage failed."
+            "Couldn’t save the connection on this device. Retry or remove its local data."
 
         else -> null
     }
 
     private fun clientMessage(error: Throwable): String = when (error) {
-        is SplClientException.InvalidServerUrl -> error.message.orEmpty()
+        is SplClientException.InvalidServerUrl ->
+            "Enter a valid HTTP or HTTPS address."
 
         is SplClientException.ServerUnreachable ->
-            "The server could not be reached. Check the address and connection."
+            "Couldn’t reach Second Pass Library. Check the address and your connection."
 
         is SplClientException.NotSecondPassServer ->
-            "That address is not advertising a valid Second Pass Library server."
+            "That address isn’t a Second Pass Library server. Check the address."
 
         is SplClientException.PairingValidationRejected ->
-            "The server rejected the client name. Use 1–200 characters."
+            "Use a device name between 1 and 200 characters."
 
-        is SplClientException.PairingThrottled -> "The server asked this client to slow down."
+        is SplClientException.PairingThrottled ->
+            "Second Pass Library is limiting requests. Try again shortly."
 
         is SplClientException.AuthenticationRejected ->
-            "The saved credential was rejected or revoked."
+            "This connection is no longer authorized. Repair the connection."
 
         is SplClientException.AmbiguousConsumeFailure ->
-            "Approval may have been consumed, but its one-time credential was not received. " +
-                "Do not retry this approval; start a new pairing request."
+            "The approval may already be used. Start linking again with a new code."
 
-        is SplClientException -> error.message ?: "The Second Pass request failed."
+        is SplClientException ->
+            "Couldn’t connect to Second Pass Library. Check the address and retry."
 
-        else -> "An unexpected connection error occurred."
+        else -> "Couldn’t connect. Check the address and retry."
     }
 }

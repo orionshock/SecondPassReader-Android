@@ -36,7 +36,7 @@ internal fun BookShelfPickerDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add to shelf") },
+        title = { Text("Add to Shelf") },
         text = {
             Column(
                 Modifier.widthIn(min = 420.dp, max = 620.dp),
@@ -45,7 +45,7 @@ internal fun BookShelfPickerDialog(
                 BookShelfPickerBody(state, onRetry, onAdd)
                 TextButton(onClick = onManageShelves, modifier = Modifier.align(Alignment.End)) {
                     AppIconGraphic(AppIcon.Shelf, null, Modifier.size(18.dp))
-                    Text("Manage Shelves", Modifier.padding(start = 6.dp))
+                    Text("Open Shelves", Modifier.padding(start = 6.dp))
                 }
             }
         },
@@ -81,7 +81,7 @@ private fun BookShelfPickerBody(
 
         state.loaded && state.targets.isEmpty() ->
             Text(
-                "You do not have an editable personal shelf yet.",
+                "Create a personal Shelf before adding this Book.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(vertical = 20.dp)
             )

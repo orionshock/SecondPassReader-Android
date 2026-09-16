@@ -20,6 +20,6 @@ class ShelfContentsPresentationTest {
 
     @Test
     fun `counts retain visible and unavailable distinction`() {
-        assertEquals("7 visible / 2 unavailable", shelfEditorCountsLabel(7, 2))
+        assertEquals("7 available · 2 unavailable", shelfEditorCountsLabel(7, 2))
     }
 }

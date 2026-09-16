@@ -97,7 +97,7 @@ class BookDetailPresentationTest {
         val actions = bookDetailActionPresentations().associateBy { it.kind }
 
         assertFalse(requireNotNull(actions[BookDetailActionKind.READ_BOOK]).enabled)
-        assertEquals("Read book", actions[BookDetailActionKind.READ_BOOK]?.label)
+        assertEquals("Read Book", actions[BookDetailActionKind.READ_BOOK]?.label)
         assertTrue(requireNotNull(actions[BookDetailActionKind.READING_SESSIONS]).enabled)
         assertTrue(requireNotNull(actions[BookDetailActionKind.ADD_TO_SHELF]).enabled)
     }

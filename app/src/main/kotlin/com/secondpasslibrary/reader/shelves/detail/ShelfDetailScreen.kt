@@ -104,7 +104,7 @@ private fun ShelfItemResults(
 
         state.items.isEmpty() && state.currentPage > 0 ->
             Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("This shelf has no visible books.")
+                Text("This Shelf has no visible Books.")
             }
 
         else -> {

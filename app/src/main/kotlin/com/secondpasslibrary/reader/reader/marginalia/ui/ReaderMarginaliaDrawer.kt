@@ -155,7 +155,7 @@ private fun ReaderMarginaliaDrawerLayout(
         Box(
             Modifier.fillMaxSize().background(model.palette.scrim)
                 .clickable(onClick = actions.dismiss)
-                .semantics { contentDescription = "Close annotations" }
+                .semantics { contentDescription = "Close Marginalia" }
         )
         Surface(
             modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(drawerWidth),

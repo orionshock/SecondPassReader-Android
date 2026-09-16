@@ -74,7 +74,7 @@ private fun DetailLoading() {
         verticalArrangement = Arrangement.Center
     ) {
         CircularProgressIndicator()
-        Text("Loading book...", modifier = Modifier.padding(top = 12.dp))
+        Text("Loading Book", modifier = Modifier.padding(top = 12.dp))
     }
 }
 
@@ -85,7 +85,7 @@ private fun DetailFailure(onRetry: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text("Book details could not be loaded.")
+        Text("Couldn’t load Book details. Retry.")
         TextButton(onClick = onRetry) { Text("Retry") }
     }
 }

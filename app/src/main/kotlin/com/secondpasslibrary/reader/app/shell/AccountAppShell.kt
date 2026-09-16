@@ -187,7 +187,7 @@ private fun AppAvailability.toAppBarNetworkPresentation(
             AppAvailabilityReason.AUTHENTICATION_REQUIRED ->
                 AppBarNetworkPresentation(
                     AppBarNetworkStatus.OFFLINE,
-                    "Disconnected — link account again",
+                    "Connection needs repair",
                     actions.relinkLocalAccount
                 )
         }

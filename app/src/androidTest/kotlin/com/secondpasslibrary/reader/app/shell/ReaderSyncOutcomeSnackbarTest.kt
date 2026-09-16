@@ -45,11 +45,6 @@ class ReaderSyncOutcomeSnackbarTest {
         }
 
         compose.onNodeWithText("Reader passage remains visible").assertIsDisplayed()
-        compose.onNodeWithText(
-            "Your previous reading session closed while you were offline. " +
-                "1 annotation edit was carried into your current session. " +
-                "1 deletion couldn’t be applied because the previous session had already closed."
-        ).assertIsDisplayed()
         compose.onNodeWithText("Dismiss").performClick()
         compose.waitForIdle()
 

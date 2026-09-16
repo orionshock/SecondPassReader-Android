@@ -132,11 +132,11 @@ private fun LibraryScopeMenu(
             }
             if (state.groupSelector.loading) {
                 DropdownMenuItem(text = {
-                    Text("Loading library groups…")
+                    Text("Loading Library Groups")
                 }, onClick = {}, enabled = false)
             } else if (state.groupSelector.failure != null) {
                 DropdownMenuItem(
-                    text = { Text("Could not load groups · Retry") },
+                    text = { Text("Retry Library Groups") },
                     onClick = {
                         expanded = false
                         onRetryGroups()

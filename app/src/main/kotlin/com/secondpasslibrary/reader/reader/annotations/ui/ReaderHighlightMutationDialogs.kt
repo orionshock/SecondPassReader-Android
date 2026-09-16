@@ -134,7 +134,7 @@ private fun ReaderHighlightDraftDialog(
                 ReaderHighlightNoteField(note, state.submitting, palette, onNoteChanged)
                 state.failure?.let {
                     Text(
-                        "Highlight could not be saved. Try again.",
+                        "Couldn’t save the highlight. Try again.",
                         color = palette.secondaryForeground
                     )
                 }
@@ -248,7 +248,10 @@ private fun ReaderAnnotationDeleteDialog(
         text = {
             state.failure?.let {
                 Text(
-                    "Annotation could not be deleted. Try again.",
+                    when (annotation) {
+                        is ReaderAnnotation.Bookmark -> "Couldn’t delete the bookmark. Try again."
+                        is ReaderAnnotation.Highlight -> "Couldn’t delete the highlight. Try again."
+                    },
                     Modifier.padding(top = 4.dp)
                 )
             }

@@ -60,7 +60,7 @@ class ReadingSessionDetailPresentationTest {
             ).appBarPresentation()
 
         assertEquals("Book book-session-1", presentation.context)
-        assertEquals("Reading session", presentation.title)
+        assertEquals("Reading Session", presentation.title)
     }
 
     @Test
@@ -68,7 +68,7 @@ class ReadingSessionDetailPresentationTest {
         val detail = detail(name = "", progress = null).toDetailPresentation(zone, locale)
 
         assertNull(detail.sessionName)
-        assertEquals("Unnamed reading session", detail.sessionNameOrFallback())
+        assertEquals("Unnamed Reading Session", detail.sessionNameOrFallback())
         assertNull(detail.progressLocation)
     }
 

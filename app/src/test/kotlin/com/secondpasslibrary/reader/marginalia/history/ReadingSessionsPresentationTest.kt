@@ -32,7 +32,7 @@ class ReadingSessionsPresentationTest {
 
         assertEquals("Book book-session-1", presentation.bookTitle)
         assertNull(presentation.sessionName)
-        assertEquals("2 annotations", presentation.annotationCountLabel)
+        assertEquals("2 items", presentation.annotationCountLabel)
     }
 
     @Test
@@ -90,18 +90,18 @@ class ReadingSessionsPresentationTest {
         assertNull(global.appBarPresentation().context)
         assertEquals(AppBarNavigation.BACK, book.appBarPresentation().navigation)
         assertEquals("Book book-1", book.appBarPresentation().context)
-        assertEquals("Reading sessions", book.appBarPresentation().title)
-        assertEquals("No reading sessions for this book.", book.emptyMessage())
+        assertEquals("Reading Sessions", book.appBarPresentation().title)
+        assertEquals("No Reading Sessions for this Book.", book.emptyMessage())
     }
 
     @Test
     fun `empty copy follows active and closed filters`() {
         assertEquals(
-            "No active reading sessions.",
+            "No active Reading Sessions.",
             ReadingSessionsState(statusFilter = ReadingSessionStatusFilter.ACTIVE).emptyMessage()
         )
         assertEquals(
-            "No closed reading sessions.",
+            "No closed Reading Sessions.",
             ReadingSessionsState(statusFilter = ReadingSessionStatusFilter.CLOSED).emptyMessage()
         )
     }
@@ -115,7 +115,7 @@ class ReadingSessionsPresentationTest {
 
     @Test
     fun `result count uses correct singular and plural labels`() {
-        assertEquals("1 session", sessionCountLabel(1))
-        assertEquals("5 sessions", sessionCountLabel(5))
+        assertEquals("1 Reading Session", sessionCountLabel(1))
+        assertEquals("5 Reading Sessions", sessionCountLabel(5))
     }
 }

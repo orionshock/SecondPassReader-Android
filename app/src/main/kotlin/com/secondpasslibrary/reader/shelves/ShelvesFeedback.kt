@@ -28,7 +28,7 @@ internal fun ShelvesNextPageFooter(
             loading -> CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
 
             error?.phase == ShelvesLoadPhase.NEXT_PAGE ->
-                OutlinedButton(onClick = onRetry) { Text("Could not load more - Retry") }
+                OutlinedButton(onClick = onRetry) { Text("Retry loading more Shelves") }
         }
     }
 }
@@ -41,7 +41,7 @@ internal fun ShelvesLoading(modifier: Modifier) {
 @Composable
 internal fun ShelvesEmpty(modifier: Modifier) {
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("No shelves in this collection.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("No Shelves in this collection.", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -60,8 +60,13 @@ internal fun ShelvesFailure(error: ShelvesLoadError, onRetry: () -> Unit, modifi
 }
 
 internal fun ShelvesFailure.message(): String = when (this) {
-    ShelvesFailure.UNREACHABLE -> "The library is currently unreachable."
-    ShelvesFailure.AUTHENTICATION_REJECTED -> "Library authentication was rejected."
-    ShelvesFailure.PROTOCOL_INVALID -> "The library returned an invalid response."
-    ShelvesFailure.OTHER -> "Shelves could not be loaded."
+    ShelvesFailure.UNREACHABLE -> "Couldn’t reach the Library. Check your connection and retry."
+
+    ShelvesFailure.AUTHENTICATION_REJECTED ->
+        "Your connection is no longer authorized. Repair it in Settings."
+
+    ShelvesFailure.PROTOCOL_INVALID ->
+        "Couldn’t read the Library response. Retry or repair the connection in Settings."
+
+    ShelvesFailure.OTHER -> "Couldn’t load Shelves. Retry."
 }

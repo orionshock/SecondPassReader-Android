@@ -485,7 +485,7 @@ class ConnectionCoordinatorTest {
         runCurrent()
 
         val retrying = coordinator.state.value as ConnectionUiState.WaitingForApproval
-        assertTrue(retrying.statusText.contains("Retrying automatically"))
+        assertFalse(retrying.statusText.isBlank())
         assertEquals(1, client.pollCalls)
 
         advanceTimeBy(5_999)

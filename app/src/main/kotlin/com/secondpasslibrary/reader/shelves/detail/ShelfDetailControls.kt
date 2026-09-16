@@ -67,7 +67,7 @@ internal fun ShelfDetailHeader(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(state.failure.message(), color = MaterialTheme.colorScheme.error)
-                    OutlinedButton(onClick = onRetry) { Text("Retry details") }
+                    OutlinedButton(onClick = onRetry) { Text("Retry") }
                 }
             }
 
@@ -114,7 +114,7 @@ private fun ShelfDetailOverview(
         if (canManage) {
             OutlinedButton(onClick = onManageContents) {
                 AppIconGraphic(AppIcon.SortPositional, null, Modifier.size(18.dp))
-                Text("Manage", Modifier.padding(start = 6.dp))
+                Text("Edit Shelf contents", Modifier.padding(start = 6.dp))
             }
         }
         ShelfItemOrderingMenu(items.ordering, onOrderingSelected)

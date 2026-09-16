@@ -76,12 +76,12 @@ internal fun ReaderMarginaliaLayerList(
             )
         }
         if (model.layers.isInitialLoading) {
-            item { ReaderMarginaliaCompactProgress("Loading previous sessions") }
+            item { ReaderMarginaliaCompactProgress("Loading previous Reading Sessions") }
         }
         if (model.layers.failure != null) {
             item {
                 OutlinedButton(onClick = actions.retryLayers, modifier = Modifier.padding(12.dp)) {
-                    Text("Retry sessions")
+                    Text("Retry")
                 }
             }
         }
@@ -92,7 +92,9 @@ internal fun ReaderMarginaliaLayerList(
                     onClick = actions.loadMoreLayers,
                     modifier = Modifier.padding(12.dp)
                 ) {
-                    Text(if (model.layers.isAppending) "Loading…" else "Load more sessions")
+                    Text(
+                        if (model.layers.isAppending) "Loading" else "Load more Reading Sessions"
+                    )
                 }
             }
         }
@@ -102,7 +104,7 @@ internal fun ReaderMarginaliaLayerList(
 @Composable
 private fun ReaderMarginaliaHeading(palette: ReaderPalette) {
     Text(
-        "MARGINALIA",
+        "Marginalia",
         modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
         color = palette.secondaryForeground,
         style = MaterialTheme.typography.labelSmall
@@ -116,7 +118,7 @@ private fun ReaderCurrentMarginaliaLayerRow(
 ) {
     ReaderMarginaliaLayerRow(
         title = model.sessionMetadata.metadata?.name?.takeIf(String::isNotBlank)
-            ?: "Current Session",
+            ?: "Current Reading Session",
         detail = listOfNotNull(
             model.layers.currentLayer?.sessionStatus?.displayLabel,
             annotationCountLabel(model.currentAnnotations.annotations.size)
@@ -248,8 +250,8 @@ private fun ReaderMarginaliaLayerAction(
 
 internal val ReaderPreviousMarginaliaLayer.displayName: String
     get() = summary.sessionName?.trim()?.takeIf(String::isNotEmpty)
-        ?: summary.startedAt?.take(10)?.let { "Previous read · $it" }
-        ?: "Previous read"
+        ?: summary.startedAt?.take(10)?.let { "Previous Reading Session · $it" }
+        ?: "Previous Reading Session"
 
 private val ReaderSessionStatus.displayLabel: String
     get() = when (this) {

@@ -58,7 +58,7 @@ internal fun ShelfMetadataFields(
                         Modifier.semantics { error(message) }
                     } ?: Modifier
                 ),
-            label = { Text("Description (optional)") },
+            label = { Text("Shelf Description (optional)") },
             supportingText = descriptionError?.let { { Text(it) } },
             isError = descriptionError != null,
             minLines = 2,

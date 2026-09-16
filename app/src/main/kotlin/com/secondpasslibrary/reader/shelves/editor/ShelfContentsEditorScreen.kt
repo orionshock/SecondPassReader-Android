@@ -99,7 +99,7 @@ private fun EditorLoadedContent(
         if (state.entries.isEmpty() && state.currentPage > 0) {
             item {
                 Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("This shelf has no items to manage.")
+                    Text("This Shelf is empty.")
                 }
             }
         }
@@ -145,7 +145,7 @@ private fun EditorSummary(
             )
             OutlinedButton(onClick = onEditDetails) {
                 AppIconGraphic(AppIcon.Edit, null)
-                Text("Edit details", Modifier.padding(start = 6.dp))
+                Text("Edit Shelf details", Modifier.padding(start = 6.dp))
             }
             OutlinedButton(
                 onClick = onDeleteShelf,
@@ -154,13 +154,13 @@ private fun EditorSummary(
                 )
             ) {
                 AppIconGraphic(AppIcon.Delete, null)
-                Text("Delete shelf", Modifier.padding(start = 6.dp))
+                Text("Delete Shelf", Modifier.padding(start = 6.dp))
             }
         }
         if (state.unavailableItemCount > 0) {
             Text(
-                "Some shelf items are currently unavailable. Exact positioning is disabled, " +
-                    "but available items can still be moved relatively.",
+                "Some Shelf items aren’t available to this account. Available Books can move " +
+                    "up or down, but not to a numbered position.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall
             )

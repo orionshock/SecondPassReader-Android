@@ -45,7 +45,7 @@ internal fun ReadingHistorySection(
     onViewAll: () -> Unit
 ) {
     val emptyMessage =
-        if (showClosed) "No reading sessions yet." else "No active reading sessions yet."
+        if (showClosed) "No Reading Sessions yet." else "No active Reading Sessions yet."
     val listState = rememberLazyListState()
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         val content = state.content
@@ -101,7 +101,7 @@ private fun ReadingHistoryWithoutContent(refresh: HomeProjectionRefresh, onRetry
 
             HomeProjectionRefresh.Current,
             HomeProjectionRefresh.Idle,
-            HomeProjectionRefresh.Refreshing -> HomeSectionLoading("reading history")
+            HomeProjectionRefresh.Refreshing -> HomeSectionLoading("Recent History")
         }
     }
 }
@@ -136,7 +136,7 @@ private fun ReadingHistoryHeader(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                HomeSectionTitle("Reading History", refreshing)
+                HomeSectionTitle("Recent History", refreshing)
                 Spacer(Modifier.weight(1f))
                 ReadingHistoryControls(
                     showClosed,
@@ -149,7 +149,7 @@ private fun ReadingHistoryHeader(
             }
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                HomeSectionTitle("Reading History", refreshing)
+                HomeSectionTitle("Recent History", refreshing)
                 ReadingHistoryControls(
                     showClosed,
                     listState,
@@ -184,17 +184,17 @@ private fun ReadingHistoryControls(
                         role = Role.Switch,
                         onValueChange = onShowClosedChanged
                     )
-                    .semantics { contentDescription = "Show closed reading sessions" },
+                    .semantics { contentDescription = "Show closed Reading Sessions" },
             verticalAlignment = Alignment.CenterVertically
         ) {
             Switch(checked = showClosed, onCheckedChange = null)
             Text("Show closed", style = MaterialTheme.typography.bodyMedium)
         }
         IconButton(onClick = onPrevious, enabled = listState.canScrollBackward) {
-            AppIconGraphic(AppIcon.Previous, "Scroll reading history left")
+            AppIconGraphic(AppIcon.Previous, "Scroll Recent History left")
         }
         IconButton(onClick = onNext, enabled = listState.canScrollForward) {
-            AppIconGraphic(AppIcon.Next, "Scroll reading history right")
+            AppIconGraphic(AppIcon.Next, "Scroll Recent History right")
         }
         TextButton(onClick = onViewAll) { Text("View all") }
     }

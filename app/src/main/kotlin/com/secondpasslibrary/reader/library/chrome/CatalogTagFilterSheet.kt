@@ -41,7 +41,7 @@ internal fun LibraryTagFilterButton(selectedTag: LibraryCatalogTag?, onClick: ()
         onClick = onClick,
         label = {
             Text(
-                selectedTag?.name ?: "Tags",
+                selectedTag?.name ?: "Catalog Tags",
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -91,7 +91,7 @@ private fun TagSheetHeader(tagCount: Int, onDismiss: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column {
-            Text("Catalog tags", style = MaterialTheme.typography.titleMedium)
+            Text("Catalog Tags", style = MaterialTheme.typography.titleMedium)
             if (tagCount > 0) {
                 Text(
                     "$tagCount available",
@@ -176,7 +176,7 @@ private fun TagLoading() {
         verticalAlignment = Alignment.CenterVertically
     ) {
         CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-        Text("Loading tags...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Loading Catalog Tags", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -186,7 +186,7 @@ private fun TagFailure(onRetry: () -> Unit) {
         Modifier.fillMaxWidth().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text("Could not load tags", color = MaterialTheme.colorScheme.error)
+        Text("Couldn’t load Catalog Tags.", color = MaterialTheme.colorScheme.error)
         Button(onClick = onRetry) { Text("Retry") }
     }
 }
@@ -194,7 +194,7 @@ private fun TagFailure(onRetry: () -> Unit) {
 @Composable
 private fun TagEmpty() {
     Text(
-        "No catalog tags are visible in this library scope.",
+        "No Catalog Tags in these results.",
         modifier = Modifier.fillMaxWidth().padding(16.dp),
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )

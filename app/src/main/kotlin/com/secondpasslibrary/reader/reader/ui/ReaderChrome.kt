@@ -78,7 +78,7 @@ internal fun ReaderChrome(
                     Modifier.widthIn(max = leftClusterMaxWidth)
                         .testTag(READER_CHROME_LEFT_CLUSTER_TAG),
                     onClick = onNavigationMenuRequested,
-                    contentDescription = "Open table of contents"
+                    contentDescription = "Open Table of Contents"
                 ) {
                     AppIconGraphic(
                         AppIcon.NavigationMenu,

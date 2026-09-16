@@ -107,7 +107,7 @@ private fun LoadedSessionDetail(
         item {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Text(
-                "Annotations",
+                "Marginalia",
                 modifier = Modifier.padding(top = 10.dp),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
@@ -122,7 +122,7 @@ private fun LoadedSessionDetail(
 
             annotations.loaded && annotations.annotations.isEmpty() -> item {
                 Text(
-                    "No annotations in this reading session.",
+                    "No Marginalia in this Reading Session.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -221,7 +221,7 @@ private fun SessionMetadata(
                 modifier = Modifier.padding(top = 2.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedButton(onClick = onBeginEdit) { Text("Edit session") }
+                OutlinedButton(onClick = onBeginEdit) { Text("Edit Reading Session") }
                 Button(
                     onClick = onBeginClose,
                     colors = ButtonDefaults.buttonColors(
@@ -229,7 +229,7 @@ private fun SessionMetadata(
                         contentColor = MaterialTheme.colorScheme.onError
                     )
                 ) {
-                    Text("Close session")
+                    Text("Close Reading Session")
                 }
             }
         }
@@ -249,9 +249,9 @@ private fun SessionBookActions(
     modifier: Modifier = Modifier
 ) {
     val items = listOf(
-        SessionBookAction("Read book", AppIcon.Book, false) {},
+        SessionBookAction("Read Book", AppIcon.Book, false) {},
         SessionBookAction(
-            "Book marginalia",
+            "Book Marginalia",
             AppIcon.ReadingHistory,
             true,
             actions.openBookMarginalia

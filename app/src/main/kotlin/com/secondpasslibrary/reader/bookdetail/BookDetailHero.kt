@@ -160,19 +160,19 @@ internal fun bookDetailActionPresentations(
 ) = listOf(
     BookDetailActionPresentation(
         BookDetailActionKind.READ_BOOK,
-        "Read book",
+        "Read Book",
         AppIcon.Book,
         readBookEnabled
     ),
     BookDetailActionPresentation(
         BookDetailActionKind.READING_SESSIONS,
-        "Reading sessions",
+        "Reading Sessions",
         AppIcon.ReadingHistory,
         serverActionsAvailable
     ),
     BookDetailActionPresentation(
         BookDetailActionKind.ADD_TO_SHELF,
-        "Add to shelf",
+        "Add to Shelf",
         AppIcon.Shelf,
         serverActionsAvailable
     )

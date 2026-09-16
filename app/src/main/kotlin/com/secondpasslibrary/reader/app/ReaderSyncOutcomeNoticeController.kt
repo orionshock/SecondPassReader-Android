@@ -22,22 +22,22 @@ internal object ReaderSyncOutcomeNoticePresenter {
         val edits = notice.forwardedEditCount
         val deletes = notice.droppedDeleteCount
         val prefix = if (notice.affectedSessionCount == 1) {
-            "Your previous reading session closed while you were offline."
+            "A previous Reading Session closed while you were offline."
         } else {
-            "While you were offline, previous reading sessions closed."
+            "Previous Reading Sessions closed while you were offline."
         }
         val editCopy = when (edits) {
             0 -> null
-            1 -> "1 annotation edit was carried into ${notice.editDestination}."
-            else -> "$edits annotation edits were carried into ${notice.editDestination}."
+            1 -> "1 Marginalia edit was carried into ${notice.editDestination}."
+            else -> "$edits Marginalia edits were carried into ${notice.editDestination}."
         }
         val deleteCopy = when (deletes) {
             0 -> null
 
-            1 -> "1 deletion couldn’t be applied because the previous session had already closed."
+            1 -> "1 deletion couldn’t be applied because the previous Reading Session had closed."
 
             else ->
-                "$deletes deletions couldn’t be applied because the previous sessions " +
+                "$deletes deletions couldn’t be applied because the previous Reading Sessions " +
                     "had already closed."
         }
         return listOfNotNull(prefix, editCopy, deleteCopy).joinToString(" ")
@@ -45,9 +45,9 @@ internal object ReaderSyncOutcomeNoticePresenter {
 
     private val ReaderSyncOutcomeNotice.editDestination: String
         get() = if (affectedSessionCount == 1) {
-            "your current session"
+            "the current Reading Session"
         } else {
-            "new reading sessions"
+            "new Reading Sessions"
         }
 }
 

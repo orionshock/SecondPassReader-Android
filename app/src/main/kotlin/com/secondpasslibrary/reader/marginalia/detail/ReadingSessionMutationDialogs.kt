@@ -24,7 +24,7 @@ internal fun ReadingSessionMetadataEditDialog(
     actions: ReadingSessionDetailActions
 ) {
     SessionMetadataDialog(
-        title = "Edit reading session",
+        title = "Edit Reading Session",
         name = state.name,
         notes = state.notes,
         fieldsEnabled = !state.saving,
@@ -50,15 +50,15 @@ internal fun ReadingSessionCloseDialog(
 ) {
     val supporting = when {
         state.exactRetryRequired ->
-            "The close result is uncertain. Retry sends the exact same final values."
+            "The Reading Session may already be closed. Retry with the same name and notes."
 
         state.unnamedWarning ->
-            "This session cannot be renamed after closure. You may still close it unnamed."
+            "A closed Reading Session can’t be renamed. You can close it without a name."
 
         else -> null
     }
     SessionMetadataDialog(
-        title = "Close reading session?",
+        title = "Close Reading Session?",
         name = state.name,
         notes = state.notes,
         fieldsEnabled = !state.closing && !state.exactRetryRequired,
@@ -154,21 +154,32 @@ private fun SessionMetadataDialog(
 internal fun closeButtonLabel(state: ReadingSessionCloseState): String = when {
     state.closing -> "Closing…"
     state.exactRetryRequired -> "Retry close"
-    else -> "Close session"
+    else -> "Close Reading Session"
 }
 
 private fun ReadingSessionNameError.message(): String = when (this) {
     ReadingSessionNameError.TOO_LONG -> "Name must be 255 characters or fewer."
-    ReadingSessionNameError.SERVER_REJECTED -> "The library rejected this name."
+    ReadingSessionNameError.SERVER_REJECTED -> "Second Pass Library rejected this name."
 }
 
 internal fun ReadingSessionMutationFailure.message(): String = when (this) {
-    ReadingSessionMutationFailure.UNREACHABLE -> "The library could not be reached."
-    ReadingSessionMutationFailure.AUTHENTICATION_REJECTED -> "Library authentication was rejected."
-    ReadingSessionMutationFailure.SESSION_CLOSED -> "This reading session is already closed."
-    ReadingSessionMutationFailure.NOT_AUTHORIZED -> "This reading session cannot be changed."
-    ReadingSessionMutationFailure.NOT_FOUND -> "This reading session was not found."
-    ReadingSessionMutationFailure.VALIDATION -> "The library rejected these values."
-    ReadingSessionMutationFailure.PROTOCOL_INVALID -> "The library returned an invalid response."
-    ReadingSessionMutationFailure.OTHER -> "The reading session could not be changed."
+    ReadingSessionMutationFailure.UNREACHABLE ->
+        "Couldn’t reach the Library. Check your connection and retry."
+
+    ReadingSessionMutationFailure.AUTHENTICATION_REJECTED ->
+        "Your connection is no longer authorized. Repair it in Settings."
+
+    ReadingSessionMutationFailure.SESSION_CLOSED -> "This Reading Session is already closed."
+
+    ReadingSessionMutationFailure.NOT_AUTHORIZED -> "You can’t change this Reading Session."
+
+    ReadingSessionMutationFailure.NOT_FOUND -> "This Reading Session is no longer available."
+
+    ReadingSessionMutationFailure.VALIDATION ->
+        "Second Pass Library rejected these values. Check them and retry."
+
+    ReadingSessionMutationFailure.PROTOCOL_INVALID ->
+        "Couldn’t read the Library response. Retry or repair the connection in Settings."
+
+    ReadingSessionMutationFailure.OTHER -> "Couldn’t change the Reading Session. Retry."
 }

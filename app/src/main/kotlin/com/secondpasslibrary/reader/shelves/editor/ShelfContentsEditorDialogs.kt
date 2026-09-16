@@ -25,7 +25,7 @@ internal fun ShelfPositionDialog(
 ) {
     AlertDialog(
         onDismissRequest = { if (!submitting) onDismiss() },
-        title = { Text("Move to position") },
+        title = { Text("Move Book") },
         text = {
             Column {
                 Text(state.title, Modifier.padding(bottom = 12.dp))
@@ -62,11 +62,11 @@ internal fun RemoveShelfItemDialog(
 ) {
     AlertDialog(
         onDismissRequest = { if (!submitting) onDismiss() },
-        title = { Text("Remove from shelf?") },
+        title = { Text("Remove from Shelf?") },
         text = {
             Text(
-                state.label?.let { "Remove “$it” from this shelf? The book is not deleted." }
-                    ?: "Remove this unavailable item from the shelf? No book is deleted."
+                state.label?.let { "Remove “$it” from this Shelf? The Book is not deleted." }
+                    ?: "Remove this unavailable item from the Shelf? No Book is deleted."
             )
         },
         confirmButton = {
@@ -77,7 +77,7 @@ internal fun RemoveShelfItemDialog(
                     ButtonDefaults.textButtonColors(
                         contentColor = androidx.compose.material3.MaterialTheme.colorScheme.error
                     )
-            ) { Text("Remove from shelf") }
+            ) { Text("Remove from Shelf") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss, enabled = !submitting) { Text("Cancel") }

@@ -58,8 +58,8 @@ internal fun MarginaliaBooksContent(
     Column(modifier.fillMaxSize().padding(horizontal = 20.dp)) {
         InlineSearchField(
             query = query,
-            placeholder = "Search books with marginalia",
-            contentDescription = "Search books with marginalia",
+            placeholder = "Search Books with Marginalia",
+            contentDescription = "Search Books with Marginalia",
             onQueryChanged = { query = it },
             onSubmit = { onSearch(query) },
             modifier = Modifier.padding(top = 12.dp, bottom = 10.dp)
@@ -106,9 +106,9 @@ private fun MarginaliaBookResults(
             Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
                     if (state.committedQuery.isBlank()) {
-                        "No books with marginalia."
+                        "No Books with Marginalia."
                     } else {
-                        "No books match this search."
+                        "No Books match this search."
                     },
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -231,9 +231,10 @@ private fun MarginaliaBookCover(book: MarginaliaBookSummary) {
 private const val BOOK_PAGING_THRESHOLD = 4
 
 internal fun MarginaliaBookSummary.sessionSummaryLabel(): String {
-    val sessions = if (sessionCount == 1) "1 session" else "$sessionCount sessions"
+    val sessions =
+        if (sessionCount == 1) "1 Reading Session" else "$sessionCount Reading Sessions"
     val active = when (activeSessionCount) {
-        0 -> "no active session"
+        0 -> "none active"
         1 -> "1 active"
         else -> "$activeSessionCount active"
     }

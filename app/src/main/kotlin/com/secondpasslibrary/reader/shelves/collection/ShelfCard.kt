@@ -38,7 +38,7 @@ internal fun ShelfCard(model: ShelfCardPresentation, onClick: () -> Unit) {
     OutlinedCard(
         onClick = onClick,
         modifier = Modifier.semantics(mergeDescendants = true) {
-            contentDescription = "Open shelf ${model.name}"
+            contentDescription = "Open Shelf ${model.name}"
         }
     ) {
         BoxWithConstraints(Modifier.fillMaxWidth()) {

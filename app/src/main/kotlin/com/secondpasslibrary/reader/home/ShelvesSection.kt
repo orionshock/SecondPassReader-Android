@@ -48,7 +48,7 @@ internal fun ShelvesSection(
                 title = "Shelves",
                 refreshing = content != null && state.refresh == HomeProjectionRefresh.Refreshing
             )
-            TextButton(onClick = onOpenShelves) { Text("Open shelves") }
+            TextButton(onClick = onOpenShelves) { Text("Open Shelves") }
         }
         if (content == null) {
             when (val refresh = state.refresh) {
@@ -57,13 +57,13 @@ internal fun ShelvesSection(
 
                 HomeProjectionRefresh.Current,
                 HomeProjectionRefresh.Idle,
-                HomeProjectionRefresh.Refreshing -> HomeSectionLoading("shelves")
+                HomeProjectionRefresh.Refreshing -> HomeSectionLoading("Shelves")
             }
             return@Column
         }
         HomeSectionCachedFailure(state.refresh, onRetry)
         if (content.items.isEmpty()) {
-            HomeSectionEmpty(AppIcon.Shelf, "No shelves to show yet.")
+            HomeSectionEmpty(AppIcon.Shelf, "No Shelves yet.")
         } else {
             ShelfGrid(content.items.map(HomePresenter::shelf), onShelfSelected)
         }

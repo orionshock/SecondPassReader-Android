@@ -33,7 +33,7 @@ internal fun NextPageFooter(state: LibraryBooksState, onRetry: () -> Unit) {
             )
 
             state.error?.phase == LibraryBooksLoadPhase.NEXT_PAGE ->
-                OutlinedButton(onClick = onRetry) { Text("Could not load more - Retry") }
+                OutlinedButton(onClick = onRetry) { Text("Retry loading more Books") }
         }
     }
 }
@@ -62,7 +62,7 @@ internal fun ReplacementFeedback(state: LibraryBooksState, onRetry: () -> Unit) 
 @Composable
 internal fun EmptyLibrary(modifier: Modifier) {
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("No books found.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("No Books found.", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -73,9 +73,9 @@ internal fun OfflineDownloadedLibraryEmpty(modifier: Modifier) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text("No downloaded books available offline.")
+        Text("No Books are available offline.")
         Text(
-            "Connect to your library to browse the full catalog.",
+            "Connect to Second Pass Library to browse all Books.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(top = 6.dp)
@@ -102,8 +102,13 @@ internal fun LibraryFailureContent(
 }
 
 private fun LibraryFailure.message(): String = when (this) {
-    LibraryFailure.UNREACHABLE -> "Library is currently unreachable."
-    LibraryFailure.AUTHENTICATION_REJECTED -> "Library authentication was rejected."
-    LibraryFailure.PROTOCOL_INVALID -> "The library returned an invalid response."
-    LibraryFailure.OTHER -> "Books could not be loaded."
+    LibraryFailure.UNREACHABLE -> "Couldn’t reach the Library. Check your connection and retry."
+
+    LibraryFailure.AUTHENTICATION_REJECTED ->
+        "Your connection is no longer authorized. Repair it in Settings."
+
+    LibraryFailure.PROTOCOL_INVALID ->
+        "Couldn’t read the Library response. Retry or repair the connection in Settings."
+
+    LibraryFailure.OTHER -> "Couldn’t load Books. Retry."
 }

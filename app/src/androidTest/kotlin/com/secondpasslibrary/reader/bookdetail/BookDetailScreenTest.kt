@@ -40,9 +40,9 @@ class BookDetailScreenTest {
         compose
             .onAllNodesWithText("A Long and Deliberately Distinctive Book Title")
             .assertCountEquals(2)
-        compose.onNodeWithText("Read book").assertExists()
-        compose.onNodeWithText("Reading sessions").assertIsEnabled()
-        compose.onNodeWithText("Add to shelf").assertIsEnabled()
+        compose.onNodeWithText("Read Book").assertExists()
+        compose.onNodeWithText("Reading Sessions").assertIsEnabled()
+        compose.onNodeWithText("Add to Shelf").assertIsEnabled()
         compose.onNodeWithText("Description").assertExists()
         compose.onNodeWithText("Reference").assertExists()
     }
@@ -54,7 +54,7 @@ class BookDetailScreenTest {
         compose.onNodeWithTag(BOOK_DETAIL_NARROW_TAG).assertExists()
         compose.onAllNodesWithText("Sparse Book").assertCountEquals(2)
         compose.onNodeWithContentDescription("No cover available for Sparse Book").assertExists()
-        compose.onNodeWithText("Read book").assertExists()
+        compose.onNodeWithText("Read Book").assertExists()
     }
 
     @Test
@@ -67,9 +67,9 @@ class BookDetailScreenTest {
         )
 
         compose.onNodeWithTag(BOOK_DETAIL_WIDE_TAG).assertExists()
-        compose.onNodeWithText("Read book").assertIsNotEnabled()
-        compose.onNodeWithText("Reading sessions").assertIsNotEnabled()
-        compose.onNodeWithText("Add to shelf").assertIsNotEnabled()
+        compose.onNodeWithText("Read Book").assertIsNotEnabled()
+        compose.onNodeWithText("Reading Sessions").assertIsNotEnabled()
+        compose.onNodeWithText("Add to Shelf").assertIsNotEnabled()
     }
 
     @Test

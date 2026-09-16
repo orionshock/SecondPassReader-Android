@@ -76,7 +76,8 @@ private fun ReaderSelectedSessionHeader(
 ) {
     val current = previous == null && model.state.selectedLayerSessionId == model.currentSessionId
     val title = if (current) {
-        model.sessionMetadata.metadata?.name?.takeIf(String::isNotBlank) ?: "Current Session"
+        model.sessionMetadata.metadata?.name?.takeIf(String::isNotBlank)
+            ?: "Current Reading Session"
     } else {
         checkNotNull(previous).displayName
     }
@@ -101,7 +102,7 @@ private fun ReaderSelectedSessionHeader(
         }
         if (current && model.currentMetadataEditable) {
             IconButton(onClick = actions.editCurrentSessionMetadata) {
-                AppIconGraphic(AppIcon.Edit, "Edit current session")
+                AppIconGraphic(AppIcon.Edit, "Edit current Reading Session")
             }
         }
         if (current && model.currentEditable) {
@@ -131,15 +132,15 @@ private fun ReaderPreviousLayerContent(
 ) {
     when (layer.loadState) {
         ReaderMarginaliaLayerLoadState.NOT_LOADED -> LayerMessage(
-            "Load this historical Session to browse its annotations.",
+            "Load this previous Reading Session to browse its Marginalia.",
             "Load"
         ) { onLoadLayer(layer.summary.sessionId) }
 
         ReaderMarginaliaLayerLoadState.LOADING ->
-            ReaderMarginaliaCompactProgress("Loading annotations")
+            ReaderMarginaliaCompactProgress("Loading Marginalia")
 
         ReaderMarginaliaLayerLoadState.FAILED -> LayerMessage(
-            "This historical Session could not be loaded.",
+            "Couldn’t load this previous Reading Session.",
             "Retry"
         ) { onLoadLayer(layer.summary.sessionId) }
 

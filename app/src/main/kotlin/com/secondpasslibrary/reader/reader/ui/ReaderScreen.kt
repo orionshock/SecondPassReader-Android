@@ -171,11 +171,11 @@ private fun ReaderReadingSurface(
 ) {
     Box(Modifier.fillMaxSize().background(palette.publicationBackground)) {
         when (state) {
-            ReaderState.Resolving -> ReaderLoading("Preparing book…", palette)
+            ReaderState.Resolving -> ReaderLoading("Preparing Book", palette)
 
-            ReaderState.Downloading -> ReaderLoading("Downloading book…", palette)
+            ReaderState.Downloading -> ReaderLoading("Downloading Book", palette)
 
-            ReaderState.Opening -> ReaderLoading("Opening EPUB…", palette)
+            ReaderState.Opening -> ReaderLoading("Opening Book", palette)
 
             is ReaderState.Ready -> Box(Modifier.fillMaxSize()) {
                 state.engine.viewport.Content(
@@ -451,11 +451,16 @@ private fun ReaderFailureContent(
     onRetry: () -> Unit
 ) {
     val message = when (kind) {
-        ReaderFailure.DOWNLOAD -> "Couldn’t download this book."
-        ReaderFailure.OPEN -> "Couldn’t open this EPUB."
-        ReaderFailure.NO_EPUB -> "This book does not have an EPUB file."
-        ReaderFailure.OFFLINE_ASSET_UNAVAILABLE -> "This book is not available offline."
-        ReaderFailure.SESSION -> "Couldn't prepare this reading session."
+        ReaderFailure.DOWNLOAD -> "Couldn’t download this Book. Check your connection and retry."
+
+        ReaderFailure.OPEN -> "Couldn’t open this Book. Retry or go back."
+
+        ReaderFailure.NO_EPUB -> "This Book doesn’t include a supported EPUB."
+
+        ReaderFailure.OFFLINE_ASSET_UNAVAILABLE ->
+            "This Book isn’t available offline. Connect, then retry."
+
+        ReaderFailure.SESSION -> "Couldn’t prepare the Reading Session. Retry or go back."
     }
     Column(
         Modifier.fillMaxSize(),

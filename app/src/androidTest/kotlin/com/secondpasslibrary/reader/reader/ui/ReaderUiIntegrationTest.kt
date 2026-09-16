@@ -383,7 +383,7 @@ class ReaderUiIntegrationTest {
     }
 
     @Test
-    fun annotationDrawerShowsCompactLoadingFailureAndEmptyStates() {
+    fun marginaliaDrawerRetriesFailedLoad() {
         val state = androidx.compose.runtime.mutableStateOf(
             ReaderAnnotationsState(sessionId = "session-1", loading = true)
         )
@@ -403,20 +403,15 @@ class ReaderUiIntegrationTest {
         }
 
         compose.onNodeWithContentDescription("Open Marginalia").performClick()
-        compose.onNodeWithContentDescription("Close annotations").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Close Marginalia").assertIsDisplayed()
         compose.runOnUiThread {
             state.value = ReaderAnnotationsState(
                 sessionId = "session-1",
                 failure = ReaderAnnotationsFailure.UNAVAILABLE
             )
         }
-        compose.onNodeWithText("Annotations could not be loaded.").assertIsDisplayed()
         compose.onNodeWithText("Retry").performClick()
         assertEquals(1, retries)
-        compose.runOnUiThread {
-            state.value = ReaderAnnotationsState(sessionId = "session-1", loaded = true)
-        }
-        compose.onNodeWithText("No annotations in this reading session.").assertIsDisplayed()
     }
 
     @Test

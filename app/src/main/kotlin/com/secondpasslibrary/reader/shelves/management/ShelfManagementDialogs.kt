@@ -24,7 +24,7 @@ internal fun EditPersonalShelfDialog(
 ) {
     AlertDialog(
         onDismissRequest = { if (!state.submitting) onDismiss() },
-        title = { Text("Edit shelf") },
+        title = { Text("Edit Shelf") },
         text = {
             Column {
                 ShelfMetadataFields(
@@ -70,12 +70,12 @@ internal fun DeletePersonalShelfDialog(
 ) {
     AlertDialog(
         onDismissRequest = { if (!state.deleting) onDismiss() },
-        title = { Text("Delete ${state.shelfName}?") },
+        title = { Text("Delete Shelf ${state.shelfName}?") },
         text = {
             Column {
                 Text(
-                    "This removes the shelf and its membership records. " +
-                        "It does not delete books, EPUB files or covers, reading sessions, or marginalia."
+                    "This deletes the Shelf. It does not delete Books, offline copies, " +
+                        "Reading Sessions, or Marginalia."
                 )
                 state.failure?.let {
                     Text(
@@ -96,7 +96,7 @@ internal fun DeletePersonalShelfDialog(
                         contentColor = MaterialTheme.colorScheme.onError
                     )
             ) {
-                Text(if (state.deleting) "Deleting…" else "Delete shelf")
+                Text(if (state.deleting) "Deleting…" else "Delete Shelf")
             }
         },
         dismissButton = {
@@ -108,15 +108,23 @@ internal fun DeletePersonalShelfDialog(
 private fun ShelfMetadataFieldError.message(): String = when (this) {
     ShelfMetadataFieldError.REQUIRED -> "Name is required."
     ShelfMetadataFieldError.TOO_LONG -> "Name must be 255 characters or fewer."
-    ShelfMetadataFieldError.SERVER_REJECTED -> "The library rejected this value."
+    ShelfMetadataFieldError.SERVER_REJECTED -> "Second Pass Library rejected this value."
 }
 
 private fun ShelfManagementFailure.message(): String = when (this) {
-    ShelfManagementFailure.UNREACHABLE -> "The library is currently unreachable."
-    ShelfManagementFailure.AUTHENTICATION_REJECTED -> "Library authentication was rejected."
+    ShelfManagementFailure.UNREACHABLE ->
+        "Couldn’t reach the Library. Check your connection and retry."
+
+    ShelfManagementFailure.AUTHENTICATION_REJECTED ->
+        "Your connection is no longer authorized. Repair it in Settings."
+
     ShelfManagementFailure.VALIDATION -> "Check the highlighted fields."
-    ShelfManagementFailure.NOT_AUTHORIZED -> "This shelf cannot be changed by this client."
-    ShelfManagementFailure.NOT_FOUND -> "The shelf was not found. It may already be deleted."
-    ShelfManagementFailure.REJECTED -> "The library rejected this change."
-    ShelfManagementFailure.OTHER -> "The shelf could not be changed."
+
+    ShelfManagementFailure.NOT_AUTHORIZED -> "You can’t change this Shelf."
+
+    ShelfManagementFailure.NOT_FOUND -> "This Shelf is no longer available."
+
+    ShelfManagementFailure.REJECTED -> "Second Pass Library rejected this change."
+
+    ShelfManagementFailure.OTHER -> "Couldn’t change the Shelf. Retry."
 }

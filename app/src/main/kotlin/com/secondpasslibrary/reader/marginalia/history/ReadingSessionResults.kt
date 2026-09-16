@@ -226,7 +226,7 @@ private fun SessionNextPageFooter(state: ReadingSessionsState, onRetry: () -> Un
             )
 
             state.error?.phase == MarginaliaLoadPhase.NEXT_PAGE ->
-                OutlinedButton(onClick = onRetry) { Text("Could not load more — Retry") }
+                OutlinedButton(onClick = onRetry) { Text("Retry loading more") }
         }
     }
 }

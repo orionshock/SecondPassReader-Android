@@ -78,5 +78,5 @@ private val ReaderReadOnlyHighlightDetail.displayTitle: String
         ?: if (historical) {
             startedAt?.take(10)?.let { "Previous read · $it" } ?: "Previous read"
         } else {
-            "Current Session"
+            "Current Reading Session"
         }

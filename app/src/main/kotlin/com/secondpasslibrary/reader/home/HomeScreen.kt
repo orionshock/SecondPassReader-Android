@@ -122,7 +122,7 @@ private fun GlobalLibrarySearch(onSearch: (String) -> Unit, modifier: Modifier =
     InlineSearchField(
         query = query,
         placeholder = "Search books, authors, series, publishers, or tags",
-        contentDescription = "Global library search",
+        contentDescription = "Search Library",
         onQueryChanged = { query = it },
         onSubmit = { onSearch(query) },
         modifier = modifier.fillMaxWidth()

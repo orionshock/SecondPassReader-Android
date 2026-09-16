@@ -17,7 +17,7 @@ sealed interface BookCardAction {
 internal val BookCardAction.menuLabel: String
     get() = when (this) {
         is BookCardAction.BookDetails -> "Book details"
-        is BookCardAction.ReadingSessions -> "Reading sessions"
+        is BookCardAction.ReadingSessions -> "Reading Sessions"
         is BookCardAction.Author -> "Author: $authorName"
         is BookCardAction.Series -> "Series: $seriesName"
     }

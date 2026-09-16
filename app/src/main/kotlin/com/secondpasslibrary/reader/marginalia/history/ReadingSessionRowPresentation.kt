@@ -59,7 +59,7 @@ internal fun ReadingSessionsState.appBarPresentation(): AppBarPresentation = whe
         AppBarPresentation(
             AppBarNavigation.BACK,
             context = book?.title,
-            title = "Reading sessions",
+            title = "Reading Sessions",
             metadata = loadedSessionCountLabel()
         )
 }
@@ -68,17 +68,17 @@ private fun ReadingSessionsState.loadedSessionCountLabel(): String? =
     sessionCountLabel(totalCount).takeIf { currentPage > 0 }
 
 internal fun ReadingSessionsState.emptyMessage(): String = when {
-    context is MarginaliaHistoryContext.Book -> "No reading sessions for this book."
-    statusFilter == ReadingSessionStatusFilter.ACTIVE -> "No active reading sessions."
-    statusFilter == ReadingSessionStatusFilter.CLOSED -> "No closed reading sessions."
-    else -> "No reading sessions yet."
+    context is MarginaliaHistoryContext.Book -> "No Reading Sessions for this Book."
+    statusFilter == ReadingSessionStatusFilter.ACTIVE -> "No active Reading Sessions."
+    statusFilter == ReadingSessionStatusFilter.CLOSED -> "No closed Reading Sessions."
+    else -> "No Reading Sessions yet."
 }
 
 internal fun shouldRequestMoreSessions(lastVisibleIndex: Int, itemCount: Int): Boolean =
     itemCount > 0 && lastVisibleIndex >= itemCount - SESSION_PAGING_THRESHOLD
 
 internal fun sessionCountLabel(count: Int): String =
-    if (count == 1) "1 session" else "$count sessions"
+    if (count == 1) "1 Reading Session" else "$count Reading Sessions"
 
 private val ReadingSessionStatus.presentationLabel: String
     get() = when (this) {

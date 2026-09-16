@@ -18,5 +18,4 @@ internal fun formatMarginaliaTimestamp(value: String, zoneId: ZoneId, locale: Lo
         .format(instant)
 }
 
-internal fun annotationCountLabel(count: Int) =
-    if (count == 1) "1 annotation" else "$count annotations"
+internal fun annotationCountLabel(count: Int) = if (count == 1) "1 item" else "$count items"

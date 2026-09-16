@@ -114,7 +114,7 @@ private fun CollectionActions(
     if (selected == ShelvesCollection.PERSONAL) {
         OutlinedButton(onClick = onCreateShelf, enabled = createShelfAvailable) {
             AppIconGraphic(AppIcon.Add, null, Modifier.size(18.dp))
-            Text("Create shelf", Modifier.padding(start = 6.dp))
+            Text("Create Shelf", Modifier.padding(start = 6.dp))
         }
     }
     ShelfOrderingMenu(ordering, onOrderingSelected)

@@ -29,7 +29,7 @@ internal fun ConnectionRequiredDestination(
                 AppSessionAuthority.Restoring -> "Reconnecting..."
 
                 is AppSessionAuthority.AuthenticationRequired ->
-                    "Link this account again to use this section."
+                    "Repair the connection to use this section."
 
                 else -> "This section needs a connection."
             },
@@ -39,8 +39,8 @@ internal fun ConnectionRequiredDestination(
             Button(onClick = onRetryConnection) { Text("Retry connection") }
         }
         if (authority is AppSessionAuthority.AuthenticationRequired) {
-            Button(onClick = onRelinkAccount) { Text("Link again") }
-            Button(onClick = onForgetAccount) { Text("Forget") }
+            Button(onClick = onRelinkAccount) { Text("Repair connection") }
+            Button(onClick = onForgetAccount) { Text("Forget connection and local data") }
         }
         Button(onClick = onOpenDrawer) { Text("Open navigation") }
     }

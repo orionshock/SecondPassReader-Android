@@ -75,7 +75,7 @@ class HomePresenterTest {
         )
 
         assertEquals("Second pass", named.sessionIdentityLabel)
-        assertEquals("Reading session", fallback.sessionIdentityLabel)
+        assertEquals("Reading Session", fallback.sessionIdentityLabel)
     }
 
     @Test

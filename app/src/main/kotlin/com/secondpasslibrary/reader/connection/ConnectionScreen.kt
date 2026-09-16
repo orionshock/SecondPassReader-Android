@@ -33,12 +33,12 @@ import com.secondpasslibrary.reader.design.components.InformationDetail
 internal fun ConnectionScreen(state: ConnectionUiState, actions: ConnectionScreenActions) {
     ConnectionFrame {
         when (state) {
-            ConnectionUiState.Restoring -> BusyContent("Restoring connection")
+            ConnectionUiState.Restoring -> BusyContent("Reconnecting")
 
             is ConnectionUiState.ServerEntry ->
                 ServerEntryContent(state, actions.updateServerUrl, actions.verifyServer)
 
-            is ConnectionUiState.VerifyingServer -> BusyContent("Verifying ${state.serverUrl}")
+            is ConnectionUiState.VerifyingServer -> BusyContent("Checking ${state.serverUrl}")
 
             is ConnectionUiState.ServerConfirmed ->
                 ServerConfirmedContent(
@@ -49,13 +49,13 @@ internal fun ConnectionScreen(state: ConnectionUiState, actions: ConnectionScree
                 )
 
             is ConnectionUiState.StartingPairing ->
-                BusyContent("Starting secure linking with ${state.server.name}")
+                BusyContent("Connecting to ${state.server.name}")
 
             is ConnectionUiState.WaitingForApproval ->
                 WaitingContent(state, actions.abandonPairing)
 
             is ConnectionUiState.CompletingPairing ->
-                BusyContent("Securing the approved credential from ${state.serverName}")
+                BusyContent("Finishing the connection to ${state.serverName}")
 
             is ConnectionUiState.PersistenceRecovery,
             is ConnectionUiState.StoredCredentialProblem,
@@ -81,45 +81,45 @@ private fun RecoveryContent(state: ConnectionUiState, actions: ConnectionScreenA
     when (state) {
         is ConnectionUiState.PersistenceRecovery ->
             ProblemContent(
-                "Credential secured",
+                "Connection not saved",
                 state.message,
-                "Retry profile storage",
+                "Retry",
                 actions.retryProfilePersistence,
                 actions.forgetLocalConnection
             )
 
         is ConnectionUiState.StoredCredentialProblem ->
             ProblemContent(
-                "Stored, not verified",
+                "Connection not verified",
                 state.message,
-                if (state.retryable) "Retry verification" else null,
+                if (state.retryable) "Retry" else null,
                 actions.retryStoredVerification,
                 actions.forgetLocalConnection
             )
 
         is ConnectionUiState.RestoreProblem ->
             ProblemContent(
-                "Library temporarily unavailable",
+                "Library unavailable",
                 state.message,
-                "Retry connection",
+                "Retry",
                 actions.retryStoredVerification,
                 actions.forgetLocalConnection
             )
 
         is ConnectionUiState.AuthenticationRequired ->
             ProblemContent(
-                "Authentication required",
+                "Repair connection",
                 state.message,
-                "Link again",
+                "Repair connection",
                 actions.relinkLocalAccount,
                 actions.forgetLocalConnection
             )
 
         is ConnectionUiState.LocalStorageProblem ->
             ProblemContent(
-                "Local connection storage unavailable",
+                "Local connection data unavailable",
                 state.message,
-                "Retry restore",
+                "Retry",
                 actions.retryRestore,
                 actions.forgetLocalConnection
             )
@@ -168,20 +168,20 @@ private fun ServerEntryContent(
     onVerify: () -> Unit
 ) {
     SectionTitle(
-        "Connect a library",
-        "Enter any URL on your Second Pass Library server. The client will verify its public identity."
+        "Connect to Second Pass Library",
+        "Enter the address of your Second Pass Library."
     )
     OutlinedTextField(
         value = state.serverUrl,
         onValueChange = onUrlChanged,
         modifier = Modifier.fillMaxWidth(),
-        label = { Text("Server URL") },
+        label = { Text("Library address") },
         placeholder = { Text("https://library.example") },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
         supportingText = state.message?.let { message -> { Text(message) } }
     )
-    Button(onClick = onVerify, enabled = state.serverUrl.isNotBlank()) { Text("Verify server") }
+    Button(onClick = onVerify, enabled = state.serverUrl.isNotBlank()) { Text("Check address") }
 }
 
 @Composable
@@ -192,21 +192,21 @@ private fun ServerConfirmedContent(
     onBack: () -> Unit
 ) {
     SectionTitle(
-        "Server verified",
-        "Confirm the authoritative server identity and name this Android client."
+        "Library found",
+        "Confirm the Library and name this device."
     )
     ServerIdentityCard(state.server)
     OutlinedTextField(
         value = state.clientName,
         onValueChange = onNameChanged,
         modifier = Modifier.fillMaxWidth(),
-        label = { Text("Client name") },
+        label = { Text("Device name") },
         singleLine = true,
-        supportingText = { Text("1–200 characters · type is fixed as second-pass-android-client") }
+        supportingText = { Text("1–200 characters") }
     )
     ActionRow {
-        Button(onClick = onStart, enabled = state.clientName.isNotBlank()) { Text("Start linking") }
-        OutlinedButton(onClick = onBack) { Text("Different server") }
+        Button(onClick = onStart, enabled = state.clientName.isNotBlank()) { Text("Link device") }
+        OutlinedButton(onClick = onBack) { Text("Change address") }
     }
 }
 
@@ -215,7 +215,7 @@ private fun WaitingContent(state: ConnectionUiState.WaitingForApproval, onCancel
     val uriHandler = LocalUriHandler.current
     SectionTitle(
         "Approve this device",
-        "Use the code below in ${state.server.name}. The code remains usable without opening the browser."
+        "Enter this code in ${state.server.name}."
     )
     InformationCard("Approval code") {
         SelectionContainer {
@@ -248,7 +248,9 @@ private fun ProblemContent(
     SectionTitle(title, message)
     ActionRow {
         primaryLabel?.let { Button(onClick = onPrimary) { Text(it) } }
-        onForget?.let { OutlinedButton(onClick = it) { Text("Forget locally") } }
+        onForget?.let {
+            OutlinedButton(onClick = it) { Text("Forget connection and local data") }
+        }
     }
 }
 

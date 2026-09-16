@@ -10,7 +10,7 @@ internal fun BookDetailReturnTarget.appBarContextLabel(): String = when (this) {
     BookDetailReturnTarget.Home -> "Home"
     BookDetailReturnTarget.Library -> "Library"
     BookDetailReturnTarget.Marginalia -> "Marginalia"
-    is BookDetailReturnTarget.ReadingSessionDetail -> "Reading session"
-    is BookDetailReturnTarget.BookMarginalia -> "Reading sessions"
+    is BookDetailReturnTarget.ReadingSessionDetail -> "Reading Session"
+    is BookDetailReturnTarget.BookMarginalia -> "Reading Sessions"
     is BookDetailReturnTarget.ShelfDetail -> "Shelves"
 }

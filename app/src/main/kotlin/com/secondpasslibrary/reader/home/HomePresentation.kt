@@ -155,7 +155,7 @@ private fun RecentReadingItem.sessionIdentityLabel(zoneId: ZoneId, locale: Local
 private fun String.toReadingDateLabel(zoneId: ZoneId, locale: Locale): String {
     val instant = runCatching { Instant.parse(this) }
         .recoverCatching { OffsetDateTime.parse(this).toInstant() }
-        .getOrNull() ?: return "Reading session"
+        .getOrNull() ?: return "Reading Session"
     val date = DateTimeFormatter.ofPattern("MMM d, uuuu", locale).withZone(zoneId).format(instant)
     return "Read $date"
 }

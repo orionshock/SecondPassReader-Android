@@ -52,8 +52,7 @@ internal class ConnectionCoordinator(
                 mutableState.value =
                     ConnectionUiState.PersistenceRecovery(
                         profile,
-                        "The consumed credential is safe, but its connection profile " +
-                            "still needs to be stored."
+                        "The connection is secure but couldn’t be saved on this device. Retry."
                     )
                 return@replaceOperation
             }
@@ -160,7 +159,7 @@ internal class ConnectionCoordinator(
             mutableLocalAccountContext.value?.let {
                 ConnectionUiState.AuthenticationRequired(
                     it.profile,
-                    "This account still needs to be linked again."
+                    "Repair this connection to continue."
                 )
             } ?: ConnectionUiState.ServerEntry()
     }
@@ -194,7 +193,7 @@ internal class ConnectionCoordinator(
             if (stored == null) {
                 mutableState.value =
                     ConnectionUiState.ServerEntry(
-                        message = "The consumed credential is no longer available."
+                        message = "The connection can’t be recovered. Enter the Library address."
                     )
                 return@replaceOperation
             }
@@ -214,7 +213,9 @@ internal class ConnectionCoordinator(
             val stored = credentialStore.read()
             if (stored == null) {
                 mutableState.value =
-                    ConnectionUiState.ServerEntry(message = "The stored credential is missing.")
+                    ConnectionUiState.ServerEntry(
+                        message = "The saved connection is missing. Enter the Library address."
+                    )
             } else {
                 verifyStored(
                     profile,
@@ -230,7 +231,7 @@ internal class ConnectionCoordinator(
         attempt { resetLocalAccount() }
             .onSuccess {
                 mutableState.value =
-                    ConnectionUiState.ServerEntry(message = "Local connection data was removed.")
+                    ConnectionUiState.ServerEntry(message = "Connection and local data removed.")
             }
             .onFailure {
                 mutableState.value =
@@ -335,21 +336,24 @@ internal class ConnectionCoordinator(
                 }
 
                 PairingStatus.DENIED -> {
-                    mutableState.value =
-                        ConnectionUiState.TerminalPairingProblem("The pairing request was denied.")
+                    mutableState.value = ConnectionUiState.TerminalPairingProblem(
+                        "The link request was denied. Start again for a new code."
+                    )
                     return
                 }
 
                 PairingStatus.EXPIRED -> {
                     mutableState.value =
-                        ConnectionUiState.TerminalPairingProblem("The pairing request expired.")
+                        ConnectionUiState.TerminalPairingProblem(
+                            "The link request expired. Start again to request a new code."
+                        )
                     return
                 }
 
                 PairingStatus.CONSUMED -> {
                     mutableState.value =
                         ConnectionUiState.TerminalPairingProblem(
-                            "This approval was already consumed. Start a new pairing request."
+                            "This approval was already used. Start again with a new code."
                         )
                     return
                 }
@@ -369,7 +373,7 @@ internal class ConnectionCoordinator(
                 server,
                 clientName,
                 request,
-                "${ConnectionErrorPresenter.message(failure)} Retrying automatically."
+                "${ConnectionErrorPresenter.message(failure)} Retrying."
             )
         return (currentDelaySeconds * RETRY_BACKOFF_MULTIPLIER)
             .coerceAtMost(maxOf(request.intervalSeconds, MAX_POLL_RETRY_SECONDS))
@@ -395,11 +399,11 @@ internal class ConnectionCoordinator(
                 val profile = ConnectionProfile.linked(server, consumption.clientSession)
                 try {
                     credentialStore.write(consumption.credential, profile)
-                } catch (failure: CredentialStorageException) {
+                } catch (_: CredentialStorageException) {
                     mutableState.value =
                         ConnectionUiState.TerminalPairingProblem(
-                            "The server issued a one-time credential, but secure storage failed. " +
-                                ConnectionErrorPresenter.message(failure)
+                            "The connection was approved but couldn’t be saved securely. " +
+                                "Start again."
                         )
                     return
                 }
@@ -409,8 +413,7 @@ internal class ConnectionCoordinator(
             PairingConsumption.AlreadyConsumed ->
                 mutableState.value =
                     ConnectionUiState.TerminalPairingProblem(
-                        "The approval was consumed without returning a credential. " +
-                            "Start a new pairing request."
+                        "The approval was used but the connection wasn’t completed. Start again."
                     )
         }
     }
@@ -425,8 +428,7 @@ internal class ConnectionCoordinator(
             mutableState.value =
                 ConnectionUiState.PersistenceRecovery(
                     profile,
-                    "The one-time credential is encrypted and safe, but the connection " +
-                        "profile could not be stored."
+                    "The connection is secure but couldn’t be saved on this device. Retry."
                 )
             return
         }
@@ -476,14 +478,13 @@ internal class ConnectionCoordinator(
                 mutableState.value =
                     ConnectionUiState.AuthenticationRequired(
                         profile,
-                        "The saved credential was revoked or rejected. Link this device again."
+                        "This connection is no longer authorized. Repair the connection."
                     )
             } else {
                 mutableState.value =
                     ConnectionUiState.StoredCredentialProblem(
                         profile,
-                        "The credential was stored, but the server rejected " +
-                            "authenticated verification.",
+                        "Second Pass Library rejected this connection. Repair it to continue.",
                         retryable = false
                     )
             }
@@ -556,7 +557,7 @@ internal class ConnectionCoordinator(
         mutableState.value =
             ConnectionUiState.AuthenticationRequired(
                 profile = linked.profile,
-                message = "The server rejected this device's stored credential. Link again."
+                message = "This connection is no longer authorized. Repair it to continue."
             )
     }
 
@@ -566,7 +567,7 @@ internal class ConnectionCoordinator(
         mutableState.value =
             ConnectionUiState.RestoreProblem(
                 linked.profile,
-                "The library is currently unreachable."
+                "Couldn’t reach the Library. Check your connection and retry."
             )
     }
 }

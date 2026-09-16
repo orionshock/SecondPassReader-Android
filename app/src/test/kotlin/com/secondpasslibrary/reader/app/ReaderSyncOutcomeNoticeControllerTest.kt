@@ -19,19 +19,19 @@ class ReaderSyncOutcomeNoticeControllerTest {
     @Test
     fun `copy handles forwarded edits dropped deletes and singular plural naturally`() {
         assertEquals(
-            "Your previous reading session closed while you were offline. " +
-                "1 annotation edit was carried into your current session.",
+            "A previous Reading Session closed while you were offline. " +
+                "1 Marginalia edit was carried into the current Reading Session.",
             message(edits = 1)
         )
         assertEquals(
-            "Your previous reading session closed while you were offline. " +
-                "1 deletion couldn’t be applied because the previous session had already closed.",
+            "A previous Reading Session closed while you were offline. " +
+                "1 deletion couldn’t be applied because the previous Reading Session had closed.",
             message(deletes = 1)
         )
         assertEquals(
-            "Your previous reading session closed while you were offline. " +
-                "2 annotation edits were carried into your current session. " +
-                "3 deletions couldn’t be applied because the previous sessions had already closed.",
+            "A previous Reading Session closed while you were offline. " +
+                "2 Marginalia edits were carried into the current Reading Session. " +
+                "3 deletions couldn’t be applied because the previous Reading Sessions had already closed.",
             message(edits = 2, deletes = 3)
         )
     }
@@ -55,9 +55,9 @@ class ReaderSyncOutcomeNoticeControllerTest {
         assertEquals(3, notice.forwardedEditCount)
         assertEquals(2, notice.droppedDeleteCount)
         assertEquals(
-            "While you were offline, previous reading sessions closed. " +
-                "3 annotation edits were carried into new reading sessions. " +
-                "2 deletions couldn’t be applied because the previous sessions had already closed.",
+            "Previous Reading Sessions closed while you were offline. " +
+                "3 Marginalia edits were carried into new Reading Sessions. " +
+                "2 deletions couldn’t be applied because the previous Reading Sessions had already closed.",
             ReaderSyncOutcomeNoticePresenter.message(notice)
         )
 

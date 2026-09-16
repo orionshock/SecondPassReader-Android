@@ -96,7 +96,7 @@ internal fun ReaderSelectionToolbar(
                     AppIconGraphic(AppIcon.HighlightWithNote, "Add note")
                 }
                 IconButton(modifier = Modifier.size(48.dp), onClick = onDismiss) {
-                    AppIconGraphic(AppIcon.Close, "Dismiss highlight toolbar")
+                    AppIconGraphic(AppIcon.Close, "Close highlight tools")
                 }
             }
         }

@@ -103,7 +103,7 @@ internal fun ServerMetadataSection(presentation: SettingsPresentation) {
         presentation.publicGroup?.let { group ->
             group.description?.let {
                 LabeledServerRichText(
-                    "${group.name} group",
+                    "${group.name} Library Group",
                     it,
                     collapsedMaxLines = 6,
                     expandOverflow = true
@@ -243,13 +243,13 @@ private fun ConnectionActionsSection(
     InformationCard("Connection actions", icon = AppIcon.Link) {
         if (availability.reconnect) {
             Text(
-                "Sign back in to restore this connection. Local data is kept when you sign in " +
-                    "as the same account.",
+                "Link this account again to repair the connection. Local data is kept if you " +
+                    "use the same account.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Button(onClick = actions.reconnect) {
                 AppIconGraphic(AppIcon.Link, null)
-                Text("Sign back in", Modifier.padding(start = 8.dp))
+                Text("Repair connection", Modifier.padding(start = 8.dp))
             }
         }
         if (availability.retry) {
@@ -284,7 +284,7 @@ private fun ConnectionActionsSection(
             TextButton(onClick = onConfirmForget) {
                 AppIconGraphic(AppIcon.Delete, null, tint = MaterialTheme.colorScheme.error)
                 Text(
-                    "Forget this library",
+                    "Forget connection and local data",
                     Modifier.padding(start = 8.dp),
                     color = MaterialTheme.colorScheme.error
                 )
@@ -302,22 +302,21 @@ private fun ConnectionConfirmationDialog(
     val logout = confirmation == SettingsConfirmation.LOGOUT
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (logout) "Log out?" else "Forget this library?") },
+        title = { Text(if (logout) "Log out?" else "Forget connection and local data?") },
         text = {
             Text(
                 if (logout) {
-                    "This will revoke this device's server session and remove its local account " +
-                        "data from this device."
+                    "This ends this device’s session and removes its local account data."
                 } else {
-                    "This removes this account/library connection and deletes locally stored " +
-                        "data for it from this device. It does not delete your books, shelves, " +
-                        "reading sessions, or annotations from the server."
+                    "This removes the connection and its local data from this device. It does " +
+                        "not delete Books, Shelves, Reading Sessions, or Marginalia from " +
+                        "Second Pass Library."
                 }
             )
         },
         confirmButton = {
             TextButton(onClick = onConfirm) {
-                Text(if (logout) "Log out" else "Forget")
+                Text(if (logout) "Log out" else "Forget connection and local data")
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }

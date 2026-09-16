@@ -30,12 +30,12 @@ internal fun ReadingSessionDetailState.appBarPresentation(): AppBarPresentation 
     return AppBarPresentation(
         navigation = AppBarNavigation.BACK,
         context = result?.book?.title,
-        title = result?.session?.summary?.name?.takeIf(String::isNotBlank) ?: "Reading session"
+        title = result?.session?.summary?.name?.takeIf(String::isNotBlank) ?: "Reading Session"
     )
 }
 
 internal fun ReadingSessionDetailPresentation.sessionNameOrFallback(): String =
-    sessionName ?: "Unnamed reading session"
+    sessionName ?: "Unnamed Reading Session"
 
 internal fun ReadingSessionDetailResult.toDetailPresentation(
     zoneId: ZoneId = ZoneId.systemDefault(),

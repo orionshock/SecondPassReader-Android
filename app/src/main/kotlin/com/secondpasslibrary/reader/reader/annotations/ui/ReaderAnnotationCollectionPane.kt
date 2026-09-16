@@ -38,7 +38,7 @@ internal fun ReaderAnnotationCollectionPane(
         state.failure != null && state.annotations.isEmpty() -> ReaderAnnotationFailure(onRetry)
 
         state.loaded && state.annotations.isEmpty() -> Text(
-            "No annotations in this reading session.",
+            "No Marginalia in this Reading Session.",
             modifier = Modifier.padding(16.dp),
             color = palette.secondaryForeground
         )
@@ -69,7 +69,7 @@ private fun ReaderAnnotationFailure(onRetry: () -> Unit) {
         modifier = Modifier.fillMaxWidth().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Annotations could not be loaded.")
+        Text("Couldn’t load Marginalia. Retry.")
         OutlinedButton(onClick = onRetry, modifier = Modifier.padding(top = 8.dp)) {
             Text("Retry")
         }
@@ -79,7 +79,7 @@ private fun ReaderAnnotationFailure(onRetry: () -> Unit) {
 @Composable
 private fun ReaderRefreshingAnnotations(palette: ReaderPalette) {
     Text(
-        "Refreshing annotations\u2026",
+        "Refreshing Marginalia",
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         color = palette.secondaryForeground
     )

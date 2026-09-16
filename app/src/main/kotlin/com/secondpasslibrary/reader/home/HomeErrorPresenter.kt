@@ -3,14 +3,14 @@ package com.secondpasslibrary.reader.home
 internal object HomeErrorPresenter {
     fun message(failure: HomeProjectionFailure): String = when (failure) {
         HomeProjectionFailure.AuthenticationRejected ->
-            "The stored credential was rejected. Reconnect this device from Settings."
+            "Your connection is no longer authorized. Repair it in Settings."
 
         HomeProjectionFailure.Unreachable ->
-            "The library could not be reached."
+            "Couldn’t reach the Library. Check your connection and retry."
 
         HomeProjectionFailure.ProtocolInvalid ->
-            "The library returned data this client could not understand."
+            "Couldn’t read the Library response. Retry or repair the connection in Settings."
 
-        HomeProjectionFailure.Other -> "This section could not be loaded."
+        HomeProjectionFailure.Other -> "Couldn’t load this section. Retry."
     }
 }

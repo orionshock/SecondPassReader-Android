@@ -68,7 +68,7 @@ private fun ReaderTocHeader(bookTitle: String, palette: ReaderPalette, onDismiss
     ) {
         Column(Modifier.weight(1f).padding(bottom = 10.dp)) {
             Text(
-                text = "Table of Contents",
+                text = "Table of contents",
                 modifier = Modifier.testTag(READER_TOC_EYEBROW_TAG),
                 color = palette.secondaryForeground,
                 style = MaterialTheme.typography.labelSmall,
@@ -86,7 +86,7 @@ private fun ReaderTocHeader(bookTitle: String, palette: ReaderPalette, onDismiss
             )
         }
         IconButton(onClick = onDismiss) {
-            AppIconGraphic(AppIcon.Close, "Close table of contents")
+            AppIconGraphic(AppIcon.Close, "Close Table of Contents")
         }
     }
 }
@@ -100,7 +100,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.ReaderTocBody(
 ) {
     if (rows.isEmpty()) {
         Text(
-            text = "No table of contents",
+            text = "No table of contents.",
             modifier = Modifier.weight(1f).fillMaxWidth().padding(16.dp)
                 .testTag(READER_TOC_BODY_TAG),
             color = palette.secondaryForeground,
@@ -127,7 +127,7 @@ private fun ReaderTocFooter(palette: ReaderPalette, onCloseBook: () -> Unit) {
     Column(Modifier.fillMaxWidth().testTag(READER_TOC_FOOTER_TAG)) {
         HorizontalDivider(color = palette.border)
         ReaderDrawerAction(
-            label = "Close book",
+            label = "Close Book",
             icon = AppIcon.Book,
             onClick = onCloseBook
         )

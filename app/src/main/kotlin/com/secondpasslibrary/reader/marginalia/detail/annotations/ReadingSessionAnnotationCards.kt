@@ -24,7 +24,6 @@ import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 import com.secondpasslibrary.reader.design.marginalia.annotationHighlightPalette
 import com.secondpasslibrary.reader.marginalia.MarginaliaFailure
-import com.secondpasslibrary.reader.marginalia.userMessage
 
 @Composable
 internal fun ReadingSessionAnnotationCard(model: ReadingSessionAnnotationPresentation) {
@@ -132,11 +131,24 @@ internal fun AnnotationFailure(failure: MarginaliaFailure, onRetry: () -> Unit) 
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            "Annotations could not be loaded. ${failure.userMessage()}",
+            failure.marginaliaMessage(),
             color = MaterialTheme.colorScheme.error
         )
         OutlinedButton(onClick = onRetry, modifier = Modifier.padding(top = 8.dp)) {
-            Text("Retry annotations")
+            Text("Retry")
         }
     }
+}
+
+private fun MarginaliaFailure.marginaliaMessage(): String = when (this) {
+    MarginaliaFailure.UNREACHABLE ->
+        "Couldn’t load Marginalia. Check your connection and retry."
+
+    MarginaliaFailure.AUTHENTICATION_REJECTED ->
+        "Couldn’t load Marginalia. Repair the connection in Settings."
+
+    MarginaliaFailure.PROTOCOL_INVALID ->
+        "Couldn’t read Marginalia from the Library. Retry or repair the connection in Settings."
+
+    MarginaliaFailure.OTHER -> "Couldn’t load Marginalia. Retry."
 }
