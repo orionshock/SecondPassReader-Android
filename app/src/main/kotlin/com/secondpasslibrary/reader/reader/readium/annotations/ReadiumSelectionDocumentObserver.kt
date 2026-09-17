@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -64,22 +65,35 @@ internal class ReadiumSelectionDocumentObserver(
     }
 
     private suspend fun installDocumentObserver(expectedNavigator: EpubNavigatorFragment) {
-        cfiBinding.withNavigator { bound, _ ->
-            if (bound !== expectedNavigator || navigator !== expectedNavigator) return@withNavigator
-            val identity = cfiBinding.resourceIdentity(bound) ?: return@withNavigator
-            installObserver(bound, identity)
+        while (navigator === expectedNavigator) {
+            val installed = cfiBinding.withNavigator { bound, _ ->
+                if (bound !== expectedNavigator || navigator !== expectedNavigator) {
+                    return@withNavigator false
+                }
+                val identity = cfiBinding.resourceIdentity(bound)
+                    ?: return@withNavigator false
+                installObserver(bound, identity)
+            }
+            if (
+                installed == true || navigator !== expectedNavigator ||
+                cfiBinding.readiness.value != EpubCfiReadiness.Available
+            ) {
+                return
+            }
+            delay(OBSERVER_INSTALL_RETRY_MILLIS)
         }
     }
 
     private suspend fun installObserver(
         bound: EpubNavigatorFragment,
         identity: ReadiumCfiResourceIdentity
-    ) {
+    ): Boolean {
         val token = "${identity.navigatorGeneration}:${identity.resourceGeneration}"
         activeDocumentToken = token
         val installed = evaluateObserverInstallation(bound, token)
         val stillCurrent = cfiBinding.resourceIdentity(bound) == identity
         if (!installed || !stillCurrent) clearActiveToken(token)
+        return installed && stillCurrent
     }
 
     private suspend fun evaluateObserverInstallation(
@@ -88,7 +102,7 @@ internal class ReadiumSelectionDocumentObserver(
     ): Boolean = try {
         withTimeoutOrNull(OBSERVER_INSTALL_TIMEOUT_MILLIS) {
             navigator.evaluateJavascript(selectionObserverScript(token))
-        } != null
+        } == "true"
     } catch (cancelled: CancellationException) {
         throw cancelled
     } catch (_: Exception) {
@@ -108,6 +122,7 @@ internal class ReadiumSelectionDocumentObserver(
     private companion object {
         const val MAX_DOCUMENT_TOKEN_LENGTH = 64
         const val OBSERVER_INSTALL_TIMEOUT_MILLIS = 5_000L
+        const val OBSERVER_INSTALL_RETRY_MILLIS = 50L
     }
 }
 

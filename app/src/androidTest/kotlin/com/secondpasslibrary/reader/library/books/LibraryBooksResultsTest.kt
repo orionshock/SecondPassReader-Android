@@ -40,7 +40,9 @@ class LibraryBooksResultsTest {
         setResults(widthDp = 1100, book = richBook())
 
         compose.onNodeWithTag(WIDE_BOOK_ROW_TAG).assertHasClickAction()
-        val cover = compose.onNodeWithTag(COMPACT_BOOK_COVER_TAG).fetchSemanticsNode()
+        val cover =
+            compose.onNodeWithTag(COMPACT_BOOK_COVER_TAG, useUnmergedTree = true)
+                .fetchSemanticsNode()
         val title =
             compose.onNodeWithText(LONG_TITLE, useUnmergedTree = true).fetchSemanticsNode()
         val series =

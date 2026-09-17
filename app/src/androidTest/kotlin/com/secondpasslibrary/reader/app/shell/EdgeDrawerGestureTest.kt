@@ -62,8 +62,9 @@ class EdgeDrawerGestureTest {
         }
 
         compose.runOnUiThread { coroutineScope.launch { drawerState.close() } }
-        compose.waitUntil { drawerState.currentValue == DrawerValue.Closed }
+        compose.waitForIdle()
         compose.runOnIdle {
+            assertEquals(DrawerValue.Closed, drawerState.currentValue)
             assertEquals(
                 BookDetailRoute("book-1", BookDetailReturnTarget.Library),
                 navigation.currentRoute
