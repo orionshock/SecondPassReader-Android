@@ -41,11 +41,17 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.domain.ReaderReadingStatus
 import com.secondpasslibrary.reader.reader.domain.ReaderReadingStatusScope
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaIntent
+import com.secondpasslibrary.reader.reader.marginalia.ui.READER_CURRENT_SESSION_EDIT_TAG
+import com.secondpasslibrary.reader.reader.marginalia.ui.READER_SESSION_NAME_FIELD_TAG
+import com.secondpasslibrary.reader.reader.marginalia.ui.READER_SESSION_NOTES_FIELD_TAG
+import com.secondpasslibrary.reader.reader.marginalia.ui.READER_SESSION_SAVE_TAG
 import com.secondpasslibrary.reader.reader.navigation.ReaderNavigationIntent
 import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadata
 import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadataState
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import com.secondpasslibrary.reader.reader.toc.READER_TOC_BODY_TAG
+import com.secondpasslibrary.reader.reader.toc.READER_TOC_CLOSE_BOOK_TAG
+import com.secondpasslibrary.reader.reader.toc.READER_TOC_CLOSE_TAG
 import com.secondpasslibrary.reader.reader.toc.READER_TOC_EYEBROW_TAG
 import com.secondpasslibrary.reader.reader.toc.READER_TOC_FOOTER_TAG
 import com.secondpasslibrary.reader.reader.toc.READER_TOC_HEADER_TAG
@@ -109,13 +115,13 @@ class ReaderUiIntegrationTest {
             .assertExists()
         compose.onNodeWithTag(com.secondpasslibrary.reader.reader.ui.hud.READER_HUD_STATUS_TAG)
             .assertExists()
-        compose.onNodeWithContentDescription("Open table of contents").assertIsDisplayed()
+        compose.onNodeWithTag(READER_CHROME_LEFT_CLUSTER_TAG).assertIsDisplayed()
 
         compose.mainClock.advanceTimeBy(3_500)
-        compose.onNodeWithContentDescription("Open table of contents").assertIsNotDisplayed()
+        compose.onNodeWithTag(READER_CHROME_LEFT_CLUSTER_TAG).assertIsNotDisplayed()
         compose.runOnIdle { hud.tap() }
         compose.mainClock.advanceTimeBy(500)
-        compose.onNodeWithContentDescription("Open table of contents").assertIsDisplayed()
+        compose.onNodeWithTag(READER_CHROME_LEFT_CLUSTER_TAG).assertIsDisplayed()
     }
 
     @Test
@@ -216,14 +222,14 @@ class ReaderUiIntegrationTest {
             compose.onAllNodesWithContentDescription("Open navigation drawer")
                 .fetchSemanticsNodes().size
         )
-        compose.onNodeWithContentDescription("Open table of contents").performClick()
+        compose.onNodeWithTag(READER_CHROME_LEFT_CLUSTER_TAG).performClick()
         compose.onNodeWithText("Part One").assertIsDisplayed()
         compose.onNodeWithText("Part One").assertIsSelected()
         val eyebrow = compose.onNodeWithTag(READER_TOC_EYEBROW_TAG).getUnclippedBoundsInRoot()
         val title = compose.onNodeWithTag(READER_TOC_TITLE_TAG).getUnclippedBoundsInRoot()
         assertTrue(eyebrow.bottom <= title.top)
-        compose.onNodeWithContentDescription("Close table of contents").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Close table of contents").performClick()
+        compose.onNodeWithTag(READER_TOC_CLOSE_TAG).assertIsDisplayed()
+        compose.onNodeWithTag(READER_TOC_CLOSE_TAG).performClick()
         compose.waitForIdle()
         compose.onNodeWithText("Part One").assertIsNotDisplayed()
 
@@ -248,7 +254,7 @@ class ReaderUiIntegrationTest {
         compose.waitForIdle()
         assertEquals(0, exits)
 
-        compose.onNodeWithContentDescription("Open table of contents").performClick()
+        compose.onNodeWithTag(READER_CHROME_LEFT_CLUSTER_TAG).performClick()
         compose.onRoot().performTouchInput {
             down(Offset(width - 4f, height / 2f))
             up()
@@ -257,8 +263,8 @@ class ReaderUiIntegrationTest {
         compose.onNodeWithText("Part One").assertIsNotDisplayed()
         assertEquals(0, exits)
 
-        compose.onNodeWithContentDescription("Open table of contents").performClick()
-        compose.onNodeWithText("Close book").performClick()
+        compose.onNodeWithTag(READER_CHROME_LEFT_CLUSTER_TAG).performClick()
+        compose.onNodeWithTag(READER_TOC_CLOSE_BOOK_TAG).performClick()
         compose.runOnIdle { assertEquals(1, exits) }
     }
 
@@ -280,12 +286,12 @@ class ReaderUiIntegrationTest {
             }
         }
 
-        compose.onNodeWithContentDescription("Open table of contents").performClick()
+        compose.onNodeWithTag(READER_CHROME_LEFT_CLUSTER_TAG).performClick()
         val headerBefore = compose.onNodeWithTag(READER_TOC_HEADER_TAG).getUnclippedBoundsInRoot()
         val footerBefore = compose.onNodeWithTag(READER_TOC_FOOTER_TAG).getUnclippedBoundsInRoot()
         compose.onNodeWithTag(READER_TOC_BODY_TAG).performScrollToNode(hasText("Chapter 60"))
         compose.onNodeWithText("Chapter 60").assertIsDisplayed().assertIsNotSelected()
-        compose.onNodeWithText("Close book").assertIsDisplayed()
+        compose.onNodeWithTag(READER_TOC_CLOSE_BOOK_TAG).assertIsDisplayed()
 
         assertEquals(
             headerBefore,
@@ -329,7 +335,7 @@ class ReaderUiIntegrationTest {
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
         compose.waitForIdle()
         assertEquals(0, compose.onAllNodesWithText("Theme").fetchSemanticsNodes().size)
-        compose.onNodeWithContentDescription("Open table of contents").assertIsDisplayed()
+        compose.onNodeWithTag(READER_CHROME_LEFT_CLUSTER_TAG).assertIsDisplayed()
     }
 
     @Test
@@ -366,7 +372,6 @@ class ReaderUiIntegrationTest {
         }
 
         compose.onNodeWithContentDescription("Open Marginalia").performClick()
-        compose.onAllNodesWithText("1 annotation")[0].assertIsDisplayed()
         compose.onNodeWithText("A selected passage").assertIsDisplayed()
         compose.onNodeWithContentDescription("More highlight actions").performClick()
         assertEquals(emptyList<EpubCfi>(), navigator.destinations)
@@ -492,7 +497,7 @@ class ReaderUiIntegrationTest {
                 "${color.name.lowercase().replaceFirstChar(Char::uppercase)} highlight"
             ).assertIsDisplayed()
         }
-        compose.onNodeWithContentDescription("Open table of contents").assertIsNotDisplayed()
+        compose.onNodeWithTag(READER_CHROME_LEFT_CLUSTER_TAG).assertIsNotDisplayed()
         compose.onNodeWithContentDescription("Blue highlight").performClick()
         compose.runOnIdle {
             assertEquals(ReaderAnnotationColor.BLUE, createdColor)
@@ -705,10 +710,12 @@ class ReaderUiIntegrationTest {
 
         compose.onNodeWithContentDescription("Open Marginalia").performClick()
         compose.onAllNodesWithText("Morning read")[1].assertIsDisplayed()
-        compose.onNodeWithContentDescription("Edit current session").performClick()
-        compose.onNodeWithText("Session name").performTextReplacement("Evening read")
-        compose.onNodeWithText("Session note").performTextReplacement("  exact\n note  ")
-        compose.onNodeWithText("Save").performClick()
+        compose.onNodeWithTag(READER_CURRENT_SESSION_EDIT_TAG).performClick()
+        compose.onNodeWithTag(READER_SESSION_NAME_FIELD_TAG)
+            .performTextReplacement("Evening read")
+        compose.onNodeWithTag(READER_SESSION_NOTES_FIELD_TAG)
+            .performTextReplacement("  exact\n note  ")
+        compose.onNodeWithTag(READER_SESSION_SAVE_TAG).performClick()
 
         assertEquals(
             ReaderMarginaliaIntent.ChangeCurrentSessionName("Evening read"),

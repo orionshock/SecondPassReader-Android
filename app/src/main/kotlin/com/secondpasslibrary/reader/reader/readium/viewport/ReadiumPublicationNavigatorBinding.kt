@@ -11,6 +11,7 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
@@ -79,11 +80,18 @@ internal class ReadiumPublicationNavigatorBinding(
         val lease = synchronized(lock) {
             if (closed) null else navigator?.let { NavigatorLease(it, generation) }
         } ?: return false
+        val startingResource = lease.navigator.currentLocator.value.toReaderResource()
+        val targetResource = link.toReaderResource()
         val accepted = withContext(Dispatchers.Main.immediate) {
             if (isCurrent(lease)) {
                 lease.navigator.go(link, animated = false)
             } else {
                 false
+            }
+        }
+        if (accepted && targetResource != null && targetResource != startingResource) {
+            lease.navigator.currentLocator.first { locator ->
+                locator.toReaderResource() == targetResource || !isCurrent(lease)
             }
         }
         return accepted && isCurrent(lease)
@@ -109,6 +117,9 @@ internal class ReadiumPublicationNavigatorBinding(
 }
 
 private fun Locator.toReaderResource(): ReaderPublicationResource? =
+    runCatching { ReaderPublicationResource(normalizeEpubHref(href.toString())) }.getOrNull()
+
+private fun Link.toReaderResource(): ReaderPublicationResource? =
     runCatching { ReaderPublicationResource(normalizeEpubHref(href.toString())) }.getOrNull()
 
 private val TOC_NAVIGATION_COMMAND_TIMEOUT = 10.seconds

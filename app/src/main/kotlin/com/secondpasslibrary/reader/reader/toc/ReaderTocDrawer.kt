@@ -85,7 +85,10 @@ private fun ReaderTocHeader(bookTitle: String, palette: ReaderPalette, onDismiss
                 overflow = TextOverflow.Ellipsis
             )
         }
-        IconButton(onClick = onDismiss) {
+        IconButton(
+            onClick = onDismiss,
+            modifier = Modifier.testTag(READER_TOC_CLOSE_TAG)
+        ) {
             AppIconGraphic(AppIcon.Close, "Close Table of Contents")
         }
     }
@@ -139,6 +142,7 @@ private fun ReaderDrawerAction(label: String, icon: AppIcon, onClick: () -> Unit
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .testTag(READER_TOC_CLOSE_BOOK_TAG)
             .heightIn(min = 48.dp)
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 16.dp),
@@ -220,3 +224,5 @@ internal const val READER_TOC_EYEBROW_TAG = "reader_toc_eyebrow"
 internal const val READER_TOC_TITLE_TAG = "reader_toc_title"
 internal const val READER_TOC_BODY_TAG = "reader_toc_body"
 internal const val READER_TOC_FOOTER_TAG = "reader_toc_footer"
+internal const val READER_TOC_CLOSE_TAG = "reader_toc_close"
+internal const val READER_TOC_CLOSE_BOOK_TAG = "reader_toc_close_book"

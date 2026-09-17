@@ -3,6 +3,7 @@ package com.secondpasslibrary.reader.reader.asset
 import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.secondpasslibrary.reader.live.LiveServerTest
 import com.secondpasslibrary.reader.reader.readium.cfi.RealSplCfiInteropEntryPoint
 import dagger.hilt.android.EntryPointAccessors
 import java.io.RandomAccessFile
@@ -17,6 +18,7 @@ import org.junit.runner.RunWith
 private const val REAL_SPL_INTEGRITY_ARGUMENT = "reader.realSplIntegrity"
 
 /** Destructive-to-local-copy, opt-in proof against the paired development account. */
+@LiveServerTest
 @RunWith(AndroidJUnit4::class)
 class RealSplEpubIntegrityTest {
     @Test

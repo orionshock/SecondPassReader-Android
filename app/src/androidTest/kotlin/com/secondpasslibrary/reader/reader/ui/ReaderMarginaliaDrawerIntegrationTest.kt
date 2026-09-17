@@ -8,6 +8,7 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -22,6 +23,7 @@ import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayerSumma
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayerVisibility
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayersState
 import com.secondpasslibrary.reader.reader.marginalia.ReaderPreviousMarginaliaLayer
+import com.secondpasslibrary.reader.reader.marginalia.ui.READER_MARGINALIA_LOAD_MORE_TAG
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -138,7 +140,7 @@ class ReaderMarginaliaDrawerIntegrationTest {
             assertEquals("previous-b" to false, visibilityRequests.last())
         }
 
-        compose.onNodeWithText("Load more sessions").performClick()
+        compose.onNodeWithTag(READER_MARGINALIA_LOAD_MORE_TAG).performClick()
         compose.runOnIdle { assertEquals(1, loadMore) }
         compose.onNodeWithContentDescription("More highlight actions").performClick()
         compose.onNodeWithText("Go to").assertIsDisplayed()

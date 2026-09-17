@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
@@ -90,7 +91,7 @@ internal fun ReaderMarginaliaLayerList(
                 OutlinedButton(
                     enabled = !model.layers.isAppending,
                     onClick = actions.loadMoreLayers,
-                    modifier = Modifier.padding(12.dp)
+                    modifier = Modifier.padding(12.dp).testTag(READER_MARGINALIA_LOAD_MORE_TAG)
                 ) {
                     Text(
                         if (model.layers.isAppending) "Loading" else "Load more Reading Sessions"
@@ -100,6 +101,8 @@ internal fun ReaderMarginaliaLayerList(
         }
     }
 }
+
+internal const val READER_MARGINALIA_LOAD_MORE_TAG = "reader_marginalia_load_more"
 
 @Composable
 private fun ReaderMarginaliaHeading(palette: ReaderPalette) {

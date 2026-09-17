@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -39,6 +40,7 @@ internal fun ReaderSessionMetadataDialog(
                     value = state.draftName,
                     onValueChanged = onNameChanged,
                     label = "Reading Session name",
+                    modifier = Modifier.testTag(READER_SESSION_NAME_FIELD_TAG),
                     palette = palette,
                     enabled = !state.saving,
                     singleLine = true,
@@ -52,6 +54,7 @@ internal fun ReaderSessionMetadataDialog(
                     value = state.draftNotes,
                     onValueChanged = onNotesChanged,
                     label = "Reading Session notes",
+                    modifier = Modifier.testTag(READER_SESSION_NOTES_FIELD_TAG),
                     palette = palette,
                     enabled = !state.saving,
                     singleLine = false
@@ -68,6 +71,7 @@ internal fun ReaderSessionMetadataDialog(
             TextButton(
                 enabled = state.dirty && !state.saving,
                 onClick = onSave,
+                modifier = Modifier.testTag(READER_SESSION_SAVE_TAG),
                 colors = ButtonDefaults.textButtonColors(contentColor = palette.primaryForeground)
             ) { Text(if (state.failure) "Retry" else "Save") }
         },
@@ -89,6 +93,7 @@ private fun ReaderMetadataField(
     value: String,
     onValueChanged: (String) -> Unit,
     label: String,
+    modifier: Modifier,
     palette: ReaderPalette,
     enabled: Boolean,
     singleLine: Boolean,
@@ -98,7 +103,7 @@ private fun ReaderMetadataField(
         value = value,
         onValueChange = onValueChanged,
         modifier =
-            Modifier.fillMaxWidth().then(
+            modifier.fillMaxWidth().then(
                 supportingText?.let { message ->
                     Modifier.semantics { error(message) }
                 } ?: Modifier
@@ -121,3 +126,7 @@ private fun ReaderMetadataField(
         )
     )
 }
+
+internal const val READER_SESSION_NAME_FIELD_TAG = "reader_session_name_field"
+internal const val READER_SESSION_NOTES_FIELD_TAG = "reader_session_notes_field"
+internal const val READER_SESSION_SAVE_TAG = "reader_session_save"

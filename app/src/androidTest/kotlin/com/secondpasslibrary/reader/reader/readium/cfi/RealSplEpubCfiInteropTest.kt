@@ -12,6 +12,7 @@ import com.secondpasslibrary.client.ReadingSessionListItem
 import com.secondpasslibrary.client.ReadingSessionListOptions
 import com.secondpasslibrary.client.ReadingSessionSummary
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.live.LiveServerTest
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetRequest
 import com.secondpasslibrary.reader.reader.asset.ReaderEpubUnavailableException
 import com.secondpasslibrary.reader.reader.asset.ResolvedReaderBook
@@ -55,6 +56,7 @@ private const val EXPECTED_TEXT_LIMIT = 48
  * Enable with `-Pandroid.testInstrumentationRunnerArguments.reader.realSplCfiInterop=true`.
  * The test deliberately calls no Reading Session or annotation mutation capability.
  */
+@LiveServerTest
 @RunWith(AndroidJUnit4::class)
 class RealSplEpubCfiInteropTest {
     @Test

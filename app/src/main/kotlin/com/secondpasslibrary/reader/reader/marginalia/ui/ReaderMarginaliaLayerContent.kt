@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
@@ -101,7 +102,10 @@ private fun ReaderSelectedSessionHeader(
             )
         }
         if (current && model.currentMetadataEditable) {
-            IconButton(onClick = actions.editCurrentSessionMetadata) {
+            IconButton(
+                onClick = actions.editCurrentSessionMetadata,
+                modifier = Modifier.testTag(READER_CURRENT_SESSION_EDIT_TAG)
+            ) {
                 AppIconGraphic(AppIcon.Edit, "Edit current Reading Session")
             }
         }
@@ -122,6 +126,8 @@ private fun ReaderSelectedSessionHeader(
         }
     }
 }
+
+internal const val READER_CURRENT_SESSION_EDIT_TAG = "reader_current_session_edit"
 
 @Composable
 private fun ReaderPreviousLayerContent(
