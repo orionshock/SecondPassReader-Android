@@ -1,20 +1,31 @@
-package com.secondpasslibrary.reader.library.offline
+package com.secondpasslibrary.reader.app.storage
 
 import com.secondpasslibrary.reader.home.FakeHomeProjectionStore
+import com.secondpasslibrary.reader.home.projection.HomeProjectionStore
 import com.secondpasslibrary.reader.home.projection.HomeRecentReadingVariant
 import com.secondpasslibrary.reader.home.projectionAccount
 import com.secondpasslibrary.reader.home.recentItem
+import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
+import com.secondpasslibrary.reader.reader.ReaderPendingSyncScheduler
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
+import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationRequest
 import com.secondpasslibrary.reader.reader.asset.ReaderAccountScope
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetChecksum
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetStore
+import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginaliaLayerVisibilityStore
+import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginaliaVisibilityScope
+import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
+import com.secondpasslibrary.reader.reader.persistence.LocalReaderWriteProvenance
+import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import java.nio.file.Files
 import java.security.MessageDigest
+import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class OfflineLibraryCatalogTest {
+class AccountLocalBookCatalogTest {
     @Test
     fun `only cached books with completed account-scoped epubs are returned`() = runTest {
         val root = Files.createTempDirectory("offline-library").toFile()
@@ -34,8 +45,7 @@ class OfflineLibraryCatalogTest {
         requireNotNull(partial.parentFile).mkdirs()
         partial.resolveSibling("${partial.name}.part").writeBytes(byteArrayOf(1))
 
-        val result = OfflineLibraryCatalog(store, assets)
-            .downloadedBooks(account.profile, account.profileId)
+        val result = catalog(store, assets).downloadedBooks(account.localScope())
 
         assertEquals(listOf("book-downloaded"), result.map { it.id })
         assertEquals("Book downloaded", result.single().title)
@@ -55,8 +65,7 @@ class OfflineLibraryCatalogTest {
         complete(assets, account.profile.serverOrigin, "another-profile", "book-shared")
 
         assertTrue(
-            OfflineLibraryCatalog(store, assets)
-                .downloadedBooks(account.profile, account.profileId)
+            catalog(store, assets).downloadedBooks(account.localScope())
                 .isEmpty()
         )
     }
@@ -75,8 +84,8 @@ class OfflineLibraryCatalogTest {
                 "Local Book"
             )
 
-            val result = OfflineLibraryCatalog(FakeHomeProjectionStore(), assets)
-                .downloadedBooks(account.profile, account.profileId)
+            val result = catalog(FakeHomeProjectionStore(), assets)
+                .downloadedBooks(account.localScope())
 
             assertEquals(listOf("book-local"), result.map { it.id })
             assertEquals("Local Book", result.single().title)
@@ -98,8 +107,7 @@ class OfflineLibraryCatalogTest {
         assets.completedFile(scope, "book-corrupt").writeBytes("damaged".toByteArray())
 
         assertTrue(
-            OfflineLibraryCatalog(store, assets)
-                .downloadedBooks(account.profile, account.profileId)
+            catalog(store, assets).downloadedBooks(account.localScope())
                 .isEmpty()
         )
         assertTrue(!assets.completedFile(scope, "book-corrupt").exists())
@@ -124,5 +132,87 @@ class OfflineLibraryCatalogTest {
             .digest(bytes)
             .joinToString("") { byte -> "%02x".format(byte) }
         return ReaderBookAssetChecksum.fromServer(value)
+    }
+
+    private fun com.secondpasslibrary.reader.home.HomeProjectionAccount.localScope() =
+        AccountLocalScope.from(profile.serverOrigin, profileId)
+
+    private fun catalog(home: HomeProjectionStore, assets: ReaderBookAssetStore) =
+        AccountLocalDataRepository(
+            home,
+            UnusedReaderStore,
+            UnusedReaderScheduler,
+            assets,
+            UnusedVisibilityStore
+        )
+
+    private data object UnusedReaderScheduler : ReaderPendingSyncScheduler {
+        override suspend fun ensureEnqueued(account: LocalReaderAccountKey) = Unit
+
+        override fun cancel(account: LocalReaderAccountKey) = Unit
+    }
+
+    private data object UnusedVisibilityStore : ReaderMarginaliaLayerVisibilityStore {
+        override suspend fun read(
+            scope: ReaderMarginaliaVisibilityScope,
+            sessionId: String,
+            now: Instant
+        ): Boolean? = null
+
+        override suspend fun write(
+            scope: ReaderMarginaliaVisibilityScope,
+            sessionId: String,
+            visible: Boolean,
+            touchedAt: Instant
+        ) = Unit
+
+        override suspend fun clearAccountState() = Unit
+    }
+
+    private data object UnusedReaderStore : LocalReaderStateStore {
+        override suspend fun selectOfflineSession(
+            account: LocalReaderAccountKey,
+            bookId: String
+        ): ReaderSessionContext = error("unused")
+
+        override suspend fun retainServerSession(
+            account: LocalReaderAccountKey,
+            bookId: String,
+            session: ReaderSessionContext
+        ) = session
+
+        override suspend fun writeProgress(
+            account: LocalReaderAccountKey,
+            localSessionId: String,
+            cfi: String,
+            provenance: LocalReaderWriteProvenance,
+            locationLabel: String?
+        ) = Unit
+
+        override suspend fun acknowledgeProgress(
+            account: LocalReaderAccountKey,
+            localSessionId: String,
+            cfi: String
+        ) = Unit
+
+        override suspend fun readAnnotations(
+            account: LocalReaderAccountKey,
+            localSessionId: String
+        ) = emptyList<ReaderAnnotation>()
+
+        override suspend fun applyAnnotationMutation(
+            account: LocalReaderAccountKey,
+            localSessionId: String,
+            request: ReaderAnnotationMutationRequest
+        ) = emptyList<ReaderAnnotation>()
+
+        override suspend fun replaceAuthoritativeAnnotations(
+            account: LocalReaderAccountKey,
+            localSessionId: String,
+            annotations: List<ReaderAnnotation>,
+            acknowledgedMutation: ReaderAnnotationMutationRequest?
+        ) = Unit
+
+        override suspend fun purgeAccount(account: LocalReaderAccountKey) = Unit
     }
 }

@@ -2,26 +2,18 @@ package com.secondpasslibrary.reader.home.projection
 
 import com.secondpasslibrary.client.RecentReadingItem
 import com.secondpasslibrary.client.ShelfSummary
-import java.security.MessageDigest
+import com.secondpasslibrary.reader.app.storage.AccountLocalScope
 import java.time.Instant
-import java.util.Locale
 
 private const val HOME_RECENT_READING_LIMIT = 10
 
 @JvmInline
 internal value class HomeAccountScopeKey private constructor(val value: String) {
     companion object {
-        fun from(serverOrigin: String, profileId: String): HomeAccountScopeKey {
-            val origin = serverOrigin.trim().trimEnd('/').lowercase(Locale.ROOT)
-            val account = profileId.trim()
-            require(origin.isNotEmpty()) { "Server origin is required for Home cache scope." }
-            require(account.isNotEmpty()) { "Profile ID is required for Home cache scope." }
-            val digest =
-                MessageDigest.getInstance("SHA-256")
-                    .digest("$origin\u0000$account".toByteArray(Charsets.UTF_8))
-                    .joinToString("") { byte -> "%02x".format(byte) }
-            return HomeAccountScopeKey(digest)
-        }
+        fun from(serverOrigin: String, profileId: String): HomeAccountScopeKey =
+            from(AccountLocalScope.from(serverOrigin, profileId))
+
+        fun from(account: AccountLocalScope) = HomeAccountScopeKey(account.storageKey)
     }
 }
 

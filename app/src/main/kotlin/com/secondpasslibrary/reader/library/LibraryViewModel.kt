@@ -8,6 +8,7 @@ import com.secondpasslibrary.client.LibraryCatalogTag
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.LibrarySearchOrdering
 import com.secondpasslibrary.client.SeriesOrdering
+import com.secondpasslibrary.reader.app.storage.AccountLocalBookCatalog
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.library.books.LibraryBooksController
@@ -15,7 +16,6 @@ import com.secondpasslibrary.reader.library.books.LibraryBooksEntry
 import com.secondpasslibrary.reader.library.books.LibraryBooksLayout
 import com.secondpasslibrary.reader.library.books.LibraryBooksOrdering
 import com.secondpasslibrary.reader.library.books.LibraryDisplayPreferenceStore
-import com.secondpasslibrary.reader.library.offline.OfflineLibraryCatalog
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
@@ -26,7 +26,7 @@ internal class LibraryViewModel
 constructor(
     clientProvider: AuthenticatedClientProvider,
     displayPreferenceStore: LibraryDisplayPreferenceStore,
-    offlineCatalog: OfflineLibraryCatalog
+    offlineCatalog: AccountLocalBookCatalog
 ) : ViewModel() {
     private val controller =
         LibraryController(

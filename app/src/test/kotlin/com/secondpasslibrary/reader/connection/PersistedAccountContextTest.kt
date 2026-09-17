@@ -36,7 +36,7 @@ class PersistedAccountContextTest {
             profile.serverOrigin
         )
 
-        assertEquals(original.localDataKey(), relinked.localDataKey())
+        assertEquals(original.localDataScope(), relinked.localDataScope())
     }
 
     @Test
@@ -49,10 +49,12 @@ class PersistedAccountContextTest {
         )
 
         assertFalse(
-            current.localDataKey() ==
-                current.copy(accountServerOrigin = "https://other.example").localDataKey()
+            current.localDataScope() ==
+                current.copy(accountServerOrigin = "https://other.example").localDataScope()
         )
-        assertFalse(current.localDataKey() == current.copy(profileId = "profile-2").localDataKey())
+        assertFalse(
+            current.localDataScope() == current.copy(profileId = "profile-2").localDataScope()
+        )
     }
 
     private fun profile() = ConnectionProfile(

@@ -23,6 +23,8 @@ abstract class ReaderBoundaryCheckTask : DefaultTask() {
             val source = file.readText()
             val isReaderFeature = READER_FEATURE_PATH in path
             val isReadiumAdapter = READIUM_ADAPTER_PATH in path
+            val isConnectionFeature = CONNECTION_FEATURE_PATH in path
+            val isLibraryFeature = LIBRARY_FEATURE_PATH in path
             if (!isReadiumAdapter && "import org.readium." in source) {
                 violations += "$path: Readium import outside the Reader adapter"
             }
@@ -34,6 +36,12 @@ abstract class ReaderBoundaryCheckTask : DefaultTask() {
             }
             if (isReadiumAdapter && REFLECTION_MARKERS.any { it in source }) {
                 violations += "$path: reflection is forbidden at the Readium boundary"
+            }
+            if (isConnectionFeature && CONNECTION_LATERAL_IMPORTS.any { it in source }) {
+                violations += "$path: Connection imports feature-owned account storage"
+            }
+            if (isLibraryFeature && LIBRARY_LATERAL_IMPORTS.any { it in source }) {
+                violations += "$path: Library imports another feature's account storage"
             }
         }
         authoredJavascript.files.filter { it.isFile }.forEach { file ->
@@ -58,6 +66,16 @@ abstract class ReaderBoundaryCheckTask : DefaultTask() {
     private companion object {
         const val READER_FEATURE_PATH = "/com/secondpasslibrary/reader/reader/"
         const val READIUM_ADAPTER_PATH = "${READER_FEATURE_PATH}readium/"
+        const val CONNECTION_FEATURE_PATH = "/com/secondpasslibrary/reader/connection/"
+        const val LIBRARY_FEATURE_PATH = "/com/secondpasslibrary/reader/library/"
+        val CONNECTION_LATERAL_IMPORTS = listOf(
+            "import com.secondpasslibrary.reader.home.",
+            "import com.secondpasslibrary.reader.reader."
+        )
+        val LIBRARY_LATERAL_IMPORTS = listOf(
+            "import com.secondpasslibrary.reader.home.",
+            "import com.secondpasslibrary.reader.reader."
+        )
         val REFLECTION_MARKERS =
             listOf("java.lang.reflect", "getDeclaredField(", "getDeclaredMethod(")
         val FORBIDDEN_MOVEMENT_CALLS = listOf("scrollIntoView(", "window.scrollTo(")

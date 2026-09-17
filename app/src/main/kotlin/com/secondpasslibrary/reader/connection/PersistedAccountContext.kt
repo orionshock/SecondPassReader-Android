@@ -1,5 +1,7 @@
 package com.secondpasslibrary.reader.connection
 
+import com.secondpasslibrary.reader.app.storage.AccountLocalScope
+
 internal data class PersistedAccountContext(
     val connectionIdentity: AuthenticatedConnectionIdentity,
     val profileId: String,
@@ -8,6 +10,5 @@ internal data class PersistedAccountContext(
     fun matches(profile: ConnectionProfile): Boolean =
         connectionIdentity == profile.authenticatedConnectionIdentity
 
-    fun localDataKey(): AccountLocalDataKey =
-        AccountLocalDataKey.from(accountServerOrigin, profileId)
+    fun localDataScope(): AccountLocalScope = AccountLocalScope.from(accountServerOrigin, profileId)
 }

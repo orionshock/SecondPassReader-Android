@@ -8,6 +8,8 @@ import com.secondpasslibrary.client.PairingStatus
 import com.secondpasslibrary.client.SecondPassClient
 import com.secondpasslibrary.client.SplClient
 import com.secondpasslibrary.client.SplClientException
+import com.secondpasslibrary.reader.app.storage.AccountLocalDataLifecycle
+import com.secondpasslibrary.reader.app.storage.AccountLocalScope
 import com.secondpasslibrary.reader.connection.storage.PersistedAccountContextStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -26,7 +28,7 @@ internal class ConnectionCoordinator(
     private val profileStore: ConnectionProfileStore,
     private val credentialStore: BearerCredentialStore,
     private val accountContextStore: PersistedAccountContextStore,
-    private val accountLocalDataCleaner: AccountLocalDataCleaner,
+    private val accountLocalDataLifecycle: AccountLocalDataLifecycle,
     private val pollDelay: PairingPollDelay,
     private val defaultClientName: String,
     private val scope: CoroutineScope
@@ -441,10 +443,10 @@ internal class ConnectionCoordinator(
             val previousAccount = mutableLocalAccountContext.value?.persistedAccount
                 ?: accountContextStore.read()
             if (previousAccount != null &&
-                previousAccount.localDataKey() != persistedAccount.localDataKey()
+                previousAccount.localDataScope() != persistedAccount.localDataScope()
             ) {
                 val purgeResult = attempt {
-                    accountLocalDataCleaner.purge(previousAccount.localDataKey())
+                    accountLocalDataLifecycle.purge(previousAccount.localDataScope())
                     accountContextStore.clear()
                 }
                 purgeResult.exceptionOrNull()?.let { failure ->
@@ -489,20 +491,20 @@ internal class ConnectionCoordinator(
     }
 
     private suspend fun resetLocalAccount() {
-        val localDataKey =
-            mutableLocalAccountContext.value?.localDataKey()
+        val localDataScope =
+            mutableLocalAccountContext.value?.persistedAccount?.localDataScope()
                 ?: run {
                     val profile = profileStore.read()
                     accountContextStore.read()
                         ?.takeIf { account -> profile != null && account.matches(profile) }
                         ?.let { account ->
-                            AccountLocalDataKey.from(
+                            AccountLocalScope.from(
                                 checkNotNull(profile).serverOrigin,
                                 account.profileId
                             )
                         }
                 }
-        localDataKey?.let { accountLocalDataCleaner.purge(it) }
+        localDataScope?.let { accountLocalDataLifecycle.purge(it) }
         clearConnectionPersistence()
     }
 

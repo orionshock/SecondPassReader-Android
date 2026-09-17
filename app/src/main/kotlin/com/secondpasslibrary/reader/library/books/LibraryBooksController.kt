@@ -5,13 +5,14 @@ import com.secondpasslibrary.client.CatalogResultPage
 import com.secondpasslibrary.client.CompactBook
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.LibrarySearchOrdering
+import com.secondpasslibrary.reader.app.storage.AccountLocalBookCatalog
+import com.secondpasslibrary.reader.app.storage.AccountLocalScope
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import com.secondpasslibrary.reader.library.LibraryConnectionEvent
 import com.secondpasslibrary.reader.library.LibraryFailure
-import com.secondpasslibrary.reader.library.offline.OfflineLibraryCatalog
 import com.secondpasslibrary.reader.library.toLibraryFailure
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -28,7 +29,7 @@ internal class LibraryBooksController(
     private val clientProvider: AuthenticatedClientProvider,
     private val displayPreferenceStore: LibraryDisplayPreferenceStore,
     private val scope: CoroutineScope,
-    private val offlineCatalog: OfflineLibraryCatalog? = null
+    private val offlineCatalog: AccountLocalBookCatalog? = null
 ) {
     private val mutableState = MutableStateFlow(LibraryBooksState())
     val state: StateFlow<LibraryBooksState> = mutableState.asStateFlow()
@@ -87,7 +88,7 @@ internal class LibraryBooksController(
             val books = runCatching {
                 requireNotNull(offlineCatalog) {
                     "Offline Library catalog is not configured."
-                }.downloadedBooks(profile, profileId)
+                }.downloadedBooks(AccountLocalScope.from(profile.serverOrigin, profileId))
             }.getOrDefault(emptyList())
             if (generation != requestGeneration) return@launch
             offlineBooks = books

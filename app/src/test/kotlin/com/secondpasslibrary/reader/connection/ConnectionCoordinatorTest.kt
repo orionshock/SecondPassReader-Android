@@ -13,6 +13,8 @@ import com.secondpasslibrary.client.PairingStatus
 import com.secondpasslibrary.client.SecondPassClient
 import com.secondpasslibrary.client.ServerOrigin
 import com.secondpasslibrary.client.SplClientException
+import com.secondpasslibrary.reader.app.storage.AccountLocalDataLifecycle
+import com.secondpasslibrary.reader.app.storage.AccountLocalScope
 import com.secondpasslibrary.reader.connection.storage.PersistedAccountContextStore
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -195,14 +197,14 @@ class ConnectionCoordinatorTest {
             advanceUntilIdle()
 
             assertEquals(
-                listOf(AccountLocalDataKey.from(oldProfile.serverOrigin, "profile-1")),
+                listOf(AccountLocalScope.from(oldProfile.serverOrigin, "profile-1")),
                 cleaner.purged
             )
             assertTrue(events.indexOf("purge") < events.lastIndexOf("account"))
             assertEquals(replacement.serverOrigin, accountStore.stored?.accountServerOrigin)
             assertEquals(
-                AccountLocalDataKey.from(replacement.serverOrigin, "profile-1"),
-                coordinator.localAccountContext.value?.localDataKey()
+                AccountLocalScope.from(replacement.serverOrigin, "profile-1"),
+                coordinator.localAccountContext.value?.persistedAccount?.localDataScope()
             )
         }
 
@@ -336,7 +338,7 @@ class ConnectionCoordinatorTest {
         assertTrue(accountContextStore.cleared)
         assertEquals(null, accountContextStore.stored)
         assertEquals(
-            listOf(AccountLocalDataKey.from(profile().serverOrigin, "profile-1")),
+            listOf(AccountLocalScope.from(profile().serverOrigin, "profile-1")),
             cleaner.purged
         )
         assertTrue(revocation.sessionIds.isEmpty())
@@ -698,7 +700,7 @@ class ConnectionCoordinatorTest {
 
         assertTrue(coordinator.state.value is ConnectionUiState.Linked)
         assertEquals(
-            listOf(AccountLocalDataKey.from(oldProfile.serverOrigin, "profile-1")),
+            listOf(AccountLocalScope.from(oldProfile.serverOrigin, "profile-1")),
             cleaner.purged
         )
         assertTrue(events.indexOf("purge") < events.lastIndexOf("account"))
@@ -886,7 +888,7 @@ class ConnectionCoordinatorTest {
         profileStore = profileStore,
         credentialStore = credentialStore,
         accountContextStore = accountContextStore,
-        accountLocalDataCleaner = cleaner,
+        accountLocalDataLifecycle = cleaner,
         pollDelay = PairingPollDelay { seconds -> if (timedDelay) delay(seconds * 1_000) },
         defaultClientName = "Second Pass Reader · Android",
         scope = this
@@ -1020,10 +1022,10 @@ class ConnectionCoordinatorTest {
 
     private class FakeAccountLocalDataCleaner(
         private val events: MutableList<String> = mutableListOf()
-    ) : AccountLocalDataCleaner {
-        val purged = mutableListOf<AccountLocalDataKey>()
+    ) : AccountLocalDataLifecycle {
+        val purged = mutableListOf<AccountLocalScope>()
 
-        override suspend fun purge(account: AccountLocalDataKey) {
+        override suspend fun purge(account: AccountLocalScope) {
             events += "purge"
             purged += account
         }

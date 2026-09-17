@@ -1,9 +1,8 @@
 package com.secondpasslibrary.reader.app
 
-import com.secondpasslibrary.reader.connection.AccountLocalDataKey
+import com.secondpasslibrary.reader.app.storage.AccountLocalScope
 import com.secondpasslibrary.reader.connection.ConnectionUiState
 import com.secondpasslibrary.reader.connection.LocalAccountContext
-import com.secondpasslibrary.reader.connection.localDataKey
 import com.secondpasslibrary.reader.home.HomeAccountScope
 import com.secondpasslibrary.reader.home.HomeProjectionRepository
 import com.secondpasslibrary.reader.home.HomeRefreshAvailability
@@ -159,8 +158,8 @@ internal class AppSessionController(
         val shell = mutableState.value as? AppSessionState.AccountShell
         val sameAccount = shell?.let {
             account == null ||
-                account.localDataKey() ==
-                AccountLocalDataKey.from(
+                account.persistedAccount.localDataScope() ==
+                AccountLocalScope.from(
                     it.profile.serverOrigin,
                     it.profileId
                 )

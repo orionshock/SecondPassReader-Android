@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.connection
+package com.secondpasslibrary.reader.app.storage
 
 import com.secondpasslibrary.client.RecentReadingItem
 import com.secondpasslibrary.client.ShelfSummary
@@ -12,6 +12,7 @@ import com.secondpasslibrary.reader.reader.ReaderPendingSyncScheduler
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationRequest
 import com.secondpasslibrary.reader.reader.asset.ReaderAccountScope
+import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetChecksum
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetStore
 import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginaliaLayerVisibilityStore
 import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginaliaVisibilityScope
@@ -19,6 +20,7 @@ import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderWriteProvenance
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import java.nio.file.Files
+import java.security.MessageDigest
 import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -26,7 +28,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class AppAccountLocalDataCleanerTest {
+class AccountLocalDataRepositoryCleanupTest {
     @Test
     fun `cleanup cancels and purges only exact old account before replacement is used`() = runTest {
         val events = mutableListOf<String>()
@@ -37,17 +39,13 @@ class AppAccountLocalDataCleanerTest {
             Files.createTempDirectory("account-assets").toFile()
         )
         val visibility = RecordingVisibilityStore(events)
-        val cleaner = AppAccountLocalDataCleaner(home, reader, scheduler, assets, visibility)
-        val old = AccountLocalDataKey.from("https://old.example", "profile-1")
-        val replacement = AccountLocalDataKey.from("https://new.example", "profile-1")
-        val oldAsset = assets.completedFile(old.readerScope(), "old-book")
-        val replacementAsset = assets.completedFile(replacement.readerScope(), "new-book")
-        requireNotNull(oldAsset.parentFile).mkdirs()
-        requireNotNull(replacementAsset.parentFile).mkdirs()
-        oldAsset.writeText("old")
-        replacementAsset.writeText("new")
+        val repository = AccountLocalDataRepository(home, reader, scheduler, assets, visibility)
+        val old = AccountLocalScope.from("https://old.example", "profile-1")
+        val replacement = AccountLocalScope.from("https://new.example", "profile-1")
+        val oldAsset = complete(assets, old.readerScope(), "old-book")
+        val replacementAsset = complete(assets, replacement.readerScope(), "new-book")
 
-        cleaner.purge(old)
+        repository.purge(old)
 
         val oldReader = LocalReaderAccountKey.from(old.serverOrigin, old.profileId)
         assertEquals(listOf("cancel", "home", "reader", "visibility"), events)
@@ -67,7 +65,24 @@ class AppAccountLocalDataCleanerTest {
         )
     }
 
-    private fun AccountLocalDataKey.readerScope() = ReaderAccountScope(serverOrigin, profileId)
+    private fun AccountLocalScope.readerScope() = ReaderAccountScope.from(this)
+
+    private suspend fun complete(
+        assets: ReaderBookAssetStore,
+        account: ReaderAccountScope,
+        bookId: String
+    ) = assets.acquire(account, bookId, checksum(ASSET_BYTES), {}) { output ->
+        output.write(ASSET_BYTES)
+    }.file.also {
+        assets.rememberCompletedBook(account, bookId, bookId, checksum(ASSET_BYTES))
+    }
+
+    private fun checksum(bytes: ByteArray): ReaderBookAssetChecksum {
+        val value = MessageDigest.getInstance("SHA-256")
+            .digest(bytes)
+            .joinToString("") { byte -> "%02x".format(byte) }
+        return ReaderBookAssetChecksum.fromServer(value)
+    }
 
     private class RecordingVisibilityStore(private val events: MutableList<String>) :
         ReaderMarginaliaLayerVisibilityStore {
@@ -191,5 +206,9 @@ class AppAccountLocalDataCleanerTest {
             events += "reader"
             purged += account
         }
+    }
+
+    private companion object {
+        val ASSET_BYTES = byteArrayOf(1, 2, 3)
     }
 }

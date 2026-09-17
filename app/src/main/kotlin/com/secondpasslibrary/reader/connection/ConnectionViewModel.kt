@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.secondpasslibrary.client.ClientSessionRevocationClient
 import com.secondpasslibrary.client.SecondPassClient
+import com.secondpasslibrary.reader.app.storage.AccountLocalDataLifecycle
 import com.secondpasslibrary.reader.connection.storage.PersistedAccountContextStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -17,7 +18,7 @@ internal constructor(
     profileStore: ConnectionProfileStore,
     credentialStore: BearerCredentialStore,
     accountContextStore: PersistedAccountContextStore,
-    accountLocalDataCleaner: AccountLocalDataCleaner,
+    accountLocalDataLifecycle: AccountLocalDataLifecycle,
     pollDelay: CoroutinePairingPollDelay,
     clientNameProvider: AndroidClientNameProvider
 ) : ViewModel() {
@@ -28,7 +29,7 @@ internal constructor(
             profileStore = profileStore,
             credentialStore = credentialStore,
             accountContextStore = accountContextStore,
-            accountLocalDataCleaner = accountLocalDataCleaner,
+            accountLocalDataLifecycle = accountLocalDataLifecycle,
             pollDelay = pollDelay,
             defaultClientName = clientNameProvider.defaultName(),
             scope = viewModelScope

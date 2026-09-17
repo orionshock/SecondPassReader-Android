@@ -1,6 +1,7 @@
 package com.secondpasslibrary.reader.reader.asset
 
 import android.content.Context
+import com.secondpasslibrary.reader.app.storage.AccountLocalScope
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.IOException
@@ -17,10 +18,17 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
-internal data class ReaderAccountScope(val serverOrigin: String, val profileId: String) {
-    init {
-        require(serverOrigin.isNotBlank()) { "Server origin must not be blank." }
-        require(profileId.isNotBlank()) { "Profile ID must not be blank." }
+internal data class ReaderAccountScope(val account: AccountLocalScope) {
+    constructor(serverOrigin: String, profileId: String) :
+        this(AccountLocalScope.from(serverOrigin, profileId))
+
+    val serverOrigin: String
+        get() = account.serverOrigin
+    val profileId: String
+        get() = account.profileId
+
+    companion object {
+        fun from(account: AccountLocalScope) = ReaderAccountScope(account)
     }
 }
 
@@ -134,7 +142,7 @@ internal class ReaderBookAssetStore private constructor(private val root: File) 
     )
 
     private fun accountDirectory(account: ReaderAccountScope) =
-        File(root, digest("${account.serverOrigin}\u0000${account.profileId}"))
+        File(root, account.account.storageKey)
 
     private fun readMetadata(file: File): ReaderCompletedBookMetadata? = runCatching {
         val values = file.readLines().map { encoded ->
