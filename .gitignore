@@ -15,3 +15,4 @@ Thumbs.db
 gitlog.txt
 node_modules/
 artifacts/*
+test-results/
