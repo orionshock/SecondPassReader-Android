@@ -1,6 +1,8 @@
 package com.secondpasslibrary.reader.reader.readium.cfi
 
+import com.secondpasslibrary.client.ClientSessionRevocationClient
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
+import com.secondpasslibrary.reader.connection.BearerCredentialStore
 import com.secondpasslibrary.reader.connection.ConnectionProfileStore
 import com.secondpasslibrary.reader.connection.storage.PersistedAccountContextStore
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetStore
@@ -18,6 +20,10 @@ internal interface RealSplCfiInteropEntryPoint {
     fun persistedAccountContextStore(): PersistedAccountContextStore
 
     fun authenticatedClientProvider(): AuthenticatedClientProvider
+
+    fun bearerCredentialStore(): BearerCredentialStore
+
+    fun clientSessionRevocationClient(): ClientSessionRevocationClient
 
     fun readerBookAssetResolver(): SplReaderBookAssetResolver
 

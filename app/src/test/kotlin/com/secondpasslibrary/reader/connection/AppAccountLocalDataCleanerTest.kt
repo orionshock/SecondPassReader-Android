@@ -11,13 +11,19 @@ import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.ReaderPendingSyncScheduler
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationRequest
+import com.secondpasslibrary.reader.reader.asset.ReaderAccountScope
+import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetStore
+import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginaliaLayerVisibilityStore
+import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginaliaVisibilityScope
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderWriteProvenance
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
+import java.nio.file.Files
 import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AppAccountLocalDataCleanerTest {
@@ -27,25 +33,63 @@ class AppAccountLocalDataCleanerTest {
         val home = RecordingHomeStore(events)
         val reader = RecordingReaderStore(events)
         val scheduler = RecordingScheduler(events)
-        val cleaner = AppAccountLocalDataCleaner(home, reader, scheduler)
+        val assets = ReaderBookAssetStore.forTests(
+            Files.createTempDirectory("account-assets").toFile()
+        )
+        val visibility = RecordingVisibilityStore(events)
+        val cleaner = AppAccountLocalDataCleaner(home, reader, scheduler, assets, visibility)
         val old = AccountLocalDataKey.from("https://old.example", "profile-1")
         val replacement = AccountLocalDataKey.from("https://new.example", "profile-1")
+        val oldAsset = assets.completedFile(old.readerScope(), "old-book")
+        val replacementAsset = assets.completedFile(replacement.readerScope(), "new-book")
+        requireNotNull(oldAsset.parentFile).mkdirs()
+        requireNotNull(replacementAsset.parentFile).mkdirs()
+        oldAsset.writeText("old")
+        replacementAsset.writeText("new")
 
         cleaner.purge(old)
 
         val oldReader = LocalReaderAccountKey.from(old.serverOrigin, old.profileId)
-        assertEquals(listOf("cancel", "home", "reader"), events)
+        assertEquals(listOf("cancel", "home", "reader", "visibility"), events)
         assertEquals(listOf(oldReader), scheduler.canceled)
         assertEquals(
             listOf(HomeAccountScopeKey.from(old.serverOrigin, old.profileId)),
             home.purged
         )
         assertEquals(listOf(oldReader), reader.purged)
+        assertFalse(oldAsset.exists())
+        assertTrue(replacementAsset.exists())
+        assertEquals(1, visibility.clearCount)
         assertFalse(
             reader.purged.contains(
                 LocalReaderAccountKey.from(replacement.serverOrigin, replacement.profileId)
             )
         )
+    }
+
+    private fun AccountLocalDataKey.readerScope() = ReaderAccountScope(serverOrigin, profileId)
+
+    private class RecordingVisibilityStore(private val events: MutableList<String>) :
+        ReaderMarginaliaLayerVisibilityStore {
+        var clearCount = 0
+
+        override suspend fun read(
+            scope: ReaderMarginaliaVisibilityScope,
+            sessionId: String,
+            now: Instant
+        ): Boolean? = null
+
+        override suspend fun write(
+            scope: ReaderMarginaliaVisibilityScope,
+            sessionId: String,
+            visible: Boolean,
+            touchedAt: Instant
+        ) = Unit
+
+        override suspend fun clearAccountState() {
+            events += "visibility"
+            clearCount += 1
+        }
     }
 
     private class RecordingScheduler(private val events: MutableList<String>) :

@@ -376,7 +376,7 @@ class ConnectionCoordinatorTest {
     }
 
     @Test
-    fun `ambiguous logout failure retains local account state`() = runTest {
+    fun `unreachable logout still performs destructive local reset`() = runTest {
         val revocation =
             FakeClientSessionRevocationClient(
                 failure = SplClientException.ServerUnreachable()
@@ -402,21 +402,19 @@ class ConnectionCoordinatorTest {
         coordinator.logout()
         advanceUntilIdle()
 
-        assertTrue(coordinator.state.value is ConnectionUiState.Linked)
-        assertTrue(
-            coordinator.lifecycleActionState.value is ConnectionLifecycleActionState.LogoutFailed
-        )
-        assertFalse(profileStore.cleared)
-        assertFalse(credentialStore.cleared)
-        assertFalse(accountStore.cleared)
-        assertTrue(cleaner.purged.isEmpty())
+        assertTrue(coordinator.state.value is ConnectionUiState.ServerEntry)
+        assertTrue(profileStore.cleared)
+        assertTrue(credentialStore.cleared)
+        assertTrue(accountStore.cleared)
+        assertEquals(1, cleaner.purged.size)
+        assertEquals(ConnectionLifecycleActionState.Idle, coordinator.lifecycleActionState.value)
     }
 
     @Test
-    fun `logout treats an already unusable bearer as terminal and resets locally`() = runTest {
+    fun `logout not-found converges to the same destructive local result`() = runTest {
         val revocation =
             FakeClientSessionRevocationClient(
-                failure = SplClientException.AuthenticationRejected()
+                failure = SplClientException.ClientSessionNotFound()
             )
         val profileStore = FakeProfileStore().apply { stored = profile() }
         val credentialStore = storedCredential()
@@ -444,6 +442,39 @@ class ConnectionCoordinatorTest {
         assertTrue(accountStore.cleared)
         assertEquals(1, cleaner.purged.size)
         assertTrue(coordinator.state.value is ConnectionUiState.ServerEntry)
+        assertEquals(ConnectionLifecycleActionState.Idle, coordinator.lifecycleActionState.value)
+    }
+
+    @Test
+    fun `other logout rejection does not block destructive local reset`() = runTest {
+        val revocation = FakeClientSessionRevocationClient(
+            failure = SplClientException.ClientSessionRevocationFailed()
+        )
+        val profileStore = FakeProfileStore().apply { stored = profile() }
+        val credentialStore = storedCredential()
+        val accountStore = FakePersistedAccountContextStore().apply {
+            stored = PersistedAccountContext(profile().authenticatedConnectionIdentity, "profile-1")
+        }
+        val cleaner = FakeAccountLocalDataCleaner()
+        val coordinator = coordinator(
+            FakeClient(),
+            profileStore,
+            credentialStore,
+            accountStore,
+            cleaner,
+            revocationClient = revocation
+        )
+        coordinator.restore()
+        advanceUntilIdle()
+
+        coordinator.logout()
+        advanceUntilIdle()
+
+        assertTrue(coordinator.state.value is ConnectionUiState.ServerEntry)
+        assertTrue(profileStore.cleared)
+        assertTrue(credentialStore.cleared)
+        assertTrue(accountStore.cleared)
+        assertEquals(1, cleaner.purged.size)
     }
 
     @Test

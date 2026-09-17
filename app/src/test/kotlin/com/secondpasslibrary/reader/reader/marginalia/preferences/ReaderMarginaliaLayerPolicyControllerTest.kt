@@ -260,6 +260,10 @@ class ReaderMarginaliaLayerPolicyControllerTest {
             values[sessionId] = visible
             writes += sessionId to visible
         }
+
+        override suspend fun clearAccountState() {
+            values.clear()
+        }
     }
 
     private companion object {

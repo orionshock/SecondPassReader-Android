@@ -272,14 +272,6 @@ private fun ConnectionActionsSection(
                 }
             }
         }
-        if (actionState is ConnectionLifecycleActionState.LogoutFailed) {
-            Text(
-                actionState.message,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium
-            )
-            OutlinedButton(onClick = actions.logout) { Text("Retry log out") }
-        }
         if (availability.forget) {
             TextButton(onClick = onConfirmForget) {
                 AppIconGraphic(AppIcon.Delete, null, tint = MaterialTheme.colorScheme.error)

@@ -243,34 +243,28 @@ internal class ConnectionCoordinator(
         val linked = mutableState.value as? ConnectionUiState.Linked ?: return
         replaceOperation {
             mutableLifecycleActionState.value = ConnectionLifecycleActionState.LoggingOut
-            val stored =
-                attempt { credentialStore.read() }.getOrElse { failure ->
-                    reportLogoutFailure(failure)
-                    return@replaceOperation
-                }
-            if (stored == null) {
-                reportLogoutFailure(IllegalStateException("The stored credential is missing."))
-                return@replaceOperation
-            }
-            val revokeFailure =
-                attempt {
+            val storedResult = attempt { credentialStore.read() }
+            val stored = storedResult.getOrNull()
+            val revokeFailure = when {
+                storedResult.isFailure -> storedResult.exceptionOrNull()
+
+                stored == null -> MissingLogoutCredentialException()
+
+                else -> attempt {
                     clientSessionRevocationClient.revokeCurrentClientSession(
                         linked.profile.apiBaseUrl,
                         stored.credential,
                         linked.profile.clientSessionId
                     )
                 }.exceptionOrNull()
-            if (revokeFailure != null &&
-                revokeFailure !is SplClientException.AuthenticationRejected
-            ) {
-                reportLogoutFailure(revokeFailure)
-                return@replaceOperation
             }
             attempt { resetLocalAccount() }
                 .onSuccess {
                     mutableLifecycleActionState.value = ConnectionLifecycleActionState.Idle
                     mutableState.value =
-                        ConnectionUiState.ServerEntry(message = "This device was logged out.")
+                        ConnectionUiState.ServerEntry(
+                            message = logoutCompletionMessage(revokeFailure)
+                        )
                 }
                 .onFailure { failure ->
                     mutableLifecycleActionState.value = ConnectionLifecycleActionState.Idle
@@ -280,11 +274,6 @@ internal class ConnectionCoordinator(
                         )
                 }
         }
-    }
-
-    private fun reportLogoutFailure(failure: Throwable) {
-        mutableLifecycleActionState.value =
-            ConnectionLifecycleActionState.LogoutFailed(ConnectionErrorPresenter.message(failure))
     }
 
     fun close() {
@@ -570,6 +559,18 @@ internal class ConnectionCoordinator(
                 "Couldn’t reach the Library. Check your connection and retry."
             )
     }
+}
+
+private class MissingLogoutCredentialException : Exception()
+
+private fun logoutCompletionMessage(revokeFailure: Throwable?): String = when (revokeFailure) {
+    null,
+    is SplClientException.ClientSessionNotFound -> "This device was logged out."
+
+    is SplClientException.ServerUnreachable ->
+        "Logged out on this device. The Library couldn’t be reached."
+
+    else -> "Logged out on this device. The Library may still list this device."
 }
 
 private fun SplClientException.isRecoverablePollingFailure(): Boolean =

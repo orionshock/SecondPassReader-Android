@@ -4,8 +4,6 @@ internal sealed interface ConnectionLifecycleActionState {
     data object Idle : ConnectionLifecycleActionState
 
     data object LoggingOut : ConnectionLifecycleActionState
-
-    data class LogoutFailed(val message: String) : ConnectionLifecycleActionState
 }
 
 internal data class ConnectionLifecycleActions(

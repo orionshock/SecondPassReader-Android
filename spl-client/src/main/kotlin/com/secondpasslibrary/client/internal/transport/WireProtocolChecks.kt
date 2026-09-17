@@ -78,7 +78,7 @@ internal fun requireClientSessionRevocationSuccess(response: HttpResponse): Unit
         HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden ->
             SplClientException.AuthenticationRejected()
 
-        HttpStatusCode.NotFound -> SplClientException.ClientSessionRevocationRejected()
+        HttpStatusCode.NotFound -> SplClientException.ClientSessionNotFound()
 
         else -> SplClientException.ClientSessionRevocationFailed()
     }

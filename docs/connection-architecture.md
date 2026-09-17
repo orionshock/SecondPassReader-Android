@@ -130,12 +130,18 @@ downloaded file before promotion and rechecks retained EPUBs before reuse or off
 
 ## Logout and deferred work
 
-Reader logout revokes the exact bearer-owned client session with `DELETE /accounts/me/client-sessions/{client_session_id}/`. Confirmed revocation, or authentication rejection proving the bearer is already unusable, is followed by the standard local-account reset. Ambiguous remote failure retains local state for retry. Explicit Forget skips remote cooperation and invokes that same destructive local reset immediately.
+Android retains one active account context. A verified same-account Repair keeps that account's local
+state; a verified replacement purges the previous account before publishing the replacement. There
+is no dormant offline account store or account-switching lifecycle.
 
-The settled product contract additionally requires an online attempt to synchronize pending Reader
-work before logout/forget cleanup. If pending offline-authored work cannot be synchronized, the user
-must be warned that continuing will discard it. Android does not yet implement that preflight and
-warning; the current immediate Forget behavior is a known gap, not cross-client precedent.
+Reader logout attempts to revoke the exact bearer-owned client session with
+`DELETE /accounts/me/client-sessions/{client_session_id}/`, then performs the standard local-account
+reset regardless of remote availability. A not-found response is convergent remote success. Other
+remote failures do not block local logout but are not described as confirmed remote revocation.
+Explicit Forget skips remote cooperation and invokes the same destructive local reset immediately.
+The reset cancels account sync work and removes cached projections, local Reader state and outbox,
+continuation outcomes, and downloaded EPUBs with their checksum metadata. Device-level Reader
+appearance remains intact.
 
 Also deferred: mDNS discovery, known-server presets, explicit offline Session close, general cache/download management, terminal failed-outbox repair UI, and broader offline Library administration.
 

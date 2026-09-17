@@ -190,10 +190,10 @@ class KtorSecondPassClientTest {
     }
 
     @Test
-    fun `client bearer logout preserves not-found as revoke rejection`() {
+    fun `client bearer logout preserves session not-found distinctly`() {
         val client = client { respondError(HttpStatusCode.NotFound) }
 
-        assertThrows(SplClientException.ClientSessionRevocationRejected::class.java) {
+        assertThrows(SplClientException.ClientSessionNotFound::class.java) {
             runBlocking {
                 client.revokeCurrentClientSession(
                     "https://library.example/api/v1/",
@@ -209,6 +209,26 @@ class KtorSecondPassClientTest {
         listOf(HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden).forEach { status ->
             val client = client { respondError(status) }
             assertThrows(SplClientException.AuthenticationRejected::class.java) {
+                runBlocking {
+                    client.revokeCurrentClientSession(
+                        "https://library.example/api/v1/",
+                        BearerCredential.restore("spl_secret"),
+                        "session-1"
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `client bearer logout does not classify unrelated failures as not-found`() {
+        listOf(
+            HttpStatusCode.BadRequest,
+            HttpStatusCode.Conflict,
+            HttpStatusCode.InternalServerError
+        ).forEach { status ->
+            val client = client { respondError(status) }
+            assertThrows(SplClientException.ClientSessionRevocationFailed::class.java) {
                 runBlocking {
                     client.revokeCurrentClientSession(
                         "https://library.example/api/v1/",

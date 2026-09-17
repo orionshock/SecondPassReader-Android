@@ -3,6 +3,7 @@ package com.secondpasslibrary.reader.reader.asset
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import java.io.IOException
 import java.io.OutputStream
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
@@ -32,6 +33,7 @@ internal data class ReaderCompletedBookMetadata(
 )
 
 @Singleton
+@Suppress("TooManyFunctions") // One owner covers the complete account-scoped asset lifecycle.
 internal class ReaderBookAssetStore private constructor(private val root: File) {
     @Inject
     constructor(@ApplicationContext context: Context) : this(File(context.filesDir, "reader/books"))
@@ -111,6 +113,15 @@ internal class ReaderBookAssetStore private constructor(private val root: File) 
                     .filter { verifiedCompleted(account, it.bookId, it.checksum) != null }
             }
         }
+
+    suspend fun purgeAccount(account: ReaderAccountScope) = withContext(Dispatchers.IO) {
+        writes.withLock {
+            val directory = accountDirectory(account)
+            if (directory.exists() && !directory.deleteRecursively()) {
+                throw IOException("Reader assets could not be removed.")
+            }
+        }
+    }
 
     internal fun completedFile(account: ReaderAccountScope, bookId: String): File = File(
         accountDirectory(account),

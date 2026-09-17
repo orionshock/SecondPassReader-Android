@@ -52,6 +52,8 @@ internal interface ReaderMarginaliaLayerVisibilityStore {
         visible: Boolean,
         touchedAt: Instant
     )
+
+    suspend fun clearAccountState()
 }
 
 @Singleton
@@ -96,6 +98,14 @@ constructor(
         context.readerMarginaliaLayerDataStore.edit {
             it[key.visible] = visible
             it[key.touchedAt] = touchedAt.toEpochMilli()
+        }
+    }
+
+    override suspend fun clearAccountState() {
+        context.readerMarginaliaLayerDataStore.edit { preferences ->
+            val autoShowPrevious = preferences[AUTO_SHOW_PREVIOUS_KEY]
+            preferences.clear()
+            autoShowPrevious?.let { preferences[AUTO_SHOW_PREVIOUS_KEY] = it }
         }
     }
 

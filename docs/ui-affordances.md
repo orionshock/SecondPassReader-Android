@@ -188,7 +188,7 @@ current, and focused on reusable product behavior rather than implementation his
 - Default Settings surfaces useful library, account, device, and authority state rather than
   protocol diagnostics.
 - Put support-oriented identifiers behind collapsed Technical details and never expose secrets.
-- Reconnect, Log out, and Forget are distinct lifecycle actions: reconnect preserves local data
-  until verified identity is known, logout cooperatively revokes then resets locally, and Forget
-  resets locally without requiring server contact.
+- Repair connection, Log out, and Forget are distinct lifecycle actions: Repair preserves local data
+  when verified identity is unchanged; Logout attempts remote revocation and always resets locally;
+  Forget resets locally without requiring server contact.
 - Confirm destructive account-local cleanup explicitly.

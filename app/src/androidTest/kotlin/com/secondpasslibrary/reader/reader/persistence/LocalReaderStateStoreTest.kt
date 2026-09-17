@@ -522,10 +522,43 @@ class LocalReaderStateStoreTest {
         val secondAccount = account("profile-2")
         val first = store.selectOfflineSession(firstAccount, "book-1")
         val second = store.selectOfflineSession(secondAccount, "book-1")
+        store.writeProgress(
+            firstAccount,
+            first.sessionId,
+            CFI,
+            LocalReaderWriteProvenance.LOCAL_PENDING
+        )
+        store.applyAnnotationMutation(
+            firstAccount,
+            first.sessionId,
+            highlightMutation("pending-client", "pending note")
+        )
+        database.localReaderDao().upsertContinuationOutcome(
+            LocalReaderContinuationOutcomeEntity(
+                accountKey = firstAccount.value,
+                sourceLocalSessionId = first.sessionId,
+                continuationLocalSessionId = null,
+                forwardedEditCount = 1,
+                droppedDeleteCount = 1,
+                createdAtEpochMillis = 1,
+                consumedAtEpochMillis = null
+            )
+        )
 
         store.purgeAccount(firstAccount)
 
         assertNull(database.localReaderDao().session(firstAccount.value, first.sessionId))
+        assertNull(database.localReaderDao().progress(firstAccount.value, first.sessionId))
+        assertTrue(store.readAnnotations(firstAccount, first.sessionId).isEmpty())
+        assertFalse(
+            database.localReaderDao().hasPendingWorkForSession(
+                firstAccount.value,
+                first.sessionId
+            )
+        )
+        assertNull(
+            database.localReaderDao().continuationOutcome(firstAccount.value, first.sessionId)
+        )
         assertEquals(
             second.sessionId,
             database.localReaderDao().session(secondAccount.value, second.sessionId)?.localSessionId

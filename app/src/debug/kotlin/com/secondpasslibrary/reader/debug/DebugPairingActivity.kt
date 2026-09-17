@@ -32,7 +32,9 @@ class DebugPairingActivity : FragmentActivity() {
         applicationContext.readerActivityRestorationBootstrap().restoreActivity(this) {
             super.onCreate(savedInstanceState)
         }
-        val serverUrl = requireNotNull(intent.getStringExtra(EXTRA_SERVER_URL)) {
+        val operation = intent.getStringExtra(EXTRA_OPERATION) ?: OPERATION_PAIR
+        val serverUrl = intent.getStringExtra(EXTRA_SERVER_URL).orEmpty()
+        require(operation == OPERATION_LOGOUT || serverUrl.isNotBlank()) {
             "Debug pairing requires $EXTRA_SERVER_URL."
         }
         val clientName = intent.getStringExtra(EXTRA_CLIENT_NAME)?.trim().orEmpty()
@@ -44,14 +46,23 @@ class DebugPairingActivity : FragmentActivity() {
             SecondPassTheme {
                 val state by connectionViewModel.state.collectAsStateWithLifecycle()
                 LaunchedEffect(state) {
-                    advancePairing(state, serverUrl, clientName)
+                    advanceConnection(state, operation, serverUrl, clientName)
                 }
                 SecondPassApp(connectionViewModel = connectionViewModel)
             }
         }
     }
 
-    private fun advancePairing(state: ConnectionUiState, serverUrl: String, clientName: String) {
+    private fun advanceConnection(
+        state: ConnectionUiState,
+        operation: String,
+        serverUrl: String,
+        clientName: String
+    ) {
+        if (operation == OPERATION_LOGOUT) {
+            advanceLogout(state)
+            return
+        }
         when (state) {
             is ConnectionUiState.ServerEntry -> {
                 if (state.serverUrl == serverUrl && state.message != null) {
@@ -85,8 +96,36 @@ class DebugPairingActivity : FragmentActivity() {
                 finish()
             }
 
+            is ConnectionUiState.AuthenticationRequired -> {
+                connectionViewModel.screenActions.relinkLocalAccount()
+                writeStatus("verifying")
+            }
+
             is ConnectionUiState.TerminalPairingProblem ->
                 writeStatus("failed", message = state.message)
+
+            is ConnectionUiState.LocalStorageProblem ->
+                writeStatus("failed", message = state.message)
+
+            else -> Unit
+        }
+    }
+
+    private fun advanceLogout(state: ConnectionUiState) {
+        when (state) {
+            is ConnectionUiState.Linked -> {
+                writeStatus("logging-out")
+                connectionViewModel.lifecycleActions.logout()
+            }
+
+            is ConnectionUiState.ServerEntry -> {
+                writeStatus("logged-out")
+                startActivity(
+                    Intent(this, MainActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+                finish()
+            }
 
             is ConnectionUiState.LocalStorageProblem ->
                 writeStatus("failed", message = state.message)
@@ -123,6 +162,9 @@ class DebugPairingActivity : FragmentActivity() {
     internal companion object {
         const val EXTRA_SERVER_URL = "debug.server_url"
         const val EXTRA_CLIENT_NAME = "debug.client_name"
+        const val EXTRA_OPERATION = "debug.operation"
+        const val OPERATION_PAIR = "pair"
+        const val OPERATION_LOGOUT = "logout"
         const val STATUS_FILE_NAME = "debug-pairing-status.properties"
     }
 }

@@ -42,6 +42,9 @@ sealed class SplClientException(message: String, cause: Throwable? = null) :
     class AuthenticatedRequestFailed(cause: Throwable? = null) :
         SplClientException("Authenticated server context could not be loaded.", cause)
 
+    class ClientSessionNotFound : SplClientException("The client session no longer exists.")
+
+    @Deprecated("Use ClientSessionNotFound for a missing remote client session.")
     class ClientSessionRevocationRejected :
         SplClientException("The server could not revoke this client session.")
 
