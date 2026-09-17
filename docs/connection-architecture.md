@@ -4,7 +4,13 @@ This document records the first production client workflow built under the repos
 
 ## Ownership
 
-`:spl-client` owns URL normalization, public discovery, pairing requests, status polling calls, one-time consumption, bearer attachment, transport DTOs, response validation, and authenticated account/server-context mapping. It remains a pure Kotlin/JVM module. Ktor Client 3.5.2 uses its OkHttp engine, and kotlinx.serialization 1.11.0 decodes internal wire models. Neither transport type is exposed to `:app`.
+The SPL server owns pairing semantics. `:spl-client` owns transport, schema validation, typed
+protocol results, and following server-provided URLs. The Android Connection feature owns
+create → wait → poll → consume sequencing, polling cadence, retry/backoff, and cancellation.
+UI owns presentation only. App shell/storage owns workflow gating, the single active connection,
+and secure persistence; pairing does not publish a verified account by itself.
+
+`:spl-client` owns URL normalization, public discovery, pairing request HTTP, status polling HTTP, consumption HTTP, bearer attachment, transport DTOs, response validation, and authenticated account/server-context mapping. It remains a pure Kotlin/JVM module. Ktor Client 3.5.2 uses its OkHttp engine, and kotlinx.serialization 1.11.0 decodes internal wire models. Neither transport type is exposed to `:app`.
 
 `:app` owns Android lifecycle sequencing, user-facing state, encrypted credential persistence, non-secret connection persistence, and display mapping. Compose receives no bearer credential and performs no network or persistence work.
 
@@ -29,11 +35,23 @@ server entry -> verified server -> client naming -> pairing request
 
 The fixed client type is `second-pass-android-client`. The default client name uses a cleaned Android model name, contains no device identifier, and remains editable.
 
-`ConnectionCoordinator` owns the polling job. It waits at least the server-provided interval, runs one loop, and retries unreachable or throttled checks with backoff capped at 60 seconds or the server minimum, whichever is higher. A successful check resets the interval; returning the app to the foreground replaces the existing loop rather than duplicating it. Polling stops on cancellation, a terminal status, an invalid protocol response, pairing abandonment, or ViewModel clearance. Recomposition does not start work.
+`ConnectionPairingController` owns the pending SDK request and polling job within Connection.
+It waits at least the server-provided interval, runs one loop, and retries unreachable or throttled
+checks with backoff capped at 60 seconds or the server minimum, whichever is higher. A successful
+check resets the interval; foregrounding replaces the waiting loop rather than duplicating it.
+Polling stops on cancellation, terminal status, invalid response, abandonment, or ViewModel clearance.
+The request is retired before consumption, so foregrounding cannot start another consume attempt.
+Cancellation is checked after asynchronous results before state publication or credential handoff.
+`ConnectionCoordinator` receives issued credentials for persistence and separate verification.
+Recomposition does not start work.
+
+Waiting UI state contains only the Library/device names, approval code, authorization URL, expiry,
+and display status. Poll/consume URLs, polling interval, SDK request identity, and retry state remain
+inside the pairing owner. The SDK protocol models and HTTP operations are unchanged.
 
 ## Exactly-once consumption
 
-An approved request is POSTed once. A successful token-bearing response creates an opaque `BearerCredential`; a later `consumed` response without a token is terminal and unrecoverable. Any transport failure, non-success response, or malformed success response during consumption is classified as ambiguous because the server may already have atomically consumed the credential. The coordinator never retries that POST automatically.
+An approved request is POSTed once. A successful token-bearing response creates an opaque `BearerCredential`; a later `consumed` response without a token is terminal and unrecoverable. Any transport failure, non-success response, or malformed success response during consumption is classified as ambiguous because the server may already have atomically consumed the credential. The pairing controller never retries that POST automatically.
 
 After consumption, ordering is strict:
 

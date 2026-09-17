@@ -2,7 +2,6 @@ package com.secondpasslibrary.reader.connection
 
 import com.secondpasslibrary.client.AuthenticatedContext
 import com.secondpasslibrary.client.DiscoveredServer
-import com.secondpasslibrary.client.PairingRequest
 
 sealed interface ConnectionUiState {
     data object Restoring : ConnectionUiState
@@ -19,9 +18,11 @@ sealed interface ConnectionUiState {
         ConnectionUiState
 
     data class WaitingForApproval(
-        val server: DiscoveredServer,
+        val serverName: String,
         val clientName: String,
-        val request: PairingRequest,
+        val code: String,
+        val authorizeUrl: String,
+        val expiresAt: String,
         val statusText: String = "Waiting for approval"
     ) : ConnectionUiState
 

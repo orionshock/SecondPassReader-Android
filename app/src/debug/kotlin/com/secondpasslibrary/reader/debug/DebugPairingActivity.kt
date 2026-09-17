@@ -83,7 +83,7 @@ class DebugPairingActivity : FragmentActivity() {
             is ConnectionUiState.WaitingForApproval ->
                 writeStatus(
                     status = "waiting",
-                    code = state.request.code,
+                    code = state.code,
                     clientName = state.clientName
                 )
 

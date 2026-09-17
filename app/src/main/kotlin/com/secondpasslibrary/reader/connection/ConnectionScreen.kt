@@ -215,23 +215,23 @@ private fun WaitingContent(state: ConnectionUiState.WaitingForApproval, onCancel
     val uriHandler = LocalUriHandler.current
     SectionTitle(
         "Approve this device",
-        "Enter this code in ${state.server.name}."
+        "Enter this code in ${state.serverName}."
     )
     InformationCard("Approval code") {
         SelectionContainer {
             Text(
-                state.request.code,
+                state.code,
                 color = MaterialTheme.colorScheme.primary,
                 style = MaterialTheme.typography.displayMedium,
                 fontFamily = FontFamily.Monospace
             )
         }
         InformationDetail("Status", state.statusText)
-        InformationDetail("Expires", state.request.expiresAt)
+        InformationDetail("Expires", state.expiresAt)
     }
     ActionRow {
         Button(onClick = {
-            uriHandler.openUri(state.request.authorizeUrl)
+            uriHandler.openUri(state.authorizeUrl)
         }) { Text("Open approval page") }
         OutlinedButton(onClick = onCancel) { Text("Cancel") }
     }

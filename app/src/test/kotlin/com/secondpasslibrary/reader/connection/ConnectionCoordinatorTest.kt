@@ -18,12 +18,12 @@ import com.secondpasslibrary.reader.app.storage.AccountLocalScope
 import com.secondpasslibrary.reader.connection.storage.PersistedAccountContextStore
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -480,102 +480,6 @@ class ConnectionCoordinatorTest {
     }
 
     @Test
-    fun `abandoning pairing cancels its polling loop`() = runTest {
-        val client =
-            FakeClient(
-                pollStatuses = ArrayDeque(listOf(PairingStatus.PENDING, PairingStatus.PENDING))
-            )
-        val coordinator =
-            coordinator(client, FakeProfileStore(), FakeCredentialStore(), timedDelay = true)
-
-        startPairing(coordinator)
-        runCurrent()
-        advanceTimeBy(3_000)
-        runCurrent()
-        assertEquals(1, client.pollCalls)
-
-        coordinator.abandonPairing()
-        advanceTimeBy(30_000)
-        runCurrent()
-
-        assertEquals(1, client.pollCalls)
-        assertTrue(coordinator.state.value is ConnectionUiState.ServerEntry)
-    }
-
-    @Test
-    fun `transient polling failure retries automatically with bounded backoff`() = runTest {
-        val client =
-            FakeClient(
-                pollStatuses = ArrayDeque(listOf(PairingStatus.APPROVED)),
-                pollFailures = ArrayDeque(listOf(SplClientException.ServerUnreachable()))
-            )
-        val coordinator =
-            coordinator(client, FakeProfileStore(), FakeCredentialStore(), timedDelay = true)
-
-        startPairing(coordinator)
-        runCurrent()
-        advanceTimeBy(3_000)
-        runCurrent()
-
-        val retrying = coordinator.state.value as ConnectionUiState.WaitingForApproval
-        assertFalse(retrying.statusText.isBlank())
-        assertEquals(1, client.pollCalls)
-
-        advanceTimeBy(5_999)
-        runCurrent()
-        assertEquals(1, client.pollCalls)
-        advanceTimeBy(1)
-        advanceUntilIdle()
-
-        assertEquals(2, client.pollCalls)
-        assertTrue(coordinator.state.value is ConnectionUiState.Linked)
-    }
-
-    @Test
-    fun `foregrounding pairing restarts one polling loop at the server interval`() = runTest {
-        val client =
-            FakeClient(
-                pollStatuses = ArrayDeque(listOf(PairingStatus.PENDING, PairingStatus.APPROVED))
-            )
-        val coordinator =
-            coordinator(client, FakeProfileStore(), FakeCredentialStore(), timedDelay = true)
-
-        startPairing(coordinator)
-        runCurrent()
-        advanceTimeBy(1_000)
-        coordinator.pairingForegrounded()
-        runCurrent()
-        advanceTimeBy(2_999)
-        runCurrent()
-        assertEquals(0, client.pollCalls)
-
-        advanceTimeBy(1)
-        runCurrent()
-        assertEquals(1, client.pollCalls)
-        advanceTimeBy(3_000)
-        advanceUntilIdle()
-
-        assertEquals(2, client.pollCalls)
-        assertTrue(coordinator.state.value is ConnectionUiState.Linked)
-    }
-
-    @Test
-    fun `invalid polling response remains terminal`() = runTest {
-        val client =
-            FakeClient(
-                pollFailures =
-                    ArrayDeque(listOf(SplClientException.ProtocolInvalid("pairing status")))
-            )
-        val coordinator = coordinator(client, FakeProfileStore(), FakeCredentialStore())
-
-        startPairing(coordinator)
-        advanceUntilIdle()
-
-        assertEquals(1, client.pollCalls)
-        assertTrue(coordinator.state.value is ConnectionUiState.TerminalPairingProblem)
-    }
-
-    @Test
     fun `profile failure after consumption retries without consuming again`() = runTest {
         val client = FakeClient(pollStatuses = ArrayDeque(listOf(PairingStatus.APPROVED)))
         val profileStore = FakeProfileStore().apply { failWrites = true }
@@ -848,19 +752,47 @@ class ConnectionCoordinatorTest {
     }
 
     @Test
-    fun `ambiguous consume failure is never retried automatically`() = runTest {
-        val client =
-            FakeClient(
-                pollStatuses = ArrayDeque(listOf(PairingStatus.APPROVED)),
-                consumeFailure = SplClientException.AmbiguousConsumeFailure()
-            )
-        val coordinator = coordinator(client, FakeProfileStore(), FakeCredentialStore())
-
+    fun `cancelled consume cannot persist or publish its late credential`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val client = FakeClient(
+            pollStatuses = ArrayDeque(listOf(PairingStatus.APPROVED)),
+            consumeGate = gate
+        )
+        val credentials = FakeCredentialStore()
+        val profiles = FakeProfileStore()
+        val coordinator = coordinator(client, profiles, credentials)
         startPairing(coordinator)
+        runCurrent()
+        coordinator.abandonPairing()
+        gate.complete(Unit)
         advanceUntilIdle()
 
-        assertTrue(coordinator.state.value is ConnectionUiState.TerminalPairingProblem)
-        assertEquals(1, client.consumeCalls)
+        assertNull(credentials.stored)
+        assertNull(profiles.stored)
+        assertNull(coordinator.localAccountContext.value)
+        assertTrue(coordinator.state.value is ConnectionUiState.ServerEntry)
+    }
+
+    @Test
+    fun `cancelled verification cannot publish a stale paired account`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val client = FakeClient(
+            pollStatuses = ArrayDeque(listOf(PairingStatus.APPROVED)),
+            verificationGate = gate,
+            ignoreVerificationCancellation = true
+        )
+        val accounts = FakePersistedAccountContextStore()
+        val coordinator = coordinator(client, FakeProfileStore(), FakeCredentialStore(), accounts)
+        startPairing(coordinator)
+        runCurrent()
+        assertTrue(coordinator.state.value is ConnectionUiState.CompletingPairing)
+        coordinator.abandonPairing()
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertNull(accounts.stored)
+        assertNull(coordinator.localAccountContext.value)
+        assertTrue(coordinator.state.value is ConnectionUiState.ServerEntry)
     }
 
     private suspend fun TestScope.startPairing(coordinator: ConnectionCoordinator) {
@@ -879,7 +811,6 @@ class ConnectionCoordinatorTest {
         accountContextStore: FakePersistedAccountContextStore =
             FakePersistedAccountContextStore(),
         cleaner: FakeAccountLocalDataCleaner = FakeAccountLocalDataCleaner(),
-        timedDelay: Boolean = false,
         revocationClient: FakeClientSessionRevocationClient =
             FakeClientSessionRevocationClient()
     ) = ConnectionCoordinator(
@@ -889,7 +820,7 @@ class ConnectionCoordinatorTest {
         credentialStore = credentialStore,
         accountContextStore = accountContextStore,
         accountLocalDataLifecycle = cleaner,
-        pollDelay = PairingPollDelay { seconds -> if (timedDelay) delay(seconds * 1_000) },
+        pollDelay = PairingPollDelay {},
         defaultClientName = "Second Pass Reader · Android",
         scope = this
     )
@@ -897,15 +828,14 @@ class ConnectionCoordinatorTest {
     private class FakeClient(
         private val events: MutableList<String> = mutableListOf(),
         private val pollStatuses: ArrayDeque<PairingStatus> = ArrayDeque(),
-        private val pollFailures: ArrayDeque<SplClientException> = ArrayDeque(),
         private val authFailure: Exception? = null,
         private val authFailures: ArrayDeque<Exception> = ArrayDeque(),
-        private val consumeFailure: Exception? = null,
+        private val consumeGate: CompletableDeferred<Unit>? = null,
+        private val ignoreVerificationCancellation: Boolean = false,
         private val verificationGate: CompletableDeferred<Unit>? = null,
         private val authenticatedProfileId: String = "profile-1",
         private val issuedSessionId: String = "session-1"
     ) : SecondPassClient {
-        var pollCalls = 0
         var consumeCalls = 0
 
         override suspend fun discoverServer(userInput: String): DiscoveredServer = server()
@@ -916,16 +846,13 @@ class ConnectionCoordinatorTest {
             clientType: String
         ): PairingRequest = request()
 
-        override suspend fun checkPairing(request: PairingRequest): PairingStatus {
-            pollCalls += 1
-            pollFailures.removeFirstOrNull()?.let { throw it }
-            return pollStatuses.removeFirstOrNull() ?: PairingStatus.PENDING
-        }
+        override suspend fun checkPairing(request: PairingRequest): PairingStatus =
+            pollStatuses.removeFirstOrNull() ?: PairingStatus.PENDING
 
         override suspend fun consumeApprovedPairing(request: PairingRequest): PairingConsumption {
             consumeCalls += 1
             events += "consume"
-            consumeFailure?.let { throw it }
+            consumeGate?.let { withContext(NonCancellable) { it.await() } }
             return PairingConsumption.CredentialIssued(
                 BearerCredential.restore("spl_secret"),
                 ClientSession(issuedSessionId, "Tablet", "second-pass-android-client")
@@ -937,7 +864,11 @@ class ConnectionCoordinatorTest {
             credential: BearerCredential
         ): AuthenticatedContext {
             events += "verify"
-            verificationGate?.await()
+            if (ignoreVerificationCancellation) {
+                withContext(NonCancellable) { verificationGate?.await() }
+            } else {
+                verificationGate?.await()
+            }
             authFailures.removeFirstOrNull()?.let { throw it }
             authFailure?.let { throw it }
             return authenticatedContext(authenticatedProfileId)

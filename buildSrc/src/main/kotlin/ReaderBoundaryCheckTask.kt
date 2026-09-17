@@ -25,6 +25,11 @@ abstract class ReaderBoundaryCheckTask : DefaultTask() {
             val isReadiumAdapter = READIUM_ADAPTER_PATH in path
             val isConnectionFeature = CONNECTION_FEATURE_PATH in path
             val isLibraryFeature = LIBRARY_FEATURE_PATH in path
+            val isConnectionPresentation = isConnectionFeature &&
+                ("@Composable" in source || file.name == "ConnectionUiState.kt")
+            if (isConnectionPresentation && PAIRING_PROTOCOL_MARKERS.any { it in source }) {
+                violations += "$path: Connection presentation exposes pairing protocol details"
+            }
             if (!isReadiumAdapter && "import org.readium." in source) {
                 violations += "$path: Readium import outside the Reader adapter"
             }
@@ -68,6 +73,9 @@ abstract class ReaderBoundaryCheckTask : DefaultTask() {
         const val READIUM_ADAPTER_PATH = "${READER_FEATURE_PATH}readium/"
         const val CONNECTION_FEATURE_PATH = "/com/secondpasslibrary/reader/connection/"
         const val LIBRARY_FEATURE_PATH = "/com/secondpasslibrary/reader/library/"
+        val PAIRING_PROTOCOL_MARKERS = listOf(
+            "PairingRequest", "PairingStatus", "PairingConsumption", "pollUrl", "consumeUrl"
+        )
         val CONNECTION_LATERAL_IMPORTS = listOf(
             "import com.secondpasslibrary.reader.home.",
             "import com.secondpasslibrary.reader.reader."

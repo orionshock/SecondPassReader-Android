@@ -3,10 +3,7 @@ package com.secondpasslibrary.reader.connection
 import com.secondpasslibrary.client.BearerCredential
 import com.secondpasslibrary.client.ClientSessionRevocationClient
 import com.secondpasslibrary.client.PairingConsumption
-import com.secondpasslibrary.client.PairingRequest
-import com.secondpasslibrary.client.PairingStatus
 import com.secondpasslibrary.client.SecondPassClient
-import com.secondpasslibrary.client.SplClient
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.app.storage.AccountLocalDataLifecycle
 import com.secondpasslibrary.reader.app.storage.AccountLocalScope
@@ -15,10 +12,10 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 @Suppress("TooManyFunctions") // One cohesive, explicit connection state machine.
@@ -29,7 +26,7 @@ internal class ConnectionCoordinator(
     private val credentialStore: BearerCredentialStore,
     private val accountContextStore: PersistedAccountContextStore,
     private val accountLocalDataLifecycle: AccountLocalDataLifecycle,
-    private val pollDelay: PairingPollDelay,
+    pollDelay: PairingPollDelay,
     private val defaultClientName: String,
     private val scope: CoroutineScope
 ) {
@@ -44,6 +41,15 @@ internal class ConnectionCoordinator(
         mutableLifecycleActionState.asStateFlow()
 
     private var operation: Job? = null
+    private val pairing = ConnectionPairingController(
+        client,
+        pollDelay,
+        scope,
+        onState = { mutableState.value = it },
+        onCredentialIssued = { server, issued ->
+            replaceOperation { persistPairing(server, issued) }
+        }
+    )
 
     fun restore() = replaceOperation {
         mutableState.value = ConnectionUiState.Restoring
@@ -135,27 +141,14 @@ internal class ConnectionCoordinator(
             mutableState.value = confirmed.copy(clientName = "")
             return
         }
-        replaceOperation {
-            mutableState.value = ConnectionUiState.StartingPairing(confirmed.server, clientName)
-            attempt {
-                client.beginPairing(confirmed.server, clientName, SplClient.ANDROID_CLIENT_TYPE)
-            }
-                .onSuccess { request -> poll(confirmed.server, clientName, request) }
-                .onFailure {
-                    mutableState.value =
-                        ConnectionUiState.TerminalPairingProblem(
-                            ConnectionErrorPresenter.message(it)
-                        )
-                }
-        }
+        operation?.cancel()
+        pairing.start(confirmed.server, clientName)
     }
 
-    fun pairingForegrounded() {
-        val waiting = mutableState.value as? ConnectionUiState.WaitingForApproval ?: return
-        replaceOperation { poll(waiting.server, waiting.clientName, waiting.request) }
-    }
+    fun pairingForegrounded() = pairing.foregrounded()
 
     fun abandonPairing() {
+        pairing.cancel()
         operation?.cancel()
         mutableState.value =
             mutableLocalAccountContext.value?.let {
@@ -279,134 +272,28 @@ internal class ConnectionCoordinator(
     }
 
     fun close() {
+        pairing.cancel()
         operation?.cancel()
     }
 
-    @Suppress("ReturnCount") // Terminal protocol states exit the single polling loop.
-    private suspend fun poll(
+    private suspend fun persistPairing(
         server: com.secondpasslibrary.client.DiscoveredServer,
-        clientName: String,
-        request: PairingRequest
+        issued: PairingConsumption.CredentialIssued
     ) {
-        mutableState.value = ConnectionUiState.WaitingForApproval(server, clientName, request)
-        var nextDelaySeconds = request.intervalSeconds
-        while (currentCoroutineContext().isActive) {
-            pollDelay.wait(nextDelaySeconds)
-            val status =
-                try {
-                    client.checkPairing(request)
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (failure: SplClientException) {
-                    if (!failure.isRecoverablePollingFailure()) {
-                        mutableState.value =
-                            ConnectionUiState.TerminalPairingProblem(
-                                ConnectionErrorPresenter.message(failure)
-                            )
-                        return
-                    }
-                    nextDelaySeconds =
-                        reportRecoverablePollingFailure(
-                            server,
-                            clientName,
-                            request,
-                            failure,
-                            nextDelaySeconds
-                        )
-                    continue
-                }
-            nextDelaySeconds = request.intervalSeconds
-            when (status) {
-                PairingStatus.PENDING ->
-                    mutableState.value =
-                        ConnectionUiState.WaitingForApproval(server, clientName, request)
-
-                PairingStatus.APPROVED -> {
-                    completePairing(server, request)
-                    return
-                }
-
-                PairingStatus.DENIED -> {
-                    mutableState.value = ConnectionUiState.TerminalPairingProblem(
-                        "The link request was denied. Start again for a new code."
-                    )
-                    return
-                }
-
-                PairingStatus.EXPIRED -> {
-                    mutableState.value =
-                        ConnectionUiState.TerminalPairingProblem(
-                            "The link request expired. Start again to request a new code."
-                        )
-                    return
-                }
-
-                PairingStatus.CONSUMED -> {
-                    mutableState.value =
-                        ConnectionUiState.TerminalPairingProblem(
-                            "This approval was already used. Start again with a new code."
-                        )
-                    return
-                }
-            }
+        val profile = ConnectionProfile.linked(server, issued.clientSession)
+        try {
+            credentialStore.write(issued.credential, profile)
+            currentCoroutineContext().ensureActive()
+        } catch (_: CredentialStorageException) {
+            currentCoroutineContext().ensureActive()
+            mutableState.value =
+                ConnectionUiState.TerminalPairingProblem(
+                    "The connection was approved but couldn’t be saved securely. " +
+                        "Start again."
+                )
+            return
         }
-    }
-
-    private fun reportRecoverablePollingFailure(
-        server: com.secondpasslibrary.client.DiscoveredServer,
-        clientName: String,
-        request: PairingRequest,
-        failure: SplClientException,
-        currentDelaySeconds: Long
-    ): Long {
-        mutableState.value =
-            ConnectionUiState.WaitingForApproval(
-                server,
-                clientName,
-                request,
-                "${ConnectionErrorPresenter.message(failure)} Retrying."
-            )
-        return (currentDelaySeconds * RETRY_BACKOFF_MULTIPLIER)
-            .coerceAtMost(maxOf(request.intervalSeconds, MAX_POLL_RETRY_SECONDS))
-    }
-
-    private suspend fun completePairing(
-        server: com.secondpasslibrary.client.DiscoveredServer,
-        request: PairingRequest
-    ) {
-        mutableState.value = ConnectionUiState.CompletingPairing(server.name, request.code)
-        val consumption =
-            try {
-                client.consumeApprovedPairing(request)
-            } catch (failure: SplClientException) {
-                mutableState.value =
-                    ConnectionUiState.TerminalPairingProblem(
-                        ConnectionErrorPresenter.message(failure)
-                    )
-                return
-            }
-        when (consumption) {
-            is PairingConsumption.CredentialIssued -> {
-                val profile = ConnectionProfile.linked(server, consumption.clientSession)
-                try {
-                    credentialStore.write(consumption.credential, profile)
-                } catch (_: CredentialStorageException) {
-                    mutableState.value =
-                        ConnectionUiState.TerminalPairingProblem(
-                            "The connection was approved but couldn’t be saved securely. " +
-                                "Start again."
-                        )
-                    return
-                }
-                persistProfileAndVerify(profile, consumption.credential)
-            }
-
-            PairingConsumption.AlreadyConsumed ->
-                mutableState.value =
-                    ConnectionUiState.TerminalPairingProblem(
-                        "The approval was used but the connection wasn’t completed. Start again."
-                    )
-        }
+        persistProfileAndVerify(profile, issued.credential)
     }
 
     private suspend fun persistProfileAndVerify(
@@ -415,7 +302,9 @@ internal class ConnectionCoordinator(
     ) {
         try {
             profileStore.write(profile)
+            currentCoroutineContext().ensureActive()
         } catch (_: ConnectionProfileStorageException) {
+            currentCoroutineContext().ensureActive()
             mutableState.value =
                 ConnectionUiState.PersistenceRecovery(
                     profile,
@@ -434,14 +323,15 @@ internal class ConnectionCoordinator(
     ) {
         try {
             val context = client.loadAuthenticatedContext(profile.apiBaseUrl, credential)
-            val persistedAccount =
-                PersistedAccountContext(
-                    connectionIdentity = profile.authenticatedConnectionIdentity,
-                    profileId = context.currentUser.profileId,
-                    accountServerOrigin = profile.serverOrigin
-                )
+            currentCoroutineContext().ensureActive()
+            val persistedAccount = PersistedAccountContext(
+                connectionIdentity = profile.authenticatedConnectionIdentity,
+                profileId = context.currentUser.profileId,
+                accountServerOrigin = profile.serverOrigin
+            )
             val previousAccount = mutableLocalAccountContext.value?.persistedAccount
                 ?: accountContextStore.read()
+            currentCoroutineContext().ensureActive()
             if (previousAccount != null &&
                 previousAccount.localDataScope() != persistedAccount.localDataScope()
             ) {
@@ -465,6 +355,7 @@ internal class ConnectionCoordinator(
                 }
             mutableState.value = ConnectionUiState.Linked(profile, context)
         } catch (_: SplClientException.AuthenticationRejected) {
+            currentCoroutineContext().ensureActive()
             if (restoring || mutableLocalAccountContext.value != null) {
                 mutableState.value =
                     ConnectionUiState.AuthenticationRequired(
@@ -480,13 +371,13 @@ internal class ConnectionCoordinator(
                     )
             }
         } catch (failure: SplClientException) {
+            currentCoroutineContext().ensureActive()
             val message = ConnectionErrorPresenter.message(failure)
-            mutableState.value =
-                if (restoring) {
-                    ConnectionUiState.RestoreProblem(profile, message)
-                } else {
-                    ConnectionUiState.StoredCredentialProblem(profile, message, retryable = true)
-                }
+            mutableState.value = if (restoring) {
+                ConnectionUiState.RestoreProblem(profile, message)
+            } else {
+                ConnectionUiState.StoredCredentialProblem(profile, message, retryable = true)
+            }
         }
     }
 
@@ -527,19 +418,19 @@ internal class ConnectionCoordinator(
     }
 
     private fun replaceOperation(block: suspend () -> Unit) {
+        pairing.cancel()
         operation?.cancel()
         operation = scope.launch { block() }
     }
 
     private suspend fun <T> attempt(block: suspend () -> T): Result<T> =
         runCatching { block() }.also { result ->
+            currentCoroutineContext().ensureActive()
             (result.exceptionOrNull() as? CancellationException)?.let { throw it }
         }
 
     private companion object {
         const val MAX_CLIENT_NAME_LENGTH = 200
-        const val RETRY_BACKOFF_MULTIPLIER = 2
-        const val MAX_POLL_RETRY_SECONDS = 60L
     }
 
     fun authenticatedRequestRejected() {
@@ -574,6 +465,3 @@ private fun logoutCompletionMessage(revokeFailure: Throwable?): String = when (r
 
     else -> "Logged out on this device. The Library may still list this device."
 }
-
-private fun SplClientException.isRecoverablePollingFailure(): Boolean =
-    this is SplClientException.ServerUnreachable || this is SplClientException.PairingThrottled
