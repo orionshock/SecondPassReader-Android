@@ -102,8 +102,8 @@ internal class ReadiumEpubPackageCfiMapper(
     private fun ReadiumPackageTarget.toVerifiedTarget(): EpubCfiOutcome<ReadiumEpubPackageTarget> {
         val spineItem = packageDocument.spine.getOrNull(spineIndex)
         val targetKind = when (kind) {
-            "point" -> EpubCfiTargetKind.POINT
-            "range" -> EpubCfiTargetKind.RANGE
+            CfiProtocol.KIND_POINT -> EpubCfiTargetKind.POINT
+            CfiProtocol.KIND_RANGE -> EpubCfiTargetKind.RANGE
             else -> null
         }
         return when {

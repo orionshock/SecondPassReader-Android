@@ -1,10 +1,15 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { generateProtocol, checkProtocol, typecheck } from "./protocol.mjs";
 import {
   bundledRuntime,
   developmentOutputPath,
   releaseOutputPath
 } from "./build-support.mjs";
+
+await generateProtocol();
+await checkProtocol();
+typecheck();
 
 for (const [outputPath, minify] of [
   [developmentOutputPath, false],

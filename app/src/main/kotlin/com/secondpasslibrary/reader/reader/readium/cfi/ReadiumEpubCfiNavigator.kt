@@ -388,6 +388,6 @@ private fun ReadiumResolvedCfi.toDomainResolution(
 
 private val EpubCfiTargetKind.runtimeName: String
     get() = when (this) {
-        EpubCfiTargetKind.POINT -> "point"
-        EpubCfiTargetKind.RANGE -> "range"
+        EpubCfiTargetKind.POINT -> CfiProtocol.KIND_POINT
+        EpubCfiTargetKind.RANGE -> CfiProtocol.KIND_RANGE
     }

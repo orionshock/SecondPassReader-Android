@@ -25,6 +25,10 @@ abstract class ReaderBoundaryCheckTask : DefaultTask() {
             val isReadiumAdapter = READIUM_ADAPTER_PATH in path
             val isConnectionFeature = CONNECTION_FEATURE_PATH in path
             val isLibraryFeature = LIBRARY_FEATURE_PATH in path
+            if (!isReadiumAdapter &&
+                ("CfiProtocol" in source || "CfiRuntimeMethod" in source)) {
+                violations += "$path: CFI wire protocol outside the Readium adapter"
+            }
             val isConnectionPresentation = isConnectionFeature &&
                 ("@Composable" in source || file.name == "ConnectionUiState.kt")
             if (isConnectionPresentation && PAIRING_PROTOCOL_MARKERS.any { it in source }) {

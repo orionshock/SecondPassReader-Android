@@ -1,0 +1,33 @@
+{
+  "runtimeVersion": "1.12.9",
+  "global": "__secondPassEpubCfi",
+  "limits": {"CONTEXT_LENGTH":64,"SELECTION_CONTEXT_LENGTH":2000,"MOVEMENT_QUOTE_LENGTH":128,"MAX_SELECTED_TEXT_LENGTH":65536},
+  "errors": ["INVALID_CFI","UNSUPPORTED_CFI_FEATURE","INVALID_PACKAGE_DOCUMENT","PACKAGE_TARGET_NOT_FOUND","PACKAGE_TARGET_MISMATCH","DOM_TARGET_NOT_FOUND","INVALID_RANGE","SELECTION_UNAVAILABLE","VISIBLE_POSITION_UNAVAILABLE","MOVEMENT_ANCHOR_UNAVAILABLE","UNSUPPORTED_FIXED_LAYOUT","UNSUPPORTED_SCROLL_MODE","UNSUPPORTED_WRITING_MODE","RESULT_TOO_LARGE","CFI_RUNTIME_FAILURE"],
+  "kinds": ["point","range"],
+  "envelope": {"ok":"ok","value":"value","error":"error","code":"code"},
+  "types": {
+    "Parsed": {"kind":"TargetKind","hasIndirection":"boolean"},
+    "PackageTarget": {"itemrefId":"string | null","idref":"string","spineIndex":"number","kind":"TargetKind"},
+    "PackageCandidate": {"id":"string","cfi":"string"},
+    "PackageResolution": {"id":"string","itemrefId":"string | null","idref":"string","spineIndex":"number","kind":"TargetKind"},
+    "MovementAnchor": {"exact":"string","before":"string | null","after":"string | null"},
+    "ContentResolution": {"kind":"TargetKind","selectedText?":"string | null","prefix?":"string | null","suffix?":"string | null","movementAnchor?":"MovementAnchor"},
+    "Selection": {"contentCfi":"string","selectedText":"string","prefix":"string | null","suffix":"string | null"},
+    "Verification": {"semanticMatch":"boolean","visible":"boolean"},
+    "Visibility": {"id":"string","visible":"boolean"}
+  },
+  "methods": {
+    "runtimeVersion": {"arguments":[],"result":"string"},
+    "isDocumentReady": {"arguments":[],"result":"boolean"},
+    "parse": {"arguments":[["cfi","string"]],"result":"Parsed"},
+    "resolvePackage": {"arguments":[["cfi","string"],["packageXml","string"],["packagePath","string"]],"result":"PackageTarget"},
+    "resolvePackageCandidates": {"arguments":[["serializedCandidates","string"],["packageXml","string"],["packagePath","string"]],"result":"PackageResolution[]"},
+    "generatePackage": {"arguments":[["packageXml","string"],["packagePath","string"],["spineIndex","number"],["idref","string"],["itemrefId","string | null"]],"result":"string"},
+    "resolveContent": {"arguments":[["cfi","string"],["packageXml","string"],["packagePath","string"],["spineIndex","number"],["idref","string"],["itemrefId","string | null"],["resourceHref","string"]],"result":"ContentResolution"},
+    "verifyContentTarget": {"arguments":[["cfi","string"],["resourceHref","string"],["kind","TargetKind"],["selectedText","string | null"],["prefix","string | null"],["suffix","string | null"],["exact","string"],["before","string | null"],["after","string | null"]],"result":"Verification"},
+    "visiblePointTargets": {"arguments":[["serializedCandidates","string"],["packageXml","string"],["packagePath","string"],["spineIndex","number"],["idref","string"],["itemrefId","string | null"],["resourceHref","string"]],"result":"Visibility[]"},
+    "generateSelectionContentCfi": {"arguments":[],"result":"Selection | null"},
+    "generateVisiblePositionContentCfi": {"arguments":[],"result":"string"},
+    "composeFullCfi": {"arguments":[["packageCfi","string"],["contentCfi","string"]],"result":"string"}
+  }
+}

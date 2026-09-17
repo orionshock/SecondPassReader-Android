@@ -376,6 +376,64 @@ class ReadiumEpubCfiNavigatorIntegrationTest {
     }
 
     @Test
+    fun protocolFailuresRemainTypedAndMissingDomTargetRetries() = withFixture(
+        "protocol-compatibility.epub"
+    ) { fixture ->
+        launchHost(fixture).use { scenario ->
+            val host = scenario.awaitReadyHost()
+            val target = EpubCfi(CROSS_MARKUP_RANGE_CFI)
+            runBlocking { host.engine.cfiNavigator.resolve(target).requireSuccess() }
+            fun replaceContent(body: String) = runBlocking {
+                withContext(Dispatchers.Main) {
+                    host.navigator.evaluateJavascript(
+                        """
+                        (() => {
+                          const original = window.__cfiOriginal || window.__secondPassEpubCfi;
+                          window.__cfiOriginal = original;
+                          window.__secondPassEpubCfi = { ...original, resolveContent: function(...args) {
+                            $body
+                          }};
+                        })();
+                        """.trimIndent()
+                    )
+                }
+            }
+
+            replaceContent("return { ok: false, error: { code: 'UNKNOWN_ERROR' } };")
+            assertEquals(
+                EpubCfiOutcome.Failure(EpubCfiFailure.CFI_RUNTIME_FAILURE),
+                runBlocking { host.engine.cfiNavigator.resolve(target) }
+            )
+            replaceContent("return { ok: true, value: { kind: 'unknown', movementAnchor: {} } };")
+            assertEquals(
+                EpubCfiOutcome.Failure(EpubCfiFailure.CFI_RUNTIME_FAILURE),
+                runBlocking { host.engine.cfiNavigator.resolve(target) }
+            )
+            replaceContent("return undefined;")
+            assertEquals(
+                EpubCfiOutcome.Failure(EpubCfiFailure.JAVASCRIPT_RUNTIME_UNAVAILABLE),
+                runBlocking { host.engine.cfiNavigator.resolve(target) }
+            )
+            replaceContent(
+                """
+                window.__cfiResolveAttempts = (window.__cfiResolveAttempts || 0) + 1;
+                if (window.__cfiResolveAttempts === 1) {
+                  return { ok: false, error: { code: 'DOM_TARGET_NOT_FOUND' } };
+                }
+                return original.resolveContent(...args);
+                """.trimIndent()
+            )
+            runBlocking { host.engine.cfiNavigator.goTo(target).requireSuccess() }
+            val attempts = runBlocking {
+                withContext(Dispatchers.Main) {
+                    host.navigator.evaluateJavascript("window.__cfiResolveAttempts")
+                }
+            }
+            assertTrue(requireNotNull(attempts).toInt() >= 2)
+        }
+    }
+
+    @Test
     fun liveDocumentSelectionObserverTracksSelectionClearAndNavigatorRecreation() = withFixture(
         "live-selection-observer.epub"
     ) { fixture ->

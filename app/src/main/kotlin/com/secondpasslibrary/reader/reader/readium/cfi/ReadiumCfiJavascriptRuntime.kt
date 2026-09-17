@@ -4,14 +4,10 @@ import android.content.Context
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiFailure
 import com.secondpasslibrary.reader.reader.cfi.EpubPackageDocument
+import com.secondpasslibrary.reader.reader.readium.cfi.CfiProtocol as P
 import org.json.JSONArray
 import org.json.JSONObject
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
-
-private const val CONTEXT_LENGTH = 64
-private const val SELECTION_CONTEXT_LENGTH = 2_000
-private const val MOVEMENT_QUOTE_LENGTH = 128
-private const val MAX_SELECTED_TEXT_LENGTH = 64 * 1024
 
 internal class ReadiumCfiJavascriptRuntime(context: Context) {
     private val bridge = ReadiumCfiJavascriptBridge(context.applicationContext)
@@ -23,8 +19,8 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
         navigator: EpubNavigatorFragment
     ): ReadiumCfiJavascriptResult<Boolean> = bridge.invoke(
         navigator = navigator,
-        method = "isDocumentReady",
-        arguments = emptyList()
+        method = CfiRuntimeMethod.IS_DOCUMENT_READY,
+        arguments = emptyMap()
     ).mapValue { it as? Boolean ?: error("CFI runtime readiness result is invalid.") }
 
     suspend fun resolvePackage(
@@ -33,11 +29,11 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
         packageDocument: EpubPackageDocument
     ): ReadiumCfiJavascriptResult<ReadiumPackageTarget> = bridge.invoke(
         navigator = navigator,
-        method = "resolvePackage",
-        arguments = listOf(
-            JavascriptArgument.StringValue(cfi.value),
-            JavascriptArgument.StringValue(packageDocument.packageXml),
-            JavascriptArgument.StringValue(packageDocument.packagePath)
+        method = CfiRuntimeMethod.RESOLVE_PACKAGE,
+        arguments = mapOf(
+            P.ARG_CFI to JavascriptArgument.StringValue(cfi.value),
+            P.ARG_PACKAGE_XML to JavascriptArgument.StringValue(packageDocument.packageXml),
+            P.ARG_PACKAGE_PATH to JavascriptArgument.StringValue(packageDocument.packagePath)
         )
     ).mapValue { value ->
         readPackageTarget(value)
@@ -49,11 +45,11 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
         packageDocument: EpubPackageDocument
     ): ReadiumCfiJavascriptResult<Map<String, ReadiumPackageTarget>> = bridge.invoke(
         navigator = navigator,
-        method = "resolvePackageCandidates",
-        arguments = listOf(
-            JavascriptArgument.StringValue(candidates.serialized()),
-            JavascriptArgument.StringValue(packageDocument.packageXml),
-            JavascriptArgument.StringValue(packageDocument.packagePath)
+        method = CfiRuntimeMethod.RESOLVE_PACKAGE_CANDIDATES,
+        arguments = mapOf(
+            P.ARG_SERIALIZED_CANDIDATES to JavascriptArgument.StringValue(candidates.serialized()),
+            P.ARG_PACKAGE_XML to JavascriptArgument.StringValue(packageDocument.packageXml),
+            P.ARG_PACKAGE_PATH to JavascriptArgument.StringValue(packageDocument.packagePath)
         )
     ).mapValue { value ->
         val results = value as? JSONArray
@@ -61,7 +57,7 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
         buildMap {
             repeat(results.length()) { index ->
                 val result = results.getJSONObject(index)
-                put(result.getString("id"), readPackageTarget(result))
+                put(result.getString(P.FIELD_ID), readPackageTarget(result))
             }
         }
     }
@@ -74,13 +70,16 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
         itemrefId: String?
     ): ReadiumCfiJavascriptResult<EpubCfi> = bridge.invoke(
         navigator = navigator,
-        method = "generatePackage",
-        arguments = listOf(
-            JavascriptArgument.StringValue(packageDocument.packageXml),
-            JavascriptArgument.StringValue(packageDocument.packagePath),
-            JavascriptArgument.NumberValue(spineIndex),
-            JavascriptArgument.StringValue(idref),
-            itemrefId?.let(JavascriptArgument::StringValue) ?: JavascriptArgument.NullValue
+        method = CfiRuntimeMethod.GENERATE_PACKAGE,
+        arguments = mapOf(
+            P.ARG_PACKAGE_XML to JavascriptArgument.StringValue(packageDocument.packageXml),
+            P.ARG_PACKAGE_PATH to JavascriptArgument.StringValue(packageDocument.packagePath),
+            P.ARG_SPINE_INDEX to JavascriptArgument.NumberValue(spineIndex),
+            P.ARG_IDREF to JavascriptArgument.StringValue(idref),
+            P.ARG_ITEMREF_ID to (
+                itemrefId?.let(JavascriptArgument::StringValue)
+                    ?: JavascriptArgument.NullValue
+                )
         )
     ).mapValue { value -> EpubCfi(value as String) }
 
@@ -90,10 +89,10 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
         contentCfi: EpubCfi
     ): ReadiumCfiJavascriptResult<EpubCfi> = bridge.invoke(
         navigator = navigator,
-        method = "composeFullCfi",
-        arguments = listOf(
-            JavascriptArgument.StringValue(packageCfi.value),
-            JavascriptArgument.StringValue(contentCfi.value)
+        method = CfiRuntimeMethod.COMPOSE_FULL_CFI,
+        arguments = mapOf(
+            P.ARG_PACKAGE_CFI to JavascriptArgument.StringValue(packageCfi.value),
+            P.ARG_CONTENT_CFI to JavascriptArgument.StringValue(contentCfi.value)
         )
     ).mapValue { value -> EpubCfi(value as String) }
 
@@ -104,16 +103,18 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
         packageTarget: ReadiumEpubPackageTarget
     ): ReadiumCfiJavascriptResult<ReadiumContentResolution> = bridge.invoke(
         navigator = navigator,
-        method = "resolveContent",
-        arguments = listOf(
-            JavascriptArgument.StringValue(cfi.value),
-            JavascriptArgument.StringValue(packageDocument.packageXml),
-            JavascriptArgument.StringValue(packageDocument.packagePath),
-            JavascriptArgument.NumberValue(packageTarget.spineIndex),
-            JavascriptArgument.StringValue(packageTarget.idref),
-            packageTarget.itemrefId?.let(JavascriptArgument::StringValue)
-                ?: JavascriptArgument.NullValue,
-            JavascriptArgument.StringValue(packageTarget.resourceHref)
+        method = CfiRuntimeMethod.RESOLVE_CONTENT,
+        arguments = mapOf(
+            P.ARG_CFI to JavascriptArgument.StringValue(cfi.value),
+            P.ARG_PACKAGE_XML to JavascriptArgument.StringValue(packageDocument.packageXml),
+            P.ARG_PACKAGE_PATH to JavascriptArgument.StringValue(packageDocument.packagePath),
+            P.ARG_SPINE_INDEX to JavascriptArgument.NumberValue(packageTarget.spineIndex),
+            P.ARG_IDREF to JavascriptArgument.StringValue(packageTarget.idref),
+            P.ARG_ITEMREF_ID to (
+                packageTarget.itemrefId?.let(JavascriptArgument::StringValue)
+                    ?: JavascriptArgument.NullValue
+                ),
+            P.ARG_RESOURCE_HREF to JavascriptArgument.StringValue(packageTarget.resourceHref)
         )
     ).mapValue(::readContentResolution)
 
@@ -124,29 +125,39 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
         resolution: ReadiumContentResolution
     ): ReadiumCfiJavascriptResult<ReadiumContentTargetVerification> = bridge.invoke(
         navigator = navigator,
-        method = "verifyContentTarget",
-        arguments = listOf(
-            JavascriptArgument.StringValue(cfi.value),
-            JavascriptArgument.StringValue(packageTarget.resourceHref),
-            JavascriptArgument.StringValue(resolution.kind),
-            resolution.selectedText?.let(JavascriptArgument::StringValue)
-                ?: JavascriptArgument.NullValue,
-            resolution.prefix?.let(JavascriptArgument::StringValue)
-                ?: JavascriptArgument.NullValue,
-            resolution.suffix?.let(JavascriptArgument::StringValue)
-                ?: JavascriptArgument.NullValue,
-            JavascriptArgument.StringValue(resolution.movementAnchor.exact),
-            resolution.movementAnchor.before?.let(JavascriptArgument::StringValue)
-                ?: JavascriptArgument.NullValue,
-            resolution.movementAnchor.after?.let(JavascriptArgument::StringValue)
-                ?: JavascriptArgument.NullValue
+        method = CfiRuntimeMethod.VERIFY_CONTENT_TARGET,
+        arguments = mapOf(
+            P.ARG_CFI to JavascriptArgument.StringValue(cfi.value),
+            P.ARG_RESOURCE_HREF to JavascriptArgument.StringValue(packageTarget.resourceHref),
+            P.ARG_KIND to JavascriptArgument.StringValue(resolution.kind),
+            P.ARG_SELECTED_TEXT to (
+                resolution.selectedText?.let(JavascriptArgument::StringValue)
+                    ?: JavascriptArgument.NullValue
+                ),
+            P.ARG_PREFIX to (
+                resolution.prefix?.let(JavascriptArgument::StringValue)
+                    ?: JavascriptArgument.NullValue
+                ),
+            P.ARG_SUFFIX to (
+                resolution.suffix?.let(JavascriptArgument::StringValue)
+                    ?: JavascriptArgument.NullValue
+                ),
+            P.ARG_EXACT to JavascriptArgument.StringValue(resolution.movementAnchor.exact),
+            P.ARG_BEFORE to (
+                resolution.movementAnchor.before?.let(JavascriptArgument::StringValue)
+                    ?: JavascriptArgument.NullValue
+                ),
+            P.ARG_AFTER to (
+                resolution.movementAnchor.after?.let(JavascriptArgument::StringValue)
+                    ?: JavascriptArgument.NullValue
+                )
         )
     ).mapValue { value ->
         val verification = value as? JSONObject
             ?: error("CFI runtime verification result is invalid.")
         ReadiumContentTargetVerification(
-            semanticMatch = verification.getBoolean("semanticMatch"),
-            visible = verification.getBoolean("visible")
+            semanticMatch = verification.getBoolean(P.FIELD_SEMANTIC_MATCH),
+            visible = verification.getBoolean(P.FIELD_VISIBLE)
         )
     }
 
@@ -154,17 +165,17 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
         navigator: EpubNavigatorFragment
     ): ReadiumCfiJavascriptResult<ReadiumContentSelection?> = bridge.invoke(
         navigator = navigator,
-        method = "generateSelectionContentCfi",
-        arguments = emptyList()
+        method = CfiRuntimeMethod.GENERATE_SELECTION_CONTENT_CFI,
+        arguments = emptyMap()
     ).mapValue { value ->
         val selection = value as? JSONObject ?: return@mapValue null
         ReadiumContentSelection(
-            contentCfi = EpubCfi(selection.getString("contentCfi")),
-            selectedText = selection.getString("selectedText").also {
-                require(it.length <= MAX_SELECTED_TEXT_LENGTH)
+            contentCfi = EpubCfi(selection.getString(P.FIELD_CONTENT_CFI)),
+            selectedText = selection.getString(P.FIELD_SELECTED_TEXT).also {
+                require(it.length <= P.MAX_SELECTED_TEXT_LENGTH)
             },
-            prefix = selection.boundedSelectionContext("prefix"),
-            suffix = selection.boundedSelectionContext("suffix")
+            prefix = selection.boundedSelectionContext(P.FIELD_PREFIX),
+            suffix = selection.boundedSelectionContext(P.FIELD_SUFFIX)
         )
     }
 
@@ -172,8 +183,8 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
         navigator: EpubNavigatorFragment
     ): ReadiumCfiJavascriptResult<EpubCfi> = bridge.invoke(
         navigator = navigator,
-        method = "generateVisiblePositionContentCfi",
-        arguments = emptyList()
+        method = CfiRuntimeMethod.GENERATE_VISIBLE_POSITION_CONTENT_CFI,
+        arguments = emptyMap()
     ).mapValue { value -> EpubCfi(value as String) }
 
     suspend fun visiblePointTargets(
@@ -186,17 +197,20 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
         resourceHref: String
     ): ReadiumCfiJavascriptResult<Set<String>> = bridge.invoke(
         navigator = navigator,
-        method = "visiblePointTargets",
-        arguments = listOf(
-            JavascriptArgument.StringValue(
+        method = CfiRuntimeMethod.VISIBLE_POINT_TARGETS,
+        arguments = mapOf(
+            P.ARG_SERIALIZED_CANDIDATES to JavascriptArgument.StringValue(
                 candidates.serialized()
             ),
-            JavascriptArgument.StringValue(packageDocument.packageXml),
-            JavascriptArgument.StringValue(packageDocument.packagePath),
-            JavascriptArgument.NumberValue(spineIndex),
-            JavascriptArgument.StringValue(idref),
-            itemrefId?.let(JavascriptArgument::StringValue) ?: JavascriptArgument.NullValue,
-            JavascriptArgument.StringValue(resourceHref)
+            P.ARG_PACKAGE_XML to JavascriptArgument.StringValue(packageDocument.packageXml),
+            P.ARG_PACKAGE_PATH to JavascriptArgument.StringValue(packageDocument.packagePath),
+            P.ARG_SPINE_INDEX to JavascriptArgument.NumberValue(spineIndex),
+            P.ARG_IDREF to JavascriptArgument.StringValue(idref),
+            P.ARG_ITEMREF_ID to (
+                itemrefId?.let(JavascriptArgument::StringValue)
+                    ?: JavascriptArgument.NullValue
+                ),
+            P.ARG_RESOURCE_HREF to JavascriptArgument.StringValue(resourceHref)
         )
     ).mapValue { value ->
         val results = value as? JSONArray
@@ -204,7 +218,7 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
         buildSet {
             repeat(results.length()) { index ->
                 val result = results.getJSONObject(index)
-                if (result.getBoolean("visible")) add(result.getString("id"))
+                if (result.getBoolean(P.FIELD_VISIBLE)) add(result.getString(P.FIELD_ID))
             }
         }
     }
@@ -212,7 +226,7 @@ internal class ReadiumCfiJavascriptRuntime(context: Context) {
 
 private fun Map<String, EpubCfi>.serialized(): String = JSONArray().apply {
     forEach { (id, cfi) ->
-        put(JSONObject().put("id", id).put("cfi", cfi.value))
+        put(JSONObject().put(P.FIELD_ID, id).put(P.FIELD_CFI, cfi.value))
     }
 }.toString()
 
@@ -226,10 +240,10 @@ internal data class ReadiumPackageTarget(
 internal fun readPackageTarget(value: Any?): ReadiumPackageTarget {
     val target = value as? JSONObject ?: error("CFI runtime package result is invalid.")
     return ReadiumPackageTarget(
-        spineIndex = target.getInt("spineIndex"),
-        itemrefId = target.nullableString("itemrefId"),
-        idref = target.getString("idref"),
-        kind = target.getString("kind")
+        spineIndex = target.getInt(P.FIELD_SPINE_INDEX),
+        itemrefId = target.nullableString(P.FIELD_ITEMREF_ID),
+        idref = target.getString(P.FIELD_IDREF),
+        kind = target.getString(P.FIELD_KIND)
     )
 }
 
@@ -283,36 +297,36 @@ private fun JSONObject.nullableString(name: String): String? =
 
 private fun readContentResolution(value: Any?): ReadiumContentResolution {
     val resolution = value as? JSONObject ?: error("CFI runtime content result is invalid.")
-    val movementAnchor = resolution.getJSONObject("movementAnchor")
-    val kind = resolution.getString("kind").also {
-        require(it == "point" || it == "range")
+    val movementAnchor = resolution.getJSONObject(P.FIELD_MOVEMENT_ANCHOR)
+    val kind = resolution.getString(P.FIELD_KIND).also {
+        require(it == P.KIND_POINT || it == P.KIND_RANGE)
     }
-    val selectedText = resolution.nullableString("selectedText")?.also {
-        require(it.length <= MAX_SELECTED_TEXT_LENGTH)
+    val selectedText = resolution.nullableString(P.FIELD_SELECTED_TEXT)?.also {
+        require(it.length <= P.MAX_SELECTED_TEXT_LENGTH)
     }
     require(
-        (kind == "point" && selectedText == null) ||
-            (kind == "range" && selectedText != null)
+        (kind == P.KIND_POINT && selectedText == null) ||
+            (kind == P.KIND_RANGE && selectedText != null)
     )
     return ReadiumContentResolution(
         kind = kind,
         selectedText = selectedText,
-        prefix = resolution.boundedSelectionContext("prefix"),
-        suffix = resolution.boundedSelectionContext("suffix"),
+        prefix = resolution.boundedSelectionContext(P.FIELD_PREFIX),
+        suffix = resolution.boundedSelectionContext(P.FIELD_SUFFIX),
         movementAnchor = ReadiumTextQuoteAnchor(
-            exact = movementAnchor.getString("exact").also {
-                require(it.isNotBlank() && it.length <= MOVEMENT_QUOTE_LENGTH)
+            exact = movementAnchor.getString(P.FIELD_EXACT).also {
+                require(it.isNotBlank() && it.length <= P.MOVEMENT_QUOTE_LENGTH)
             },
-            before = movementAnchor.boundedContext("before"),
-            after = movementAnchor.boundedContext("after")
+            before = movementAnchor.boundedContext(P.FIELD_BEFORE),
+            after = movementAnchor.boundedContext(P.FIELD_AFTER)
         )
     )
 }
 
 private fun JSONObject.boundedContext(name: String): String? = nullableString(name)?.also {
-    require(it.length <= CONTEXT_LENGTH)
+    require(it.length <= P.CONTEXT_LENGTH)
 }
 
 private fun JSONObject.boundedSelectionContext(name: String): String? = nullableString(name)?.also {
-    require(it.length <= SELECTION_CONTEXT_LENGTH)
+    require(it.length <= P.SELECTION_CONTEXT_LENGTH)
 }

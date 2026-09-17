@@ -3,6 +3,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
+import { manifest } from "./protocol.mjs";
 
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repository = resolve(workspace, "../..");
@@ -26,6 +27,8 @@ async function sourceFiles() {
     resolve(workspace, "package.json"),
     resolve(workspace, "package-lock.json"),
     resolve(workspace, "tsconfig.json"),
+    resolve(workspace, "protocol.json"),
+    resolve(workspace, "scripts/protocol.mjs"),
     fileURLToPath(import.meta.url)
   ].sort((left, right) => relative(repository, left).localeCompare(relative(repository, right)));
 }
@@ -57,6 +60,7 @@ export async function bundledRuntime({ minify = false } = {}) {
       js:
         "// GENERATED from tools/reader-cfi-runtime; do not edit.\n" +
         `// Source-SHA256: ${digest}\n` +
+        `// CFI-Protocol-Version: ${manifest.runtimeVersion}\n` +
         "// Rebuild: cd tools/reader-cfi-runtime && npm run build"
     }
   });

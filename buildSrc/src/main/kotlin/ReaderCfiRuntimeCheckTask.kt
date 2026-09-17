@@ -20,12 +20,23 @@ abstract class ReaderCfiRuntimeCheckTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val generatedRuntime: RegularFileProperty
 
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val protocolInputs: ConfigurableFileCollection
+
     @get:Internal
     abstract val repositoryDirectory: DirectoryProperty
 
     @TaskAction
     fun check() {
         val repository = repositoryDirectory.get().asFile
+        CfiProtocolCheck(repository.resolve("tools/reader-cfi-runtime/protocol.json")).check(
+            repository.resolve("app/src/main/kotlin/com/secondpasslibrary/reader/reader/readium/cfi/CfiProtocol.kt"),
+            repository.resolve("tools/reader-cfi-runtime/src/protocol.generated.ts"),
+            repository.resolve("tools/reader-cfi-runtime/src/runtime.ts"),
+            generatedRuntime.get().asFile,
+            repository.resolve("app/src/main/kotlin/com/secondpasslibrary/reader/reader/readium/cfi/ReadiumCfiJavascriptRuntime.kt")
+        )
         val digest = MessageDigest.getInstance("SHA-256")
         sourceInputs.files.filter { it.isFile }
             .sortedBy { it.relativeTo(repository).invariantSeparatorsPath }

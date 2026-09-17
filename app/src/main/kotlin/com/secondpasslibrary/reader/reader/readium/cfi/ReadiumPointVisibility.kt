@@ -131,7 +131,7 @@ internal fun activePointCandidates(
 }
 
 private fun ReadiumPackageTarget.matchesPointIn(spineItem: EpubSpineItem): Boolean =
-    kind == "point" &&
+    kind == CfiProtocol.KIND_POINT &&
         spineIndex == spineItem.index &&
         idref == spineItem.idref &&
         itemrefId == spineItem.id

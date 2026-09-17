@@ -97,6 +97,8 @@ val readerCfiRuntimeCheck =
             file("tools/reader-cfi-runtime/package.json"),
             file("tools/reader-cfi-runtime/package-lock.json"),
             file("tools/reader-cfi-runtime/tsconfig.json"),
+            file("tools/reader-cfi-runtime/protocol.json"),
+            file("tools/reader-cfi-runtime/scripts/protocol.mjs"),
             file("tools/reader-cfi-runtime/scripts/build-support.mjs")
         )
         generatedRuntime.set(
@@ -105,6 +107,13 @@ val readerCfiRuntimeCheck =
             )
         )
         repositoryDirectory.set(layout.projectDirectory)
+        protocolInputs.from(
+            file("tools/reader-cfi-runtime/protocol.json"),
+            file("tools/reader-cfi-runtime/src/protocol.generated.ts"),
+            file("tools/reader-cfi-runtime/src/runtime.ts"),
+            file("app/src/main/kotlin/com/secondpasslibrary/reader/reader/readium/cfi/CfiProtocol.kt"),
+            file("app/src/main/kotlin/com/secondpasslibrary/reader/reader/readium/cfi/ReadiumCfiJavascriptRuntime.kt")
+        )
     }
 
 val releaseReaderCfiRuntimeCheck =
@@ -112,6 +121,7 @@ val releaseReaderCfiRuntimeCheck =
         group = LifecycleBasePlugin.VERIFICATION_GROUP
         description = "Verifies the minified release Reader CFI runtime source digest without Node."
         sourceInputs.from(readerCfiRuntimeCheck.get().sourceInputs)
+        protocolInputs.from(readerCfiRuntimeCheck.get().protocolInputs)
         generatedRuntime.set(
             layout.projectDirectory.file(
                 "app/src/release/assets/reader/cfi/secondpass-epub-cfi-runtime.js"
@@ -127,6 +137,12 @@ tasks.named("staticHygiene") {
         readerCfiRuntimeCheck,
         releaseReaderCfiRuntimeCheck
     )
+}
+
+project(":app") {
+    tasks.matching { it.name == "preBuild" }.configureEach {
+        dependsOn(readerCfiRuntimeCheck, releaseReaderCfiRuntimeCheck)
+    }
 }
 
 tasks.register("detekt") {

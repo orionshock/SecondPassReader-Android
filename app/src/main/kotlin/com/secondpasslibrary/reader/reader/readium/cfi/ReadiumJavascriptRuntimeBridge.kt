@@ -2,13 +2,13 @@ package com.secondpasslibrary.reader.reader.readium.cfi
 
 import android.content.Context
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiFailure
+import com.secondpasslibrary.reader.reader.readium.cfi.CfiProtocol as P
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 import org.json.JSONTokener
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 
-private const val RUNTIME_VERSION = "1.12.9"
 private const val MAX_RUNTIME_ENVELOPE_LENGTH = 256 * 1024
 private const val MAX_EVALUATED_RESULT_LENGTH = 512 * 1024
 private const val JAVASCRIPT_CALL_TIMEOUT_MILLIS = 10_000L
@@ -42,10 +42,13 @@ internal class ReadiumCfiJavascriptBridge(private val context: Context) {
 
     suspend fun invoke(
         navigator: EpubNavigatorFragment,
-        method: String,
-        arguments: List<JavascriptArgument>
+        method: CfiRuntimeMethod,
+        arguments: Map<String, JavascriptArgument>
     ): ReadiumCfiJavascriptResult<Any?> {
-        val serializedArguments = arguments.joinToString(
+        require(arguments.keys == method.argumentNames.toSet()) {
+            "CFI runtime arguments do not match the protocol."
+        }
+        val serializedArguments = method.argumentNames.map(arguments::getValue).joinToString(
             ",",
             transform = JavascriptArgument::source
         )
@@ -78,36 +81,39 @@ internal class ReadiumCfiJavascriptBridge(private val context: Context) {
             EpubCfiFailure.JAVASCRIPT_RUNTIME_UNAVAILABLE
         )
 
-        !optBoolean("ok") -> {
-            val errorCode = optJSONObject("error")?.optString("code").orEmpty()
+        !optBoolean(P.FIELD_OK) -> {
+            val errorCode = optJSONObject(P.FIELD_ERROR)?.optString(P.FIELD_CODE).orEmpty()
             ReadiumCfiJavascriptResult.Failure(errorCode.toCfiFailure())
         }
 
         else -> ReadiumCfiJavascriptResult.Success(
-            opt("value").takeUnless { it === JSONObject.NULL }
+            opt(P.FIELD_VALUE).takeUnless { it === JSONObject.NULL }
         )
     }
 
-    private fun boundedInvocationScript(method: String, serializedArguments: String): String =
+    private fun boundedInvocationScript(
+        method: CfiRuntimeMethod,
+        serializedArguments: String
+    ): String =
         """
         (() => {
           const envelope = JSON.stringify(
-            window.__secondPassEpubCfi.$method($serializedArguments)
+            window.${P.GLOBAL}.${method.wireName}($serializedArguments)
           );
           return envelope.length <= $MAX_RUNTIME_ENVELOPE_LENGTH
             ? envelope
-            : JSON.stringify({ ok: false, error: { code: "RESULT_TOO_LARGE" } });
+            : JSON.stringify({ ${P.FIELD_OK}: false, ${P.FIELD_ERROR}: { ${P.FIELD_CODE}: "${P.ERROR_RESULT_TOO_LARGE}" } });
         })();
         """.trimIndent()
 
     private suspend fun ensureInstalledWithinDeadline(navigator: EpubNavigatorFragment): Boolean {
-        if (readInstalledRuntimeVersion(navigator) == RUNTIME_VERSION) return true
+        if (readInstalledRuntimeVersion(navigator) == P.RUNTIME_VERSION) return true
         val installed = evaluateJavascriptWithin(
             navigator = navigator,
-            script = "$installationScript\nwindow.__secondPassEpubCfi.runtimeVersion();",
+            script = "$installationScript\nwindow.${P.GLOBAL}.${P.METHOD_RUNTIME_VERSION}();",
             timeoutMillis = JAVASCRIPT_INSTALL_TIMEOUT_MILLIS
         )
-        return installed.decodeJavascriptString() == RUNTIME_VERSION
+        return installed.decodeJavascriptString() == P.RUNTIME_VERSION
     }
 
     private suspend fun evaluateEnvelope(
@@ -156,8 +162,8 @@ internal sealed interface JavascriptArgument {
 private suspend fun readInstalledRuntimeVersion(navigator: EpubNavigatorFragment): String? =
     evaluateJavascriptWithin(
         navigator = navigator,
-        script = "window.__secondPassEpubCfi && " +
-            "window.__secondPassEpubCfi.runtimeVersion();",
+        script = "window.${P.GLOBAL} && " +
+            "window.${P.GLOBAL}.${P.METHOD_RUNTIME_VERSION}();",
         timeoutMillis = JAVASCRIPT_CALL_TIMEOUT_MILLIS
     ).decodeJavascriptString()
 
@@ -183,21 +189,21 @@ private class JavascriptRuntimeTimeoutException : RuntimeException()
 private class JavascriptResultTooLargeException : RuntimeException()
 
 private val CFI_FAILURES_BY_CODE = mapOf(
-    "INVALID_CFI" to EpubCfiFailure.INVALID_CFI,
-    "UNSUPPORTED_CFI_FEATURE" to EpubCfiFailure.UNSUPPORTED_CFI_FEATURE,
-    "INVALID_PACKAGE_DOCUMENT" to EpubCfiFailure.PACKAGE_DOCUMENT_MISSING,
-    "PACKAGE_TARGET_NOT_FOUND" to EpubCfiFailure.PACKAGE_TARGET_NOT_FOUND,
-    "PACKAGE_TARGET_MISMATCH" to EpubCfiFailure.PACKAGE_TARGET_NOT_FOUND,
-    "UNSUPPORTED_FIXED_LAYOUT" to EpubCfiFailure.UNSUPPORTED_FIXED_LAYOUT,
-    "UNSUPPORTED_SCROLL_MODE" to EpubCfiFailure.UNSUPPORTED_SCROLL_MODE,
-    "UNSUPPORTED_WRITING_MODE" to EpubCfiFailure.UNSUPPORTED_WRITING_MODE,
-    "RESULT_TOO_LARGE" to EpubCfiFailure.JAVASCRIPT_RESULT_TOO_LARGE,
-    "DOM_TARGET_NOT_FOUND" to EpubCfiFailure.DOM_TARGET_NOT_FOUND,
-    "INVALID_RANGE" to EpubCfiFailure.INVALID_RANGE,
-    "SELECTION_UNAVAILABLE" to EpubCfiFailure.SELECTION_UNAVAILABLE,
-    "VISIBLE_POSITION_UNAVAILABLE" to EpubCfiFailure.VISIBLE_POSITION_UNAVAILABLE,
-    "MOVEMENT_ANCHOR_UNAVAILABLE" to EpubCfiFailure.MOVEMENT_ANCHOR_UNAVAILABLE,
-    "CFI_RUNTIME_FAILURE" to EpubCfiFailure.CFI_RUNTIME_FAILURE
+    P.ERROR_INVALID_CFI to EpubCfiFailure.INVALID_CFI,
+    P.ERROR_UNSUPPORTED_CFI_FEATURE to EpubCfiFailure.UNSUPPORTED_CFI_FEATURE,
+    P.ERROR_INVALID_PACKAGE_DOCUMENT to EpubCfiFailure.PACKAGE_DOCUMENT_MISSING,
+    P.ERROR_PACKAGE_TARGET_NOT_FOUND to EpubCfiFailure.PACKAGE_TARGET_NOT_FOUND,
+    P.ERROR_PACKAGE_TARGET_MISMATCH to EpubCfiFailure.PACKAGE_TARGET_NOT_FOUND,
+    P.ERROR_UNSUPPORTED_FIXED_LAYOUT to EpubCfiFailure.UNSUPPORTED_FIXED_LAYOUT,
+    P.ERROR_UNSUPPORTED_SCROLL_MODE to EpubCfiFailure.UNSUPPORTED_SCROLL_MODE,
+    P.ERROR_UNSUPPORTED_WRITING_MODE to EpubCfiFailure.UNSUPPORTED_WRITING_MODE,
+    P.ERROR_RESULT_TOO_LARGE to EpubCfiFailure.JAVASCRIPT_RESULT_TOO_LARGE,
+    P.ERROR_DOM_TARGET_NOT_FOUND to EpubCfiFailure.DOM_TARGET_NOT_FOUND,
+    P.ERROR_INVALID_RANGE to EpubCfiFailure.INVALID_RANGE,
+    P.ERROR_SELECTION_UNAVAILABLE to EpubCfiFailure.SELECTION_UNAVAILABLE,
+    P.ERROR_VISIBLE_POSITION_UNAVAILABLE to EpubCfiFailure.VISIBLE_POSITION_UNAVAILABLE,
+    P.ERROR_MOVEMENT_ANCHOR_UNAVAILABLE to EpubCfiFailure.MOVEMENT_ANCHOR_UNAVAILABLE,
+    P.ERROR_CFI_RUNTIME_FAILURE to EpubCfiFailure.CFI_RUNTIME_FAILURE
 )
 
 private fun String.toCfiFailure(): EpubCfiFailure =

@@ -1,5 +1,6 @@
 // GENERATED from tools/reader-cfi-runtime; do not edit.
-// Source-SHA256: 10FD0CAB31005F8267B30B02E9474CB7B81DC78557E2D307241FF77B90BD8C6E
+// Source-SHA256: 098C1606D37096700B7632DC6205B46B47CB3BB437EDA6E48640AC5E9896D02E
+// CFI-Protocol-Version: 1.12.9
 // Rebuild: cd tools/reader-cfi-runtime && npm run build
 "use strict";
 (() => {
@@ -12,56 +13,135 @@
     }
   });
 
+  // src/protocol.generated.ts
+  var Protocol = {
+    ARG_AFTER: "after",
+    ARG_BEFORE: "before",
+    ARG_CFI: "cfi",
+    ARG_CONTENT_CFI: "contentCfi",
+    ARG_EXACT: "exact",
+    ARG_IDREF: "idref",
+    ARG_ITEMREF_ID: "itemrefId",
+    ARG_KIND: "kind",
+    ARG_PACKAGE_CFI: "packageCfi",
+    ARG_PACKAGE_PATH: "packagePath",
+    ARG_PACKAGE_XML: "packageXml",
+    ARG_PREFIX: "prefix",
+    ARG_RESOURCE_HREF: "resourceHref",
+    ARG_SELECTED_TEXT: "selectedText",
+    ARG_SERIALIZED_CANDIDATES: "serializedCandidates",
+    ARG_SPINE_INDEX: "spineIndex",
+    ARG_SUFFIX: "suffix",
+    CONTEXT_LENGTH: 64,
+    ERROR_CFI_RUNTIME_FAILURE: "CFI_RUNTIME_FAILURE",
+    ERROR_DOM_TARGET_NOT_FOUND: "DOM_TARGET_NOT_FOUND",
+    ERROR_INVALID_CFI: "INVALID_CFI",
+    ERROR_INVALID_PACKAGE_DOCUMENT: "INVALID_PACKAGE_DOCUMENT",
+    ERROR_INVALID_RANGE: "INVALID_RANGE",
+    ERROR_MOVEMENT_ANCHOR_UNAVAILABLE: "MOVEMENT_ANCHOR_UNAVAILABLE",
+    ERROR_PACKAGE_TARGET_MISMATCH: "PACKAGE_TARGET_MISMATCH",
+    ERROR_PACKAGE_TARGET_NOT_FOUND: "PACKAGE_TARGET_NOT_FOUND",
+    ERROR_RESULT_TOO_LARGE: "RESULT_TOO_LARGE",
+    ERROR_SELECTION_UNAVAILABLE: "SELECTION_UNAVAILABLE",
+    ERROR_UNSUPPORTED_CFI_FEATURE: "UNSUPPORTED_CFI_FEATURE",
+    ERROR_UNSUPPORTED_FIXED_LAYOUT: "UNSUPPORTED_FIXED_LAYOUT",
+    ERROR_UNSUPPORTED_SCROLL_MODE: "UNSUPPORTED_SCROLL_MODE",
+    ERROR_UNSUPPORTED_WRITING_MODE: "UNSUPPORTED_WRITING_MODE",
+    ERROR_VISIBLE_POSITION_UNAVAILABLE: "VISIBLE_POSITION_UNAVAILABLE",
+    FIELD_AFTER: "after",
+    FIELD_BEFORE: "before",
+    FIELD_CFI: "cfi",
+    FIELD_CODE: "code",
+    FIELD_CONTENT_CFI: "contentCfi",
+    FIELD_ERROR: "error",
+    FIELD_EXACT: "exact",
+    FIELD_HAS_INDIRECTION: "hasIndirection",
+    FIELD_ID: "id",
+    FIELD_IDREF: "idref",
+    FIELD_ITEMREF_ID: "itemrefId",
+    FIELD_KIND: "kind",
+    FIELD_MOVEMENT_ANCHOR: "movementAnchor",
+    FIELD_OK: "ok",
+    FIELD_PREFIX: "prefix",
+    FIELD_SELECTED_TEXT: "selectedText",
+    FIELD_SEMANTIC_MATCH: "semanticMatch",
+    FIELD_SPINE_INDEX: "spineIndex",
+    FIELD_SUFFIX: "suffix",
+    FIELD_VALUE: "value",
+    FIELD_VISIBLE: "visible",
+    GLOBAL: "__secondPassEpubCfi",
+    KIND_POINT: "point",
+    KIND_RANGE: "range",
+    MAX_SELECTED_TEXT_LENGTH: 65536,
+    METHOD_COMPOSE_FULL_CFI: "composeFullCfi",
+    METHOD_GENERATE_PACKAGE: "generatePackage",
+    METHOD_GENERATE_SELECTION_CONTENT_CFI: "generateSelectionContentCfi",
+    METHOD_GENERATE_VISIBLE_POSITION_CONTENT_CFI: "generateVisiblePositionContentCfi",
+    METHOD_IS_DOCUMENT_READY: "isDocumentReady",
+    METHOD_PARSE: "parse",
+    METHOD_RESOLVE_CONTENT: "resolveContent",
+    METHOD_RESOLVE_PACKAGE: "resolvePackage",
+    METHOD_RESOLVE_PACKAGE_CANDIDATES: "resolvePackageCandidates",
+    METHOD_RUNTIME_VERSION: "runtimeVersion",
+    METHOD_VERIFY_CONTENT_TARGET: "verifyContentTarget",
+    METHOD_VISIBLE_POINT_TARGETS: "visiblePointTargets",
+    MOVEMENT_QUOTE_LENGTH: 128,
+    RUNTIME_VERSION: "1.12.9",
+    SELECTION_CONTEXT_LENGTH: 2e3
+  };
+
   // src/protocol.ts
-  var RUNTIME_VERSION = "1.12.9";
-  var CONTEXT_LENGTH = 64;
-  var SELECTION_CONTEXT_LENGTH = 2e3;
-  var MOVEMENT_QUOTE_LENGTH = 128;
-  var MAX_SELECTED_TEXT_LENGTH = 64 * 1024;
+  var {
+    RUNTIME_VERSION,
+    CONTEXT_LENGTH,
+    SELECTION_CONTEXT_LENGTH,
+    MOVEMENT_QUOTE_LENGTH,
+    MAX_SELECTED_TEXT_LENGTH
+  } = Protocol;
   var MIN_VISIBLE_EXTENT_PIXELS = 0.5;
   function safely(operation) {
     try {
-      return { ok: true, value: operation() };
+      return { [Protocol.FIELD_OK]: true, [Protocol.FIELD_VALUE]: operation() };
     } catch (error) {
-      return { ok: false, error: { code: classifyError(error) } };
+      return { [Protocol.FIELD_OK]: false, [Protocol.FIELD_ERROR]: { [Protocol.FIELD_CODE]: classifyError(error) } };
     }
   }
   function classifyError(error) {
     const code = error instanceof Error ? error.message : "";
     switch (code) {
-      case "INVALID_CFI":
-      case "UNSUPPORTED_CFI_FEATURE":
-      case "INVALID_PACKAGE_DOCUMENT":
-      case "PACKAGE_TARGET_NOT_FOUND":
-      case "PACKAGE_TARGET_MISMATCH":
-      case "DOM_TARGET_NOT_FOUND":
-      case "INVALID_RANGE":
-      case "SELECTION_UNAVAILABLE":
-      case "VISIBLE_POSITION_UNAVAILABLE":
-      case "MOVEMENT_ANCHOR_UNAVAILABLE":
-      case "UNSUPPORTED_FIXED_LAYOUT":
-      case "UNSUPPORTED_SCROLL_MODE":
-      case "UNSUPPORTED_WRITING_MODE":
-      case "RESULT_TOO_LARGE":
+      case Protocol.ERROR_INVALID_CFI:
+      case Protocol.ERROR_UNSUPPORTED_CFI_FEATURE:
+      case Protocol.ERROR_INVALID_PACKAGE_DOCUMENT:
+      case Protocol.ERROR_PACKAGE_TARGET_NOT_FOUND:
+      case Protocol.ERROR_PACKAGE_TARGET_MISMATCH:
+      case Protocol.ERROR_DOM_TARGET_NOT_FOUND:
+      case Protocol.ERROR_INVALID_RANGE:
+      case Protocol.ERROR_SELECTION_UNAVAILABLE:
+      case Protocol.ERROR_VISIBLE_POSITION_UNAVAILABLE:
+      case Protocol.ERROR_MOVEMENT_ANCHOR_UNAVAILABLE:
+      case Protocol.ERROR_UNSUPPORTED_FIXED_LAYOUT:
+      case Protocol.ERROR_UNSUPPORTED_SCROLL_MODE:
+      case Protocol.ERROR_UNSUPPORTED_WRITING_MODE:
+      case Protocol.ERROR_RESULT_TOO_LARGE:
         return code;
       default:
-        return "CFI_RUNTIME_FAILURE";
+        return Protocol.ERROR_CFI_RUNTIME_FAILURE;
     }
   }
   function parseCfi(source) {
-    if (typeof source !== "string") throw new Error("INVALID_CFI");
+    if (typeof source !== "string") throw new Error(Protocol.ERROR_INVALID_CFI);
     let root;
     try {
       root = colibrio.EpubCfiParser.parse(source);
       colibrio.EpubCfiValidator.runAllValidations(root);
     } catch (_error) {
-      throw new Error("INVALID_CFI");
+      throw new Error(Protocol.ERROR_INVALID_CFI);
     }
-    if (root.errors.length > 0 || !root.parentPath) throw new Error("INVALID_CFI");
+    if (root.errors.length > 0 || !root.parentPath) throw new Error(Protocol.ERROR_INVALID_CFI);
     return root;
   }
   function targetKind(root) {
-    return root.rangeStartPath && root.rangeEndPath ? "range" : "point";
+    return root.rangeStartPath && root.rangeEndPath ? Protocol.KIND_RANGE : Protocol.KIND_POINT;
   }
   function validateSupportedFullCfi(source) {
     var _a, _b;
@@ -70,16 +150,16 @@
       if (path.indirection) result.push(index);
       return result;
     }, []);
-    if (indexes.length !== 1 || indexes[0] === 0) throw new Error("UNSUPPORTED_CFI_FEATURE");
+    if (indexes.length !== 1 || indexes[0] === 0) throw new Error(Protocol.ERROR_UNSUPPORTED_CFI_FEATURE);
     const kind = targetKind(root);
-    if (kind === "point" && !isCharacterOffset(root.parentPath.offset)) {
-      throw new Error("UNSUPPORTED_CFI_FEATURE");
+    if (kind === Protocol.KIND_POINT && !isCharacterOffset(root.parentPath.offset)) {
+      throw new Error(Protocol.ERROR_UNSUPPORTED_CFI_FEATURE);
     }
-    if (kind === "range" && (!isCharacterOffset((_a = root.rangeStartPath) == null ? void 0 : _a.offset) || !isCharacterOffset((_b = root.rangeEndPath) == null ? void 0 : _b.offset))) {
-      throw new Error("UNSUPPORTED_CFI_FEATURE");
+    if (kind === Protocol.KIND_RANGE && (!isCharacterOffset((_a = root.rangeStartPath) == null ? void 0 : _a.offset) || !isCharacterOffset((_b = root.rangeEndPath) == null ? void 0 : _b.offset))) {
+      throw new Error(Protocol.ERROR_UNSUPPORTED_CFI_FEATURE);
     }
     if (hasSideBias(root.parentPath) || hasSideBias(root.rangeStartPath) || hasSideBias(root.rangeEndPath)) {
-      throw new Error("UNSUPPORTED_CFI_FEATURE");
+      throw new Error(Protocol.ERROR_UNSUPPORTED_CFI_FEATURE);
     }
     return root;
   }
@@ -1195,43 +1275,37 @@
   }
 
   // src/runtime.ts
-  var existing = window.__secondPassEpubCfi;
-  if (!existing || existing.runtimeVersion() !== RUNTIME_VERSION) {
+  var existing = window[Protocol.GLOBAL];
+  if (!existing || existing[Protocol.METHOD_RUNTIME_VERSION]() !== Protocol.RUNTIME_VERSION) {
     const runtime = {
-      isDocumentReady: () => safely(() => {
+      [Protocol.METHOD_IS_DOCUMENT_READY]: () => safely(() => {
         var _a, _b;
         if (((_a = window.readium) == null ? void 0 : _a.isFixedLayout) === true) {
-          throw new Error("UNSUPPORTED_FIXED_LAYOUT");
+          throw new Error(Protocol.ERROR_UNSUPPORTED_FIXED_LAYOUT);
         }
         return document.readyState !== "loading" && document.documentElement !== null && publicationBody(document) !== null && Boolean(window.readium) && ((_b = window.readium) == null ? void 0 : _b.isReflowable) === true;
       }),
-      runtimeVersion: () => RUNTIME_VERSION,
-      parse: (fullCfi) => safely(() => {
-        const root = parseCfi(fullCfi);
+      [Protocol.METHOD_RUNTIME_VERSION]: () => Protocol.RUNTIME_VERSION,
+      [Protocol.METHOD_PARSE]: (cfi) => safely(() => {
+        const root = parseCfi(cfi);
         return {
           kind: targetKind(root),
           hasIndirection: root.parentPath.localPaths.some((path) => path.indirection)
         };
       }),
-      resolvePackage: (fullCfi, packageDocumentXml, packagePath) => safely(() => {
-        const target = resolvePackageTarget(fullCfi, packageDocumentXml, packagePath);
+      [Protocol.METHOD_RESOLVE_PACKAGE]: (cfi, packageXml, packagePath) => safely(() => {
+        const target = resolvePackageTarget(cfi, packageXml, packagePath);
         return {
           itemrefId: target.itemref.getAttribute("id"),
           idref: target.idref,
           spineIndex: target.spineIndex,
-          kind: targetKind(parseCfi(fullCfi))
+          kind: targetKind(parseCfi(cfi))
         };
       }),
-      resolvePackageCandidates: (...values) => safely(() => resolvePackageCandidates(...values)),
-      generatePackage: (packageXml, packagePath, spineIndex, expectedIdref, expectedItemrefId) => safely(() => generatePackageCfi(
-        packageXml,
-        packagePath,
-        spineIndex,
-        expectedIdref,
-        expectedItemrefId
-      )),
-      resolveContent: (fullCfi, packageXml, packagePath, spineIndex, idref, itemrefId, resourceHref) => safely(() => resolveContentTarget(
-        fullCfi,
+      [Protocol.METHOD_RESOLVE_PACKAGE_CANDIDATES]: (serializedCandidates, packageXml, packagePath) => safely(() => resolvePackageCandidates(serializedCandidates, packageXml, packagePath)),
+      [Protocol.METHOD_GENERATE_PACKAGE]: (packageXml, packagePath, spineIndex, idref, itemrefId) => safely(() => generatePackageCfi(packageXml, packagePath, spineIndex, idref, itemrefId)),
+      [Protocol.METHOD_RESOLVE_CONTENT]: (cfi, packageXml, packagePath, spineIndex, idref, itemrefId, resourceHref) => safely(() => resolveContentTarget(
+        cfi,
         packageXml,
         packagePath,
         spineIndex,
@@ -1239,16 +1313,34 @@
         itemrefId,
         resourceHref
       )),
-      verifyContentTarget: (...values) => safely(() => verifyContentTarget(...values)),
-      visiblePointTargets: (...values) => safely(() => visiblePointTargets(...values)),
-      generateSelectionContentCfi: () => safely(generateSelectionContentCfi),
-      generateVisiblePositionContentCfi: () => safely(generateVisiblePositionContentCfi),
-      composeFullCfi: (packageCfi, contentCfi) => safely(() => {
+      [Protocol.METHOD_VERIFY_CONTENT_TARGET]: (cfi, resourceHref, kind, selectedText, prefix, suffix, exact, before, after) => safely(() => verifyContentTarget(
+        cfi,
+        resourceHref,
+        kind,
+        selectedText,
+        prefix,
+        suffix,
+        exact,
+        before,
+        after
+      )),
+      [Protocol.METHOD_VISIBLE_POINT_TARGETS]: (serializedCandidates, packageXml, packagePath, spineIndex, idref, itemrefId, resourceHref) => safely(() => visiblePointTargets(
+        serializedCandidates,
+        packageXml,
+        packagePath,
+        spineIndex,
+        idref,
+        itemrefId,
+        resourceHref
+      )),
+      [Protocol.METHOD_GENERATE_SELECTION_CONTENT_CFI]: () => safely(generateSelectionContentCfi),
+      [Protocol.METHOD_GENERATE_VISIBLE_POSITION_CONTENT_CFI]: () => safely(generateVisiblePositionContentCfi),
+      [Protocol.METHOD_COMPOSE_FULL_CFI]: (packageCfi, contentCfi) => safely(() => {
         const full = `epubcfi(${serializeComponent(packageCfi)}!${serializeComponent(contentCfi)})`;
         parseCfi(full);
         return full;
       })
     };
-    window.__secondPassEpubCfi = Object.freeze(runtime);
+    window[Protocol.GLOBAL] = Object.freeze(runtime);
   }
 })();

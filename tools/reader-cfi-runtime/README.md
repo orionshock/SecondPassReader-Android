@@ -13,6 +13,26 @@ npm run build
 npm run check
 ```
 
-`build` regenerates the committed IIFE asset. `check` typechecks, rebuilds in memory, and fails if
-the committed asset differs. The root Gradle `readerCfiRuntimeCheck` verifies the embedded source
-digest offline without invoking Node.
+`protocol.json` owns only the Kotlin/JavaScript wire contract: the existing runtime version,
+global, methods and positional arguments, result fields/discriminators, error codes, and shared
+text limits. Calls remain positional JavaScript calls; there is no request envelope. Kotlin
+provides named arguments and the bridge orders them using the generated method declaration.
+The response remains `{ ok: true, value }` or `{ ok: false, error: { code } }`.
+Evaluation/install deadlines and envelope-size enforcement remain Kotlin bridge policy, not
+protocol error codes. CFI algorithms and Readium lifecycle ownership are unchanged.
+
+`build` regenerates committed Kotlin/TypeScript declarations, checks the entrypoint signatures
+and TypeScript result shapes, then produces the readable dev and minified release IIFE assets.
+`check` rejects stale declarations, typechecks, compares both assets byte-for-byte, and checks
+their installed method surface/version and error envelope in Node.
+
+The root Gradle `readerCfiRuntimeCheck` and `releaseReaderCfiRuntimeCheck` run before Android
+`preBuild`. They independently derive the expected declarations from the manifest, check
+entrypoint names/argument order and embedded versions, and retain the source-digest checks.
+They never invoke Node or generate runtime code. Edit the manifest and adapters together, then
+run `npm run build` and `npm run check`; hand-edited or stale declarations fail Gradle.
+`gradlew.bat -p buildSrc test` exercises the Node-free checker with deliberate protocol drift.
+
+Protocol declarations stay inside the Readium CFI adapter/runtime; Reader domain and UI do not
+consume them. The two small declaration renderers (Node regeneration and JVM verification) are
+intentionally independent: disagreement fails the checks rather than changing shipped output.
