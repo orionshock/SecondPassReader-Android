@@ -1,45 +1,29 @@
 package com.secondpasslibrary.reader.reader.ui
 
-import androidx.activity.ComponentActivity
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
-import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.assertIsNotSelected
-import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.getUnclippedBoundsInRoot
-import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
-import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondpasslibrary.reader.design.SecondPassTheme
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsFailure
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsState
-import com.secondpasslibrary.reader.reader.annotations.bookmark.ReaderVisiblePageBookmarks
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderReadOnlyHighlightDetail
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationIntent
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationState
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderHighlightEditDraft
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderPendingHighlight
 import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelection
-import com.secondpasslibrary.reader.reader.appearance.ReaderLayoutMode
-import com.secondpasslibrary.reader.reader.appearance.ReaderTheme
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
-import com.secondpasslibrary.reader.reader.domain.ReaderReadingStatus
-import com.secondpasslibrary.reader.reader.domain.ReaderReadingStatusScope
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaIntent
 import com.secondpasslibrary.reader.reader.marginalia.ui.READER_CURRENT_SESSION_EDIT_TAG
 import com.secondpasslibrary.reader.reader.marginalia.ui.READER_SESSION_NAME_FIELD_TAG
@@ -50,297 +34,13 @@ import com.secondpasslibrary.reader.reader.presentation.ReaderMarginaliaPresenta
 import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadata
 import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadataState
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
-import com.secondpasslibrary.reader.reader.toc.READER_TOC_BODY_TAG
-import com.secondpasslibrary.reader.reader.toc.READER_TOC_CLOSE_BOOK_TAG
-import com.secondpasslibrary.reader.reader.toc.READER_TOC_CLOSE_TAG
-import com.secondpasslibrary.reader.reader.toc.READER_TOC_EYEBROW_TAG
-import com.secondpasslibrary.reader.reader.toc.READER_TOC_FOOTER_TAG
-import com.secondpasslibrary.reader.reader.toc.READER_TOC_HEADER_TAG
-import com.secondpasslibrary.reader.reader.toc.READER_TOC_TITLE_TAG
-import com.secondpasslibrary.reader.reader.toc.ReaderPublicationTarget
-import com.secondpasslibrary.reader.reader.toc.ReaderTocEntry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
-class ReaderUiIntegrationTest {
-    @get:Rule
-    val compose = createAndroidComposeRule<ComponentActivity>()
-
-    @Test
-    fun readerChromeUsesSeparatedFloatingClustersAndProtectsPublicationTop() {
-        compose.setContent {
-            SecondPassTheme {
-                ReaderScreen(readerReadyState(), onBack = {}, onRetry = {})
-            }
-        }
-
-        val positioner = compose.onNodeWithTag(READER_CHROME_POSITIONER_TAG)
-            .getUnclippedBoundsInRoot()
-        val left = compose.onNodeWithTag(READER_CHROME_LEFT_CLUSTER_TAG)
-            .getUnclippedBoundsInRoot()
-        val right = compose.onNodeWithTag(READER_CHROME_RIGHT_CLUSTER_TAG)
-            .getUnclippedBoundsInRoot()
-        val publication = compose.onNodeWithTag(TEST_PUBLICATION_CONTENT_TAG)
-            .getUnclippedBoundsInRoot()
-
-        assertTrue(left.right - left.left < positioner.right - positioner.left)
-        assertTrue(right.right - right.left < positioner.right - positioner.left)
-        assertTrue(left.right < right.left)
-        assertTrue(publication.top >= left.bottom)
-        assertTrue(publication.top >= right.bottom)
-        compose.onAllNodesWithText("A deliberately long Reader title that remains one line")[0]
-            .assertIsDisplayed()
-    }
-
-    @Test
-    fun readerHudShowsAmbientStatusAutoHidesAndReturnsOnPublicationTap() {
-        val hud = RecordingReaderHudEvents(
-            ReaderReadingStatus(8, ReaderReadingStatusScope.SECTION)
-        )
-        compose.mainClock.autoAdvance = false
-        compose.setContent {
-            SecondPassTheme {
-                ReaderScreen(
-                    readerReadyState(hudEvents = hud),
-                    onBack = {},
-                    onRetry = {}
-                )
-            }
-        }
-
-        compose.onNodeWithTag(com.secondpasslibrary.reader.reader.ui.hud.READER_HUD_CLOCK_TAG)
-            .assertExists()
-        compose.onNodeWithTag(com.secondpasslibrary.reader.reader.ui.hud.READER_HUD_STATUS_TAG)
-            .assertExists()
-        compose.onNodeWithTag(READER_CHROME_LEFT_CLUSTER_TAG).assertIsDisplayed()
-
-        compose.mainClock.advanceTimeBy(3_500)
-        compose.onNodeWithTag(READER_CHROME_LEFT_CLUSTER_TAG).assertIsNotDisplayed()
-        compose.runOnIdle { hud.tap() }
-        compose.mainClock.advanceTimeBy(500)
-        compose.onNodeWithTag(READER_CHROME_LEFT_CLUSTER_TAG).assertIsDisplayed()
-    }
-
-    @Test
-    fun bookmarkHudCreatesFromEmptyAndListsVisibleBookmarksWithoutImmediateDelete() {
-        var creates = 0
-        val navigationIntents = mutableListOf<ReaderNavigationIntent>()
-        val removed = mutableListOf<String>()
-        val first = testBookmark("first", "First bookmark")
-        val second = testBookmark("second", "Second bookmark")
-        val visibleBookmarks = mutableStateOf(ReaderVisiblePageBookmarks())
-        compose.setContent {
-            SecondPassTheme {
-                ReaderScreen(
-                    state = readerReadyState(),
-                    onBack = {},
-                    onRetry = {},
-                    onCreateBookmark = {
-                        creates += 1
-                        visibleBookmarks.value = ReaderVisiblePageBookmarks(listOf(first))
-                    },
-                    onNavigationIntent = { navigationIntents += it },
-                    onRemoveBookmark = {
-                        removed += it.id
-                        visibleBookmarks.value = ReaderVisiblePageBookmarks(
-                            visibleBookmarks.value.bookmarks.filterNot { existing ->
-                                existing.id == it.id
-                            }
-                        )
-                    },
-                    marginalia = ReaderMarginaliaPresentationState(
-                        pageBookmarks = visibleBookmarks.value
-                    )
-                )
-            }
-        }
-        compose.onNodeWithContentDescription("Add bookmark").performClick()
-        compose.runOnIdle { assertEquals(1, creates) }
-        compose.onNodeWithContentDescription("1 bookmark on this page").assertIsDisplayed()
-        compose.onNodeWithContentDescription("1 bookmark on this page").performClick()
-        compose.onNodeWithText("First bookmark").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Go to First bookmark").performClick()
-        compose.runOnIdle {
-            assertEquals(
-                listOf(ReaderNavigationIntent.GoToBookmark(first)),
-                navigationIntents
-            )
-        }
-
-        compose.runOnIdle {
-            visibleBookmarks.value = ReaderVisiblePageBookmarks(listOf(first, second))
-        }
-        compose.waitForIdle()
-        compose.onNodeWithContentDescription("2 bookmarks on this page").assertIsDisplayed()
-        compose.onNodeWithContentDescription("2 bookmarks on this page").performClick()
-        compose.onNodeWithText("First bookmark").assertIsDisplayed()
-        compose.onNodeWithText("Second bookmark").assertIsDisplayed()
-        compose.runOnIdle { assertTrue(removed.isEmpty()) }
-        compose.onNodeWithContentDescription("Remove Second bookmark").performClick()
-        compose.runOnIdle { assertEquals(listOf("second"), removed) }
-        compose.onNodeWithContentDescription("1 bookmark on this page").assertIsDisplayed()
-    }
-
-    @Test
-    fun closedSessionBookmarkHudIsReadOnly() {
-        var creates = 0
-        compose.setContent {
-            SecondPassTheme {
-                ReaderScreen(
-                    state = readerReadyState(status = ReaderSessionStatus.CLOSED),
-                    onBack = {},
-                    onRetry = {},
-                    onCreateBookmark = { creates += 1 }
-                )
-            }
-        }
-
-        compose.onNodeWithContentDescription("No bookmarks on this page, read only")
-            .assertIsNotEnabled()
-        compose.runOnIdle { assertEquals(0, creates) }
-    }
-
-    @Test
-    fun readerMenuOwnsNestedTocNavigationDismissalAndCloseBook() {
-        val toc = RecordingReaderToc()
-        val navigationIntents = mutableListOf<ReaderNavigationIntent>()
-        var exits = 0
-        compose.setContent {
-            SecondPassTheme {
-                ReaderScreen(
-                    readerReadyState(toc),
-                    onBack = { exits += 1 },
-                    onRetry = {},
-                    onNavigationIntent = { navigationIntents += it }
-                )
-            }
-        }
-
-        assertEquals(
-            0,
-            compose.onAllNodesWithContentDescription("Open navigation drawer")
-                .fetchSemanticsNodes().size
-        )
-        compose.onNodeWithTag(READER_CHROME_LEFT_CLUSTER_TAG).performClick()
-        compose.onNodeWithText("Part One").assertIsDisplayed()
-        compose.onNodeWithText("Part One").assertIsSelected()
-        val eyebrow = compose.onNodeWithTag(READER_TOC_EYEBROW_TAG).getUnclippedBoundsInRoot()
-        val title = compose.onNodeWithTag(READER_TOC_TITLE_TAG).getUnclippedBoundsInRoot()
-        assertTrue(eyebrow.bottom <= title.top)
-        compose.onNodeWithTag(READER_TOC_CLOSE_TAG).assertIsDisplayed()
-        compose.onNodeWithTag(READER_TOC_CLOSE_TAG).performClick()
-        compose.waitForIdle()
-        compose.onNodeWithText("Part One").assertIsNotDisplayed()
-
-        compose.onNodeWithTag(READER_CHROME_LEFT_CLUSTER_TAG).performTouchInput {
-            down(Offset(width - 12f, height / 2f))
-            up()
-        }
-        compose.onNodeWithContentDescription("Open Chapter Two").performClick()
-        compose.waitForIdle()
-        assertEquals(
-            listOf(ReaderNavigationIntent.GoToPublicationTarget(TEST_CHAPTER_TWO)),
-            navigationIntents
-        )
-        assertTrue(toc.destinations.isEmpty())
-
-        compose.onNodeWithTag(READER_CHROME_LEFT_CLUSTER_TAG).performTouchInput {
-            down(Offset(width * 0.1f, height / 2f))
-            up()
-        }
-        compose.onNodeWithText("Part One").assertIsDisplayed()
-        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
-        compose.waitForIdle()
-        assertEquals(0, exits)
-
-        compose.onNodeWithTag(READER_CHROME_LEFT_CLUSTER_TAG).performClick()
-        compose.onRoot().performTouchInput {
-            down(Offset(width - 4f, height / 2f))
-            up()
-        }
-        compose.waitForIdle()
-        compose.onNodeWithText("Part One").assertIsNotDisplayed()
-        assertEquals(0, exits)
-
-        compose.onNodeWithTag(READER_CHROME_LEFT_CLUSTER_TAG).performClick()
-        compose.onNodeWithTag(READER_TOC_CLOSE_BOOK_TAG).performClick()
-        compose.runOnIdle { assertEquals(1, exits) }
-    }
-
-    @Test
-    fun longTocKeepsHeaderAndExitFooterFixedWhileBodyScrolls() {
-        val entries = (1..60).map { chapter ->
-            ReaderTocEntry(
-                title = "Chapter $chapter",
-                target = ReaderPublicationTarget("text/chapter-$chapter.xhtml")
-            )
-        }
-        compose.setContent {
-            SecondPassTheme {
-                ReaderScreen(
-                    readerReadyState(RecordingReaderToc(entries, resource = null)),
-                    onBack = {},
-                    onRetry = {}
-                )
-            }
-        }
-
-        compose.onNodeWithTag(READER_CHROME_LEFT_CLUSTER_TAG).performClick()
-        val headerBefore = compose.onNodeWithTag(READER_TOC_HEADER_TAG).getUnclippedBoundsInRoot()
-        val footerBefore = compose.onNodeWithTag(READER_TOC_FOOTER_TAG).getUnclippedBoundsInRoot()
-        compose.onNodeWithTag(READER_TOC_BODY_TAG).performScrollToNode(hasText("Chapter 60"))
-        compose.onNodeWithText("Chapter 60").assertIsDisplayed().assertIsNotSelected()
-        compose.onNodeWithTag(READER_TOC_CLOSE_BOOK_TAG).assertIsDisplayed()
-
-        assertEquals(
-            headerBefore,
-            compose.onNodeWithTag(READER_TOC_HEADER_TAG).getUnclippedBoundsInRoot()
-        )
-        assertEquals(
-            footerBefore,
-            compose.onNodeWithTag(READER_TOC_FOOTER_TAG).getUnclippedBoundsInRoot()
-        )
-    }
-
-    @Test
-    fun appearancePanelUpdatesAppOwnedAppearanceAndLeavesReaderOpen() {
-        val appearance = RecordingReaderAppearance()
-        compose.setContent {
-            SecondPassTheme {
-                ReaderScreen(
-                    readerReadyState(RecordingReaderToc(), appearance),
-                    onBack = {},
-                    onRetry = {},
-                    onAppearanceChanged = appearance::record
-                )
-            }
-        }
-
-        compose.onNodeWithContentDescription("Open reading appearance").performClick()
-        compose.onNodeWithText("Reading appearance").assertIsDisplayed()
-        compose.onNodeWithText("Sepia").performClick()
-        compose.waitUntil { appearance.appearance.value.theme == ReaderTheme.SEPIA }
-        compose.onNodeWithText("Two-column").performClick()
-        compose.waitUntil {
-            appearance.appearance.value.layoutMode == ReaderLayoutMode.TWO_COLUMN
-        }
-        compose.onNodeWithContentDescription("Increase Font size").performClick()
-        compose.waitUntil { appearance.appearance.value.fontScale > 1.0 }
-        compose.onNodeWithContentDescription("Increase Line height").performClick()
-        compose.waitUntil { appearance.appearance.value.lineHeight > 1.4 }
-        compose.onNodeWithContentDescription("Publisher styles").performClick()
-        compose.waitUntil { appearance.appearance.value.publisherStylesEnabled }
-
-        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
-        compose.waitForIdle()
-        assertEquals(0, compose.onAllNodesWithText("Theme").fetchSemanticsNodes().size)
-        compose.onNodeWithTag(READER_CHROME_LEFT_CLUSTER_TAG).assertIsDisplayed()
-    }
-
+internal class ReaderMarginaliaUiIntegrationTest : ReaderUiIntegrationTestSupport() {
     @Test
     fun annotationDrawerPresentsContentAndNavigatesExactCfiWithoutExiting() {
         val navigator = RecordingReaderCfiNavigator()
@@ -812,12 +512,4 @@ class ReaderUiIntegrationTest {
         compose.onNodeWithText("Close").performClick()
         compose.runOnIdle { assertTrue(dismissed) }
     }
-
-    private fun testBookmark(id: String, label: String) = ReaderAnnotation.Bookmark(
-        id = id,
-        clientId = "client-$id",
-        cfi = TEST_ANNOTATION_CFI,
-        locationLabel = label,
-        updatedAt = "2026-08-28T00:00:00Z"
-    )
 }
