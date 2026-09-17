@@ -6,6 +6,10 @@ import androidx.room3.OnConflictStrategy
 import androidx.room3.Query
 import androidx.room3.Transaction
 import androidx.room3.Upsert
+import com.secondpasslibrary.reader.reader.session.ReaderClosedSessionContinuationPlan
+import com.secondpasslibrary.reader.reader.session.ReaderClosedSessionContinuationPolicy
+import com.secondpasslibrary.reader.reader.session.ReaderContinuationAnnotation
+import com.secondpasslibrary.reader.reader.session.ReaderContinuationProgressSource
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -306,17 +310,39 @@ internal abstract class LocalReaderDao {
         continuationCandidate: LocalReaderSessionEntity,
         now: Long
     ): ReaderClosedSessionContinuationResult {
+        // Plan from the same locked snapshot we apply; a concurrent local write cannot be lost
+        // between a caller-side read/decision and this cross-table commit.
         existingContinuationResult(closedSession)?.let { return it }
-        val pending = closedSessionPendingState(closedSession)
-        val continuation = selectContinuation(pending, continuationCandidate)
+        val target = activeProvisionalSession(closedSession.accountKey, closedSession.bookId)
+            ?: continuationCandidate
+        val pending = closedSessionPendingState(closedSession, target)
+        val plan = ReaderClosedSessionContinuationPolicy.plan(
+            closedSession.localSessionId,
+            target.localSessionId,
+            pending.annotations.map {
+                ReaderContinuationAnnotation(
+                    it.clientId,
+                    previouslyConfirmed = it.serverAnnotationId != null,
+                    deleted = it.syncState == LocalAnnotationSync.LOCAL_DELETED
+                )
+            },
+            pending.progress?.updatedAtEpochMillis,
+            pending.targetProgress?.updatedAtEpochMillis
+        )
+        val continuation = if (plan.needsContinuation) {
+            insertSessionIfAbsent(target)
+            requireNotNull(activeProvisionalSession(target.accountKey, target.bookId))
+        } else {
+            null
+        }
         restoreClosedHistory(
             closedSession,
             serverProgressCfi,
             authoritativeAnnotations,
             now
         )
-        continuation?.let { target -> forwardPending(pending, closedSession, target, now) }
-        return recordContinuationOutcome(closedSession, continuation, pending, now)
+        continuation?.let { forwardPending(plan, pending, it, now) }
+        return recordContinuationOutcome(closedSession, continuation, plan, now)
     }
 
     private suspend fun existingContinuationResult(
@@ -331,32 +357,22 @@ internal abstract class LocalReaderDao {
         }
 
     private suspend fun closedSessionPendingState(
-        source: LocalReaderSessionEntity
-    ): ClosedSessionPendingState {
-        val annotations = pendingAnnotations(source.accountKey, source.localSessionId)
-        val progressIntent = pendingReaderIntents(source.accountKey, source.localSessionId)
-            .singleOrNull { it.operationKind == ReaderOutboxOperation.PROGRESS }
-        return ClosedSessionPendingState(
-            progress(source.accountKey, source.localSessionId)?.takeIf {
-                it.provenance == LocalReaderWriteProvenance.LOCAL_PENDING.name
-            },
-            progressIntent?.locationLabel,
-            annotations.filter { it.syncState == LocalAnnotationSync.LOCAL_PENDING },
-            annotations.count {
-                it.syncState == LocalAnnotationSync.LOCAL_DELETED &&
-                    it.serverAnnotationId != null
-            }
-        )
-    }
+        source: LocalReaderSessionEntity,
+        target: LocalReaderSessionEntity
+    ): ClosedSessionPendingState = ClosedSessionPendingState(
+        progress(source.accountKey, source.localSessionId)?.takeIf {
+            it.provenance == LocalReaderWriteProvenance.LOCAL_PENDING.name
+        },
+        progressLocationLabel(source.accountKey, source.localSessionId),
+        pendingAnnotations(source.accountKey, source.localSessionId),
+        progress(target.accountKey, target.localSessionId),
+        progressLocationLabel(target.accountKey, target.localSessionId)
+    )
 
-    private suspend fun selectContinuation(
-        pending: ClosedSessionPendingState,
-        candidate: LocalReaderSessionEntity
-    ): LocalReaderSessionEntity? {
-        if (pending.progress == null && pending.movableAnnotations.isEmpty()) return null
-        insertSessionIfAbsent(candidate)
-        return requireNotNull(activeProvisionalSession(candidate.accountKey, candidate.bookId))
-    }
+    private suspend fun progressLocationLabel(accountKey: String, localSessionId: String): String? =
+        pendingReaderIntents(accountKey, localSessionId)
+            .singleOrNull { it.operationKind == ReaderOutboxOperation.PROGRESS }
+            ?.locationLabel
 
     private suspend fun restoreClosedHistory(
         source: LocalReaderSessionEntity,
@@ -384,66 +400,62 @@ internal abstract class LocalReaderDao {
     }
 
     private suspend fun forwardPending(
+        plan: ReaderClosedSessionContinuationPlan,
         pending: ClosedSessionPendingState,
-        source: LocalReaderSessionEntity,
         continuation: LocalReaderSessionEntity,
         now: Long
     ) {
         upsertOutbox(continuation.toEstablishmentOutbox(now))
-        pending.progress?.let { forwardProgress(it, pending.progressLocationLabel, continuation) }
-        pending.movableAnnotations.forEach { annotation ->
-            val target = annotation.toContinuation(source, continuation)
+        val selectedProgress = when (plan.progressSource) {
+            ReaderContinuationProgressSource.CLOSED_SESSION ->
+                requireNotNull(pending.progress).copy(localSessionId = continuation.localSessionId)
+
+            ReaderContinuationProgressSource.CONTINUATION -> requireNotNull(pending.targetProgress)
+
+            null -> null
+        }
+        selectedProgress?.let {
+            val label = when (plan.progressSource) {
+                ReaderContinuationProgressSource.CLOSED_SESSION -> pending.progressLocationLabel
+                else -> pending.targetProgressLocationLabel
+            }
+            upsertProgress(it)
+            upsertOutbox(it.toOutbox(continuation.bookId, label))
+        }
+        val annotations = pending.annotations.associateBy { it.clientId }
+        plan.annotationCopies.forEach { copy ->
+            val target = requireNotNull(annotations[copy.sourceClientId]).copy(
+                localSessionId = continuation.localSessionId,
+                serverAnnotationId = null,
+                clientId = copy.targetClientId,
+                syncState = LocalAnnotationSync.LOCAL_PENDING
+            )
             upsertAnnotation(target)
             upsertOutbox(target.toUpsertOutbox(continuation.bookId, now))
         }
     }
 
-    private suspend fun forwardProgress(
-        source: LocalReaderProgressEntity,
-        sourceLocationLabel: String?,
-        continuation: LocalReaderSessionEntity
-    ) {
-        val current = progress(source.accountKey, continuation.localSessionId)
-        val sourceSelected = current == null ||
-            source.updatedAtEpochMillis >= current.updatedAtEpochMillis
-        val selected = if (sourceSelected) {
-            source.copy(localSessionId = continuation.localSessionId)
-        } else {
-            requireNotNull(current)
-        }
-        val locationLabel = if (sourceSelected) {
-            sourceLocationLabel
-        } else {
-            pendingReaderIntents(source.accountKey, continuation.localSessionId)
-                .singleOrNull { it.operationKind == ReaderOutboxOperation.PROGRESS }
-                ?.locationLabel
-        }
-        upsertProgress(selected)
-        upsertOutbox(selected.toOutbox(continuation.bookId, locationLabel))
-    }
-
     private suspend fun recordContinuationOutcome(
         source: LocalReaderSessionEntity,
         continuation: LocalReaderSessionEntity?,
-        pending: ClosedSessionPendingState,
+        plan: ReaderClosedSessionContinuationPlan,
         now: Long
     ): ReaderClosedSessionContinuationResult {
-        val forwardedEdits = pending.movableAnnotations.count { it.serverAnnotationId != null }
         upsertContinuationOutcome(
             LocalReaderContinuationOutcomeEntity(
                 source.accountKey,
                 source.localSessionId,
                 continuation?.localSessionId,
-                forwardedEdits,
-                pending.droppedDeleteCount,
+                plan.forwardedEditCount,
+                plan.droppedDeleteCount,
                 now,
                 null
             )
         )
         return ReaderClosedSessionContinuationResult(
             continuation,
-            forwardedEdits,
-            pending.droppedDeleteCount
+            plan.forwardedEditCount,
+            plan.droppedDeleteCount
         )
     }
 
@@ -536,27 +548,7 @@ internal abstract class LocalReaderDao {
 private data class ClosedSessionPendingState(
     val progress: LocalReaderProgressEntity?,
     val progressLocationLabel: String?,
-    val movableAnnotations: List<LocalReaderAnnotationEntity>,
-    val droppedDeleteCount: Int
+    val annotations: List<LocalReaderAnnotationEntity>,
+    val targetProgress: LocalReaderProgressEntity?,
+    val targetProgressLocationLabel: String?
 )
-
-private fun LocalReaderAnnotationEntity.toContinuation(
-    source: LocalReaderSessionEntity,
-    continuation: LocalReaderSessionEntity
-): LocalReaderAnnotationEntity {
-    val targetClientId = if (serverAnnotationId == null) {
-        clientId
-    } else {
-        ReaderContinuationIdentity.forwardedEdit(
-            source.localSessionId,
-            continuation.localSessionId,
-            clientId
-        )
-    }
-    return copy(
-        localSessionId = continuation.localSessionId,
-        serverAnnotationId = null,
-        clientId = targetClientId,
-        syncState = LocalAnnotationSync.LOCAL_PENDING
-    )
-}

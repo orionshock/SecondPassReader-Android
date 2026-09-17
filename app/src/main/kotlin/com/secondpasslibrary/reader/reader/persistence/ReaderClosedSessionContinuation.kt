@@ -3,7 +3,6 @@ package com.secondpasslibrary.reader.reader.persistence
 import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
-import java.nio.charset.StandardCharsets
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
@@ -87,16 +86,3 @@ internal data class ReaderClosedSessionContinuationResult(
     val forwardedEditCount: Int,
     val droppedDeleteCount: Int
 )
-
-internal object ReaderContinuationIdentity {
-    fun forwardedEdit(
-        sourceLocalSessionId: String,
-        continuationLocalSessionId: String,
-        sourceClientId: String
-    ): String = UUID.nameUUIDFromBytes(
-        (
-            "reader-continuation-edit\u0000$sourceLocalSessionId\u0000" +
-                "$continuationLocalSessionId\u0000$sourceClientId"
-            ).toByteArray(StandardCharsets.UTF_8)
-    ).toString()
-}

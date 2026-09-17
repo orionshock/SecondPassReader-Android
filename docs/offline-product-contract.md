@@ -24,7 +24,8 @@ new write.
   `(Session, client_id)`, so the same value may legally exist in different Sessions. Android should
   generate a random UUID v4 as a client convention for reliable uniqueness.
 - `client_id` is distinct from the annotation's server-assigned database UUID. It is client-owned
-  and remains stable across retries and when an unresolved upsert is carried into another Session.
+  and remains stable across retries. Android preserves it when moving never-confirmed authored
+  state; forwarding an edit of a confirmed annotation uses a deterministic replacement ID.
 - Annotation upserts are last-write-wins for that Session-scoped `client_id`.
 - Annotation deletion is idempotent. Deleting an existing annotation creates a tombstone; deleting
   an already-deleted or unknown `client_id` is a successful no-op and does not change an existing
@@ -93,6 +94,8 @@ classification. That is a known client gap, not cross-client precedent.
 The active-Session lookup is a non-mutating authority check. Normal open is the convergent lazy
 create-or-resume operation: it returns the current active Session when one exists and creates one
 otherwise. A client must accept the exact server-returned Session identity.
+Android first looks up the active Session and calls normal open only when none exists, accepting
+the server-returned identity in either case. This lookup-then-open convergence is deliberate.
 
 Start-over is a separate, explicitly user-invoked recovery action. It must never be substituted for
 normal open or invoked automatically during reconnect. Start-over is the lifecycle operation with
@@ -108,15 +111,16 @@ instant; expiry controls whether the key may be reused.
 
 ## Remote closure and continuation
 
-If a client staged Reader work against Session A and discovers that A closed elsewhere, it keeps A
-as immutable history and resolves a writable continuation Session. The established forwarding
+If Android staged Reader work against Session A and discovers that A closed elsewhere, it keeps A
+as immutable history and resolves a writable continuation Session. Its established forwarding
 rules are:
 
 - forward the latest pending progress;
 - move annotations that were created locally and never server-confirmed;
 - duplicate an offline edit of a server-confirmed annotation into the writable Session while
-  retaining the same `client_id`; Session-scoped uniqueness makes it a distinct authored copy and
-  keeps retries idempotent; and
+  using a deterministic replacement `client_id` derived from the source local Session ID,
+  continuation local Session ID, and original client ID; the historical original remains unchanged
+  and retries reuse the replacement identity; and
 - drop an offline delete of a server-confirmed annotation, preserving the historical annotation and
   recording the outcome for a non-blocking user notice.
 
@@ -124,13 +128,15 @@ Repeated reconciliation must reuse the same continuation intent and transformati
 
 ### Annotation recovery after `SESSION_CLOSED`
 
-For an annotation batch rejected with `409 SESSION_CLOSED`, the client must:
+For an annotation batch rejected with `409 SESSION_CLOSED`, Android must:
 
 1. retain every locally authored, unacknowledged annotation upsert;
-2. call normal Book `open` once for the affected Book, not once per annotation;
-3. accept the active Session returned by `open`, whether newly created or already active;
+2. resolve writable authority for the Book through active lookup, then normal `open` if needed,
+   not once per annotation;
+3. accept the exact active Session returned by that resolution;
 4. replay the unresolved upserts as one bounded annotation batch against that Session; and
-5. retain the same Session-scoped `client_id` values throughout retries.
+5. retain the planned client IDs throughout retries: original IDs for never-confirmed annotations,
+   deterministic replacement IDs for edits of confirmed annotations.
 
 Deletes from the closed Session are not replayed into the new Session because they identify
 historical annotations in the old Session. The closed originals remain unchanged. Normal `open`,
@@ -144,11 +150,10 @@ upserts remain durable and unsynchronized. They are not discarded. Suitable user
 Progress recovery remains a separate desired-state operation even when it ultimately uses the same
 writable Session.
 
-Android currently generates a deterministic replacement client ID for a duplicated confirmed edit
-and resolves writable authority through an active lookup followed by `open` when necessary. The
-replacement-ID behavior now conflicts with this settled contract, and the recovery path should be
-updated to preserve the original Session-scoped `client_id` and use `open` as the direct convergent
-operation after `SESSION_CLOSED`.
+These are the deliberately implemented and tested Android continuation rules. The server permits
+the same client ID in different Sessions, but does not require Android to reuse it for a confirmed
+edit. Earlier instructions to preserve that ID or replace lookup-then-open with direct open are
+superseded; they are not a mandate to change Android runtime behavior.
 
 ### Writes racing with close
 

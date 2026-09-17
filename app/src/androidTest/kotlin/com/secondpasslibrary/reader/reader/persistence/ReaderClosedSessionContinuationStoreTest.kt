@@ -181,6 +181,11 @@ class ReaderClosedSessionContinuationStoreTest {
             authoritative
         )
         assertEquals(next.sessionId, repeated.session?.sessionId)
+        assertEquals(first.forwardedEditCount, repeated.forwardedEditCount)
+        assertEquals(first.droppedDeleteCount, repeated.droppedDeleteCount)
+        val outcome = database.localReaderDao().continuationOutcome(account.value, active.sessionId)
+        assertEquals(1, outcome?.forwardedEditCount)
+        assertEquals(1, outcome?.droppedDeleteCount)
         assertEquals(
             forwarded.map { it.clientId }.toSet(),
             local.readAnnotations(account, next.sessionId).map { it.clientId }.toSet()
@@ -217,6 +222,55 @@ class ReaderClosedSessionContinuationStoreTest {
     }
 
     @Test
+    fun existingContinuationKeepsNewerProgressAndItsOutboxLabel() = runBlocking {
+        val account = account()
+        val target = local.selectOfflineSession(account, BOOK_ID)
+        local.writeProgress(
+            account,
+            target.sessionId,
+            POINT_CFI,
+            LocalReaderWriteProvenance.LOCAL_PENDING,
+            "Newer target position"
+        )
+        val source = server(ReaderSessionStatus.ACTIVE, SERVER_CFI)
+        local.retainServerSession(account, BOOK_ID, source)
+        local.writeProgress(
+            account,
+            source.sessionId,
+            OFFLINE_CFI,
+            LocalReaderWriteProvenance.LOCAL_PENDING,
+            "Older source position"
+        )
+        val dao = database.localReaderDao()
+        dao.upsertProgress(
+            requireNotNull(dao.progress(account.value, source.sessionId))
+                .copy(updatedAtEpochMillis = 10)
+        )
+        dao.upsertProgress(
+            requireNotNull(dao.progress(account.value, target.sessionId))
+                .copy(updatedAtEpochMillis = 20)
+        )
+
+        val result = continuation.continueFrom(
+            account,
+            BOOK_ID,
+            source.copy(status = ReaderSessionStatus.CLOSED),
+            emptyList()
+        )
+
+        assertEquals(target.sessionId, result.session?.sessionId)
+        assertEquals(POINT_CFI, result.session?.savedProgressCfi)
+        assertEquals(
+            "Newer target position",
+            outbox.pendingReaderIntents(account, target.sessionId)
+                .filterIsInstance<ReaderOutboxIntent.Progress>().single().locationLabel
+        )
+        assertEquals(0, result.forwardedEditCount)
+        assertEquals(0, result.droppedDeleteCount)
+        assertTrue(outbox.pendingReaderIntents(account, source.sessionId).isEmpty())
+    }
+
+    @Test
     fun transactionFailureLeavesClosedSessionTransformationUncommitted() = runBlocking {
         val account = account()
         val active = server(ReaderSessionStatus.ACTIVE, SERVER_CFI)
@@ -228,6 +282,13 @@ class ReaderClosedSessionContinuationStoreTest {
             LocalReaderWriteProvenance.LOCAL_PENDING
         )
         val dao = database.localReaderDao()
+        local.applyAnnotationMutation(
+            account,
+            active.sessionId,
+            highlightUpsert("pending", "offline")
+        )
+        val originalAnnotations = dao.allAnnotations(account.value, active.sessionId)
+        val originalIntents = dao.pendingReaderIntents(account.value, active.sessionId)
         val current = requireNotNull(dao.session(account.value, active.sessionId))
         val now = Instant.now().toEpochMilli()
         val invalidAnnotation = bookmark("server-invalid", "invalid-client")
@@ -260,6 +321,9 @@ class ReaderClosedSessionContinuationStoreTest {
         assertEquals(OFFLINE_CFI, dao.progress(account.value, active.sessionId)?.cfi)
         assertTrue(outbox.pendingReaderIntents(account, active.sessionId).isNotEmpty())
         assertNull(dao.continuationOutcome(account.value, active.sessionId))
+        assertNull(dao.activeProvisionalSession(account.value, BOOK_ID))
+        assertEquals(originalAnnotations, dao.allAnnotations(account.value, active.sessionId))
+        assertEquals(originalIntents, dao.pendingReaderIntents(account.value, active.sessionId))
     }
 
     private suspend fun session(localSessionId: String) =
