@@ -34,19 +34,13 @@ Authenticated users enter the tablet-first top-app-bar/drawer shell described in
 
 ## Verification
 
-From the repository root:
+Run the normal repository gate from the root:
 
 ```powershell
-.\gradlew.bat projects
-.\gradlew.bat assembleDebug
-.\gradlew.bat test
-.\gradlew.bat detekt
-.\gradlew.bat ktlintCheck
-.\gradlew.bat lint
-.\gradlew.bat check
+.\gradlew.bat check assembleDebug
 ```
 
-Android Lint treats warnings as errors. Detekt uses defaults plus one narrow allowance for PascalCase `@Composable` functions. Ktlint owns formatting and has the equivalent Compose naming exception in `.editorconfig`; detekt formatting rules are not enabled.
+The exact checks, focused commands, instrumentation split, and generated-asset workflows are documented in [Repository tooling](repository-tooling.md). Android Lint treats warnings as errors. Detekt uses defaults plus one narrow allowance for PascalCase `@Composable` functions. Ktlint owns formatting and has the equivalent Compose naming exception in `.editorconfig`; detekt formatting rules are not enabled.
 
 `staticHygiene` performs non-mutating UTF-8, mojibake-marker, trailing-whitespace, and `git diff --check` validation.
 

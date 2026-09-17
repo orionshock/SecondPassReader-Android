@@ -4,13 +4,12 @@ TypeScript is the authoritative source for the browser runtime injected by the A
 Android ships a readable development asset from `app/src/main/assets` and a minified,
 same-path override from `app/src/release/assets`. Runtime builds do not require Node.
 
-Requires Node 24 LTS and npm 11.
+Regeneration requires Node 24 LTS and npm 11. Run these commands from this directory on Windows:
 
-```text
-npm ci
-npm run typecheck
-npm run build
-npm run check
+```powershell
+npm.cmd ci
+npm.cmd run build
+npm.cmd run check
 ```
 
 `protocol.json` owns only the Kotlin/JavaScript wire contract: the existing runtime version,
@@ -30,9 +29,22 @@ The root Gradle `readerCfiRuntimeCheck` and `releaseReaderCfiRuntimeCheck` run b
 `preBuild`. They independently derive the expected declarations from the manifest, check
 entrypoint names/argument order and embedded versions, and retain the source-digest checks.
 They never invoke Node or generate runtime code. Edit the manifest and adapters together, then
-run `npm run build` and `npm run check`; hand-edited or stale declarations fail Gradle.
+run `npm.cmd run build` and `npm.cmd run check`; hand-edited or stale declarations fail Gradle.
 `gradlew.bat -p buildSrc test` exercises the Node-free checker with deliberate protocol drift.
 
 Protocol declarations stay inside the Readium CFI adapter/runtime; Reader domain and UI do not
 consume them. The two small declaration renderers (Node regeneration and JVM verification) are
 intentionally independent: disagreement fails the checks rather than changing shipped output.
+
+## Pinned Colibrio bundle
+
+`app/src/main/assets/reader/cfi/colibrio-epubcfi-1.1.0.min.js` is a separate pinned third-party dependency, not output from the Reader runtime build. Normal builds verify its SHA-256 and packaged MIT license through `colibrioBundleCheck`.
+
+To reproduce it during dependency maintenance, obtain the exact source revision named by the script and run from the repository root:
+
+```powershell
+.\tools\reader-cfi\rebuild-colibrio-bundle.ps1 -SourceCheckout C:\path\to\colibrio-web-epubcfi
+.\gradlew.bat colibrioBundleCheck
+```
+
+The rebuild script is Windows-only, installs the external checkout's locked npm dependencies, rejects any other revision, and rejects output that does not match the pinned hash.

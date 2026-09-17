@@ -131,18 +131,9 @@ val releaseReaderCfiRuntimeCheck =
         repositoryDirectory.set(layout.projectDirectory)
     }
 
-tasks.named("staticHygiene") {
-    dependsOn(
-        readerBoundaryCheck,
-        colibrioBundleCheck,
-        readerCfiRuntimeCheck,
-        releaseReaderCfiRuntimeCheck
-    )
-}
-
 project(":app") {
     tasks.matching { it.name == "preBuild" }.configureEach {
-        dependsOn(readerCfiRuntimeCheck, releaseReaderCfiRuntimeCheck)
+        dependsOn(colibrioBundleCheck, readerCfiRuntimeCheck, releaseReaderCfiRuntimeCheck)
     }
 }
 
@@ -159,5 +150,15 @@ tasks.register("ktlintCheck") {
 }
 
 tasks.named("check") {
-    dependsOn(":app:check", ":spl-client:check", "detekt", "ktlintCheck", "staticHygiene")
+    dependsOn(
+        ":app:check",
+        ":spl-client:check",
+        "detekt",
+        "ktlintCheck",
+        "staticHygiene",
+        readerBoundaryCheck,
+        colibrioBundleCheck,
+        readerCfiRuntimeCheck,
+        releaseReaderCfiRuntimeCheck
+    )
 }

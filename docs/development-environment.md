@@ -92,14 +92,14 @@ emulator -list-avds
 
 The installed Command-line Tools emit a deprecation warning for `sdkmanager`; the command remains available for the checks above.
 
-## Project Gradle validation baseline
+## Repository validation
 
 Use the repository Gradle Wrapper for every local and CI invocation. The wrapper runs on the installed JBR 25 and both modules emit Java 17 bytecode; no standalone JDK or global Gradle installation is required.
 
-- Android Lint: `gradlew.bat lint`
-- Kotlin compilation/package: `gradlew.bat assembleDebug`
-- Unit tests: `gradlew.bat test`
-- Static analysis: `gradlew.bat detekt`
-- Formatting/style: `gradlew.bat ktlintCheck` and `gradlew.bat ktlintFormat`
+Run the normal repository gate from the root:
 
-`gradlew.bat check` aggregates module checks, Android Lint, unit tests, detekt, and ktlint. Detekt owns semantic/code-smell rules; ktlint alone owns formatting.
+```powershell
+.\gradlew.bat check assembleDebug
+```
+
+[Repository tooling](repository-tooling.md) lists the checks included by this gate, focused test commands, instrumentation and live-server separation, CFI generation, and debug pairing. Detekt owns semantic/code-smell rules; ktlint owns formatting. Use `gradlew.bat ktlintFormat` only as an explicit source rewrite.

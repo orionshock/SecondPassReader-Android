@@ -197,6 +197,8 @@ Test at the narrowest meaningful boundary. Pure Kotlin should not require a devi
 
 Validation is CLI/Gradle-owned through the committed wrapper. Once scaffolded, the baseline is Android Lint, Kotlin compilation, unit tests, detekt, and ktlint. Editor diagnostics are advisory. Do not add overlapping formatters or redundant analyzers without a concrete reason.
 
+The canonical commands and device/live-test split are documented in [Repository tooling](docs/repository-tooling.md).
+
 ## Dependencies and open decisions
 
 Treat dependencies affecting networking, serialization, storage, navigation, DI, EPUB rendering, cryptography, background work, or synchronization as architectural decisions. Check repository doctrine and the current ecosystem first. Familiarity alone is not justification; do not rebuild commodity infrastructure when a mature supported library fits.

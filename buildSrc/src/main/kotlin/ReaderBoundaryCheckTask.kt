@@ -28,15 +28,15 @@ abstract class ReaderBoundaryCheckTask : DefaultTask() {
             val isAppSource = APP_SOURCE_PATH in path
             val isSdkSource = SDK_SOURCE_PATH in path
             val isSdkTransport = SDK_TRANSPORT_PATH in path
+            val isAnonymousSdkTransport = SDK_ANONYMOUS_TRANSPORT_PATH in path
             if (isAppSource && SDK_TRANSPORT_IMPORTS.any { it in source }) {
                 violations += "$path: app imports raw HTTP transport"
             }
             if (isSdkSource && !isSdkTransport && "HttpHeaders.Authorization" in source) {
                 violations += "$path: bearer attachment outside the SDK transport seam"
             }
-            if (isSdkSource && !isSdkTransport &&
-                "import io.ktor.client.statement.HttpResponse" in source &&
-                file.name != "KtorSecondPassClient.kt") {
+            if (isSdkSource && !isSdkTransport && !isAnonymousSdkTransport &&
+                "import io.ktor.client.statement.HttpResponse" in source) {
                 violations += "$path: raw HttpResponse outside the SDK transport seam"
             }
             if (!isReadiumAdapter &&
@@ -94,6 +94,7 @@ abstract class ReaderBoundaryCheckTask : DefaultTask() {
         const val APP_SOURCE_PATH = "/app/src/"
         const val SDK_SOURCE_PATH = "/spl-client/src/"
         const val SDK_TRANSPORT_PATH = "/client/internal/transport/"
+        const val SDK_ANONYMOUS_TRANSPORT_PATH = "/client/KtorSecondPassClient.kt"
         val SDK_TRANSPORT_IMPORTS = listOf("import io.ktor.", "import okhttp3.")
         val PAIRING_PROTOCOL_MARKERS = listOf(
             "PairingRequest", "PairingStatus", "PairingConsumption", "pollUrl", "consumeUrl"

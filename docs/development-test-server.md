@@ -12,15 +12,16 @@ Do not embed these values in production application source, build configuration,
 
 ## Debug Android pairing harness
 
-The debug APK exposes a pairing activity that drives the normal SPL-client discovery, pairing, credential consumption, and secure persistence path. It is declared only in `app/src/debug` and is absent from release builds.
+The debug APK exposes a pairing activity that drives the normal SPL-client discovery, pairing, credential consumption, and secure persistence path. It is declared only in `app/src/debug` and is absent from release builds. The harness is Windows PowerShell tooling and requires `adb`, a running emulator, an installed debug APK, and network access to the test server.
 
-After installing the debug APK and starting an emulator, run:
+Run:
 
 ```powershell
+.\gradlew.bat :app:installDebug
 .\tools\pair-debug-reader.ps1
 ```
 
-The script reads the test values above, starts the debug-only activity with exact intent extras, approves the short-lived request through an authenticated web session, and waits until the app has persisted and verified the issued credential. Each run uses a sortable, collision-resistant client name such as `Second Pass Android debug 20260831-A3F2`. Parameters can override the documented server, account, device serial, client name, and timeout.
+The script reads the test values above, quotes intent extras for Windows `adb`, starts the debug-only activity, approves the short-lived request through an authenticated web session, and waits until the app has persisted and verified the issued credential. Each run uses a sortable, collision-resistant client name such as `Second Pass Android debug 20260831-A3F2`. Parameters can override the documented server, account, device serial, client name, and timeout.
 
 To revoke every currently active client pairing owned by the development account through the server's browser-session-only test seam, run:
 
@@ -29,3 +30,5 @@ To revoke every currently active client pairing owned by the development account
 ```
 
 This intentionally leaves Android's locally stored credential untouched so authentication-loss and recovery behavior can be exercised from outside the app. The endpoint is idempotent and does not revoke the authenticated browser session.
+
+Live-server instrumentation commands and their mutation scope are listed in [Repository tooling](repository-tooling.md). They are opt-in and are not part of ordinary connected tests.

@@ -142,11 +142,4 @@ Marginalia visibility. Device-global preferences remain intact.
 
 ## Verification
 
-The focused checks are:
-
-```powershell
-.\gradlew.bat :spl-client:test
-.\gradlew.bat :app:testDebugUnitTest
-```
-
-Repository-wide validation remains `test`, `detekt`, `ktlintCheck`, `lint`, `staticHygiene`, `check`, and `assembleDebug` through the committed wrapper.
+Run focused `:spl-client:test` and `:app:testDebugUnitTest` selections while changing connection behavior. The normal gate and live connection proof are documented in [Repository tooling](repository-tooling.md).

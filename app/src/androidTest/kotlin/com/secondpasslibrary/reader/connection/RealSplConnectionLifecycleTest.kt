@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.secondpasslibrary.client.SplClientException
+import com.secondpasslibrary.reader.live.LiveServerTest
 import com.secondpasslibrary.reader.reader.asset.ReaderAccountScope
 import com.secondpasslibrary.reader.reader.readium.cfi.RealSplCfiInteropEntryPoint
 import dagger.hilt.android.EntryPointAccessors
@@ -18,6 +19,7 @@ import org.junit.runner.RunWith
 private const val REAL_SPL_CONNECTION_ARGUMENT = "connection.realSplLifecycle"
 
 /** Opt-in proof that mutates only this debug client's server session. */
+@LiveServerTest
 @RunWith(AndroidJUnit4::class)
 class RealSplConnectionLifecycleTest {
     @Test
