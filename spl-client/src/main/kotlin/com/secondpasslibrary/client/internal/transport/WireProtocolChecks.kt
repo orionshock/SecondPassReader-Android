@@ -62,16 +62,16 @@ internal fun requireConsumeSuccess(response: HttpResponse) {
     }
 }
 
-internal fun requireAuthenticatedSuccess(response: HttpResponse) {
-    if (response.status.isSuccess()) return
-    throw if (response.status == HttpStatusCode.Unauthorized) {
+internal fun requireAuthenticatedSuccess(status: HttpStatusCode) {
+    if (status.isSuccess()) return
+    throw if (status == HttpStatusCode.Unauthorized) {
         SplClientException.AuthenticationRejected()
     } else {
         SplClientException.AuthenticatedRequestFailed()
     }
 }
 
-internal fun requireClientSessionRevocationSuccess(response: HttpResponse): Unit =
+internal fun requireClientSessionRevocationSuccess(response: AuthenticatedResponse): Unit =
     throw when (response.status) {
         HttpStatusCode.NoContent -> return
 

@@ -5,11 +5,9 @@ import com.secondpasslibrary.client.MarginaliaAnnotationOperation
 import com.secondpasslibrary.client.ReadingProgress
 import com.secondpasslibrary.client.ReadingProgressInput
 import com.secondpasslibrary.client.internal.transport.AuthenticatedRequestExecutor
-import com.secondpasslibrary.client.internal.transport.decodeProtocolBody
+import com.secondpasslibrary.client.internal.transport.AuthenticatedResponse
 import com.secondpasslibrary.client.internal.transport.invalidProtocol
 import com.secondpasslibrary.client.validateAnnotationOperations
-import io.ktor.client.call.body
-import io.ktor.client.statement.HttpResponse
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.encodeURLPathPart
 import kotlinx.serialization.encodeToString
@@ -23,7 +21,7 @@ internal class KtorMarginaliaSynchronizationClient(
     suspend fun getProgress(sessionId: String): ReadingProgress? {
         val response = requests.getResponse(progressPath(sessionId))
         requireReadingSessionLifecycleSuccess(response, setOf(HttpStatusCode.OK), json)
-        return decodeProgress(response.body())?.toModel()
+        return decodeProgress(response)?.toModel()
     }
 
     suspend fun replaceProgress(
@@ -35,7 +33,7 @@ internal class KtorMarginaliaSynchronizationClient(
             json.encodeToString(progress.toWire())
         )
         requireReadingSessionLifecycleSuccess(response, setOf(HttpStatusCode.OK), json)
-        return decodeProgress(response.body())?.toModel()
+        return decodeProgress(response)?.toModel()
             ?: invalidProtocol("Reading Session progress")
     }
 
@@ -58,18 +56,18 @@ internal class KtorMarginaliaSynchronizationClient(
         return decodeAnnotations(response)
     }
 
-    private suspend fun decodeAnnotations(response: HttpResponse): List<MarginaliaAnnotation> =
-        json.decodeProtocolBody<MarginaliaAnnotationCollectionWire>(
-            response.body(),
+    private fun decodeAnnotations(response: AuthenticatedResponse): List<MarginaliaAnnotation> =
+        requests.decode<MarginaliaAnnotationCollectionWire>(
+            response,
             "Reading Session annotations"
         ).annotations?.map { it.toModel() } ?: invalidProtocol("Reading Session annotations")
 
-    private fun decodeProgress(body: String): ReadingProgressWire? {
-        val payload = runCatching { json.parseToJsonElement(body).jsonObject }
+    private fun decodeProgress(response: AuthenticatedResponse): ReadingProgressWire? {
+        val payload = runCatching { json.parseToJsonElement(response.body).jsonObject }
             .getOrElse { invalidProtocol("Reading Session progress") }
         if ("progress" !in payload) invalidProtocol("Reading Session progress")
-        return json.decodeProtocolBody<ReadingProgressResponseWire>(
-            body,
+        return requests.decode<ReadingProgressResponseWire>(
+            response,
             "Reading Session progress"
         ).progress
     }

@@ -9,25 +9,16 @@ import com.secondpasslibrary.client.LibraryBookDetail
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.LibrarySearchOptions
 import com.secondpasslibrary.client.internal.transport.AuthenticatedRequestExecutor
-import com.secondpasslibrary.client.internal.transport.decodeProtocolBody
-import io.ktor.client.call.body
-import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.encodeURLPathPart
-import io.ktor.utils.io.jvm.javaio.toInputStream
-import java.io.IOException
 import java.io.OutputStream
-import kotlinx.serialization.json.Json
 
-internal class KtorLibraryBooksClient(
-    private val requests: AuthenticatedRequestExecutor,
-    private val json: Json
-) : AuthenticatedLibraryBooksClient {
+internal class KtorLibraryBooksClient(private val requests: AuthenticatedRequestExecutor) :
+    AuthenticatedLibraryBooksClient {
     override suspend fun getBook(bookId: String): LibraryBookDetail {
         require(bookId.isNotBlank()) { "Book ID must not be blank." }
-        val response = requests.get("library/books/${bookId.encodeURLPathPart()}/")
-        return json.decodeProtocolBody<LibraryBookDetailWire>(
-            response.body(),
-            "book detail"
+        return requests.getDecoded<LibraryBookDetailWire>(
+            "library/books/${bookId.encodeURLPathPart()}/",
+            context = "book detail"
         ).toModel()
     }
 
@@ -35,13 +26,7 @@ internal class KtorLibraryBooksClient(
         reference: AuthenticatedBookDownloadReference,
         destination: OutputStream
     ) {
-        val response = requests.getAuthorizedReference(reference.url)
-        com.secondpasslibrary.client.internal.transport.requireAuthenticatedSuccess(response)
-        try {
-            response.bodyAsChannel().toInputStream().use { input -> input.copyTo(destination) }
-        } catch (failure: IOException) {
-            throw com.secondpasslibrary.client.SplClientException.ServerUnreachable(failure)
-        }
+        requests.downloadAuthorizedReference(reference.url, destination)
     }
 
     override suspend fun list(
@@ -79,11 +64,9 @@ internal class KtorLibraryBooksClient(
         parameters: List<Pair<String, String>>,
         page: Int,
         pageSize: Int
-    ): CatalogResultPage<CompactBook> {
-        val response = requests.get(path, parameters)
-        return json.decodeProtocolBody<CompactBookPageWire>(response.body(), "book page")
+    ): CatalogResultPage<CompactBook> =
+        requests.getDecoded<CompactBookPageWire>(path, parameters, "book page")
             .toModel(page, pageSize)
-    }
 }
 
 internal fun LibraryScope.path(tail: String): String = when (this) {

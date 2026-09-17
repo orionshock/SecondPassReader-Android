@@ -24,9 +24,7 @@ import com.secondpasslibrary.client.RecentReadingItem
 import com.secondpasslibrary.client.RecentReadingOptions
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.client.internal.transport.AuthenticatedRequestExecutor
-import com.secondpasslibrary.client.internal.transport.decodeProtocolBody
 import com.secondpasslibrary.client.internal.transport.requireAuthenticatedSuccess
-import io.ktor.client.call.body
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.encodeURLPathPart
 import kotlinx.serialization.json.Json
@@ -38,14 +36,13 @@ internal class KtorAuthenticatedMarginaliaClient(
     private val lifecycle = KtorReadingSessionLifecycleClient(requests, json)
     private val synchronization = KtorMarginaliaSynchronizationClient(requests, json)
     override val books: AuthenticatedMarginaliaBooksClient =
-        KtorMarginaliaBooksClient(requests, json, lifecycle)
+        KtorMarginaliaBooksClient(requests, lifecycle)
     override val sessions: AuthenticatedReadingSessionsClient =
-        KtorReadingSessionsClient(requests, json, lifecycle, synchronization)
+        KtorReadingSessionsClient(requests, lifecycle, synchronization)
 }
 
 internal class KtorMarginaliaBooksClient(
     private val requests: AuthenticatedRequestExecutor,
-    private val json: Json,
     private val lifecycle: KtorReadingSessionLifecycleClient
 ) : AuthenticatedMarginaliaBooksClient {
     override suspend fun list(
@@ -55,15 +52,20 @@ internal class KtorMarginaliaBooksClient(
             options.q?.let { add("q" to it) }
             addAll(options.pageParameters())
         }
-        val response = requests.get("marginalia/books/", parameters)
-        return json.decodeProtocolBody<MarginaliaBookPageWire>(response.body(), "marginalia books")
+        return requests.getDecoded<MarginaliaBookPageWire>(
+            "marginalia/books/",
+            parameters,
+            "marginalia books"
+        )
             .toModel(options.page, options.pageSize)
     }
 
     override suspend fun get(bookId: String): MarginaliaBookSummary {
         require(bookId.isNotBlank()) { "Marginalia Book ID must not be blank." }
-        val response = requests.get("marginalia/books/${bookId.encodeURLPathPart()}/")
-        return json.decodeProtocolBody<MarginaliaBookWire>(response.body(), "marginalia book")
+        return requests.getDecoded<MarginaliaBookWire>(
+            "marginalia/books/${bookId.encodeURLPathPart()}/",
+            context = "marginalia book"
+        )
             .toModel()
     }
 
@@ -85,9 +87,9 @@ internal class KtorMarginaliaBooksClient(
         if (response.status == HttpStatusCode.NotFound) {
             throw SplClientException.BookReadingSessionHistoryNotFound()
         }
-        requireAuthenticatedSuccess(response)
-        return json.decodeProtocolBody<BookReadingSessionPageWire>(
-            response.body(),
+        requireAuthenticatedSuccess(response.status)
+        return requests.decode<BookReadingSessionPageWire>(
+            response,
             "Book reading sessions"
         ).toModel(options.page, options.pageSize)
     }
@@ -109,7 +111,6 @@ internal class KtorMarginaliaBooksClient(
 
 internal class KtorReadingSessionsClient(
     private val requests: AuthenticatedRequestExecutor,
-    private val json: Json,
     private val lifecycle: KtorReadingSessionLifecycleClient,
     private val synchronization: KtorMarginaliaSynchronizationClient
 ) : AuthenticatedReadingSessionsClient {
@@ -122,30 +123,30 @@ internal class KtorReadingSessionsClient(
             options.hasAnnotations?.let { add("has_annotations" to it.toString()) }
             addAll(options.pageParameters())
         }
-        val response = requests.get("marginalia/sessions/", parameters)
-        return json.decodeProtocolBody<ReadingSessionPageWire>(response.body(), "reading sessions")
+        return requests.getDecoded<ReadingSessionPageWire>(
+            "marginalia/sessions/",
+            parameters,
+            "reading sessions"
+        )
             .toModel(options.page, options.pageSize)
     }
 
-    override suspend fun recent(options: RecentReadingOptions): List<RecentReadingItem> {
-        val response =
-            requests.get(
-                "marginalia/sessions/recent/",
-                listOf(
-                    "limit" to options.limit.toString(),
-                    "include_closed" to options.includeClosed.toString()
-                )
-            )
-        return json.decodeProtocolBody<RecentReadingResponseWire>(response.body(), "recent reading")
+    override suspend fun recent(options: RecentReadingOptions): List<RecentReadingItem> =
+        requests.getDecoded<RecentReadingResponseWire>(
+            "marginalia/sessions/recent/",
+            listOf(
+                "limit" to options.limit.toString(),
+                "include_closed" to options.includeClosed.toString()
+            ),
+            "recent reading"
+        )
             .toModel()
-    }
 
     override suspend fun get(sessionId: String): ReadingSessionDetailResult {
         require(sessionId.isNotBlank()) { "Reading Session ID must not be blank." }
-        val response = requests.get("marginalia/sessions/${sessionId.encodeURLPathPart()}/")
-        return json.decodeProtocolBody<ReadingSessionDetailWire>(
-            response.body(),
-            "reading session detail"
+        return requests.getDecoded<ReadingSessionDetailWire>(
+            "marginalia/sessions/${sessionId.encodeURLPathPart()}/",
+            context = "reading session detail"
         ).toModel()
     }
 

@@ -16,9 +16,7 @@ import com.secondpasslibrary.client.ShelfListOptions
 import com.secondpasslibrary.client.ShelfPage
 import com.secondpasslibrary.client.UpdatePersonalShelfInput
 import com.secondpasslibrary.client.internal.transport.AuthenticatedRequestExecutor
-import com.secondpasslibrary.client.internal.transport.decodeProtocolBody
 import com.secondpasslibrary.client.internal.transport.previewParameters
-import io.ktor.client.call.body
 import io.ktor.http.encodeURLPathPart
 import kotlinx.serialization.json.Json
 
@@ -38,15 +36,17 @@ internal class KtorShelvesClient(
             add("page_size" to options.pageSize.toString())
             addAll(previewParameters(options.previewLimit))
         }
-        val response = requests.get("shelves/", parameters)
-        return json.decodeProtocolBody<ShelfPageWire>(response.body(), "shelf page")
+        return requests.getDecoded<ShelfPageWire>("shelves/", parameters, "shelf page")
             .toModel(options.page, options.pageSize)
     }
 
     override suspend fun get(shelfId: String, options: ShelfDetailOptions): Shelf {
         val path = shelfPath(shelfId)
-        val response = requests.get(path, previewParameters(options.previewLimit))
-        return json.decodeProtocolBody<ShelfWire>(response.body(), "shelf").toModel()
+        return requests.getDecoded<ShelfWire>(
+            path,
+            previewParameters(options.previewLimit),
+            "shelf"
+        ).toModel()
     }
 
     override suspend fun listItems(shelfId: String, options: ShelfItemListOptions): ShelfItemPage {
@@ -55,8 +55,11 @@ internal class KtorShelvesClient(
             "page" to options.page.toString(),
             "page_size" to options.pageSize.toString()
         )
-        val response = requests.get("${shelfPath(shelfId)}items/", parameters)
-        return json.decodeProtocolBody<ShelfItemPageWire>(response.body(), "shelf item page")
+        return requests.getDecoded<ShelfItemPageWire>(
+            "${shelfPath(shelfId)}items/",
+            parameters,
+            "shelf item page"
+        )
             .toModel(options.page, options.pageSize)
     }
 
@@ -70,8 +73,11 @@ internal class KtorShelvesClient(
             "page" to options.page.toString(),
             "page_size" to options.pageSize.toString()
         )
-        val response = requests.get("${shelfPath(shelfId)}items/", parameters)
-        return json.decodeProtocolBody<ShelfEditorPageWire>(response.body(), "shelf editor page")
+        return requests.getDecoded<ShelfEditorPageWire>(
+            "${shelfPath(shelfId)}items/",
+            parameters,
+            "shelf editor page"
+        )
             .toModel(options.page, options.pageSize)
     }
 

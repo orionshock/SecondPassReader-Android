@@ -3,9 +3,8 @@ package com.secondpasslibrary.client.internal.marginalia
 import com.secondpasslibrary.client.ReadingSessionLifecycleRejection
 import com.secondpasslibrary.client.ReadingSessionMutationField
 import com.secondpasslibrary.client.SplClientException
+import com.secondpasslibrary.client.internal.transport.AuthenticatedResponse
 import com.secondpasslibrary.client.internal.transport.invalidProtocol
-import io.ktor.client.call.body
-import io.ktor.client.statement.HttpResponse
 import io.ktor.http.HttpStatusCode
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -16,8 +15,8 @@ import kotlinx.serialization.json.jsonObject
 private const val SUCCESS_START = 200
 private const val SUCCESS_END = 299
 
-internal suspend fun requireReadingSessionLifecycleSuccess(
-    response: HttpResponse,
+internal fun requireReadingSessionLifecycleSuccess(
+    response: AuthenticatedResponse,
     expectedStatuses: Set<HttpStatusCode>,
     json: Json
 ) {
@@ -49,12 +48,12 @@ internal suspend fun requireReadingSessionLifecycleSuccess(
     }
 }
 
-private suspend fun rejectLifecycleResponse(
-    response: HttpResponse,
+private fun rejectLifecycleResponse(
+    response: AuthenticatedResponse,
     json: Json,
     fallback: ReadingSessionLifecycleRejection? = null
 ): Nothing {
-    val payload = runCatching { json.parseToJsonElement(response.body<String>()).jsonObject }
+    val payload = runCatching { json.parseToJsonElement(response.body).jsonObject }
         .getOrNull()
     val code = payload?.findCode()?.uppercase()
     val reason = when (code) {

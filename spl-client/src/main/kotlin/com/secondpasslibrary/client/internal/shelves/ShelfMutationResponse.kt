@@ -3,9 +3,8 @@ package com.secondpasslibrary.client.internal.shelves
 import com.secondpasslibrary.client.ShelfMutationField
 import com.secondpasslibrary.client.ShelfMutationRejection
 import com.secondpasslibrary.client.SplClientException
+import com.secondpasslibrary.client.internal.transport.AuthenticatedResponse
 import com.secondpasslibrary.client.internal.transport.invalidProtocol
-import io.ktor.client.call.body
-import io.ktor.client.statement.HttpResponse
 import io.ktor.http.HttpStatusCode
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -14,7 +13,7 @@ private const val HTTP_SUCCESS_START = 200
 private const val HTTP_SUCCESS_END = 299
 
 internal suspend fun requireShelfMutationSuccess(
-    response: HttpResponse,
+    response: AuthenticatedResponse,
     operation: ShelfMutationOperation,
     expectedStatus: HttpStatusCode,
     json: Json
@@ -40,10 +39,10 @@ internal suspend fun requireShelfMutationSuccess(
 
 private suspend fun rejectBadRequest(
     operation: ShelfMutationOperation,
-    response: HttpResponse,
+    response: AuthenticatedResponse,
     json: Json
 ): Nothing {
-    val fields = parseMutationFields(response.body(), json)
+    val fields = parseMutationFields(response.body, json)
     val reason = when {
         operation == ShelfMutationOperation.ADD_ITEM && ShelfMutationField.BOOK in fields ->
             ShelfMutationRejection.DUPLICATE_BOOK

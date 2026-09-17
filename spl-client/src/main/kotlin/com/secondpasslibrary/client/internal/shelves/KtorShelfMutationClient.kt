@@ -8,8 +8,6 @@ import com.secondpasslibrary.client.ShelfItemMove
 import com.secondpasslibrary.client.ShelfVisibility
 import com.secondpasslibrary.client.UpdatePersonalShelfInput
 import com.secondpasslibrary.client.internal.transport.AuthenticatedRequestExecutor
-import com.secondpasslibrary.client.internal.transport.decodeProtocolBody
-import io.ktor.client.call.body
 import io.ktor.http.HttpStatusCode
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -42,7 +40,7 @@ internal class KtorShelfMutationClient(
             HttpStatusCode.Created,
             json
         )
-        return json.decodeProtocolBody<ShelfWire>(response.body(), "shelf creation").toModel()
+        return requests.decode<ShelfWire>(response, "shelf creation").toModel()
     }
 
     suspend fun update(shelfId: String, input: UpdatePersonalShelfInput): Shelf {
@@ -58,7 +56,7 @@ internal class KtorShelfMutationClient(
             HttpStatusCode.OK,
             json
         )
-        return json.decodeProtocolBody<ShelfWire>(response.body(), "shelf update").toModel()
+        return requests.decode<ShelfWire>(response, "shelf update").toModel()
     }
 
     suspend fun delete(shelfId: String) {
@@ -80,10 +78,7 @@ internal class KtorShelfMutationClient(
             HttpStatusCode.Created,
             json
         )
-        return json.decodeProtocolBody<ShelfItemWire>(
-            response.body(),
-            "shelf item creation"
-        ).toItemModel()
+        return requests.decode<ShelfItemWire>(response, "shelf item creation").toItemModel()
     }
 
     suspend fun moveItem(shelfId: String, itemId: String, direction: ShelfItemMove): ShelfItem {
@@ -125,10 +120,7 @@ internal class KtorShelfMutationClient(
     ): ShelfItem {
         val response = requests.patch(shelfItemPath(shelfId, itemId), payload)
         requireShelfMutationSuccess(response, operation, HttpStatusCode.OK, json)
-        return json.decodeProtocolBody<ShelfItemWire>(
-            response.body(),
-            "shelf item update"
-        ).toItemModel()
+        return requests.decode<ShelfItemWire>(response, "shelf item update").toItemModel()
     }
 }
 

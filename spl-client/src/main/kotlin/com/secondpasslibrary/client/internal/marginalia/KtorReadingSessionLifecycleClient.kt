@@ -6,10 +6,8 @@ import com.secondpasslibrary.client.ReadingSessionDetailResult
 import com.secondpasslibrary.client.ReadingSessionFinalization
 import com.secondpasslibrary.client.ReadingSessionMetadataInput
 import com.secondpasslibrary.client.internal.transport.AuthenticatedRequestExecutor
-import com.secondpasslibrary.client.internal.transport.decodeProtocolBody
+import com.secondpasslibrary.client.internal.transport.AuthenticatedResponse
 import com.secondpasslibrary.client.internal.transport.invalidProtocol
-import io.ktor.client.call.body
-import io.ktor.client.statement.HttpResponse
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.encodeURLPathPart
 import kotlinx.serialization.encodeToString
@@ -25,7 +23,7 @@ internal class KtorReadingSessionLifecycleClient(
             "marginalia/books/${bookId.encodeURLPathPart()}/active-session/"
         )
         requireReadingSessionLifecycleSuccess(response, setOf(HttpStatusCode.OK), json)
-        return decodeBootstrap(response.body()).also { bootstrap ->
+        return decodeBootstrap(response).also { bootstrap ->
             if (bootstrap.created) invalidProtocol("active Reading Session lookup")
         }
     }
@@ -44,7 +42,7 @@ internal class KtorReadingSessionLifecycleClient(
             setOf(HttpStatusCode.OK, HttpStatusCode.Created),
             json
         )
-        return decodeBootstrap(response.body()).also { bootstrap ->
+        return decodeBootstrap(response).also { bootstrap ->
             val statusCreated = response.status == HttpStatusCode.Created
             if (bootstrap.created != statusCreated || bootstrap.activeSession == null) {
                 invalidProtocol("open Reading Session")
@@ -64,7 +62,7 @@ internal class KtorReadingSessionLifecycleClient(
             idempotencyKey.value
         )
         requireReadingSessionLifecycleSuccess(response, setOf(HttpStatusCode.Created), json)
-        return decodeBootstrap(response.body()).also { bootstrap ->
+        return decodeBootstrap(response).also { bootstrap ->
             if (!bootstrap.created || bootstrap.activeSession == null) {
                 invalidProtocol("start-over Reading Session")
             }
@@ -98,21 +96,21 @@ internal class KtorReadingSessionLifecycleClient(
         return decodeDetail(response, HttpStatusCode.OK)
     }
 
-    private suspend fun decodeDetail(
-        response: HttpResponse,
+    private fun decodeDetail(
+        response: AuthenticatedResponse,
         expectedStatus: HttpStatusCode
     ): ReadingSessionDetailResult {
         requireReadingSessionLifecycleSuccess(response, setOf(expectedStatus), json)
-        return json.decodeProtocolBody<ReadingSessionDetailWire>(
-            response.body(),
+        return requests.decode<ReadingSessionDetailWire>(
+            response,
             "Reading Session detail"
         )
             .toModel()
     }
 
-    private fun decodeBootstrap(body: String): ReadingSessionBootstrap =
-        json.decodeProtocolBody<ReadingSessionBootstrapWire>(
-            body,
+    private fun decodeBootstrap(response: AuthenticatedResponse): ReadingSessionBootstrap =
+        requests.decode<ReadingSessionBootstrapWire>(
+            response,
             "Reading Session bootstrap"
         ).toModel()
 

@@ -7,16 +7,11 @@ import com.secondpasslibrary.client.LibraryAuthor
 import com.secondpasslibrary.client.LibraryEntityDetailOptions
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.internal.transport.AuthenticatedRequestExecutor
-import com.secondpasslibrary.client.internal.transport.decodeProtocolBody
 import com.secondpasslibrary.client.internal.transport.previewParameters
-import io.ktor.client.call.body
 import io.ktor.http.encodeURLPathPart
-import kotlinx.serialization.json.Json
 
-internal class KtorLibraryAuthorsClient(
-    private val requests: AuthenticatedRequestExecutor,
-    private val json: Json
-) : AuthenticatedLibraryAuthorsClient {
+internal class KtorLibraryAuthorsClient(private val requests: AuthenticatedRequestExecutor) :
+    AuthenticatedLibraryAuthorsClient {
     override suspend fun list(
         scope: LibraryScope,
         options: AuthorListOptions
@@ -27,12 +22,9 @@ internal class KtorLibraryAuthorsClient(
         options: LibraryEntityDetailOptions
     ): LibraryAuthor {
         require(authorId.isNotBlank()) { "Author ID must not be blank." }
-        val response = requests.get(
+        return requests.getDecoded<LibraryAuthorWire>(
             "library/authors/${authorId.encodeURLPathPart()}/",
-            previewParameters(options.previewLimit)
-        )
-        return json.decodeProtocolBody<LibraryAuthorWire>(
-            response.body(),
+            previewParameters(options.previewLimit),
             "library author"
         ).toModel()
     }
@@ -49,11 +41,7 @@ internal class KtorLibraryAuthorsClient(
             add("page_size" to options.pageSize.toString())
             addAll(previewParameters(options.previewLimit))
         }
-        val response = requests.get(path, parameters)
-        return json.decodeProtocolBody<LibraryAuthorPageWire>(
-            response.body(),
-            "library author page"
-        )
+        return requests.getDecoded<LibraryAuthorPageWire>(path, parameters, "library author page")
             .toModel(options.page, options.pageSize)
     }
 }

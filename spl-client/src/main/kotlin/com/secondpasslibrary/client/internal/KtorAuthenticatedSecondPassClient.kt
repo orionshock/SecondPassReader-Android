@@ -9,26 +9,19 @@ import com.secondpasslibrary.client.internal.library.KtorAuthenticatedLibraryCli
 import com.secondpasslibrary.client.internal.marginalia.KtorAuthenticatedMarginaliaClient
 import com.secondpasslibrary.client.internal.shelves.KtorShelvesClient
 import com.secondpasslibrary.client.internal.transport.AuthenticatedRequestExecutor
+import com.secondpasslibrary.client.internal.transport.splProtocolJson
 import io.ktor.client.HttpClient
-import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.json.Json
 
-@OptIn(ExperimentalSerializationApi::class)
 internal class KtorAuthenticatedSecondPassClient(
     httpClient: HttpClient,
     apiBaseUrl: String,
     credential: BearerCredential
 ) : AuthenticatedSecondPassClient {
-    private val requests = AuthenticatedRequestExecutor(httpClient, apiBaseUrl, credential)
-    private val json =
-        Json {
-            ignoreUnknownKeys = true
-            explicitNulls = false
-            exceptionsWithDebugInfo = false
-        }
+    private val json = splProtocolJson
+    private val requests = AuthenticatedRequestExecutor(httpClient, apiBaseUrl, credential, json)
 
     override val library: AuthenticatedLibraryClient =
-        KtorAuthenticatedLibraryClient(requests, json)
+        KtorAuthenticatedLibraryClient(requests)
     override val shelves: AuthenticatedShelvesClient = KtorShelvesClient(requests, json)
     override val marginalia: AuthenticatedMarginaliaClient =
         KtorAuthenticatedMarginaliaClient(requests, json)

@@ -25,6 +25,20 @@ abstract class ReaderBoundaryCheckTask : DefaultTask() {
             val isReadiumAdapter = READIUM_ADAPTER_PATH in path
             val isConnectionFeature = CONNECTION_FEATURE_PATH in path
             val isLibraryFeature = LIBRARY_FEATURE_PATH in path
+            val isAppSource = APP_SOURCE_PATH in path
+            val isSdkSource = SDK_SOURCE_PATH in path
+            val isSdkTransport = SDK_TRANSPORT_PATH in path
+            if (isAppSource && SDK_TRANSPORT_IMPORTS.any { it in source }) {
+                violations += "$path: app imports raw HTTP transport"
+            }
+            if (isSdkSource && !isSdkTransport && "HttpHeaders.Authorization" in source) {
+                violations += "$path: bearer attachment outside the SDK transport seam"
+            }
+            if (isSdkSource && !isSdkTransport &&
+                "import io.ktor.client.statement.HttpResponse" in source &&
+                file.name != "KtorSecondPassClient.kt") {
+                violations += "$path: raw HttpResponse outside the SDK transport seam"
+            }
             if (!isReadiumAdapter &&
                 ("CfiProtocol" in source || "CfiRuntimeMethod" in source)) {
                 violations += "$path: CFI wire protocol outside the Readium adapter"
@@ -77,6 +91,10 @@ abstract class ReaderBoundaryCheckTask : DefaultTask() {
         const val READIUM_ADAPTER_PATH = "${READER_FEATURE_PATH}readium/"
         const val CONNECTION_FEATURE_PATH = "/com/secondpasslibrary/reader/connection/"
         const val LIBRARY_FEATURE_PATH = "/com/secondpasslibrary/reader/library/"
+        const val APP_SOURCE_PATH = "/app/src/"
+        const val SDK_SOURCE_PATH = "/spl-client/src/"
+        const val SDK_TRANSPORT_PATH = "/client/internal/transport/"
+        val SDK_TRANSPORT_IMPORTS = listOf("import io.ktor.", "import okhttp3.")
         val PAIRING_PROTOCOL_MARKERS = listOf(
             "PairingRequest", "PairingStatus", "PairingConsumption", "pollUrl", "consumeUrl"
         )

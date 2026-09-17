@@ -55,11 +55,12 @@ tasks.register<StaticHygieneTask>("staticHygiene") {
 val readerBoundaryCheck =
     tasks.register<ReaderBoundaryCheckTask>("readerBoundaryCheck") {
         group = LifecycleBasePlugin.VERIFICATION_GROUP
-        description = "Checks Reader engine isolation and forbidden renderer movement seams."
+        description = "Checks Reader isolation and SDK transport seams."
         productionSources.from(
             fileTree("app/src/main/kotlin") { include("**/*.kt") },
             fileTree("app/src/debug/kotlin") { include("**/*.kt") },
-            fileTree("app/src/release/kotlin") { include("**/*.kt") }
+            fileTree("app/src/release/kotlin") { include("**/*.kt") },
+            fileTree("spl-client/src/main/kotlin") { include("**/*.kt") }
         )
         authoredJavascript.from(
             file("app/src/main/assets/reader/cfi/secondpass-epub-cfi-runtime.js")

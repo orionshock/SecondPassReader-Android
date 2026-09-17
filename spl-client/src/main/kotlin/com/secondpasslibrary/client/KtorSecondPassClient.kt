@@ -13,7 +13,6 @@ import com.secondpasslibrary.client.internal.transport.WellKnownWire
 import com.secondpasslibrary.client.internal.transport.discoveryValue
 import com.secondpasslibrary.client.internal.transport.invalidResponse
 import com.secondpasslibrary.client.internal.transport.requireAbsoluteHttpUrl
-import com.secondpasslibrary.client.internal.transport.requireAuthenticatedSuccess
 import com.secondpasslibrary.client.internal.transport.requireClientSessionRevocationSuccess
 import com.secondpasslibrary.client.internal.transport.requireConsumeSuccess
 import com.secondpasslibrary.client.internal.transport.requireDiscoveryBearer
@@ -22,6 +21,7 @@ import com.secondpasslibrary.client.internal.transport.requirePairingCreateSucce
 import com.secondpasslibrary.client.internal.transport.requirePairingStatusSuccess
 import com.secondpasslibrary.client.internal.transport.required
 import com.secondpasslibrary.client.internal.transport.resolveApiUrl
+import com.secondpasslibrary.client.internal.transport.splProtocolJson
 import com.secondpasslibrary.client.internal.transport.toModel
 import com.secondpasslibrary.client.internal.transport.toPairingConsumption
 import com.secondpasslibrary.client.internal.transport.toPairingRequest
@@ -32,35 +32,25 @@ import io.ktor.client.call.body
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.get
-import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.ContentType
-import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.encodeURLPathPart
 import java.io.IOException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerializationException
-import kotlinx.serialization.json.Json
 
-@OptIn(ExperimentalSerializationApi::class)
 class KtorSecondPassClient internal constructor(private val httpClient: HttpClient) :
     SecondPassClient,
     ClientSessionRevocationClient,
     AuthenticatedSecondPassClientFactory {
     constructor() : this(defaultHttpClient())
 
-    private val json =
-        Json {
-            ignoreUnknownKeys = true
-            explicitNulls = false
-            exceptionsWithDebugInfo = false
-        }
+    private val json = splProtocolJson
 
     override suspend fun discoverServer(userInput: String): DiscoveredServer {
         val origin = ServerOrigin.fromUserInput(userInput)
@@ -180,7 +170,7 @@ class KtorSecondPassClient internal constructor(private val httpClient: HttpClie
         credential: BearerCredential,
         clientSessionId: String
     ) {
-        val requests = AuthenticatedRequestExecutor(httpClient, apiBaseUrl, credential)
+        val requests = AuthenticatedRequestExecutor(httpClient, apiBaseUrl, credential, json)
         val response =
             requests.delete(
                 "accounts/me/client-sessions/${clientSessionId.encodeURLPathPart()}/"
@@ -193,16 +183,8 @@ class KtorSecondPassClient internal constructor(private val httpClient: HttpClie
         path: String,
         credential: BearerCredential
     ): T {
-        val response =
-            safeRequest {
-                httpClient.get(resolveApiUrl(apiBaseUrl, path)) {
-                    credential.useSecret { token ->
-                        header(HttpHeaders.Authorization, "Bearer $token")
-                    }
-                }
-            }
-        requireAuthenticatedSuccess(response)
-        return decode(response, "authenticated context")
+        val requests = AuthenticatedRequestExecutor(httpClient, apiBaseUrl, credential, json)
+        return requests.getDecoded(path, context = "authenticated context")
     }
 
     private suspend fun safeRequest(block: suspend () -> HttpResponse): HttpResponse = try {
