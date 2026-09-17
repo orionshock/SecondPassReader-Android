@@ -10,8 +10,6 @@ import com.secondpasslibrary.client.SeriesOrdering
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.library.axis.FakeLibraryAxisClient
 import com.secondpasslibrary.reader.library.axis.FakeLibraryAxisClientProvider
-import com.secondpasslibrary.reader.library.axis.LibraryAuthorsController
-import com.secondpasslibrary.reader.library.axis.LibrarySeriesController
 import com.secondpasslibrary.reader.library.axis.author
 import com.secondpasslibrary.reader.library.axis.axisBook
 import com.secondpasslibrary.reader.library.axis.axisPage
@@ -19,7 +17,6 @@ import com.secondpasslibrary.reader.library.axis.catalogTag
 import com.secondpasslibrary.reader.library.axis.libraryPage
 import com.secondpasslibrary.reader.library.axis.libraryProfile
 import com.secondpasslibrary.reader.library.axis.series
-import com.secondpasslibrary.reader.library.books.LibraryBooksController
 import com.secondpasslibrary.reader.library.books.LibraryBooksEntry
 import com.secondpasslibrary.reader.library.books.LibraryBooksLayout
 import com.secondpasslibrary.reader.library.books.LibraryBooksOrdering
@@ -32,7 +29,6 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -279,7 +275,7 @@ class LibraryControllerAxisTest {
     }
 
     @Test
-    fun `parent routes Author and Series selections without sibling dependencies`() = runTest {
+    fun `parent routes Author and Series selections into filtered Books`() = runTest {
         val client = FakeLibraryAxisClient()
         val controller = controller(client)
         controller.initialize(libraryProfile(), LibraryBooksEntry.Browse, false)
@@ -300,14 +296,6 @@ class LibraryControllerAxisTest {
         assertEquals("series-1", controller.state.value.series.selected?.detail?.id)
         assertEquals("series-1", client.bookRequests.last().seriesId)
         assertEquals(BookOrdering.SERIES_INDEX, client.bookRequests.last().ordering)
-
-        val childTypes =
-            listOf(LibraryAuthorsController::class.java, LibrarySeriesController::class.java)
-        assertFalse(
-            childTypes.flatMap { it.declaredConstructors.toList() }
-                .flatMap { it.parameterTypes.toList() }
-                .any { it == LibraryBooksController::class.java }
-        )
     }
 
     @Test

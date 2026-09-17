@@ -2,16 +2,19 @@ package com.secondpasslibrary.reader.library
 
 import com.secondpasslibrary.client.AuthorOrdering
 import com.secondpasslibrary.client.BookOrdering
+import com.secondpasslibrary.client.LibraryAuthor
 import com.secondpasslibrary.client.LibraryCatalogTag
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.client.LibrarySearchOrdering
+import com.secondpasslibrary.client.LibrarySeries
 import com.secondpasslibrary.client.SeriesOrdering
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
-import com.secondpasslibrary.reader.library.axis.LibraryAuthorsController
-import com.secondpasslibrary.reader.library.axis.LibrarySeriesController
+import com.secondpasslibrary.reader.library.axis.PagedLibraryAxisController
+import com.secondpasslibrary.reader.library.axis.libraryAuthorsAxisController
+import com.secondpasslibrary.reader.library.axis.librarySeriesAxisController
 import com.secondpasslibrary.reader.library.books.LibraryBooksController
 import com.secondpasslibrary.reader.library.books.LibraryBooksEntry
 import com.secondpasslibrary.reader.library.books.LibraryBooksLayout
@@ -34,9 +37,10 @@ internal class LibraryController(
     private val scope: CoroutineScope,
     private val books: LibraryBooksController =
         LibraryBooksController(clientProvider, displayPreferenceStore, scope),
-    private val authors: LibraryAuthorsController =
-        LibraryAuthorsController(clientProvider, scope),
-    private val series: LibrarySeriesController = LibrarySeriesController(clientProvider, scope),
+    private val authors: PagedLibraryAxisController<LibraryAuthor, AuthorOrdering> =
+        libraryAuthorsAxisController(clientProvider, scope),
+    private val series: PagedLibraryAxisController<LibrarySeries, SeriesOrdering> =
+        librarySeriesAxisController(clientProvider, scope),
     private val vocabulary: LibraryFilterVocabularyController =
         LibraryFilterVocabularyController(clientProvider, scope)
 ) {
@@ -255,7 +259,7 @@ internal class LibraryController(
         if (chrome.value.axis != LibraryAxis.AUTHORS) {
             selectAxis(LibraryAxis.AUTHORS)
         }
-        authors.selectAuthor(authorId)
+        authors.select(authorId)
         books.showAuthorBooks(authorId, chrome.value.scope)
         chrome.value = chrome.value.copy(resultKind = LibraryResultKind.BOOKS)
     }
@@ -264,7 +268,7 @@ internal class LibraryController(
         if (chrome.value.axis != LibraryAxis.SERIES) {
             selectAxis(LibraryAxis.SERIES)
         }
-        series.selectSeries(seriesId)
+        series.select(seriesId)
         books.showSeriesBooks(seriesId, chrome.value.scope)
         chrome.value = chrome.value.copy(resultKind = LibraryResultKind.BOOKS)
     }

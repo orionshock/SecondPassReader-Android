@@ -39,16 +39,16 @@ Library uses explicit parent/child ownership:
 LibraryController
   |- books/LibraryBooksController
   `- axis/
-       |- PagedLibraryAxisController
-       |- LibraryAuthorsController
-       `- LibrarySeriesController
+       `- PagedLibraryAxisController
+            |- typed Author request configuration
+            `- typed Series request configuration
 ```
 
 `LibraryController` owns route entry, current axis, Library scope, group/tag vocabulary loading, selected Catalog Tag, and sibling coordination. Home broad-search entry is interpreted here before being delegated to Books. Author and Series selections enter through the parent, which retains the active axis, delegates detail loading to the owning child, and configures filtered Books through the Books child. Children never reach sideways; they receive only the effective tag slug.
 
 `LibraryBooksController` owns transient online Books browsing state. It translates the server's page-number contract into append-style results with an explicit page size of 50, prevents duplicate next-page requests, and discards responses made stale by mode, query, scope, or ordering changes. Initial loads, refreshes, and next-page failures remain distinct; next-page and refresh failures retain accumulated results. Library pages are deliberately not stored in Room. Offline Library instead presents the account-scoped subset with a confirmed completed EPUB, using the best cached Home/asset metadata available and title-only local search. It does not pretend that previously viewed catalog pages form a complete offline Library. `LibraryViewModel` retains the parent and its children for as long as the current navigation owner survives.
 
-`LibraryAuthorsController` and `LibrarySeriesController` independently own their committed axis query, typed ordering, page-50 append state, retries, and selected entity detail. Both are thin facades over the shared `PagedLibraryAxisController`, request three preview Books, and preserve server order. Scope changes invalidate both axes and clear potentially invalid detail, while only the active child performs an immediate reload. Switching axes preserves valid loaded child state. Shared Library controls and vocabulary presentation live in the shallow `library.chrome` cluster; root Library files remain reserved for parent coordination, aggregate state, navigation, and state hosting.
+Two typed `PagedLibraryAxisController` instances independently own the Author and Series committed query, typed ordering, page-50 append state, retries, and selected entity detail. Their typed construction configuration owns the corresponding SDK endpoint and bounded preview options without adding forwarding controller interfaces. Scope changes invalidate both axes and clear potentially invalid detail, while only the active child performs an immediate reload. Switching axes preserves valid loaded child state. Shared Library controls and vocabulary presentation live in the shallow `library.chrome` cluster; root Library files remain reserved for parent coordination, aggregate state, navigation, and state hosting.
 
 Authors and Series render permanent dense card lists with identity, book count, and up to three public preview covers. Selecting one keeps its axis active while the Library parent coordinates its detail child and the existing Books child, filtered by the selected identity and current scope. Detail loading or failure is independent of filtered Books loading. Index result sets are list-only; selected-entity Books use the normal List/Grid presentation through the parent-owned `LibraryResultKind`.
 

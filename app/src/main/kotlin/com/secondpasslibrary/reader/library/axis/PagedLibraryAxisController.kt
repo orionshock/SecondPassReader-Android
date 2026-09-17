@@ -1,8 +1,15 @@
 package com.secondpasslibrary.reader.library.axis
 
 import com.secondpasslibrary.client.AuthenticatedSecondPassClient
+import com.secondpasslibrary.client.AuthorListOptions
+import com.secondpasslibrary.client.AuthorOrdering
 import com.secondpasslibrary.client.CatalogResultPage
+import com.secondpasslibrary.client.LibraryAuthor
+import com.secondpasslibrary.client.LibraryEntityDetailOptions
 import com.secondpasslibrary.client.LibraryScope
+import com.secondpasslibrary.client.LibrarySeries
+import com.secondpasslibrary.client.SeriesListOptions
+import com.secondpasslibrary.client.SeriesOrdering
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
@@ -291,4 +298,60 @@ internal data class PagedLibraryAxisRequest<O>(
     val page: Int,
     val pageSize: Int,
     val tagSlug: String? = null
+)
+
+internal fun libraryAuthorsAxisController(
+    clientProvider: AuthenticatedClientProvider,
+    scope: CoroutineScope
+): PagedLibraryAxisController<LibraryAuthor, AuthorOrdering> = PagedLibraryAxisController(
+    clientProvider = clientProvider,
+    coroutineScope = scope,
+    defaultOrdering = AuthorOrdering.NAME,
+    pageLoader = { client, request ->
+        client.library.authors.list(
+            request.scope,
+            AuthorListOptions(
+                q = request.query.takeIf(String::isNotBlank),
+                tagSlug = request.tagSlug,
+                ordering = request.ordering,
+                page = request.page,
+                pageSize = request.pageSize,
+                previewLimit = LIBRARY_AXIS_PREVIEW_LIMIT
+            )
+        )
+    },
+    detailLoader = { client, id ->
+        client.library.authors.getAuthor(
+            id,
+            LibraryEntityDetailOptions(previewLimit = LIBRARY_ENTITY_DETAIL_PREVIEW_LIMIT)
+        )
+    }
+)
+
+internal fun librarySeriesAxisController(
+    clientProvider: AuthenticatedClientProvider,
+    scope: CoroutineScope
+): PagedLibraryAxisController<LibrarySeries, SeriesOrdering> = PagedLibraryAxisController(
+    clientProvider = clientProvider,
+    coroutineScope = scope,
+    defaultOrdering = SeriesOrdering.NAME,
+    pageLoader = { client, request ->
+        client.library.series.list(
+            request.scope,
+            SeriesListOptions(
+                q = request.query.takeIf(String::isNotBlank),
+                tagSlug = request.tagSlug,
+                ordering = request.ordering,
+                page = request.page,
+                pageSize = request.pageSize,
+                previewLimit = LIBRARY_AXIS_PREVIEW_LIMIT
+            )
+        )
+    },
+    detailLoader = { client, id ->
+        client.library.series.getSeries(
+            id,
+            LibraryEntityDetailOptions(previewLimit = LIBRARY_ENTITY_DETAIL_PREVIEW_LIMIT)
+        )
+    }
 )

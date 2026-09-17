@@ -1,6 +1,10 @@
 package com.secondpasslibrary.reader.library.axis
 
+import com.secondpasslibrary.client.AuthorOrdering
+import com.secondpasslibrary.client.LibraryAuthor
 import com.secondpasslibrary.client.LibraryCatalogTag
+import com.secondpasslibrary.client.LibrarySeries
+import com.secondpasslibrary.client.SeriesOrdering
 import com.secondpasslibrary.reader.library.DEFAULT_LIBRARY_PAGE_SIZE
 import com.secondpasslibrary.reader.library.LibraryFailure
 
@@ -39,3 +43,6 @@ internal data class PagedLibraryAxisDetailState<T>(
 
 internal const val LIBRARY_AXIS_PREVIEW_LIMIT = 24
 internal const val LIBRARY_ENTITY_DETAIL_PREVIEW_LIMIT = 0
+
+internal typealias LibraryAuthorsState = PagedLibraryAxisState<LibraryAuthor, AuthorOrdering>
+internal typealias LibrarySeriesState = PagedLibraryAxisState<LibrarySeries, SeriesOrdering>
