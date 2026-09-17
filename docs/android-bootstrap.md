@@ -14,16 +14,15 @@ The repository doctrine remains in `AGENTS.md`. This document records the concre
 
 - `minSdk 31` (Android 12) is a deliberate modern floor for a private tablet-first client. It avoids legacy compatibility work while retaining support for modern tablets older than the reference device.
 - `compileSdk 37` and `targetSdk 37` use the current stable Android 17 SDK. No preview SDK is selected.
-- Gradle `9.7.0`, Android Gradle Plugin `9.3.1`, and Kotlin `2.4.10`.
-- AGP 9 built-in Kotlin for `:app`; Compose compiler plugin `2.4.10` matches Kotlin.
-- Compose BOM `2026.08.00`, Activity Compose `1.13.0`, Lifecycle `2.11.0`, Core KTX `1.19.0`.
-- Hilt `2.60.1` with KSP `2.3.10`; coroutines `1.11.0`.
-- AndroidX Navigation 3 `1.1.6` owns Compose-first authenticated routing.
-- Coil `3.5.0` owns Compose cover loading plus normal memory/disk caching for public cover URLs.
-- Room `3.0.1` with KSP owns the app-local Home resilience projection and exported schema history.
-- detekt `2.0.0-alpha.6`, ktlint Gradle plugin `14.2.0`, and ktlint `1.8.0`.
+- AGP 9 built-in Kotlin for `:app`; the Compose compiler plugin follows the catalog's Kotlin version.
+- The current Compose BOM and AndroidX Activity, Lifecycle, and Core dependencies come from the version catalog.
+- Hilt uses KSP; coroutine and code-generation versions also come from the version catalog.
+- AndroidX Navigation 3 owns Compose-first authenticated routing.
+- Coil 3 owns Compose cover loading plus normal memory/disk caching for public cover URLs.
+- Room 3 with KSP owns the app-local Home resilience projection and exported schema history.
+- detekt and ktlint remain the repository's static-analysis and formatting tools.
 
-Gradle runs on Android Studio's JBR 25.0.2. Gradle 9.7 supports that runtime; project bytecode targets Java 17. A separate JDK 17 installation is not required.
+`gradle/libs.versions.toml` is the sole source for exact dependency and plugin versions. The committed Gradle wrapper separately owns the exact Gradle distribution. Gradle runs on Android Studio's JBR 25, while project bytecode targets Java 17; a separate JDK 17 installation is not required. The verified workstation toolchain is recorded in [Development environment](development-environment.md).
 
 ## Current application baseline
 

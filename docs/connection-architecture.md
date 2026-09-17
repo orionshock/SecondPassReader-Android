@@ -10,7 +10,7 @@ create → wait → poll → consume sequencing, polling cadence, retry/backoff,
 UI owns presentation only. App shell/storage owns workflow gating, the single active connection,
 and secure persistence; pairing does not publish a verified account by itself.
 
-`:spl-client` owns URL normalization, public discovery, pairing request HTTP, status polling HTTP, consumption HTTP, bearer attachment, transport DTOs, response validation, and authenticated account/server-context mapping. It remains a pure Kotlin/JVM module. Ktor Client 3.5.2 uses its OkHttp engine, and kotlinx.serialization 1.11.0 decodes internal wire models. Neither transport type is exposed to `:app`.
+`:spl-client` owns URL normalization, public discovery, pairing request HTTP, status polling HTTP, consumption HTTP, bearer attachment, transport DTOs, response validation, and authenticated account/server-context mapping. It remains a pure Kotlin/JVM module. Ktor Client 3 uses its OkHttp engine, and kotlinx.serialization decodes internal wire models. Exact dependency versions come from `gradle/libs.versions.toml`. Neither transport type is exposed to `:app`.
 
 `:app` owns Android lifecycle sequencing, user-facing state, encrypted credential persistence, non-secret connection persistence, and display mapping. Compose receives no bearer credential and performs no network or persistence work.
 
