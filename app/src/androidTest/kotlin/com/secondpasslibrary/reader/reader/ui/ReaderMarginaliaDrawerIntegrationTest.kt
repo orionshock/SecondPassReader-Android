@@ -24,6 +24,7 @@ import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayerVisib
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayersState
 import com.secondpasslibrary.reader.reader.marginalia.ReaderPreviousMarginaliaLayer
 import com.secondpasslibrary.reader.reader.marginalia.ui.READER_MARGINALIA_LOAD_MORE_TAG
+import com.secondpasslibrary.reader.reader.presentation.ReaderMarginaliaPresentationState
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -59,12 +60,6 @@ class ReaderMarginaliaDrawerIntegrationTest {
                     state = readerReadyState(),
                     onBack = {},
                     onRetry = {},
-                    annotations = ReaderAnnotationsState(
-                        sessionId = "session-1",
-                        annotations = listOf(current),
-                        loaded = true
-                    ),
-                    marginaliaLayers = layerState.value,
                     onMarginaliaIntent = { intent ->
                         when (intent) {
                             is ReaderMarginaliaIntent.LoadPreviousLayer ->
@@ -84,7 +79,15 @@ class ReaderMarginaliaDrawerIntegrationTest {
 
                             else -> Unit
                         }
-                    }
+                    },
+                    marginalia = ReaderMarginaliaPresentationState(
+                        annotations = ReaderAnnotationsState(
+                            sessionId = "session-1",
+                            annotations = listOf(current),
+                            loaded = true
+                        ),
+                        marginaliaLayers = layerState.value
+                    )
                 )
             }
         }

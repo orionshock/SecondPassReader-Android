@@ -28,15 +28,7 @@ internal fun ReaderStateHost(
     viewModel: ReaderViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val annotations by viewModel.annotations.collectAsStateWithLifecycle()
-    val pageBookmarks by viewModel.pageBookmarks.collectAsStateWithLifecycle()
-    val marginaliaLayers by viewModel.marginaliaLayers.collectAsStateWithLifecycle()
-    val autoShowPreviousMarginalia by
-        viewModel.autoShowPreviousMarginalia.collectAsStateWithLifecycle()
-    val selection by viewModel.selection.collectAsStateWithLifecycle()
-    val annotationMutations by viewModel.annotationMutationState.collectAsStateWithLifecycle()
-    val highlightDetail by viewModel.highlightDetail.collectAsStateWithLifecycle()
-    val sessionMetadata by viewModel.sessionMetadataState.collectAsStateWithLifecycle()
+    val marginalia by viewModel.marginaliaState.collectAsStateWithLifecycle()
     DisposableEffect(viewModel) {
         onDispose {
             viewModel.setAvailability(
@@ -62,19 +54,12 @@ internal fun ReaderStateHost(
     }
     ReaderScreen(
         state = state,
+        marginalia = marginalia,
         serverWritesAvailable = availability !is AppAvailability.Offline,
         onBack = { viewModel.flushThenExit(onBack) },
         onRetry = { viewModel.retry(availability) },
         onAppearanceChanged = viewModel::updateAppearance,
-        annotations = annotations,
-        pageBookmarks = pageBookmarks,
-        marginaliaLayers = marginaliaLayers,
-        autoShowPreviousMarginalia = autoShowPreviousMarginalia,
         onMarginaliaIntent = viewModel::acceptMarginalia,
-        selection = selection,
-        annotationMutations = annotationMutations,
-        highlightDetail = highlightDetail,
-        sessionMetadata = sessionMetadata,
         onAnnotationMutation = viewModel::mutateAnnotation,
         onCreateBookmark = { viewModel.acceptBookmark(ReaderBookmarkHudIntent.Create) },
         onNavigationIntent = viewModel.onNavigationIntent,

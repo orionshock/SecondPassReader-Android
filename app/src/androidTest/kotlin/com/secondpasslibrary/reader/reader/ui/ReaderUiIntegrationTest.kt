@@ -46,6 +46,7 @@ import com.secondpasslibrary.reader.reader.marginalia.ui.READER_SESSION_NAME_FIE
 import com.secondpasslibrary.reader.reader.marginalia.ui.READER_SESSION_NOTES_FIELD_TAG
 import com.secondpasslibrary.reader.reader.marginalia.ui.READER_SESSION_SAVE_TAG
 import com.secondpasslibrary.reader.reader.navigation.ReaderNavigationIntent
+import com.secondpasslibrary.reader.reader.presentation.ReaderMarginaliaPresentationState
 import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadata
 import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadataState
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
@@ -138,7 +139,6 @@ class ReaderUiIntegrationTest {
                     state = readerReadyState(),
                     onBack = {},
                     onRetry = {},
-                    pageBookmarks = visibleBookmarks.value,
                     onCreateBookmark = {
                         creates += 1
                         visibleBookmarks.value = ReaderVisiblePageBookmarks(listOf(first))
@@ -151,7 +151,10 @@ class ReaderUiIntegrationTest {
                                 existing.id == it.id
                             }
                         )
-                    }
+                    },
+                    marginalia = ReaderMarginaliaPresentationState(
+                        pageBookmarks = visibleBookmarks.value
+                    )
                 )
             }
         }
@@ -361,12 +364,14 @@ class ReaderUiIntegrationTest {
                     state = readerReadyState(navigator = navigator),
                     onBack = { exits += 1 },
                     onRetry = {},
-                    annotations = ReaderAnnotationsState(
-                        sessionId = "session-1",
-                        annotations = listOf(annotation),
-                        loaded = true
-                    ),
-                    onNavigationIntent = { navigationIntents += it }
+                    onNavigationIntent = { navigationIntents += it },
+                    marginalia = ReaderMarginaliaPresentationState(
+                        annotations = ReaderAnnotationsState(
+                            sessionId = "session-1",
+                            annotations = listOf(annotation),
+                            loaded = true
+                        )
+                    )
                 )
             }
         }
@@ -399,10 +404,12 @@ class ReaderUiIntegrationTest {
                     state = readerReadyState(),
                     onBack = {},
                     onRetry = {},
-                    annotations = state.value,
                     onMarginaliaIntent = {
                         if (it == ReaderMarginaliaIntent.RetryCurrentAnnotations) retries += 1
-                    }
+                    },
+                    marginalia = ReaderMarginaliaPresentationState(
+                        annotations = state.value
+                    )
                 )
             }
         }
@@ -442,8 +449,6 @@ class ReaderUiIntegrationTest {
                     state = readerReadyState(status = status.value),
                     onBack = {},
                     onRetry = {},
-                    selection = selection,
-                    annotationMutations = createState.value,
                     onAnnotationMutation = { intent ->
                         when (intent) {
                             is ReaderAnnotationMutationIntent.UpdateCreate -> {
@@ -487,7 +492,11 @@ class ReaderUiIntegrationTest {
 
                             else -> Unit
                         }
-                    }
+                    },
+                    marginalia = ReaderMarginaliaPresentationState(
+                        selection = selection,
+                        annotationMutations = createState.value
+                    )
                 )
             }
         }
@@ -548,11 +557,13 @@ class ReaderUiIntegrationTest {
                     state = readerReadyState(),
                     onBack = { exits += 1 },
                     onRetry = {},
-                    selection = selection,
-                    annotationMutations = ReaderAnnotationMutationState(
-                        pendingCreate = ReaderPendingHighlight("client-id", selection)
-                    ),
-                    onDismissSelection = { dismissals += 1 }
+                    onDismissSelection = { dismissals += 1 },
+                    marginalia = ReaderMarginaliaPresentationState(
+                        selection = selection,
+                        annotationMutations = ReaderAnnotationMutationState(
+                            pendingCreate = ReaderPendingHighlight("client-id", selection)
+                        )
+                    )
                 )
             }
         }
@@ -596,17 +607,19 @@ class ReaderUiIntegrationTest {
                     state = readerReadyState(status = status.value),
                     onBack = { exits += 1 },
                     onRetry = {},
-                    annotations = ReaderAnnotationsState(
-                        sessionId = "session-1",
-                        annotations = listOf(highlight, bookmark),
-                        loaded = true
-                    ),
-                    annotationMutations = mutations.value,
                     onCreateBookmark = { bookmarkCreates += 1 },
                     onAnnotationMutation = { intent ->
                         observed += intent
                         mutations.value = reduceMutationUiState(mutations.value, intent)
-                    }
+                    },
+                    marginalia = ReaderMarginaliaPresentationState(
+                        annotations = ReaderAnnotationsState(
+                            sessionId = "session-1",
+                            annotations = listOf(highlight, bookmark),
+                            loaded = true
+                        ),
+                        annotationMutations = mutations.value
+                    )
                 )
             }
         }
@@ -683,8 +696,6 @@ class ReaderUiIntegrationTest {
                     state = readerReadyState(status = ReaderSessionStatus.ACTIVE),
                     onBack = {},
                     onRetry = {},
-                    annotations = ReaderAnnotationsState(sessionId = "session-1", loaded = true),
-                    sessionMetadata = metadata.value,
                     onMarginaliaIntent = { intent ->
                         intents += intent
                         metadata.value = when (intent) {
@@ -703,7 +714,14 @@ class ReaderUiIntegrationTest {
 
                             else -> metadata.value
                         }
-                    }
+                    },
+                    marginalia = ReaderMarginaliaPresentationState(
+                        annotations = ReaderAnnotationsState(
+                            sessionId = "session-1",
+                            loaded = true
+                        ),
+                        sessionMetadata = metadata.value
+                    )
                 )
             }
         }
@@ -771,14 +789,16 @@ class ReaderUiIntegrationTest {
                     state = readerReadyState(),
                     onBack = {},
                     onRetry = {},
-                    highlightDetail = ReaderReadOnlyHighlightDetail(
-                        sessionId = "previous-session",
-                        annotation = highlight,
-                        sessionName = "First read",
-                        startedAt = "2026-08-01T00:00:00Z",
-                        historical = true
-                    ),
-                    onDismissHighlightDetail = { dismissed = true }
+                    onDismissHighlightDetail = { dismissed = true },
+                    marginalia = ReaderMarginaliaPresentationState(
+                        highlightDetail = ReaderReadOnlyHighlightDetail(
+                            sessionId = "previous-session",
+                            annotation = highlight,
+                            sessionName = "First read",
+                            startedAt = "2026-08-01T00:00:00Z",
+                            historical = true
+                        )
+                    )
                 )
             }
         }

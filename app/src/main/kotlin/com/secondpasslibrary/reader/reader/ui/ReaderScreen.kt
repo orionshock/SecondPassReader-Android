@@ -42,6 +42,7 @@ import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayersStat
 import com.secondpasslibrary.reader.reader.marginalia.ui.ReaderMarginaliaDrawer
 import com.secondpasslibrary.reader.reader.marginalia.ui.ReaderMarginaliaDrawerState
 import com.secondpasslibrary.reader.reader.navigation.ReaderNavigationIntent
+import com.secondpasslibrary.reader.reader.presentation.ReaderMarginaliaPresentationState
 import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadataState
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import com.secondpasslibrary.reader.reader.toc.ReaderPublicationResource
@@ -56,19 +57,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 @Suppress("LongMethod")
 internal fun ReaderScreen(
     state: ReaderState,
+    marginalia: ReaderMarginaliaPresentationState = ReaderMarginaliaPresentationState(),
     serverWritesAvailable: Boolean = true,
     onBack: () -> Unit,
     onRetry: () -> Unit,
     onAppearanceChanged: (ReaderAppearance) -> Unit = {},
-    annotations: ReaderAnnotationsState = ReaderAnnotationsState(),
-    pageBookmarks: ReaderVisiblePageBookmarks = ReaderVisiblePageBookmarks(),
-    marginaliaLayers: ReaderMarginaliaLayersState = ReaderMarginaliaLayersState(),
-    autoShowPreviousMarginalia: Boolean = true,
     onMarginaliaIntent: (ReaderMarginaliaIntent) -> Unit = {},
-    selection: ReaderSelection? = null,
-    annotationMutations: ReaderAnnotationMutationState = ReaderAnnotationMutationState(),
-    highlightDetail: ReaderReadOnlyHighlightDetail? = null,
-    sessionMetadata: ReaderSessionMetadataState = ReaderSessionMetadataState(),
     onAnnotationMutation: (ReaderAnnotationMutationIntent) -> Unit = {},
     onCreateBookmark: () -> Unit = {},
     onNavigationIntent: (ReaderNavigationIntent) -> Unit = {},
@@ -82,15 +76,16 @@ internal fun ReaderScreen(
     val annotationWritesAvailable = ready?.session?.status == ReaderSessionStatus.ACTIVE
     val highlightSelection = writableSelection(
         ready,
-        selection,
-        annotationMutations,
+        marginalia.selection,
+        marginalia.annotationMutations,
         annotationWritesAvailable
     )
     var overlayVisible by remember { mutableStateOf(false) }
     var bookmarkMenuVisible by remember { mutableStateOf(false) }
     val hud = rememberReaderHudPresentation(
         ready?.engine,
-        selection != null || overlayVisible || bookmarkMenuVisible || highlightDetail != null
+        marginalia.selection != null || overlayVisible || bookmarkMenuVisible ||
+            marginalia.highlightDetail != null
     )
     ReaderOverlayLayout(
         onExit = onBack,
@@ -107,16 +102,16 @@ internal fun ReaderScreen(
         annotations = { dismiss ->
             ReaderAnnotationsOverlayContent(
                 ready,
-                annotations,
-                marginaliaLayers,
-                autoShowPreviousMarginalia,
+                marginalia.annotations,
+                marginalia.marginaliaLayers,
+                marginalia.autoShowPreviousMarginalia,
                 palette,
                 dismiss,
                 onMarginaliaIntent,
                 annotationWritesAvailable,
                 serverWritesAvailable,
-                annotationMutations,
-                sessionMetadata,
+                marginalia.annotationMutations,
+                marginalia.sessionMetadata,
                 onCreateBookmark,
                 { onNavigationIntent(ReaderNavigationIntent.GoToAnnotation(it)) },
                 onAnnotationMutation
@@ -129,10 +124,10 @@ internal fun ReaderScreen(
             it,
             palette,
             highlightSelection,
-            annotationMutations,
-            highlightDetail,
+            marginalia.annotationMutations,
+            marginalia.highlightDetail,
             hud,
-            pageBookmarks,
+            marginalia.pageBookmarks,
             annotationWritesAvailable,
             onBack,
             onRetry,
