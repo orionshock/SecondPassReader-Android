@@ -66,7 +66,7 @@ Distinct authority failures are:
 - `409 SESSION_CLOSED` when the caller owns the Session but it is closed; and
 - `409` or `503 BOOK_FILE_UNAVAILABLE` when a visible Book has no available EPUB.
 
-The current retry classification is:
+Retry classification is:
 
 | Result | Client behavior |
 |---|---|
@@ -85,9 +85,9 @@ Start-over is safe to repeat only with the same idempotency key and identical re
 product question is whether a permanently rejected authored annotation should be retained for user
 repair/export; the backend contract does not decide that UX policy.
 
-Android's current background Reader delivery still collapses some permanent validation and
-permission failures into a generic unavailable/pending result instead of applying this full retry
-classification. That is a known client gap, not cross-client precedent.
+Android background Reader delivery maps some permanent validation and permission failures to a
+generic unavailable/pending result. This Android limitation does not change the cross-client retry
+contract above.
 
 ## Session establishment and start-over
 
@@ -150,10 +150,10 @@ upserts remain durable and unsynchronized. They are not discarded. Suitable user
 Progress recovery remains a separate desired-state operation even when it ultimately uses the same
 writable Session.
 
-These are the deliberately implemented and tested Android continuation rules. The server permits
-the same client ID in different Sessions, but does not require Android to reuse it for a confirmed
-edit. Earlier instructions to preserve that ID or replace lookup-then-open with direct open are
-superseded; they are not a mandate to change Android runtime behavior.
+The server permits the same client ID in different Sessions. Android nevertheless gives a forwarded
+edit a deterministic replacement ID so retry remains idempotent and the confirmed historical
+annotation remains unchanged. Continuation uses lookup-then-open convergence and never substitutes
+start-over.
 
 ### Writes racing with close
 
@@ -164,10 +164,8 @@ The server contract serializes a write racing with Session close:
 - no progress or annotation write may commit after the Session is closed; and
 - an annotation batch is atomic and rolls back completely on failure.
 
-The backend implements this with transactional active-state checks, including an active-Session
-compare-and-set before annotation changes. Dedicated two-connection regression coverage for the
-precise close-versus-write race is still limited, so the invariant is authoritative but its direct
-concurrency-test evidence should be strengthened server-side.
+The backend enforces this with transactional active-state checks, including an active-Session
+compare-and-set before annotation changes.
 
 ## Offline Session close
 
@@ -215,7 +213,7 @@ immutability invariant and is the only meaningful asset-identity change.
 Authenticated Book detail exposes the exact stored EPUB checksum as lowercase SHA-256 hexadecimal.
 The checksum covers the accepted byte stream; clients can hash downloaded bytes and compare them. The
 download response has no `Digest` or checksum header, so validation uses the Book-detail field. A
-blank checksum means that a legacy, damaged, or unavailable file cannot be validated. Marginalia
+blank checksum means that the file cannot be validated for offline admission. Marginalia
 archives use the distinct textual form `sha256:<hex>` and must not be compared without removing that
 prefix deliberately. The Android SDK preserves the Book-detail checksum. Android hashes downloaded
 and retained EPUB bytes before treating them as complete or available offline.
@@ -235,6 +233,6 @@ The product rule is:
   pending offline-authored work; and
 - clear only the exact account scope after confirmation.
 
-Android does not yet implement this pending-work preflight and warning. That gap is not precedent
-for the Web client. Credentials remain separate from content storage, and transient credential
-refresh for the same stable account identity must not purge local data.
+Android does not provide this pending-work preflight and warning. This platform limitation does not
+change the product rule. Credentials remain separate from content storage, and credential refresh
+for the same stable account identity must not purge local data.

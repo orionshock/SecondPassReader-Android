@@ -29,7 +29,7 @@ Feature and shell code use `AppIcon` semantic keys and `AppIconGraphic`; raw Mat
 | `Delete` | `delete` | Destructive removal | Confirmed destructive actions |
 | `ClearImportReview` | `delete_sweep` | Clear import review | Cross-project reference only |
 | `Completed` | `done` | Completed state or leave edit mode | Shelf editing and completion |
-| `Export` | `download` | Export marginalia/session data | Future export |
+| `Export` | `download` | Export marginalia/session data | Reserved export action |
 | `Edit` | `edit` | Edit entity metadata | Session/shelf metadata |
 | `EditAnnotation` | `edit_note` | Add/edit note or annotation fallback | Marginalia |
 | `Collapse` | `expand_less` | Collapse menu/order surface | Expandable controls |
@@ -52,7 +52,7 @@ Feature and shell code use `AppIcon` semantic keys and `AppIconGraphic`; raw Mat
 | `Locked` | `lock` | Inaccessible shelf item | Access state |
 | `Logout` | `logout` | Cooperatively revoke the current client session | Settings connection actions |
 | `ManagedUsers` | `manage_accounts` | Managed users administration | Server-side reference only |
-| `NavigationMenu`, `TableOfContents` | `menu` | Open app drawer or reader TOC | Shell menu; future reader TOC |
+| `NavigationMenu`, `TableOfContents` | `menu` | Open app drawer or Reader table of contents | Shell and Reader navigation |
 | `Book` | `menu_book` | One specific book or book-oriented view | Book detail/reader context |
 | `OverflowHorizontal` | `more_horiz` | Horizontal overflow | Navigation/menu overflow |
 | `OverflowVertical` | `more_vert` | Item/card overflow | Shelf and item actions |
@@ -70,7 +70,7 @@ Feature and shell code use `AppIcon` semantic keys and `AppIconGraphic`; raw Mat
 | `CompleteImportReview` | `task_alt` | Manually complete import-review row | Cross-project reference only |
 | `UndoImportReview` | `undo` | Undo import-review completion | Cross-project reference only |
 | `SortUnspecified` | `unfold_more` | Sortable column not currently sorted | Sort controls |
-| `Import` | `upload_file` | Book or marginalia import | Future only when Android scope requires it |
+| `Import` | `upload_file` | Book or marginalia import | Reserved import action |
 | `Offline` | `cloud_off` | Section refresh is unreachable while cached content remains usable | Home cached-data status |
 | — | `warning_amber` | Test-fixture warning | Not a production semantic key or bundled asset |
 
@@ -78,7 +78,7 @@ Feature and shell code use `AppIcon` semantic keys and `AppIconGraphic`; raw Mat
 
 - `Library` / `book_2` means the books collection or a missing cover. `Book` / `menu_book` means one specific book or a book-oriented surface. `ConnectedLibrary` / `local_library` means the server-library root.
 - `Group` is one group; `Groups` is the collection. `Shelf` is personal/general, `SharedShelf` is shared by others, and `GroupShelf` is group-owned.
-- `User` and `Author` intentionally share `person`, but remain separate semantic keys so future design changes do not leak into feature code.
+- `User` and `Author` intentionally share `person`, but remain separate semantic keys so design changes do not leak into feature code.
 - `NavigationMenu` and `TableOfContents` intentionally share the hamburger symbol while preserving separate shell and reader meanings.
 - Reference-only import-review and managed-user symbols remain documented for cross-project consistency but must not be treated as current Android feature scope.
 

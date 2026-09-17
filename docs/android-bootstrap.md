@@ -1,6 +1,6 @@
 # Android bootstrap
 
-The repository doctrine remains in `AGENTS.md`. This document records the concrete foundation selected when the Android project was created.
+`AGENTS.md` owns repository doctrine. This document records the Android module and build baseline.
 
 ## Module topology
 
@@ -24,11 +24,11 @@ The repository doctrine remains in `AGENTS.md`. This document records the concre
 
 `gradle/libs.versions.toml` is the sole source for exact dependency and plugin versions. The committed Gradle wrapper separately owns the exact Gradle distribution. Gradle runs on Android Studio's JBR 25, while project bytecode targets Java 17; a separate JDK 17 installation is not required. The verified workstation toolchain is recorded in [Development environment](development-environment.md).
 
-## Current application baseline
+## Application baseline
 
 The launcher starts a dark semantic Material 3 composition. `SecondPassApplication` establishes Hilt, `MainActivity` remains the Android host, and `SecondPassApp` switches between connection states and the permanent authenticated shell.
 
-The initial scaffold identity has been replaced by the first real vertical slice. `:spl-client` now exposes SPL discovery, pairing, one-time credential consumption, and authenticated context capabilities; `:app` owns their Android lifecycle, secure persistence, and native connection UI. See [SPL connection architecture](connection-architecture.md).
+`:spl-client` exposes SPL discovery, pairing, one-time credential consumption, authenticated capabilities, and EPUB downloads. `:app` owns Android lifecycle, secure persistence, account-local storage, native feature UI, and the Readium Reader adapter. See [SPL connection architecture](connection-architecture.md), [Account application shell](app-shell.md), and [Offline and cached product contract](offline-product-contract.md).
 
 Authenticated users enter the tablet-first top-app-bar/drawer shell described in [Authenticated application shell](app-shell.md). Project-owned semantic icons and bundled Material Symbols are documented in [Icon vocabulary](icon-vocabulary.md).
 
@@ -48,16 +48,8 @@ From the repository root:
 
 Android Lint treats warnings as errors. Detekt uses defaults plus one narrow allowance for PascalCase `@Composable` functions. Ktlint owns formatting and has the equivalent Compose naming exception in `.editorconfig`; detekt formatting rules are not enabled.
 
-`staticHygiene` performs non-mutating UTF-8, mojibake-marker, trailing-whitespace, and `git diff --check` validation. The source Python fixer was not retained because its punctuation normalization could alter valid text. The web-only decorative HTML-entity check was not applicable to this client.
+`staticHygiene` performs non-mutating UTF-8, mojibake-marker, trailing-whitespace, and `git diff --check` validation.
 
-The application icon reuses the Second Pass web favicon unchanged inside an Android adaptive-icon wrapper. Android's resource grammar requires that wrapper in a `v26` directory, so the otherwise obsolete version-qualifier lint rule is ignored only for that directory.
+The application icon reuses the Second Pass web favicon inside an Android adaptive-icon wrapper. Android's resource grammar requires the wrapper in a `v26` directory, so the version-qualifier lint rule is ignored only there.
 
-## Deliberately deferred
-
-- SPL HTTP/API implementation, pairing, and authentication
-- EPUB renderer selection and reading implementation
-- caching, persistence, and offline behavior
-- additional Gradle modules
-- nested feature navigation and complete feature/package topology
-- final application versioning, release signing, and distribution policy
-- complete design system and light theme
+Release signing, distribution policy, and a light theme remain outside this baseline.

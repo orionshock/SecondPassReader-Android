@@ -18,8 +18,8 @@ global, methods and positional arguments, result fields/discriminators, error co
 text limits. Calls remain positional JavaScript calls; there is no request envelope. Kotlin
 provides named arguments and the bridge orders them using the generated method declaration.
 The response remains `{ ok: true, value }` or `{ ok: false, error: { code } }`.
-Evaluation/install deadlines and envelope-size enforcement remain Kotlin bridge policy, not
-protocol error codes. CFI algorithms and Readium lifecycle ownership are unchanged.
+Evaluation/install deadlines and envelope-size enforcement are Kotlin bridge policy, not protocol
+error codes. CFI algorithms remain in TypeScript; Readium lifecycle stays in the Android adapter.
 
 `build` regenerates committed Kotlin/TypeScript declarations, checks the entrypoint signatures
 and TypeScript result shapes, then produces the readable dev and minified release IIFE assets.

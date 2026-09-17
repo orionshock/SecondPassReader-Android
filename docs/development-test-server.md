@@ -1,6 +1,6 @@
 # Development test server
 
-The following stable, test env account is available for manual Android client verification. These credentials are intentionally repository-visible and must never be reused for production or personal accounts. This is all Test Env.
+This test-environment account is available for manual Android client verification. Its credentials are intentionally repository-visible and must never be reused for production or personal accounts.
 
 ```text
 Server:   https://secondpasslibrary.zcaprica.duckdns.org/

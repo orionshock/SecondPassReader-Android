@@ -15,8 +15,6 @@ Verified on Windows 10 Pro x64 on 2026-08-16. The project uses `minSdk 31`, `com
 | Platform-Tools / ADB | `37.0.1` | `%ANDROID_HOME%\platform-tools` |
 | Android Emulator | `37.1.11` | `%ANDROID_HOME%\emulator` |
 
-The redundant standalone Platform-Tools 35.0.2 installation formerly at `C:\adb` was removed after the SDK-managed copy was verified.
-
 ## User environment
 
 ```text
@@ -92,7 +90,7 @@ emulator -accel-check
 emulator -list-avds
 ```
 
-Command-line Tools 22 warns that `sdkmanager` is deprecated in favor of the newer `android sdk` command. `sdkmanager` remains installed and functional for compatibility and verification.
+The installed Command-line Tools emit a deprecation warning for `sdkmanager`; the command remains available for the checks above.
 
 ## Project Gradle validation baseline
 

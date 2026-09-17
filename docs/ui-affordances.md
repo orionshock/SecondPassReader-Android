@@ -16,7 +16,7 @@ current, and focused on reusable product behavior rather than implementation his
 - Pushed routes use Back, one muted immediate context, and the current title.
 - Keep app bars to one line and one context level, with ellipsis for constrained widths.
 - Normal shell routes expose the root drawer through a deliberate left-edge swipe.
-- A future Reader route may disable the shell drawer gesture when reading gestures own the edge.
+- Reader runs outside the shell and does not expose the shell drawer gesture.
 
 ## Search fields
 
@@ -44,10 +44,9 @@ current, and focused on reusable product behavior rather than implementation his
 
 ## Book actions
 
-- Current actions include Book details, Reading sessions, and truthful contextual Author or Series
+- Actions include Book details, Reading sessions, Read book, and truthful contextual Author or Series
   navigation.
-- Use the wording **Read book** when a Reader action exists.
-- Do not expose Read book before the Reader route is implemented.
+- Use the wording **Read book** for Reader launch.
 - Card owners emit typed navigation intents and do not duplicate the target feature workflow.
 
 ## Loading and refresh
@@ -153,7 +152,6 @@ current, and focused on reusable product behavior rather than implementation his
 - Keep actions in the same group equal in size.
 - Wide layouts may use a vertical action rail; medium and narrow layouts reposition the same
   actions instead of shrinking their touch targets.
-- A disabled future action may remain visible when it communicates an intended product capability.
 - Avoid large placeholder or explanation containers for unavailable actions.
 
 ## Session detail actions

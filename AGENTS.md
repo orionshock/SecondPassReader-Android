@@ -27,7 +27,7 @@ If required functionality is missing from the Android SDK contract, decide wheth
 
 ## Gradle modules and dependency direction
 
-The initial project has at least:
+The project uses:
 
 ```text
 :app -> :spl-client
@@ -124,7 +124,7 @@ The web reader is a behavioral/architectural reference, not code to port mechani
 
 Port 1–3 deliberately; do not automatically port 4–5. Use Android-native patterns.
 
-Long-term reader-facing scope includes pairing, authenticated identity, library browsing/search/filter/sort, book detail, shelves and authorized personal shelf management, recent reading, sessions/history/metadata, EPUB reading, durable CFI progress, highlights/bookmarks/notes, previous-session marginalia layers, reader settings, in-book search, table of contents, completion affordances, and marginalia management. This is direction, not initial-scaffold scope.
+Reader-facing scope includes pairing, authenticated identity, library browsing/search/filter/sort, Book detail, Shelves and authorized personal Shelf management, Recent History, Reading Sessions and metadata, EPUB reading, durable CFI progress, highlights/bookmarks/notes, prior-session Marginalia layers, Reader settings, in-book search, table of contents, completion affordances, and Marginalia management.
 
 Third-party marginalia import/translation is explicitly not required. Do not port that web subsystem for feature-count parity; this does not change SPL's broader portability philosophy.
 
@@ -155,7 +155,7 @@ UI -> screen/activity orchestration -> reader/session domain
 
 The SDK/server and engine branches must not reach into each other's implementation. Coordinate them at the reader/session boundary.
 
-The concrete renderer is deliberately undecided until researched. Never introduce one incidentally. Define app-owned engine contracts containing external concepts and eventually covering loading, rendering, CFI resolution, visible location/range, navigation, selection, highlights, search, TOC, rendition settings, reflow, and lifecycle. Keep renderer defects/workarounds inside the engine/adaptation layer when possible.
+Readium is the concrete renderer behind app-owned engine contracts for loading, rendering, CFI resolution, visible location/range, navigation, selection, highlights, search, table of contents, rendition settings, reflow, and lifecycle. Readium types and workarounds stay inside the engine/adaptation layer.
 
 Marginalia—highlights, bookmarks, notes, progress, and session metadata—is first-class reader-owned data. The active session is mutable; prior sessions may appear as read-only contextual layers. Never flatten prior marginalia into the active session or overwrite historical passes when revisiting a location.
 
@@ -197,18 +197,11 @@ Test at the narrowest meaningful boundary. Pure Kotlin should not require a devi
 
 Validation is CLI/Gradle-owned through the committed wrapper. Once scaffolded, the baseline is Android Lint, Kotlin compilation, unit tests, detekt, and ktlint. Editor diagnostics are advisory. Do not add overlapping formatters or redundant analyzers without a concrete reason.
 
-## Dependencies and deferred decisions
+## Dependencies and open decisions
 
 Treat dependencies affecting networking, serialization, storage, navigation, DI, EPUB rendering, cryptography, background work, or synchronization as architectural decisions. Check repository doctrine and the current ecosystem first. Familiarity alone is not justification; do not rebuild commodity infrastructure when a mature supported library fits.
 
-These decisions remain open until later documentation fixes them:
-
-- `minSdk`, final `compileSdk`, and final `targetSdk`;
-- EPUB renderer;
-- detailed offline/cache strategy;
-- additional Gradle feature modules;
-- exact navigation library/version while the ecosystem evolves; and
-- final light theme.
+Open decisions include additional Gradle feature modules, broader offline administration, release distribution, and a final light theme. Established platform levels, Readium ownership, Navigation 3, and the bounded offline Reader contract are recorded in the architecture docs and build configuration.
 
 Do not settle them during unrelated work. Investigate deliberately and report tradeoffs when one becomes necessary.
 
