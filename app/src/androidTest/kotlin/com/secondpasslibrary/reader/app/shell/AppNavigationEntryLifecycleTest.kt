@@ -20,7 +20,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -49,11 +48,11 @@ class AppNavigationEntryLifecycleTest {
     @Test
     fun inactiveEntryRetainsViewModelAndSaveableStateWhilePoppedEntryClearsViewModel() {
         lateinit var navigation: AppNavigationState
-        val viewModels = mutableMapOf<NavKey, TrackingViewModel>()
+        val viewModels = mutableMapOf<AppRoute, TrackingViewModel>()
         compose.setContent {
             navigation = rememberAppNavigationState()
             val provider =
-                entryProvider<NavKey> {
+                entryProvider<AppRoute> {
                     AppDestination.entries.forEach { destination ->
                         entry(key = destination) {
                             val owner = viewModel<TrackingViewModel> { TrackingViewModel() }
@@ -134,7 +133,7 @@ class AppNavigationEntryLifecycleTest {
                     )
                 )
             val provider =
-                entryProvider<NavKey> {
+                entryProvider<AppRoute> {
                     entry(key = AppDestination.Home) { Text("Home") }
                     entry(key = AppDestination.Library) {
                         AuthenticatedDestination(environment) {

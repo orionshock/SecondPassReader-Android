@@ -1,7 +1,5 @@
 package com.secondpasslibrary.reader.app.shell
 
-import androidx.navigation3.runtime.NavKey
-import kotlinx.serialization.Serializable
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -9,7 +7,7 @@ import org.junit.Test
 class AppShellRoutePolicyTest {
     @Test
     fun `normal shell routes allow the edge drawer gesture`() {
-        val routes: List<NavKey> =
+        val routes: List<AppRoute> =
             AppDestination.entries +
                 BookDetailRoute("book-1", BookDetailReturnTarget.Home) +
                 BookMarginaliaRoute(
@@ -30,14 +28,4 @@ class AppShellRoutePolicyTest {
             ReaderRoute("book-1", ReaderReturnTarget.BookDetail(source)).drawerGestureEnabled
         )
     }
-
-    @Test
-    fun `route can reserve horizontal gestures`() {
-        assertFalse(HorizontalGestureRoute.drawerGestureEnabled)
-    }
-}
-
-@Serializable
-private data object HorizontalGestureRoute : NavKey, AppShellDrawerGesturePolicy {
-    override val drawerGestureEnabled = false
 }

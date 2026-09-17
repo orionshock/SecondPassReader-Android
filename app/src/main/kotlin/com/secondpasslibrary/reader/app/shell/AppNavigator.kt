@@ -1,6 +1,7 @@
 package com.secondpasslibrary.reader.app.shell
 
 import com.secondpasslibrary.reader.bookdetail.BookDetailNavigationIntent
+import com.secondpasslibrary.reader.marginalia.MarginaliaExternalNavigationIntent
 
 @Suppress("TooManyFunctions") // Typed shell navigation commands remain explicit by destination.
 internal class AppNavigator(private val navigation: AppNavigationState) {
@@ -100,6 +101,50 @@ internal class AppNavigator(private val navigation: AppNavigationState) {
     ) {
         require(sessionId.isNotBlank()) { "Reading Session ID must not be blank." }
         navigation.push(ReadingSessionDetailRoute(sessionId, returnTarget, action))
+    }
+
+    fun handleTopLevelMarginaliaNavigation(intent: MarginaliaExternalNavigationIntent) {
+        handleMarginaliaNavigation(
+            intent,
+            BookDetailReturnTarget.Marginalia,
+            ReaderReturnTarget.Marginalia
+        )
+    }
+
+    fun handleBookMarginaliaNavigation(
+        intent: MarginaliaExternalNavigationIntent,
+        source: BookMarginaliaRoute
+    ) {
+        handleMarginaliaNavigation(
+            intent,
+            BookDetailReturnTarget.BookMarginalia(source),
+            ReaderReturnTarget.BookMarginalia(source)
+        )
+    }
+
+    fun handleReadingSessionDetailNavigation(
+        intent: MarginaliaExternalNavigationIntent,
+        source: ReadingSessionDetailRoute
+    ) {
+        handleMarginaliaNavigation(
+            intent,
+            BookDetailReturnTarget.ReadingSessionDetail(source),
+            ReaderReturnTarget.ReadingSessionDetail(source)
+        )
+    }
+
+    private fun handleMarginaliaNavigation(
+        intent: MarginaliaExternalNavigationIntent,
+        bookDetailReturnTarget: BookDetailReturnTarget,
+        readerReturnTarget: ReaderReturnTarget
+    ) {
+        when (intent) {
+            is MarginaliaExternalNavigationIntent.BookDetail ->
+                openBookDetail(intent.bookId, bookDetailReturnTarget)
+
+            is MarginaliaExternalNavigationIntent.Reader ->
+                openReader(intent.bookId, readerReturnTarget, intent.sessionId)
+        }
     }
 
     fun goBack(): Boolean = navigation.pop()

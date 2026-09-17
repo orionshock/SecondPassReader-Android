@@ -63,7 +63,7 @@ class MarginaliaControllerTest {
         assertEquals(
             MarginaliaDestination.History(
                 MarginaliaHistoryContext.Book("book-1"),
-                returnToBooks = true
+                MarginaliaReturnDestination.Books
             ),
             controller.state.value.destination
         )
@@ -73,7 +73,7 @@ class MarginaliaControllerTest {
         assertEquals(
             MarginaliaDestination.History(
                 MarginaliaHistoryContext.Book("book-1"),
-                returnToBooks = true
+                MarginaliaReturnDestination.Books
             ),
             controller.state.value.destination
         )

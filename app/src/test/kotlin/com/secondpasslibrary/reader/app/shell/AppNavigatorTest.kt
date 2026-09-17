@@ -5,6 +5,7 @@ import com.secondpasslibrary.reader.design.book.BookCardAction
 import com.secondpasslibrary.reader.home.HomeNavigationIntent
 import com.secondpasslibrary.reader.home.HomeShelfOrigin
 import com.secondpasslibrary.reader.home.OpenReaderIntent
+import com.secondpasslibrary.reader.marginalia.MarginaliaExternalNavigationIntent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
@@ -237,6 +238,84 @@ class AppNavigatorTest {
         assertEquals(AppDestination.Home, navigation.currentRoute.topLevelDestination())
         assertTrue(navigator.goBack())
         assertEquals(listOf(AppDestination.Home), navigation.activeBackStack)
+    }
+
+    @Test
+    fun `Book Marginalia opens existing Session in Reader and Back restores exact route`() {
+        val navigation = appNavigationStateForTest(AppDestination.Library)
+        val navigator = AppNavigator(navigation)
+        val bookDetail = BookDetailRoute("book-1", BookDetailReturnTarget.Library)
+        val marginalia =
+            BookMarginaliaRoute("book-1", MarginaliaReturnTarget.BookDetail(bookDetail))
+        navigation.push(bookDetail)
+        navigation.push(marginalia)
+
+        navigator.handleBookMarginaliaNavigation(
+            MarginaliaExternalNavigationIntent.Reader("book-1", "session-1"),
+            marginalia
+        )
+
+        assertEquals(
+            ReaderRoute(
+                bookId = "book-1",
+                returnTarget = ReaderReturnTarget.BookMarginalia(marginalia),
+                existingSessionId = "session-1"
+            ),
+            navigation.currentRoute
+        )
+        assertEquals(AppDestination.Library, navigation.currentRoute.topLevelDestination())
+        assertTrue(navigator.goBack())
+        assertEquals(marginalia, navigation.currentRoute)
+    }
+
+    @Test
+    fun `Reading Session detail opens its Session in Reader and Back restores same detail`() {
+        val navigation = appNavigationStateForTest(AppDestination.Home)
+        val navigator = AppNavigator(navigation)
+        val detail =
+            ReadingSessionDetailRoute(
+                "session-1",
+                ReadingSessionDetailReturnTarget.Home
+            )
+        navigation.push(detail)
+
+        navigator.handleReadingSessionDetailNavigation(
+            MarginaliaExternalNavigationIntent.Reader("book-1", "session-1"),
+            detail
+        )
+
+        assertEquals(
+            ReaderRoute(
+                bookId = "book-1",
+                returnTarget = ReaderReturnTarget.ReadingSessionDetail(detail),
+                existingSessionId = "session-1"
+            ),
+            navigation.currentRoute
+        )
+        assertEquals(AppDestination.Home, navigation.currentRoute.topLevelDestination())
+        assertTrue(navigator.goBack())
+        assertEquals(detail, navigation.currentRoute)
+    }
+
+    @Test
+    fun `top-level Marginalia Reader returns to retained Marginalia route`() {
+        val navigation = appNavigationStateForTest(AppDestination.Marginalia)
+        val navigator = AppNavigator(navigation)
+
+        navigator.handleTopLevelMarginaliaNavigation(
+            MarginaliaExternalNavigationIntent.Reader("book-1", "session-1")
+        )
+
+        assertEquals(
+            ReaderRoute(
+                bookId = "book-1",
+                returnTarget = ReaderReturnTarget.Marginalia,
+                existingSessionId = "session-1"
+            ),
+            navigation.currentRoute
+        )
+        assertTrue(navigator.goBack())
+        assertEquals(AppDestination.Marginalia, navigation.currentRoute)
     }
 
     @Test

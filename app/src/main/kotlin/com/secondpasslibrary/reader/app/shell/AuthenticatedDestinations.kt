@@ -5,7 +5,6 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.EntryProviderScope
-import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.secondpasslibrary.client.AuthenticatedContext
@@ -23,7 +22,6 @@ import com.secondpasslibrary.reader.home.HomeScreen
 import com.secondpasslibrary.reader.library.LibraryExternalNavigation
 import com.secondpasslibrary.reader.library.LibraryStateHost
 import com.secondpasslibrary.reader.library.books.LibraryBooksEntry
-import com.secondpasslibrary.reader.marginalia.MarginaliaExternalNavigationIntent
 import com.secondpasslibrary.reader.marginalia.MarginaliaHistoryContext
 import com.secondpasslibrary.reader.marginalia.MarginaliaStateHost
 import com.secondpasslibrary.reader.marginalia.ReadingSessionDetailEntry
@@ -62,7 +60,7 @@ internal fun AccountDestinations(
             )
         )
     val entries =
-        entryProvider<NavKey> {
+        entryProvider<AppRoute> {
             registerHomeEntry(environment)
             registerAuthenticatedTopLevelEntries(environment)
             registerShelfDetailEntry(environment)
@@ -102,7 +100,7 @@ internal data class AuthenticatedDestinationBindings(
     val onOpenDrawer: () -> Unit
 )
 
-private fun EntryProviderScope<NavKey>.registerHomeEntry(
+private fun EntryProviderScope<AppRoute>.registerHomeEntry(
     environment: State<AccountDestinationEnvironment>
 ) {
     entry(key = AppDestination.Home) {
@@ -116,7 +114,7 @@ private fun EntryProviderScope<NavKey>.registerHomeEntry(
     }
 }
 
-private fun EntryProviderScope<NavKey>.registerAuthenticatedTopLevelEntries(
+private fun EntryProviderScope<AppRoute>.registerAuthenticatedTopLevelEntries(
     environment: State<AccountDestinationEnvironment>
 ) {
     entry(key = AppDestination.Shelves) {
@@ -135,12 +133,7 @@ private fun EntryProviderScope<NavKey>.registerAuthenticatedTopLevelEntries(
             MarginaliaStateHost(
                 profile = bindings.profile,
                 onOpenDrawer = bindings.onOpenDrawer,
-                onNavigation = { intent ->
-                    bindings.navigator.handleMarginaliaNavigation(
-                        intent,
-                        BookDetailReturnTarget.Marginalia
-                    )
-                },
+                onNavigation = bindings.navigator::handleTopLevelMarginaliaNavigation,
                 onAuthenticationRejected = bindings.onAuthenticationRejected
             )
         }
@@ -157,7 +150,7 @@ private fun EntryProviderScope<NavKey>.registerAuthenticatedTopLevelEntries(
     }
 }
 
-private fun EntryProviderScope<NavKey>.registerLibraryRouteEntries(
+private fun EntryProviderScope<AppRoute>.registerLibraryRouteEntries(
     environment: State<AccountDestinationEnvironment>
 ) {
     entry(key = AppDestination.Library) {
@@ -189,7 +182,7 @@ private fun EntryProviderScope<NavKey>.registerLibraryRouteEntries(
     }
 }
 
-private fun EntryProviderScope<NavKey>.registerSharedBookDetailEntry(
+private fun EntryProviderScope<AppRoute>.registerSharedBookDetailEntry(
     environment: State<AccountDestinationEnvironment>
 ) {
     entry<BookDetailRoute> { route ->
@@ -211,7 +204,7 @@ private fun EntryProviderScope<NavKey>.registerSharedBookDetailEntry(
     }
 }
 
-private fun EntryProviderScope<NavKey>.registerBookMarginaliaEntry(
+private fun EntryProviderScope<AppRoute>.registerBookMarginaliaEntry(
     environment: State<AccountDestinationEnvironment>
 ) {
     entry<BookMarginaliaRoute> { route ->
@@ -222,10 +215,7 @@ private fun EntryProviderScope<NavKey>.registerBookMarginaliaEntry(
                 onOpenDrawer = bindings.onOpenDrawer,
                 onBackFromHistory = bindings.navigator::goBack,
                 onNavigation = { intent ->
-                    bindings.navigator.handleMarginaliaNavigation(
-                        intent,
-                        BookDetailReturnTarget.BookMarginalia(route)
-                    )
+                    bindings.navigator.handleBookMarginaliaNavigation(intent, route)
                 },
                 onAuthenticationRejected = bindings.onAuthenticationRejected
             )
@@ -233,7 +223,7 @@ private fun EntryProviderScope<NavKey>.registerBookMarginaliaEntry(
     }
 }
 
-private fun EntryProviderScope<NavKey>.registerReadingSessionDetailEntry(
+private fun EntryProviderScope<AppRoute>.registerReadingSessionDetailEntry(
     environment: State<AccountDestinationEnvironment>
 ) {
     entry<ReadingSessionDetailRoute> { route ->
@@ -248,26 +238,11 @@ private fun EntryProviderScope<NavKey>.registerReadingSessionDetailEntry(
                 onOpenDrawer = bindings.onOpenDrawer,
                 onBackFromDetail = bindings.navigator::goBack,
                 onNavigation = { intent ->
-                    bindings.navigator.handleMarginaliaNavigation(
-                        intent,
-                        BookDetailReturnTarget.ReadingSessionDetail(route)
-                    )
+                    bindings.navigator.handleReadingSessionDetailNavigation(intent, route)
                 },
                 onAuthenticationRejected = bindings.onAuthenticationRejected
             )
         }
-    }
-}
-
-private fun AppNavigator.handleMarginaliaNavigation(
-    intent: MarginaliaExternalNavigationIntent,
-    returnTarget: BookDetailReturnTarget
-) {
-    when (intent) {
-        is MarginaliaExternalNavigationIntent.BookDetail ->
-            openBookDetail(intent.bookId, returnTarget)
-
-        is MarginaliaExternalNavigationIntent.Reader -> Unit
     }
 }
 

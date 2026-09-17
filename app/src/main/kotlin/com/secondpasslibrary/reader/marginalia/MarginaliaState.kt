@@ -30,18 +30,25 @@ internal enum class MarginaliaBrowseMode {
     BOOKS
 }
 
+internal sealed interface MarginaliaReturnDestination {
+    data object Global : MarginaliaReturnDestination
+
+    data object Books : MarginaliaReturnDestination
+
+    data class SessionDetail(val destination: MarginaliaDestination.SessionDetail) :
+        MarginaliaReturnDestination
+}
+
 internal sealed interface MarginaliaDestination {
     data class History(
         val context: MarginaliaHistoryContext,
-        val returnToBooks: Boolean = false,
-        val returnToDetail: SessionDetail? = null
+        val returnDestination: MarginaliaReturnDestination = MarginaliaReturnDestination.Global
     ) : MarginaliaDestination
 
     data class SessionDetail(
         val sessionId: String,
         val returnContext: MarginaliaHistoryContext,
-        val returnToBooks: Boolean = false,
-        val returnToDetail: SessionDetail? = null
+        val returnDestination: MarginaliaReturnDestination = MarginaliaReturnDestination.Global
     ) : MarginaliaDestination
 }
 

@@ -196,7 +196,7 @@ internal class MarginaliaController(
                 destination =
                     MarginaliaDestination.History(
                         MarginaliaHistoryContext.Book(bookId),
-                        returnToBooks = true
+                        MarginaliaReturnDestination.Books
                     )
             )
         sessions.enter(MarginaliaHistoryContext.Book(bookId))
@@ -204,19 +204,21 @@ internal class MarginaliaController(
 
     private fun backFromBookHistory() {
         val current = navigationState.value.destination as? MarginaliaDestination.History ?: return
-        when {
-            current.returnToDetail != null -> {
+        when (val returnDestination = current.returnDestination) {
+            is MarginaliaReturnDestination.SessionDetail -> {
                 navigationState.value =
-                    navigationState.value.copy(destination = current.returnToDetail)
+                    navigationState.value.copy(destination = returnDestination.destination)
             }
 
-            current.returnToBooks -> {
+            MarginaliaReturnDestination.Books -> {
                 navigationState.value =
                     navigationState.value.copy(
                         destination = MarginaliaDestination.History(MarginaliaHistoryContext.Global)
                     )
                 books.enter()
             }
+
+            MarginaliaReturnDestination.Global -> Unit
         }
     }
 
@@ -230,7 +232,7 @@ internal class MarginaliaController(
                 destination =
                     MarginaliaDestination.History(
                         context = MarginaliaHistoryContext.Book(bookId),
-                        returnToDetail = current
+                        returnDestination = MarginaliaReturnDestination.SessionDetail(current)
                     )
             )
         sessions.enter(MarginaliaHistoryContext.Book(bookId))
@@ -241,8 +243,7 @@ internal class MarginaliaController(
         enterSessionDetail(
             ReadingSessionDetailEntry(sessionId),
             current.context,
-            current.returnToBooks,
-            current.returnToDetail
+            current.returnDestination
         )
     }
 
@@ -257,8 +258,7 @@ internal class MarginaliaController(
                 destination =
                     MarginaliaDestination.History(
                         current.returnContext,
-                        current.returnToBooks,
-                        current.returnToDetail
+                        current.returnDestination
                     )
             )
     }
@@ -292,8 +292,7 @@ internal class MarginaliaController(
     private fun enterSessionDetail(
         entry: ReadingSessionDetailEntry,
         returnContext: MarginaliaHistoryContext,
-        returnToBooks: Boolean = false,
-        returnToDetail: MarginaliaDestination.SessionDetail? = null
+        returnDestination: MarginaliaReturnDestination = MarginaliaReturnDestination.Global
     ) {
         require(entry.sessionId.isNotBlank()) { "Reading Session ID must not be blank." }
         detailEntryJob?.cancel()
@@ -304,8 +303,7 @@ internal class MarginaliaController(
                     MarginaliaDestination.SessionDetail(
                         entry.sessionId,
                         returnContext,
-                        returnToBooks,
-                        returnToDetail
+                        returnDestination
                     )
             )
         if (entry.action == ReadingSessionDetailEntryAction.VIEW) return

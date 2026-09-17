@@ -2,10 +2,9 @@ package com.secondpasslibrary.reader.app.shell
 
 import androidx.compose.runtime.State
 import androidx.navigation3.runtime.EntryProviderScope
-import androidx.navigation3.runtime.NavKey
 import com.secondpasslibrary.reader.reader.ReaderStateHost
 
-internal fun EntryProviderScope<NavKey>.registerReaderEntry(
+internal fun EntryProviderScope<AppRoute>.registerReaderEntry(
     environment: State<AccountDestinationEnvironment>
 ) {
     entry<ReaderRoute> { route ->

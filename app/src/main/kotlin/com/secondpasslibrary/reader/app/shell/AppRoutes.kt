@@ -5,7 +5,10 @@ import com.secondpasslibrary.reader.design.icons.AppIcon
 import kotlinx.serialization.Serializable
 
 @Serializable
-enum class AppDestination(val label: String, val icon: AppIcon) : NavKey {
+internal sealed interface AppRoute : NavKey
+
+@Serializable
+enum class AppDestination(val label: String, val icon: AppIcon) : AppRoute {
     Home("Home", AppIcon.Home),
     Library("Library", AppIcon.Library),
     Shelves("Shelves", AppIcon.Shelf),
@@ -14,19 +17,19 @@ enum class AppDestination(val label: String, val icon: AppIcon) : NavKey {
 }
 
 @Serializable
-data class LibrarySearchRoute(val query: String) : NavKey
+data class LibrarySearchRoute(val query: String) : AppRoute
 
 @Serializable
-data class LibraryAuthorRoute(val authorId: String) : NavKey
+data class LibraryAuthorRoute(val authorId: String) : AppRoute
 
 @Serializable
-data class LibrarySeriesRoute(val seriesId: String) : NavKey
+data class LibrarySeriesRoute(val seriesId: String) : AppRoute
 
 @Serializable
-data class LibraryTagRoute(val tagId: String, val tagSlug: String) : NavKey
+data class LibraryTagRoute(val tagId: String, val tagSlug: String) : AppRoute
 
 @Serializable
-data class ShelfDetailRoute(val shelfId: String, val origin: ShelfCollectionOrigin) : NavKey
+data class ShelfDetailRoute(val shelfId: String, val origin: ShelfCollectionOrigin) : AppRoute
 
 @Serializable
 sealed interface BookDetailReturnTarget {
@@ -59,7 +62,7 @@ enum class ShelfCollectionOrigin {
 }
 
 @Serializable
-data class BookDetailRoute(val bookId: String, val returnTarget: BookDetailReturnTarget) : NavKey
+data class BookDetailRoute(val bookId: String, val returnTarget: BookDetailReturnTarget) : AppRoute
 
 @Serializable
 sealed interface ReaderReturnTarget {
@@ -68,6 +71,15 @@ sealed interface ReaderReturnTarget {
 
     @Serializable
     data class BookDetail(val route: BookDetailRoute) : ReaderReturnTarget
+
+    @Serializable
+    data object Marginalia : ReaderReturnTarget
+
+    @Serializable
+    data class BookMarginalia(val route: BookMarginaliaRoute) : ReaderReturnTarget
+
+    @Serializable
+    data class ReadingSessionDetail(val route: ReadingSessionDetailRoute) : ReaderReturnTarget
 }
 
 @Serializable
@@ -76,7 +88,7 @@ data class ReaderRoute(
     val returnTarget: ReaderReturnTarget,
     val existingSessionId: String? = null,
     val titleHint: String? = null
-) : NavKey,
+) : AppRoute,
     AppShellDrawerGesturePolicy {
     init {
         require(bookId.isNotBlank()) { "Book ID must not be blank." }
@@ -86,6 +98,10 @@ data class ReaderRoute(
         require(
             returnTarget !is ReaderReturnTarget.BookDetail || returnTarget.route.bookId == bookId
         ) { "Reader Book must match its Book Detail return target." }
+        require(
+            returnTarget !is ReaderReturnTarget.BookMarginalia ||
+                returnTarget.route.bookId == bookId
+        ) { "Reader Book must match its Marginalia return target." }
     }
 
     override val drawerGestureEnabled: Boolean = false
@@ -102,7 +118,7 @@ sealed interface MarginaliaReturnTarget {
 
 @Serializable
 data class BookMarginaliaRoute(val bookId: String, val returnTarget: MarginaliaReturnTarget) :
-    NavKey
+    AppRoute
 
 @Serializable
 sealed interface ReadingSessionDetailReturnTarget {
@@ -122,9 +138,9 @@ data class ReadingSessionDetailRoute(
     val sessionId: String,
     val returnTarget: ReadingSessionDetailReturnTarget,
     val action: ReadingSessionDetailRouteAction = ReadingSessionDetailRouteAction.VIEW
-) : NavKey
+) : AppRoute
 
-internal fun NavKey.topLevelDestination(): AppDestination = when (this) {
+internal fun AppRoute.topLevelDestination(): AppDestination = when (this) {
     is LibrarySearchRoute,
     is LibraryAuthorRoute,
     is LibrarySeriesRoute,
@@ -146,8 +162,6 @@ internal fun NavKey.topLevelDestination(): AppDestination = when (this) {
     }
 
     is AppDestination -> this
-
-    else -> AppDestination.Home
 }
 
 private fun BookDetailReturnTarget.topLevelDestination(): AppDestination = when (this) {
@@ -162,4 +176,7 @@ private fun BookDetailReturnTarget.topLevelDestination(): AppDestination = when 
 private fun ReaderReturnTarget.topLevelDestination(): AppDestination = when (this) {
     ReaderReturnTarget.Home -> AppDestination.Home
     is ReaderReturnTarget.BookDetail -> route.topLevelDestination()
+    ReaderReturnTarget.Marginalia -> AppDestination.Marginalia
+    is ReaderReturnTarget.BookMarginalia -> route.topLevelDestination()
+    is ReaderReturnTarget.ReadingSessionDetail -> route.topLevelDestination()
 }

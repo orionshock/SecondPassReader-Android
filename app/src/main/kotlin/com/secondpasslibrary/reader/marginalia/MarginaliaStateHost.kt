@@ -16,7 +16,7 @@ internal fun MarginaliaStateHost(
     onOpenDrawer: () -> Unit,
     onBackFromHistory: (() -> Unit)? = null,
     onBackFromDetail: (() -> Unit)? = null,
-    onNavigation: (MarginaliaExternalNavigationIntent) -> Unit = {},
+    onNavigation: (MarginaliaExternalNavigationIntent) -> Unit,
     onAuthenticationRejected: () -> Unit,
     viewModel: MarginaliaViewModel = viewModel()
 ) {

@@ -11,17 +11,17 @@ import androidx.navigation3.runtime.rememberNavBackStack
 
 /** Owns the five account-scoped stacks independently of connection authority. */
 internal class AppNavigationState(
-    private val backStacks: Map<AppDestination, MutableList<NavKey>>,
+    private val backStacks: Map<AppDestination, MutableList<AppRoute>>,
     initialDestination: AppDestination = AppDestination.Home,
     private val onDestinationSelected: (AppDestination) -> Unit = {}
 ) {
     var selectedDestination by mutableStateOf(initialDestination)
         private set
 
-    val activeBackStack: MutableList<NavKey>
+    val activeBackStack: MutableList<AppRoute>
         get() = backStack(selectedDestination)
 
-    val currentRoute: NavKey
+    val currentRoute: AppRoute
         get() = activeBackStack.last()
 
     fun select(destination: AppDestination) {
@@ -29,15 +29,15 @@ internal class AppNavigationState(
         onDestinationSelected(destination)
     }
 
-    fun backStack(destination: AppDestination): MutableList<NavKey> =
+    fun backStack(destination: AppDestination): MutableList<AppRoute> =
         checkNotNull(backStacks[destination]) { "No back stack exists for $destination." }
 
-    fun push(route: NavKey) {
+    fun push(route: AppRoute) {
         val stack = activeBackStack
         if (stack.lastOrNull() != route) stack.add(route)
     }
 
-    fun replace(destination: AppDestination, route: NavKey? = null) {
+    fun replace(destination: AppDestination, route: AppRoute? = null) {
         val stack = backStack(destination)
         stack.clear()
         stack.add(destination)
@@ -52,7 +52,7 @@ internal class AppNavigationState(
         return true
     }
 
-    fun removeTop(route: NavKey) {
+    fun removeTop(route: AppRoute) {
         val stack = activeBackStack
         if (stack.size > 1 && stack.lastOrNull() == route) {
             stack.removeAt(stack.lastIndex)
@@ -72,11 +72,11 @@ internal fun rememberAppNavigationState(): AppNavigationState {
         AppNavigationState(
             backStacks =
                 mapOf(
-                    AppDestination.Home to home,
-                    AppDestination.Library to library,
-                    AppDestination.Shelves to shelves,
-                    AppDestination.Marginalia to marginalia,
-                    AppDestination.Settings to settings
+                    AppDestination.Home to AppRouteBackStack(home),
+                    AppDestination.Library to AppRouteBackStack(library),
+                    AppDestination.Shelves to AppRouteBackStack(shelves),
+                    AppDestination.Marginalia to AppRouteBackStack(marginalia),
+                    AppDestination.Settings to AppRouteBackStack(settings)
                 ),
             initialDestination = selected,
             onDestinationSelected = { selected = it }
@@ -87,6 +87,24 @@ internal fun rememberAppNavigationState(): AppNavigationState {
 internal fun appNavigationStateForTest(
     initialDestination: AppDestination = AppDestination.Home
 ): AppNavigationState = AppNavigationState(
-    AppDestination.entries.associateWith { mutableListOf<NavKey>(it) },
+    AppDestination.entries.associateWith { mutableListOf<AppRoute>(it) },
     initialDestination
 )
+
+/** Keeps Navigation 3's NavKey-only storage behind the app-owned closed route interface. */
+private class AppRouteBackStack(private val delegate: MutableList<NavKey>) :
+    AbstractMutableList<AppRoute>() {
+    override val size: Int
+        get() = delegate.size
+
+    override fun get(index: Int): AppRoute = delegate[index] as AppRoute
+
+    override fun add(index: Int, element: AppRoute) {
+        delegate.add(index, element)
+    }
+
+    override fun removeAt(index: Int): AppRoute = delegate.removeAt(index) as AppRoute
+
+    override fun set(index: Int, element: AppRoute): AppRoute =
+        delegate.set(index, element) as AppRoute
+}

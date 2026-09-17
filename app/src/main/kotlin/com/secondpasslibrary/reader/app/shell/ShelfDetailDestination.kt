@@ -2,13 +2,12 @@ package com.secondpasslibrary.reader.app.shell
 
 import androidx.compose.runtime.State
 import androidx.navigation3.runtime.EntryProviderScope
-import androidx.navigation3.runtime.NavKey
 import com.secondpasslibrary.reader.shelves.ShelfBookNavigationRequest
 import com.secondpasslibrary.reader.shelves.ShelfDetailEntry
 import com.secondpasslibrary.reader.shelves.ShelvesCollection
 import com.secondpasslibrary.reader.shelves.ShelvesStateHost
 
-internal fun EntryProviderScope<NavKey>.registerShelfDetailEntry(
+internal fun EntryProviderScope<AppRoute>.registerShelfDetailEntry(
     environment: State<AccountDestinationEnvironment>
 ) {
     entry<ShelfDetailRoute> { route ->

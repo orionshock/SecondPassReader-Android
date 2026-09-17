@@ -30,7 +30,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import androidx.navigation3.runtime.NavKey
 import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.app.AppAvailabilityReason
 import com.secondpasslibrary.reader.app.AppSessionAuthority
@@ -213,7 +212,7 @@ private fun DrawerDismissBackHandler(enabled: Boolean, onDismiss: () -> Unit) {
 
 @Composable
 private fun Modifier.accountDrawerGestureModifier(
-    route: NavKey,
+    route: AppRoute,
     onOpenDrawer: () -> Unit
 ): Modifier {
     val density = LocalDensity.current
@@ -253,7 +252,7 @@ private fun ConnectionUiState.requiresInteractiveConnectionPresentation(): Boole
     else -> false
 }
 
-internal fun showsShellTopBar(destination: AppDestination, route: NavKey): Boolean =
+internal fun showsShellTopBar(destination: AppDestination, route: AppRoute): Boolean =
     destination != AppDestination.Library &&
         destination != AppDestination.Shelves &&
         destination != AppDestination.Marginalia &&

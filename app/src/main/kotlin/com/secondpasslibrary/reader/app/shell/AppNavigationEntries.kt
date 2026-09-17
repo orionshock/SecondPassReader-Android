@@ -3,15 +3,14 @@ package com.secondpasslibrary.reader.app.shell
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavEntry
-import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.rememberDecoratedNavEntries
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 
 @Composable
 internal fun retainedActiveEntries(
     navigation: AppNavigationState,
-    entryProvider: (NavKey) -> NavEntry<NavKey>
-): List<NavEntry<NavKey>> {
+    entryProvider: (AppRoute) -> NavEntry<AppRoute>
+): List<NavEntry<AppRoute>> {
     // Decorate every stack while inactive so Navigation 3 retains entry state until an actual pop.
     val home = retainedEntries(navigation.backStack(AppDestination.Home), entryProvider)
     val library = retainedEntries(navigation.backStack(AppDestination.Library), entryProvider)
@@ -29,9 +28,9 @@ internal fun retainedActiveEntries(
 
 @Composable
 private fun retainedEntries(
-    backStack: List<NavKey>,
-    entryProvider: (NavKey) -> NavEntry<NavKey>
-): List<NavEntry<NavKey>> = rememberDecoratedNavEntries(
+    backStack: List<AppRoute>,
+    entryProvider: (AppRoute) -> NavEntry<AppRoute>
+): List<NavEntry<AppRoute>> = rememberDecoratedNavEntries(
     backStack = backStack,
     entryDecorators =
         listOf(

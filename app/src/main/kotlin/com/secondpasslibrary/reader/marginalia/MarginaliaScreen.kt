@@ -42,7 +42,7 @@ internal fun MarginaliaScreen(
     val bookHistoryBack = when {
         !bookHistory -> null
 
-        history.returnToBooks || history.returnToDetail != null ->
+        history.returnDestination != MarginaliaReturnDestination.Global ->
             ({ onIntent(MarginaliaIntent.BackFromBookHistory) })
 
         else -> onBackFromHistory
