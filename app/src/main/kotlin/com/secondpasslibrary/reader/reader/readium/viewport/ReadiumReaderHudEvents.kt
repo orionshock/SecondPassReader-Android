@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.navigator.input.InputListener
 import org.readium.r2.navigator.input.TapEvent
+import org.readium.r2.navigator.util.DirectionalNavigationAdapter
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Locator
 
@@ -25,6 +26,7 @@ internal class ReadiumReaderHudEvents(
     private val taps = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     private val paginationChanges = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     private var navigator: EpubNavigatorFragment? = null
+    private var directionalNavigation: DirectionalNavigationAdapter? = null
 
     override val readingStatus = pagination.status
 
@@ -60,12 +62,15 @@ internal class ReadiumReaderHudEvents(
         if (navigator === next) return
         navigator?.let(::unbind)
         navigator = next
+        directionalNavigation = DirectionalNavigationAdapter(next).also(next::addInputListener)
         next.addInputListener(this)
         paginationChanges.tryEmit(Unit)
     }
 
     fun unbind(current: EpubNavigatorFragment) {
         if (navigator !== current) return
+        directionalNavigation?.let(current::removeInputListener)
+        directionalNavigation = null
         current.removeInputListener(this)
         navigator = null
         pagination.invalidate()

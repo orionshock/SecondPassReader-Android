@@ -6,9 +6,13 @@ import { build } from "esbuild";
 
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repository = resolve(workspace, "../..");
-export const outputPath = resolve(
+export const developmentOutputPath = resolve(
   repository,
   "app/src/main/assets/reader/cfi/secondpass-epub-cfi-runtime.js"
+);
+export const releaseOutputPath = resolve(
+  repository,
+  "app/src/release/assets/reader/cfi/secondpass-epub-cfi-runtime.js"
 );
 
 async function sourceFiles() {
@@ -37,7 +41,7 @@ export async function sourceDigest() {
   return hash.digest("hex").toUpperCase();
 }
 
-export async function bundledRuntime() {
+export async function bundledRuntime({ minify = false } = {}) {
   const digest = await sourceDigest();
   const result = await build({
     entryPoints: [resolve(workspace, "src/runtime.ts")],
@@ -48,6 +52,7 @@ export async function bundledRuntime() {
     write: false,
     legalComments: "none",
     charset: "utf8",
+    minify,
     banner: {
       js:
         "// GENERATED from tools/reader-cfi-runtime; do not edit.\n" +

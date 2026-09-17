@@ -107,8 +107,26 @@ val readerCfiRuntimeCheck =
         repositoryDirectory.set(layout.projectDirectory)
     }
 
+val releaseReaderCfiRuntimeCheck =
+    tasks.register<ReaderCfiRuntimeCheckTask>("releaseReaderCfiRuntimeCheck") {
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        description = "Verifies the minified release Reader CFI runtime source digest without Node."
+        sourceInputs.from(readerCfiRuntimeCheck.get().sourceInputs)
+        generatedRuntime.set(
+            layout.projectDirectory.file(
+                "app/src/release/assets/reader/cfi/secondpass-epub-cfi-runtime.js"
+            )
+        )
+        repositoryDirectory.set(layout.projectDirectory)
+    }
+
 tasks.named("staticHygiene") {
-    dependsOn(readerBoundaryCheck, colibrioBundleCheck, readerCfiRuntimeCheck)
+    dependsOn(
+        readerBoundaryCheck,
+        colibrioBundleCheck,
+        readerCfiRuntimeCheck,
+        releaseReaderCfiRuntimeCheck
+    )
 }
 
 tasks.register("detekt") {

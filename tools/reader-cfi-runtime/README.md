@@ -1,8 +1,8 @@
 # Reader CFI runtime
 
 TypeScript is the authoritative source for the browser runtime injected by the Android Reader.
-Android ships one generated asset at
-`app/src/main/assets/reader/cfi/secondpass-epub-cfi-runtime.js` and does not require Node.
+Android ships a readable development asset from `app/src/main/assets` and a minified,
+same-path override from `app/src/release/assets`. Runtime builds do not require Node.
 
 Requires Node 24 LTS and npm 11.
 

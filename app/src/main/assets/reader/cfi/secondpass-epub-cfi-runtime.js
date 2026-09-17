@@ -1,5 +1,5 @@
 // GENERATED from tools/reader-cfi-runtime; do not edit.
-// Source-SHA256: 72B1324788711D898964181360B759415214F237CBDFF4C78F2833DBB0047787
+// Source-SHA256: 10FD0CAB31005F8267B30B02E9474CB7B81DC78557E2D307241FF77B90BD8C6E
 // Rebuild: cd tools/reader-cfi-runtime && npm run build
 "use strict";
 (() => {
