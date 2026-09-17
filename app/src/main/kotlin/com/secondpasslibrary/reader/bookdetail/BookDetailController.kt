@@ -4,7 +4,7 @@ import com.secondpasslibrary.client.LibraryBookDetail
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import kotlinx.coroutines.CancellationException
+import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -71,10 +71,9 @@ internal class BookDetailController(
     private fun load(bookId: String, requestGeneration: Long) {
         val activeProfile = checkNotNull(profile) { "Book Detail is not prepared." }
         loadJob = scope.launch {
-            val result = runCatching {
+            val result = runSuspendCatching {
                 clientProvider.forProfile(activeProfile).library.books.getBook(bookId)
             }
-            (result.exceptionOrNull() as? CancellationException)?.let { throw it }
             if (generation != requestGeneration ||
                 mutableState.value.bookId != bookId
             ) {

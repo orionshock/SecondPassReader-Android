@@ -1,6 +1,7 @@
 package com.secondpasslibrary.reader.reader.annotations.mutation
 
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.location.ReaderSavedLocationLabelPolicy
@@ -8,7 +9,6 @@ import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import java.util.UUID
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -241,7 +241,7 @@ internal class ReaderAnnotationMutationController(
         val submittedState = state.value.copy(submitting = true, failure = null)
         mutableState.value = submittedState
         submitJob = scope.launch {
-            val result = runCatching {
+            val result = runSuspendCatching {
                 val account = LocalReaderAccountKey.from(
                     owner.profile.serverOrigin,
                     owner.profileId
@@ -252,7 +252,6 @@ internal class ReaderAnnotationMutationController(
                     request
                 ).also { onSyncRequested() }
             }
-            (result.exceptionOrNull() as? CancellationException)?.let { throw it }
             if (generation != activeGeneration ||
                 this@ReaderAnnotationMutationController.owner != owner
             ) {

@@ -8,7 +8,7 @@ import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.app.storage.AccountLocalDataLifecycle
 import com.secondpasslibrary.reader.app.storage.AccountLocalScope
 import com.secondpasslibrary.reader.connection.storage.PersistedAccountContextStore
-import kotlinx.coroutines.CancellationException
+import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
@@ -424,9 +424,8 @@ internal class ConnectionCoordinator(
     }
 
     private suspend fun <T> attempt(block: suspend () -> T): Result<T> =
-        runCatching { block() }.also { result ->
+        runSuspendCatching { block() }.also {
             currentCoroutineContext().ensureActive()
-            (result.exceptionOrNull() as? CancellationException)?.let { throw it }
         }
 
     private companion object {

@@ -4,10 +4,10 @@ import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import com.secondpasslibrary.reader.marginalia.MarginaliaConnectionEvent
 import com.secondpasslibrary.reader.marginalia.MarginaliaFailure
 import com.secondpasslibrary.reader.marginalia.toMarginaliaFailure
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -66,12 +66,11 @@ internal class ReadingSessionAnnotationsController(
         val activeProfile = profile ?: return
         mutableState.value = state.value.copy(loading = true, failure = null)
         loadJob = coroutineScope.launch {
-            val result = runCatching {
+            val result = runSuspendCatching {
                 clientProvider.forProfile(
                     activeProfile
                 ).marginalia.sessions.listAnnotations(sessionId)
             }
-            (result.exceptionOrNull() as? CancellationException)?.let { throw it }
             if (activeGeneration != generation) return@launch
             result.fold(
                 onSuccess = { annotations ->

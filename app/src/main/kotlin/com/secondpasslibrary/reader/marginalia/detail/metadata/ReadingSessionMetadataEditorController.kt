@@ -8,12 +8,12 @@ import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import com.secondpasslibrary.reader.marginalia.MarginaliaConnectionEvent
 import com.secondpasslibrary.reader.marginalia.detail.MAX_READING_SESSION_NAME_LENGTH
 import com.secondpasslibrary.reader.marginalia.detail.ReadingSessionMutationFailure
 import com.secondpasslibrary.reader.marginalia.detail.ReadingSessionNameError
 import com.secondpasslibrary.reader.marginalia.detail.toReadingSessionMutationFailure
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -67,13 +67,12 @@ internal class ReadingSessionMetadataEditorController(
         createRequest()?.let { request ->
             mutableState.value = state.value.copy(saving = true, failure = null)
             job = coroutineScope.launch {
-                val result = runCatching {
+                val result = runSuspendCatching {
                     clientProvider.forProfile(request.profile).marginalia.sessions.updateMetadata(
                         request.sessionId,
                         request.input
                     )
                 }
-                (result.exceptionOrNull() as? CancellationException)?.let { throw it }
                 result.fold(
                     onSuccess = {
                         reset()

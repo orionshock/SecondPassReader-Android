@@ -49,6 +49,14 @@ abstract class StaticHygieneTask : DefaultTask() {
                 if (line.endsWith(' ') || line.endsWith('\t')) {
                     issues += "$relativePath:${index + 1}: trailing whitespace"
                 }
+                if (relativePath.isProductionKotlinSource() &&
+                    line.contains(
+                        "exceptionOrNull() as? CancellationException)?.let { throw it }"
+                    )
+                ) {
+                    issues +=
+                        "$relativePath:${index + 1}: use runSuspendCatching for cancellation-safe capture"
+                }
             }
         }
 
@@ -80,4 +88,8 @@ abstract class StaticHygieneTask : DefaultTask() {
         } catch (_: CharacterCodingException) {
             null
         }
+
+    private fun String.isProductionKotlinSource(): Boolean =
+        endsWith(".kt") &&
+            (startsWith("app/src/main/kotlin/") || startsWith("spl-client/src/main/kotlin/"))
 }

@@ -8,12 +8,12 @@ import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import com.secondpasslibrary.reader.shelves.ShelvesConnectionEvent
 import com.secondpasslibrary.reader.shelves.ShelvesFailure
 import com.secondpasslibrary.reader.shelves.ShelvesLoadError
 import com.secondpasslibrary.reader.shelves.ShelvesLoadPhase
 import com.secondpasslibrary.reader.shelves.toShelvesFailure
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -121,10 +121,9 @@ internal class ShelfDetailController(
                 detail = state.value.detail.copy(loading = true, failure = null)
             )
         detailJob = coroutineScope.launch {
-            val result = runCatching {
+            val result = runSuspendCatching {
                 clientProvider.forProfile(activeProfile).shelves.get(shelfId)
             }
-            (result.exceptionOrNull() as? CancellationException)?.let { throw it }
             if (activeGeneration != generation) return@launch
             result.fold(
                 onSuccess = { shelf ->
@@ -178,10 +177,9 @@ internal class ShelfDetailController(
                     )
             )
         itemsJob = coroutineScope.launch {
-            val result = runCatching {
+            val result = runSuspendCatching {
                 clientProvider.forProfile(activeProfile).shelves.listItems(shelfId, options)
             }
-            (result.exceptionOrNull() as? CancellationException)?.let { throw it }
             if (activeGeneration != itemsGeneration) return@launch
             result.fold(
                 onSuccess = { applyItems(it, phase) },

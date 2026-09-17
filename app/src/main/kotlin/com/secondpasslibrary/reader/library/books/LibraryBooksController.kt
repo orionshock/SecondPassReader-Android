@@ -11,10 +11,10 @@ import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import com.secondpasslibrary.reader.library.LibraryConnectionEvent
 import com.secondpasslibrary.reader.library.LibraryFailure
 import com.secondpasslibrary.reader.library.toLibraryFailure
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -319,10 +319,9 @@ internal class LibraryBooksController(
         val request = LibraryBooksRequest.from(mutableState.value, selectedScope, page)
         markLoading(phase)
         loadJob = scope.launch {
-            val result = runCatching {
+            val result = runSuspendCatching {
                 request.load(clientProvider.forProfile(activeProfile).library.books)
             }
-            (result.exceptionOrNull() as? CancellationException)?.let { throw it }
             if (generation != requestGeneration) return@launch
             result.fold(
                 onSuccess = { applyPage(it, phase) },

@@ -8,6 +8,7 @@ import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.client.toSummary
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import com.secondpasslibrary.reader.home.projection.HomeAccountScopeKey
 import com.secondpasslibrary.reader.home.projection.HomeProjectionSnapshot
 import com.secondpasslibrary.reader.home.projection.HomeProjectionStore
@@ -100,8 +101,7 @@ internal class HomeProjectionRepository internal constructor(
         if (active != null) return active.await()
 
         try {
-            val operationResult = runCatching { operation() }
-            (operationResult.exceptionOrNull() as? CancellationException)?.let { throw it }
+            val operationResult = runSuspendCatching { operation() }
             val refresh =
                 operationResult.fold(
                     onSuccess = { HomeProjectionRefresh.Current },

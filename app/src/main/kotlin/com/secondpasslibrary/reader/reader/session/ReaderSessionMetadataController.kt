@@ -4,8 +4,8 @@ import com.secondpasslibrary.client.ReadingSessionMetadataInput
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import javax.inject.Inject
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -118,7 +118,7 @@ internal class ReaderSessionMetadataController(
         val request = createRequest() ?: return
         mutableState.value = state.value.copy(saving = true, failure = false)
         job = scope.launch {
-            val result = runCatching {
+            val result = runSuspendCatching {
                 writer.update(
                     request.profile,
                     request.serverSessionId,
@@ -126,7 +126,6 @@ internal class ReaderSessionMetadataController(
                     request.notes
                 )
             }
-            (result.exceptionOrNull() as? CancellationException)?.let { throw it }
             result.fold(
                 onSuccess = { updated ->
                     val localUpdated = updated.copy(sessionId = request.localSessionId)

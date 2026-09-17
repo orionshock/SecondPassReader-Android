@@ -7,10 +7,10 @@ import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import com.secondpasslibrary.reader.library.LibraryConnectionEvent
 import com.secondpasslibrary.reader.library.LibraryFailure
 import com.secondpasslibrary.reader.library.toLibraryFailure
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -117,10 +117,9 @@ internal class PagedLibraryAxisController<T, O>(
                 selected = PagedLibraryAxisDetailState(id = id, loading = true)
             )
         detailJob = coroutineScope.launch {
-            val result = runCatching {
+            val result = runSuspendCatching {
                 detailLoader(clientProvider.forProfile(activeProfile), id)
             }
-            (result.exceptionOrNull() as? CancellationException)?.let { throw it }
             if (activeGeneration != detailGeneration) return@launch
             result.fold(
                 onSuccess = { detail ->
@@ -221,10 +220,9 @@ internal class PagedLibraryAxisController<T, O>(
                 error = null
             )
         loadJob = coroutineScope.launch {
-            val result = runCatching {
+            val result = runSuspendCatching {
                 pageLoader(clientProvider.forProfile(activeProfile), request)
             }
-            (result.exceptionOrNull() as? CancellationException)?.let { throw it }
             if (activeGeneration != generation) return@launch
             result.fold(
                 onSuccess = { applyPage(it, phase) },

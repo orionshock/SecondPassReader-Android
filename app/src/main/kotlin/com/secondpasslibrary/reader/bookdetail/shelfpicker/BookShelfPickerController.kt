@@ -12,7 +12,7 @@ import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.bookdetail.BookDetailConnectionEvent
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import kotlinx.coroutines.CancellationException
+import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -47,8 +47,7 @@ internal class BookShelfPickerController(
         val activeGeneration = generation
         mutableState.value = BookShelfPickerState(open = true, bookId = bookId, loading = true)
         loadJob = scope.launch {
-            val result = runCatching { loadTargets(activeProfile, bookId) }
-            (result.exceptionOrNull() as? CancellationException)?.let { throw it }
+            val result = runSuspendCatching { loadTargets(activeProfile, bookId) }
             if (activeGeneration != generation || state.value.bookId != bookId) return@launch
             result.fold(onSuccess = ::applyTargets, onFailure = ::applyLoadFailure)
         }
@@ -72,11 +71,10 @@ internal class BookShelfPickerController(
         if (activeProfile == null || addJobs[shelfId]?.isActive == true) return
         updateTarget(bookId, shelfId) { it.copy(adding = true, failure = null) }
         addJobs[shelfId] = scope.launch {
-            val result = runCatching {
+            val result = runSuspendCatching {
                 val client = clientProvider.forProfile(activeProfile)
                 client.shelves.addItem(shelfId, AddShelfItemInput(bookId))
             }
-            (result.exceptionOrNull() as? CancellationException)?.let { throw it }
             result.fold(
                 onSuccess = { markAdded(bookId, shelfId) },
                 onFailure = { resolveAddFailure(activeProfile, bookId, shelfId, it) }

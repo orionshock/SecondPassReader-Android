@@ -10,13 +10,13 @@ import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import com.secondpasslibrary.reader.shelves.SHELF_CARD_PREVIEW_LIMIT
 import com.secondpasslibrary.reader.shelves.ShelvesConnectionEvent
 import com.secondpasslibrary.reader.shelves.ShelvesFailure
 import com.secondpasslibrary.reader.shelves.ShelvesLoadError
 import com.secondpasslibrary.reader.shelves.ShelvesLoadPhase
 import com.secondpasslibrary.reader.shelves.toShelvesFailure
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -185,13 +185,12 @@ internal class ShelfContentsEditorController(
                 loadError = null
             )
         loadJob = coroutineScope.launch {
-            val result = runCatching {
+            val result = runSuspendCatching {
                 clientProvider.forProfile(activeProfile).shelves.listEditorItems(
                     shelfId,
                     ShelfEditorListOptions(page, state.value.pageSize)
                 )
             }
-            (result.exceptionOrNull() as? CancellationException)?.let { throw it }
             if (activeGeneration != generation) return@launch
             result.fold(
                 onSuccess = { applyPage(it, phase) },
@@ -246,13 +245,12 @@ internal class ShelfContentsEditorController(
             state.value.copy(mutation = ShelfContentsMutationState(itemId, operation))
         mutationJob = coroutineScope.launch {
             var mutationSucceeded = false
-            val result = runCatching {
+            val result = runSuspendCatching {
                 val client = clientProvider.forProfile(activeProfile)
                 action(client, shelfId)
                 mutationSucceeded = true
                 reconcile(client, shelfId)
             }
-            (result.exceptionOrNull() as? CancellationException)?.let { throw it }
             result.fold(
                 onSuccess = { (page, shelf) ->
                     applyReconciledPage(page)

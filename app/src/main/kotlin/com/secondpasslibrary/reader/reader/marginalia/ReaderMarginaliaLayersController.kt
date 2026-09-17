@@ -4,10 +4,10 @@ import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsLoader
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadata
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -119,8 +119,7 @@ internal class ReaderMarginaliaLayersController(
         }
         val activeGeneration = generation
         layerLoadJobs[sessionId] = scope.launch {
-            val result = runCatching { annotationsLoader.load(activeProfile, sessionId) }
-            (result.exceptionOrNull() as? CancellationException)?.let { throw it }
+            val result = runSuspendCatching { annotationsLoader.load(activeProfile, sessionId) }
             if (activeGeneration != generation) return@launch
             result.fold(
                 onSuccess = { annotations ->
@@ -204,8 +203,8 @@ internal class ReaderMarginaliaLayersController(
             failure = null
         )
         loadJob = scope.launch {
-            val result = runCatching { historyLoader.load(activeProfile, activeBookId, page) }
-            (result.exceptionOrNull() as? CancellationException)?.let { throw it }
+            val result =
+                runSuspendCatching { historyLoader.load(activeProfile, activeBookId, page) }
             if (activeGeneration != generation) return@launch
             result.fold(
                 onSuccess = { applyPage(it, append) },

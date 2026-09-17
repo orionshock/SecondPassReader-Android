@@ -3,6 +3,7 @@ package com.secondpasslibrary.reader.reader
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceStore
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetRequest
@@ -191,7 +192,7 @@ internal class ReaderController(
                         previousEngine?.close()
                     }
                 }
-                val result = runCatching {
+                val result = runSuspendCatching {
                     val initialAppearance = async { appearanceStore.readOrDefault() }
                     val resolved = resolveReaderBook(launchPolicy, assetResolver, request) {
                         if (isActive) mutableState.value = ReaderState.Downloading
@@ -218,7 +219,6 @@ internal class ReaderController(
                     }
                     restoreProgress(ready)
                 }
-                (result.exceptionOrNull() as? CancellationException)?.let { throw it }
                 result.fold(
                     onSuccess = { ready ->
                         progressCaptureFallbackJob?.cancel()

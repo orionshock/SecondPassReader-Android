@@ -4,11 +4,11 @@ import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -123,7 +123,7 @@ internal class ReaderAnnotationsController(
                 context.profile.serverOrigin,
                 context.profileId
             )
-            val result = runCatching {
+            val result = runSuspendCatching {
                 if (localOnly || context.session.serverSessionId == null) {
                     requireNotNull(localStore).readAnnotations(account, sessionId)
                 } else {
@@ -140,7 +140,6 @@ internal class ReaderAnnotationsController(
                     }
                 }
             }
-            (result.exceptionOrNull() as? CancellationException)?.let { throw it }
             if (activeGeneration != generation) return@launch
             result.fold(
                 onSuccess = { annotations ->

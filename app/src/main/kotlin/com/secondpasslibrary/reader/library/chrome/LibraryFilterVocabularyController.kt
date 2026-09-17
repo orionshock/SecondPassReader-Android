@@ -5,10 +5,10 @@ import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import com.secondpasslibrary.reader.library.LibraryConnectionEvent
 import com.secondpasslibrary.reader.library.LibraryFailure
 import com.secondpasslibrary.reader.library.toLibraryFailure
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -90,10 +90,9 @@ internal class LibraryFilterVocabularyController(
                 groupSelector = state.value.groupSelector.copy(loading = true, failure = null)
             )
         groupsJob = coroutineScope.launch {
-            val result = runCatching {
+            val result = runSuspendCatching {
                 clientProvider.forProfile(requestContext.profile).library.loadAllGroups()
             }
-            (result.exceptionOrNull() as? CancellationException)?.let { throw it }
             if (requestContext.identity != connectionIdentity || advancedGroupsEnabled != true) {
                 return@launch
             }
@@ -119,13 +118,12 @@ internal class LibraryFilterVocabularyController(
                 tagSelector = state.value.tagSelector.copy(loading = true, failure = null)
             )
         tagsJob = coroutineScope.launch {
-            val result = runCatching {
+            val result = runSuspendCatching {
                 clientProvider
                     .forProfile(requestContext.profile)
                     .library
                     .loadAllTags(requestedScope)
             }
-            (result.exceptionOrNull() as? CancellationException)?.let { throw it }
             if (requestContext.identity != connectionIdentity || requestedScope != tagScope) {
                 return@launch
             }
