@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.secondpasslibrary.client.ClientSessionRevocationClient
 import com.secondpasslibrary.client.SecondPassClient
 import com.secondpasslibrary.reader.app.storage.AccountLocalDataLifecycle
+import com.secondpasslibrary.reader.connection.pairing.CoroutinePairingPollDelay
 import com.secondpasslibrary.reader.connection.storage.PersistedAccountContextStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject

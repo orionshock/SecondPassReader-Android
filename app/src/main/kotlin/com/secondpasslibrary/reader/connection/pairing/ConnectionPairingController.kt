@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.connection
+package com.secondpasslibrary.reader.connection.pairing
 
 import com.secondpasslibrary.client.DiscoveredServer
 import com.secondpasslibrary.client.PairingConsumption
@@ -7,6 +7,8 @@ import com.secondpasslibrary.client.PairingStatus
 import com.secondpasslibrary.client.SecondPassClient
 import com.secondpasslibrary.client.SplClient
 import com.secondpasslibrary.client.SplClientException
+import com.secondpasslibrary.reader.connection.ConnectionErrorPresenter
+import com.secondpasslibrary.reader.connection.ConnectionUiState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job

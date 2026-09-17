@@ -7,6 +7,8 @@ import com.secondpasslibrary.client.SecondPassClient
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.app.storage.AccountLocalDataLifecycle
 import com.secondpasslibrary.reader.app.storage.AccountLocalScope
+import com.secondpasslibrary.reader.connection.pairing.ConnectionPairingController
+import com.secondpasslibrary.reader.connection.pairing.PairingPollDelay
 import com.secondpasslibrary.reader.connection.storage.PersistedAccountContextStore
 import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import kotlinx.coroutines.CoroutineScope

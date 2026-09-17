@@ -1,4 +1,4 @@
-package com.secondpasslibrary.reader.connection
+package com.secondpasslibrary.reader.connection.pairing
 
 import javax.inject.Inject
 import kotlinx.coroutines.delay

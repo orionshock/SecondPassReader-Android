@@ -66,37 +66,33 @@ Do not add Room or another architecture framework by convention. Prefer one obvi
 
 Organize `:app` by capability and responsibility. Expected areas may include `app`, `connection`, `home`, `library`, `shelves`, `sessions`, `reader`, `storage`, and `design`. Reader concerns may include `activity`, `annotations`, `domain`, `engine`, `session`, `settings`, and `shell`. These are ownership signals, not directory quotas; evolve topology from evidence.
 
-## Naming and responsibility vocabulary
+## Repository organization and role vocabulary
 
-Use normal Kotlin naming while making subject and role explicit, for example:
+- Package and folder names describe ownership or a domain concept. Prefer feature-local grouping over global technical buckets.
+- One-file folders require a durable ownership, runtime, or dependency boundary. Do not create folders for hypothetical growth.
+- A Kotlin file's primary type normally matches its filename. Grouped model and UI files use a precise concept name.
+- Tests mirror the production concept where practical; shared support stays near the behavioral family that uses it.
+- Avoid vague `Utils`, `Helpers`, `Manager`, `Common`, `Misc`, `Stuff`, and `Thing` names.
 
-```text
-ReadingSessionOrchestrator
-ReaderProgressAutosaveController
-PreviousSessionLayersController
-ReaderLocationPresenter
-BookCoverMapper
-ReaderAnnotationPolicy
-SecondPassClientFactory
-ConnectionProfileStore
-EpubReaderEngine
-ReaderEngineAdapter
-```
+Role suffixes have stable meanings:
 
-Avoid vague `Utils`, `Helpers`, `Manager`, `Common`, `Misc`, `Stuff`, `Handler`, or `Service` unless the term has a precise established meaning. In particular, do not use `Manager` to avoid deciding ownership.
-
-Role suffixes have specific meanings:
-
-- **Controller:** owns stateful behavior and observable results for one bounded capability; never unrelated workflow logic.
-- **Orchestrator:** thinly sequences and hands off among independent capabilities; it does not absorb their internals.
-- **Policy:** deterministic, narrow, testable rules, decisions, limits, classifications, or invariants without UI rendering.
-- **Mapper:** transforms representations without acquiring network, state, persistence, or orchestration duties.
-- **Presenter:** creates display-oriented labels/models from resolved state; it is not legacy MVP and performs no server calls or mutation.
-- **Adapter:** translates independent technical contracts at a boundary and contains external-library concepts.
-- **Lifecycle:** owns lifecycle timing or attachment only, never hidden business logic.
-- **Store:** owns explicitly persisted local state; it is not a generic mutable singleton.
-- **Factory:** owns construction only when configuration/dependency logic makes construction meaningful; prefer constructor injection otherwise.
-- **Repository:** app-facing ownership across sources, justified by caching, arbitration, persistence composition, or domain semantics. Do not wrap each SDK call for diagram symmetry.
+- **Controller:** owns one bounded feature or subsystem's stateful operation surface.
+- **Coordinator:** orders or synchronizes independent owners.
+- **Orchestrator:** runs a multi-step workflow across capabilities without absorbing them.
+- **Policy:** applies pure rules, validation, classification, eligibility, or selection.
+- **Presenter:** creates display-ready state, text, or formatting.
+- **Mapper:** performs pure representation conversion.
+- **Adapter:** translates an external library, service, or schema contract.
+- **Bridge:** exposes a narrow boundary across runtimes, renderers, languages, or systems.
+- **Repository:** gives the domain asynchronous record access while hiding storage or transport details.
+- **Store:** owns app-local durable state or preferences.
+- **Dao:** owns Room access and atomic persistence mechanics.
+- **Factory:** constructs configured owners without retaining their lifecycle.
+- **Lifecycle:** owns setup, teardown, or subscription timing.
+- **State:** defines observable state and closely related state invariants.
+- **Intent:** defines typed commands into an owner.
+- **Module:** declares dependency-injection bindings.
+- **TestSupport** and **Fixtures:** provide shared test-only setup, fakes, builders, or representative data.
 
 ## ViewModels and Compose
 

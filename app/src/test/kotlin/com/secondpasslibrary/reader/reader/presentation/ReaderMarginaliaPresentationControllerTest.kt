@@ -1,6 +1,16 @@
-package com.secondpasslibrary.reader.reader
+package com.secondpasslibrary.reader.reader.presentation
 
 import com.secondpasslibrary.client.SplClientException
+import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
+import com.secondpasslibrary.reader.reader.MarginaliaTestFakeAppearanceController
+import com.secondpasslibrary.reader.reader.MarginaliaTestFakeAppearanceStore
+import com.secondpasslibrary.reader.reader.MarginaliaTestFakeCfiNavigator
+import com.secondpasslibrary.reader.reader.MarginaliaTestFakeLayerPreferenceStore
+import com.secondpasslibrary.reader.reader.MarginaliaTestFakeLayerVisibilityStore
+import com.secondpasslibrary.reader.reader.MarginaliaTestFakeLocalReaderStateStore
+import com.secondpasslibrary.reader.reader.MarginaliaTestRecordingEngine
+import com.secondpasslibrary.reader.reader.ReaderProgressRestore
+import com.secondpasslibrary.reader.reader.ReaderState
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsLoader
 import com.secondpasslibrary.reader.reader.annotations.bookmark.ReaderBookmarkHudIntent
@@ -19,8 +29,10 @@ import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaIntent
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayerHistoryLoader
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayerHistoryPage
+import com.secondpasslibrary.reader.reader.marginaliaTestHighlight
+import com.secondpasslibrary.reader.reader.marginaliaTestPreviousLayer
+import com.secondpasslibrary.reader.reader.marginaliaTestProfile
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
-import com.secondpasslibrary.reader.reader.presentation.ReaderMarginaliaPresentationController
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadata
 import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadataWriter
