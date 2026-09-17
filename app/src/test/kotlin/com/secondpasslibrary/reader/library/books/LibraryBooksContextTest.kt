@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.library.books
 
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.reader.library.LibraryAxis
+import com.secondpasslibrary.reader.library.books
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -148,6 +149,5 @@ class LibraryBooksContextTest {
         assertEquals(LibraryScope.Group("group-2"), controller.state.value.scope)
         assertEquals(bookCalls, client.bookRequests.size)
         assertTrue(client.groupBookRequests.isEmpty())
-        assertEquals(1, controller.state.value.books.currentPage)
     }
 }

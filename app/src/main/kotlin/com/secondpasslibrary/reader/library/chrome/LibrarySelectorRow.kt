@@ -31,8 +31,9 @@ import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 import com.secondpasslibrary.reader.design.richtext.serverRichTextPlainText
 import com.secondpasslibrary.reader.library.LibraryAxis
-import com.secondpasslibrary.reader.library.LibraryResultKind
+import com.secondpasslibrary.reader.library.LibraryResultState
 import com.secondpasslibrary.reader.library.LibraryState
+import com.secondpasslibrary.reader.library.isBookResults
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -65,7 +66,7 @@ internal fun LibrarySelectorRow(
             ) {
                 tagControl()
                 orderingControl()
-                if (state.resultKind.supportsBookLayout) {
+                if (state.result.isBookResults) {
                     layoutControl()
                 }
             }
@@ -230,9 +231,12 @@ private fun AxisChip(
     )
 }
 
-internal fun LibraryState.selectedEntityAxis(): LibraryAxis? = when {
-    resultKind != LibraryResultKind.BOOKS -> null
-    axis == LibraryAxis.AUTHORS && authors.selected != null -> LibraryAxis.AUTHORS
-    axis == LibraryAxis.SERIES && series.selected != null -> LibraryAxis.SERIES
-    else -> null
+internal fun LibraryState.selectedEntityAxis(): LibraryAxis? = when (result) {
+    is LibraryResultState.AuthorBooks -> LibraryAxis.AUTHORS
+
+    is LibraryResultState.SeriesBooks -> LibraryAxis.SERIES
+
+    is LibraryResultState.Books,
+    is LibraryResultState.AuthorIndex,
+    is LibraryResultState.SeriesIndex -> null
 }

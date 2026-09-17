@@ -13,6 +13,7 @@ import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import com.secondpasslibrary.reader.library.axis.PagedLibraryAxisController
+import com.secondpasslibrary.reader.library.axis.PagedLibraryAxisDetailState
 import com.secondpasslibrary.reader.library.axis.libraryAuthorsAxisController
 import com.secondpasslibrary.reader.library.axis.librarySeriesAxisController
 import com.secondpasslibrary.reader.library.books.LibraryBooksController
@@ -94,7 +95,7 @@ internal class LibraryController(
         entryKey = entry
         chrome.value =
             LibraryChromeState(
-                axis = LibraryAxis.BOOKS,
+                result = LibraryResultState.Books(books.state.value),
                 scope = selectedScope,
                 advancedGroupsEnabled = advancedGroupsEnabled,
                 selectedTag = selectedTag
@@ -162,18 +163,18 @@ internal class LibraryController(
                 scope = selected,
                 selectedTag = null
             )
-        if (current.resultKind == LibraryResultKind.BOOKS) {
+        if (current.result.isBookResults) {
             books.selectScope(selected, tagSlug = null)
         }
         authors.selectScope(
             selected,
             tagSlug = null,
-            activate = current.axis == LibraryAxis.AUTHORS
+            activate = current.result is LibraryResultState.AuthorIndex
         )
         series.selectScope(
             selected,
             tagSlug = null,
-            activate = current.axis == LibraryAxis.SERIES
+            activate = current.result is LibraryResultState.SeriesIndex
         )
         vocabulary.selectScope(selected)
     }
@@ -181,7 +182,7 @@ internal class LibraryController(
     fun selectAxis(selected: LibraryAxis) {
         if (authorityMode != LibraryAuthorityMode.ONLINE) return
         var current = chrome.value
-        if (selected == current.axis) {
+        if (selected == current.result.axis) {
             if (current.isSelectedAuthorSeriesBooks) clearSelectedAuthorSeries()
             return
         }
@@ -189,7 +190,14 @@ internal class LibraryController(
             clearSelectedAuthorSeries()
             current = chrome.value
         }
-        chrome.value = current.copy(axis = selected, resultKind = selected.indexResultKind)
+        chrome.value =
+            current.copy(
+                result = selected.indexResultState(
+                    books.state.value,
+                    authors.state.value,
+                    series.state.value
+                )
+            )
         when (selected) {
             LibraryAxis.BOOKS -> {
                 books.clearEntityFilter()
@@ -204,17 +212,21 @@ internal class LibraryController(
     }
 
     fun commitSearch(query: String) {
-        if (chrome.value.resultKind == LibraryResultKind.BOOKS) {
-            when (books.state.value.mode) {
-                LibraryBooksMode.BROWSE -> books.commitBrowseQuery(query)
-                LibraryBooksMode.BROAD_SEARCH -> books.commitBroadSearch(query)
-            }
-            return
+        when (chrome.value.result) {
+            is LibraryResultState.Books,
+            is LibraryResultState.AuthorBooks,
+            is LibraryResultState.SeriesBooks -> commitBooksSearch(query)
+
+            is LibraryResultState.AuthorIndex -> authors.commitSearch(query)
+
+            is LibraryResultState.SeriesIndex -> series.commitSearch(query)
         }
-        when (chrome.value.axis) {
-            LibraryAxis.BOOKS -> error("Books axis must render Books results.")
-            LibraryAxis.AUTHORS -> authors.commitSearch(query)
-            LibraryAxis.SERIES -> series.commitSearch(query)
+    }
+
+    private fun commitBooksSearch(query: String) {
+        when (books.state.value.mode) {
+            LibraryBooksMode.BROWSE -> books.commitBrowseQuery(query)
+            LibraryBooksMode.BROAD_SEARCH -> books.commitBroadSearch(query)
         }
     }
 
@@ -232,26 +244,26 @@ internal class LibraryController(
     fun refreshBooks() = books.refresh()
 
     fun loadNextPage() {
-        if (chrome.value.resultKind == LibraryResultKind.BOOKS) {
-            books.loadNextPage()
-            return
-        }
-        when (chrome.value.axis) {
-            LibraryAxis.BOOKS -> error("Books axis must render Books results.")
-            LibraryAxis.AUTHORS -> authors.loadNextPage()
-            LibraryAxis.SERIES -> series.loadNextPage()
+        when (chrome.value.result) {
+            is LibraryResultState.Books,
+            is LibraryResultState.AuthorBooks,
+            is LibraryResultState.SeriesBooks -> books.loadNextPage()
+
+            is LibraryResultState.AuthorIndex -> authors.loadNextPage()
+
+            is LibraryResultState.SeriesIndex -> series.loadNextPage()
         }
     }
 
     fun retry() {
-        if (chrome.value.resultKind == LibraryResultKind.BOOKS) {
-            books.retry()
-            return
-        }
-        when (chrome.value.axis) {
-            LibraryAxis.BOOKS -> error("Books axis must render Books results.")
-            LibraryAxis.AUTHORS -> authors.retry()
-            LibraryAxis.SERIES -> series.retry()
+        when (chrome.value.result) {
+            is LibraryResultState.Books,
+            is LibraryResultState.AuthorBooks,
+            is LibraryResultState.SeriesBooks -> books.retry()
+
+            is LibraryResultState.AuthorIndex -> authors.retry()
+
+            is LibraryResultState.SeriesIndex -> series.retry()
         }
     }
 
@@ -261,39 +273,55 @@ internal class LibraryController(
 
     fun selectAuthor(authorId: String) {
         if (authorityMode != LibraryAuthorityMode.ONLINE) return
-        if (chrome.value.axis != LibraryAxis.AUTHORS) {
+        if (chrome.value.result.axis != LibraryAxis.AUTHORS) {
             selectAxis(LibraryAxis.AUTHORS)
         }
         authors.select(authorId)
         books.showAuthorBooks(authorId, chrome.value.scope)
-        chrome.value = chrome.value.copy(resultKind = LibraryResultKind.BOOKS)
+        chrome.value =
+            chrome.value.copy(
+                result =
+                    LibraryResultState.AuthorBooks(
+                        PagedLibraryAxisDetailState(authorId, loading = true),
+                        authors.state.value.items.firstOrNull { it.id == authorId },
+                        books.state.value
+                    )
+            )
     }
 
     fun selectSeries(seriesId: String) {
         if (authorityMode != LibraryAuthorityMode.ONLINE) return
-        if (chrome.value.axis != LibraryAxis.SERIES) {
+        if (chrome.value.result.axis != LibraryAxis.SERIES) {
             selectAxis(LibraryAxis.SERIES)
         }
         series.select(seriesId)
         books.showSeriesBooks(seriesId, chrome.value.scope)
-        chrome.value = chrome.value.copy(resultKind = LibraryResultKind.BOOKS)
+        chrome.value =
+            chrome.value.copy(
+                result =
+                    LibraryResultState.SeriesBooks(
+                        PagedLibraryAxisDetailState(seriesId, loading = true),
+                        series.state.value.items.firstOrNull { it.id == seriesId },
+                        books.state.value
+                    )
+            )
     }
 
     fun navigateTo(target: LibraryExternalNavigation) {
         if (authorityMode != LibraryAuthorityMode.ONLINE) return
         when (target) {
             is LibraryExternalNavigation.Author -> {
-                val selectedId = chrome.value.takeIf { it.isSelectedAuthorSeriesBooks }
-                    ?.let { authors.state.value.selected?.detail?.id }
-                if (chrome.value.axis != LibraryAxis.AUTHORS || selectedId != target.id) {
+                val selectedId =
+                    (chrome.value.result as? LibraryResultState.AuthorBooks)?.author?.id
+                if (chrome.value.result.axis != LibraryAxis.AUTHORS || selectedId != target.id) {
                     selectAuthor(target.id)
                 }
             }
 
             is LibraryExternalNavigation.Series -> {
-                val selectedId = chrome.value.takeIf { it.isSelectedAuthorSeriesBooks }
-                    ?.let { series.state.value.selected?.detail?.id }
-                if (chrome.value.axis != LibraryAxis.SERIES || selectedId != target.id) {
+                val selectedId =
+                    (chrome.value.result as? LibraryResultState.SeriesBooks)?.series?.id
+                if (chrome.value.result.axis != LibraryAxis.SERIES || selectedId != target.id) {
                     selectSeries(target.id)
                 }
             }
@@ -303,13 +331,32 @@ internal class LibraryController(
     }
 
     fun clearSelectedAuthorSeries() {
-        when (chrome.value.axis) {
-            LibraryAxis.AUTHORS -> authors.clearSelection()
-            LibraryAxis.SERIES -> series.clearSelection()
-            LibraryAxis.BOOKS -> Unit
+        val current = chrome.value
+        val next = when (current.result) {
+            is LibraryResultState.Books -> current.result
+
+            is LibraryResultState.AuthorIndex -> {
+                authors.clearSelection()
+                LibraryResultState.AuthorIndex(authors.state.value)
+            }
+
+            is LibraryResultState.AuthorBooks -> {
+                authors.clearSelection()
+                LibraryResultState.AuthorIndex(authors.state.value)
+            }
+
+            is LibraryResultState.SeriesIndex -> {
+                series.clearSelection()
+                LibraryResultState.SeriesIndex(series.state.value)
+            }
+
+            is LibraryResultState.SeriesBooks -> {
+                series.clearSelection()
+                LibraryResultState.SeriesIndex(series.state.value)
+            }
         }
         books.clearEntityFilter()
-        chrome.value = chrome.value.copy(resultKind = chrome.value.axis.indexResultKind)
+        chrome.value = current.copy(result = next)
     }
 
     fun retryGroups() = vocabulary.retryGroups()
@@ -329,16 +376,14 @@ internal class LibraryController(
         val selected = tag.takeUnless { current.selectedTag?.id == tag?.id }
         chrome.value = current.copy(selectedTag = selected)
         val slug = selected?.slug
-        books.selectTag(slug, activate = current.resultKind == LibraryResultKind.BOOKS)
+        books.selectTag(slug, activate = current.result.isBookResults)
         authors.selectTag(
             slug,
-            activate = current.axis == LibraryAxis.AUTHORS &&
-                current.resultKind == LibraryResultKind.AUTHOR_INDEX
+            activate = current.result is LibraryResultState.AuthorIndex
         )
         series.selectTag(
             slug,
-            activate = current.axis == LibraryAxis.SERIES &&
-                current.resultKind == LibraryResultKind.SERIES_INDEX
+            activate = current.result is LibraryResultState.SeriesIndex
         )
     }
 
@@ -357,7 +402,7 @@ internal class LibraryController(
     }
 
     private fun navigateToTag(target: LibraryExternalNavigation.Tag) {
-        if (chrome.value.axis != LibraryAxis.BOOKS) selectAxis(LibraryAxis.BOOKS)
+        if (chrome.value.result.axis != LibraryAxis.BOOKS) selectAxis(LibraryAxis.BOOKS)
         val tag = vocabulary.state.value.tagSelector.tags.firstOrNull {
             it.id == target.id && it.slug == target.slug
         }

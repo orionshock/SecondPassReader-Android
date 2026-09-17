@@ -21,10 +21,50 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LibraryCombinedStateTest {
+    @Test
+    fun `result surface owns the axis instead of storing a constructible parallel pair`() {
+        val surfaces =
+            listOf(
+                LibraryResultState.Books(),
+                LibraryResultState.AuthorIndex(),
+                LibraryResultState.AuthorBooks(
+                    com.secondpasslibrary.reader.library.axis.PagedLibraryAxisDetailState("author"),
+                    books = LibraryBooksState()
+                ),
+                LibraryResultState.SeriesIndex(),
+                LibraryResultState.SeriesBooks(
+                    com.secondpasslibrary.reader.library.axis.PagedLibraryAxisDetailState("series"),
+                    books = LibraryBooksState()
+                )
+            )
+
+        assertEquals(
+            listOf(
+                LibraryAxis.BOOKS,
+                LibraryAxis.AUTHORS,
+                LibraryAxis.AUTHORS,
+                LibraryAxis.SERIES,
+                LibraryAxis.SERIES
+            ),
+            surfaces.map { it.axis }
+        )
+        assertFalse(
+            LibraryState::class.java.declaredFields.any {
+                it.name == "axis" || it.name == "resultKind"
+            }
+        )
+        assertFalse(
+            surfaces.flatMap { it::class.java.declaredConstructors.toList() }
+                .flatMap { it.parameterTypes.toList() }
+                .contains(LibraryAxis::class.java)
+        )
+    }
+
     @Test
     fun `scope tags are the fallback before the first contextual response`() = runTest {
         val scopeTag = tag("scope", 40)
@@ -80,15 +120,13 @@ class LibraryCombinedStateTest {
         runCurrent()
 
         sources.chrome.value = LibraryChromeState(
-            axis = LibraryAxis.AUTHORS,
-            resultKind = LibraryResultKind.AUTHOR_INDEX
+            result = LibraryResultState.AuthorIndex()
         )
         runCurrent()
         assertEquals(listOf("author-context"), state.value.tagSelector.tags.map { it.slug })
 
         sources.chrome.value = LibraryChromeState(
-            axis = LibraryAxis.SERIES,
-            resultKind = LibraryResultKind.SERIES_INDEX
+            result = LibraryResultState.SeriesIndex()
         )
         runCurrent()
         assertEquals(listOf("series-context"), state.value.tagSelector.tags.map { it.slug })
@@ -125,8 +163,7 @@ class LibraryCombinedStateTest {
         assertEquals(listOf("book-context"), state.value.tagSelector.tags.map { it.slug })
 
         sources.chrome.value = LibraryChromeState(
-            axis = LibraryAxis.AUTHORS,
-            resultKind = LibraryResultKind.AUTHOR_INDEX
+            result = LibraryResultState.AuthorIndex()
         )
         sources.authors.value = PagedLibraryAxisState(
             ordering = AuthorOrdering.NAME,
@@ -142,18 +179,17 @@ class LibraryCombinedStateTest {
     fun `initial value uses current source snapshots before collection starts`() = runTest {
         val sources = LibraryStateSources(
             chrome = LibraryChromeState(
-                axis = LibraryAxis.AUTHORS,
-                resultKind = LibraryResultKind.AUTHOR_INDEX,
+                result = LibraryResultState.AuthorIndex(),
                 scope = LibraryScope.Group("group-1")
             ),
-            books = LibraryBooksState(totalCount = 12)
+            authors = PagedLibraryAxisState(ordering = AuthorOrdering.NAME, totalCount = 12)
         )
 
         val state = sources.aggregate(backgroundScope)
 
         assertEquals(LibraryAxis.AUTHORS, state.value.axis)
         assertEquals(LibraryScope.Group("group-1"), state.value.scope)
-        assertEquals(12, state.value.books.totalCount)
+        assertEquals(12, (state.value.result as LibraryResultState.AuthorIndex).state.totalCount)
     }
 
     @Test
@@ -164,14 +200,16 @@ class LibraryCombinedStateTest {
             runCurrent()
 
             sources.chrome.value = LibraryChromeState(
-                axis = LibraryAxis.SERIES,
-                resultKind = LibraryResultKind.SERIES_INDEX
+                result = LibraryResultState.SeriesIndex()
             )
-            sources.books.value = LibraryBooksState(totalCount = 7)
+            sources.series.value = PagedLibraryAxisState(
+                ordering = SeriesOrdering.NAME,
+                totalCount = 7
+            )
             runCurrent()
 
             assertEquals(LibraryAxis.SERIES, state.value.axis)
-            assertEquals(7, state.value.books.totalCount)
+            assertEquals(7, (state.value.result as LibraryResultState.SeriesIndex).state.totalCount)
             assertEquals(state.value, async { state.first() }.await())
         }
 

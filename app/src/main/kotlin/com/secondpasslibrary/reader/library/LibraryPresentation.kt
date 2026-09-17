@@ -15,10 +15,13 @@ internal fun LibraryState.appBarPresentation(): AppBarPresentation {
     val group = selectedGroup()
     val selectedEntity = selectedEntityName()
     val count = resultCount()?.let { "$it ${countLabel(it)}" }
+    val books = result.booksStateOrNull()
     val metadata =
-        if (books.offlineDownloadedOnly) {
+        if (books?.offlineDownloadedOnly == true) {
             listOfNotNull("Downloaded", count).joinToString(" · ")
-        } else if (axis == LibraryAxis.BOOKS && books.mode == LibraryBooksMode.BROAD_SEARCH) {
+        } else if (
+            result is LibraryResultState.Books && books?.mode == LibraryBooksMode.BROAD_SEARCH
+        ) {
             listOfNotNull("Global results", count).joinToString(" · ")
         } else {
             count
@@ -35,18 +38,14 @@ internal fun LibraryState.appBarPresentation(): AppBarPresentation {
     )
 }
 
-private fun LibraryState.selectedEntityName(): String? = when (axis) {
-    LibraryAxis.BOOKS -> null
+private fun LibraryState.selectedEntityName(): String? = when (val current = result) {
+    is LibraryResultState.Books,
+    is LibraryResultState.AuthorIndex,
+    is LibraryResultState.SeriesIndex -> null
 
-    LibraryAxis.AUTHORS ->
-        authors.selected?.let { selected ->
-            selected.detail?.name ?: authors.items.firstOrNull { it.id == selected.id }?.name
-        }
+    is LibraryResultState.AuthorBooks -> current.author.detail?.name ?: current.indexEntry?.name
 
-    LibraryAxis.SERIES ->
-        series.selected?.let { selected ->
-            selected.detail?.name ?: series.items.firstOrNull { it.id == selected.id }?.name
-        }
+    is LibraryResultState.SeriesBooks -> current.series.detail?.name ?: current.indexEntry?.name
 }
 
 private fun LibraryState.selectedGroup(): LibraryGroupSummary? {

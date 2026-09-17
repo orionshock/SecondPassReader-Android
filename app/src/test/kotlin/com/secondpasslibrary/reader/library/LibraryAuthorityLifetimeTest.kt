@@ -57,9 +57,7 @@ class LibraryAuthorityLifetimeTest {
         advanceUntilIdle()
 
         assertEquals(LibraryAxis.BOOKS, controller.state.value.axis)
-        assertEquals(LibraryResultKind.BOOKS, controller.state.value.resultKind)
-        assertTrue(controller.state.value.authors.items.isEmpty())
-        assertEquals(null, controller.state.value.authors.error)
+        assertTrue(controller.state.value.result is LibraryResultState.Books)
         assertTrue(events.isEmpty())
     }
 
@@ -85,8 +83,7 @@ class LibraryAuthorityLifetimeTest {
         advanceUntilIdle()
 
         assertEquals(LibraryAxis.BOOKS, controller.state.value.axis)
-        assertTrue(controller.state.value.series.items.isEmpty())
-        assertEquals(null, controller.state.value.series.error)
+        assertTrue(controller.state.value.result is LibraryResultState.Books)
         assertTrue(events.isEmpty())
     }
 
@@ -134,12 +131,9 @@ class LibraryAuthorityLifetimeTest {
 
         val state = controller.state.value
         assertEquals(LibraryAxis.BOOKS, state.axis)
-        assertEquals(LibraryResultKind.BOOKS, state.resultKind)
-        assertEquals(listOf("offline-book"), state.books.books.map { it.id })
-        assertTrue(state.books.offlineDownloadedOnly)
-        assertTrue(state.authors.items.isEmpty())
-        assertEquals(AuthorOrdering.NAME, state.authors.ordering)
-        assertTrue(state.series.items.isEmpty())
+        val offlineBooks = (state.result as LibraryResultState.Books).state
+        assertEquals(listOf("offline-book"), offlineBooks.books.map { it.id })
+        assertTrue(offlineBooks.offlineDownloadedOnly)
         assertTrue(state.tagSelector.tags.isEmpty())
         assertEquals(null, state.selectedTag)
     }
@@ -172,12 +166,22 @@ class LibraryAuthorityLifetimeTest {
             controller.selectAxis(LibraryAxis.AUTHORS)
             runCurrent()
 
-            assertEquals(listOf("fresh"), controller.state.value.authors.items.map { it.id })
+            assertEquals(
+                listOf("fresh"),
+                (controller.state.value.result as LibraryResultState.AuthorIndex).state.items.map {
+                    it.id
+                }
+            )
             releaseStale.complete(Unit)
             advanceUntilIdle()
 
             assertEquals(2, requests)
-            assertEquals(listOf("fresh"), controller.state.value.authors.items.map { it.id })
+            assertEquals(
+                listOf("fresh"),
+                (controller.state.value.result as LibraryResultState.AuthorIndex).state.items.map {
+                    it.id
+                }
+            )
         }
 
     @Test

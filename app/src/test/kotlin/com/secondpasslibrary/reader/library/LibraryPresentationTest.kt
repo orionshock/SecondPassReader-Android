@@ -21,28 +21,31 @@ class LibraryPresentationTest {
     fun `global axes use Library context with singular and plural counts`() {
         val books =
             LibraryState(
-                books = LibraryBooksState(totalCount = 1, currentPage = 1, initialLoading = false)
+                result =
+                    LibraryResultState.Books(
+                        LibraryBooksState(totalCount = 1, currentPage = 1, initialLoading = false)
+                    )
             ).appBarPresentation()
         val authors =
             LibraryState(
-                axis = LibraryAxis.AUTHORS,
-                resultKind = LibraryResultKind.AUTHOR_INDEX,
-                authors =
-                    PagedLibraryAxisState(
-                        ordering = AuthorOrdering.NAME,
-                        totalCount = 2,
-                        currentPage = 1
+                result =
+                    LibraryResultState.AuthorIndex(
+                        PagedLibraryAxisState(
+                            ordering = AuthorOrdering.NAME,
+                            totalCount = 2,
+                            currentPage = 1
+                        )
                     )
             ).appBarPresentation()
         val series =
             LibraryState(
-                axis = LibraryAxis.SERIES,
-                resultKind = LibraryResultKind.SERIES_INDEX,
-                series =
-                    PagedLibraryAxisState(
-                        ordering = SeriesOrdering.NAME,
-                        totalCount = 1,
-                        currentPage = 1
+                result =
+                    LibraryResultState.SeriesIndex(
+                        PagedLibraryAxisState(
+                            ordering = SeriesOrdering.NAME,
+                            totalCount = 1,
+                            currentPage = 1
+                        )
                     )
             ).appBarPresentation()
 
@@ -61,22 +64,19 @@ class LibraryPresentationTest {
     fun `selected group contributes semantic context without replacing axis`() {
         val state =
             LibraryState(
-                axis = LibraryAxis.AUTHORS,
-                resultKind = LibraryResultKind.AUTHOR_INDEX,
+                result =
+                    LibraryResultState.AuthorBooks(
+                        PagedLibraryAxisDetailState(
+                            "author-1",
+                            libraryAuthor("author-1", "Arthur Conan Doyle, Sir")
+                        ),
+                        books = LibraryBooksState()
+                    ),
                 scope = LibraryScope.Group("group-1"),
                 groupSelector =
                     LibraryGroupSelectorState(
                         loaded = true,
                         groups = listOf(LibraryGroupSummary("group-1", "Common Room", false))
-                    ),
-                authors =
-                    PagedLibraryAxisState(
-                        ordering = AuthorOrdering.NAME,
-                        selected =
-                            PagedLibraryAxisDetailState(
-                                "author-1",
-                                libraryAuthor("author-1", "Arthur Conan Doyle, Sir")
-                            )
                     )
             )
 
@@ -96,25 +96,19 @@ class LibraryPresentationTest {
 
         val authorPresentation =
             LibraryState(
-                axis = LibraryAxis.AUTHORS,
-                resultKind = LibraryResultKind.BOOKS,
-                authors =
-                    PagedLibraryAxisState(
-                        ordering = AuthorOrdering.NAME,
-                        selected = PagedLibraryAxisDetailState(author.id, author)
-                    ),
-                books = LibraryBooksState(totalCount = 3, currentPage = 1)
+                result =
+                    LibraryResultState.AuthorBooks(
+                        PagedLibraryAxisDetailState(author.id, author),
+                        books = LibraryBooksState(totalCount = 3, currentPage = 1)
+                    )
             ).appBarPresentation()
         val seriesPresentation =
             LibraryState(
-                axis = LibraryAxis.SERIES,
-                resultKind = LibraryResultKind.BOOKS,
-                series =
-                    PagedLibraryAxisState(
-                        ordering = SeriesOrdering.NAME,
-                        selected = PagedLibraryAxisDetailState(series.id, series)
-                    ),
-                books = LibraryBooksState(totalCount = 12, currentPage = 1)
+                result =
+                    LibraryResultState.SeriesBooks(
+                        PagedLibraryAxisDetailState(series.id, series),
+                        books = LibraryBooksState(totalCount = 12, currentPage = 1)
+                    )
             ).appBarPresentation()
 
         assertEquals("Authors › Arthur Conan Doyle, Sir", authorPresentation.title)
@@ -128,13 +122,11 @@ class LibraryPresentationTest {
         val author = libraryAuthor("author-1", "Jim Butcher")
         val presentation =
             LibraryState(
-                axis = LibraryAxis.AUTHORS,
-                resultKind = LibraryResultKind.BOOKS,
-                authors =
-                    PagedLibraryAxisState(
-                        ordering = AuthorOrdering.NAME,
-                        items = listOf(author),
-                        selected = PagedLibraryAxisDetailState(author.id, loading = true)
+                result =
+                    LibraryResultState.AuthorBooks(
+                        PagedLibraryAxisDetailState(author.id, loading = true),
+                        indexEntry = author,
+                        books = LibraryBooksState()
                     )
             ).appBarPresentation()
 

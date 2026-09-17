@@ -14,11 +14,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 
 internal val LibraryChromeState.isSelectedAuthorSeriesBooks: Boolean
-    get() = resultKind == LibraryResultKind.BOOKS && axis != LibraryAxis.BOOKS
+    get() = result is LibraryResultState.AuthorBooks || result is LibraryResultState.SeriesBooks
 
 internal data class LibraryChromeState(
-    val axis: LibraryAxis = LibraryAxis.BOOKS,
-    val resultKind: LibraryResultKind = LibraryResultKind.BOOKS,
+    val result: LibraryResultState = LibraryResultState.Books(),
     val scope: LibraryScope = LibraryScope.Global,
     val advancedGroupsEnabled: Boolean = false,
     val selectedTag: LibraryCatalogTag? = null
@@ -29,16 +28,12 @@ internal data class LibraryChromeState(
         authors: LibraryAuthorsState,
         series: LibrarySeriesState
     ) = LibraryState(
-        axis,
-        resultKind,
+        result.withLatestState(books, authors, series),
         scope,
         advancedGroupsEnabled,
         vocabulary.groupSelector,
         selectedTag,
-        activeTagSelector(vocabulary.tagSelector, books, authors, series),
-        books,
-        authors,
-        series
+        activeTagSelector(vocabulary.tagSelector, books, authors, series)
     )
 
     private fun activeTagSelector(
@@ -47,14 +42,17 @@ internal data class LibraryChromeState(
         authors: LibraryAuthorsState,
         series: LibrarySeriesState
     ): LibraryTagSelectorState {
-        val contextual = when {
-            resultKind == LibraryResultKind.BOOKS ->
+        val contextual = when (result) {
+            is LibraryResultState.Books,
+            is LibraryResultState.AuthorBooks,
+            is LibraryResultState.SeriesBooks ->
                 books.contextualCatalogTags to books.hasContextualCatalogTagsResponse
 
-            axis == LibraryAxis.AUTHORS ->
+            is LibraryResultState.AuthorIndex ->
                 authors.contextualCatalogTags to authors.hasContextualCatalogTagsResponse
 
-            else -> series.contextualCatalogTags to series.hasContextualCatalogTagsResponse
+            is LibraryResultState.SeriesIndex ->
+                series.contextualCatalogTags to series.hasContextualCatalogTagsResponse
         }
         return if (contextual.second) {
             LibraryTagSelectorState(loaded = true, tags = contextual.first)
@@ -64,12 +62,41 @@ internal data class LibraryChromeState(
     }
 }
 
-internal val LibraryAxis.indexResultKind: LibraryResultKind
-    get() = when (this) {
-        LibraryAxis.BOOKS -> LibraryResultKind.BOOKS
-        LibraryAxis.AUTHORS -> LibraryResultKind.AUTHOR_INDEX
-        LibraryAxis.SERIES -> LibraryResultKind.SERIES_INDEX
-    }
+private fun LibraryResultState.withLatestState(
+    books: LibraryBooksState,
+    authors: LibraryAuthorsState,
+    series: LibrarySeriesState
+): LibraryResultState = when (this) {
+    is LibraryResultState.Books -> copy(state = books)
+
+    is LibraryResultState.AuthorIndex -> copy(state = authors)
+
+    is LibraryResultState.AuthorBooks ->
+        copy(
+            author = authors.selected?.takeIf { it.id == author.id } ?: author,
+            indexEntry = authors.items.firstOrNull { it.id == author.id },
+            books = books
+        )
+
+    is LibraryResultState.SeriesIndex -> copy(state = series)
+
+    is LibraryResultState.SeriesBooks ->
+        copy(
+            series = series.selected?.takeIf { it.id == this.series.id } ?: this.series,
+            indexEntry = series.items.firstOrNull { it.id == this.series.id },
+            books = books
+        )
+}
+
+internal fun LibraryAxis.indexResultState(
+    books: LibraryBooksState,
+    authors: LibraryAuthorsState,
+    series: LibrarySeriesState
+): LibraryResultState = when (this) {
+    LibraryAxis.BOOKS -> LibraryResultState.Books(books)
+    LibraryAxis.AUTHORS -> LibraryResultState.AuthorIndex(authors)
+    LibraryAxis.SERIES -> LibraryResultState.SeriesIndex(series)
+}
 
 internal fun libraryStateFlow(
     scope: CoroutineScope,

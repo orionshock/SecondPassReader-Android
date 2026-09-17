@@ -56,7 +56,9 @@ class LibraryControllerAxisTest {
         advanceUntilIdle()
 
         assertEquals(LibraryAxis.BOOKS, controller.state.value.axis)
-        assertTrue(controller.state.value.authors.items.isEmpty())
+        controller.selectAxis(LibraryAxis.AUTHORS)
+        advanceUntilIdle()
+        assertEquals(2, client.authorRequests.size)
     }
 
     @Test
@@ -158,23 +160,23 @@ class LibraryControllerAxisTest {
         advanceUntilIdle()
         assertEquals(
             LibraryFailure.PROTOCOL_INVALID,
-            controller.state.value.authors.selected?.failure
+            controller.state.value.selectedAuthor.failure
         )
         authorFails = false
         controller.retryAuthorDetail()
         advanceUntilIdle()
-        assertEquals("author-1", controller.state.value.authors.selected?.detail?.id)
+        assertEquals("author-1", controller.state.value.selectedAuthor.detail?.id)
 
         controller.selectSeries("series-1")
         advanceUntilIdle()
         assertEquals(
             LibraryFailure.PROTOCOL_INVALID,
-            controller.state.value.series.selected?.failure
+            controller.state.value.selectedSeries.failure
         )
         seriesFails = false
         controller.retrySeriesDetail()
         advanceUntilIdle()
-        assertEquals("series-1", controller.state.value.series.selected?.detail?.id)
+        assertEquals("series-1", controller.state.value.selectedSeries.detail?.id)
     }
 
     @Test
@@ -246,7 +248,6 @@ class LibraryControllerAxisTest {
 
         assertEquals(LibraryAxis.AUTHORS, controller.state.value.axis)
         assertEquals(listOf("author"), controller.state.value.authors.items.map { it.id })
-        assertEquals(listOf("series"), controller.state.value.series.items.map { it.id })
         assertEquals(1, client.authorRequests.size)
         assertEquals(1, client.seriesRequests.size)
     }
@@ -284,16 +285,16 @@ class LibraryControllerAxisTest {
         controller.selectAuthor("author-1")
         advanceUntilIdle()
         assertEquals(LibraryAxis.AUTHORS, controller.state.value.axis)
-        assertEquals(LibraryResultKind.BOOKS, controller.state.value.resultKind)
-        assertTrue(controller.state.value.resultKind.supportsBookLayout)
-        assertEquals("author-1", controller.state.value.authors.selected?.detail?.id)
+        assertTrue(controller.state.value.result is LibraryResultState.AuthorBooks)
+        assertTrue(controller.state.value.result.isBookResults)
+        assertEquals("author-1", controller.state.value.selectedAuthor.detail?.id)
         assertEquals("author-1", client.bookRequests.last().authorId)
         assertEquals(BookOrdering.TITLE, client.bookRequests.last().ordering)
 
         controller.selectSeries("series-1")
         advanceUntilIdle()
         assertEquals(LibraryAxis.SERIES, controller.state.value.axis)
-        assertEquals("series-1", controller.state.value.series.selected?.detail?.id)
+        assertEquals("series-1", controller.state.value.selectedSeries.detail?.id)
         assertEquals("series-1", client.bookRequests.last().seriesId)
         assertEquals(BookOrdering.SERIES_INDEX, client.bookRequests.last().ordering)
     }
@@ -314,7 +315,7 @@ class LibraryControllerAxisTest {
         controller.clearSelectedAuthorSeries()
 
         assertEquals(LibraryAxis.AUTHORS, controller.state.value.axis)
-        assertEquals(LibraryResultKind.AUTHOR_INDEX, controller.state.value.resultKind)
+        assertTrue(controller.state.value.result is LibraryResultState.AuthorIndex)
         assertEquals(listOf("author-1"), controller.state.value.authors.items.map { it.id })
         assertEquals(null, controller.state.value.authors.selected)
     }
@@ -334,7 +335,7 @@ class LibraryControllerAxisTest {
 
         controller.selectAxis(LibraryAxis.AUTHORS)
 
-        assertEquals(LibraryResultKind.AUTHOR_INDEX, controller.state.value.resultKind)
+        assertTrue(controller.state.value.result is LibraryResultState.AuthorIndex)
         assertEquals(null, controller.state.value.authors.selected)
         assertEquals(listOf("author-1"), controller.state.value.authors.items.map { it.id })
     }
@@ -355,7 +356,7 @@ class LibraryControllerAxisTest {
         assertEquals("series-1", request.seriesId)
         assertEquals("foundation", request.q)
         assertEquals(LibraryAxis.SERIES, controller.state.value.axis)
-        assertEquals(LibraryResultKind.BOOKS, controller.state.value.resultKind)
+        assertTrue(controller.state.value.result is LibraryResultState.SeriesBooks)
     }
 
     @Test
@@ -382,7 +383,7 @@ class LibraryControllerAxisTest {
             controller.selectScope(LibraryScope.Group(groupTwo.id))
             advanceUntilIdle()
 
-            assertEquals(LibraryResultKind.AUTHOR_INDEX, controller.state.value.resultKind)
+            assertTrue(controller.state.value.result is LibraryResultState.AuthorIndex)
             assertEquals(null, controller.state.value.authors.selected)
             assertEquals(LibraryScope.Group(groupTwo.id), controller.state.value.scope)
         }
@@ -409,7 +410,7 @@ class LibraryControllerAxisTest {
 
             assertEquals(
                 LibraryFailure.PROTOCOL_INVALID,
-                controller.state.value.authors.selected?.failure
+                controller.state.value.selectedAuthor.failure
             )
             assertEquals(listOf("one"), controller.state.value.books.books.map { it.id })
 
@@ -608,3 +609,9 @@ class LibraryControllerAxisTest {
         }
     }
 }
+
+private val LibraryState.selectedAuthor
+    get() = (result as LibraryResultState.AuthorBooks).author
+
+private val LibraryState.selectedSeries
+    get() = (result as LibraryResultState.SeriesBooks).series

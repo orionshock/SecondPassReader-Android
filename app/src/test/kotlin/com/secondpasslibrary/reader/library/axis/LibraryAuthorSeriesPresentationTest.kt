@@ -5,14 +5,13 @@ import com.secondpasslibrary.client.LibraryAuthor
 import com.secondpasslibrary.client.LibraryPreviewBook
 import com.secondpasslibrary.client.LibrarySeries
 import com.secondpasslibrary.client.PublicBookCoverReference
-import com.secondpasslibrary.client.SeriesOrdering
-import com.secondpasslibrary.reader.library.LibraryAxis
 import com.secondpasslibrary.reader.library.LibraryFailure
-import com.secondpasslibrary.reader.library.LibraryResultKind
+import com.secondpasslibrary.reader.library.LibraryResultState
 import com.secondpasslibrary.reader.library.LibraryState
 import com.secondpasslibrary.reader.library.chrome.committedQuery
 import com.secondpasslibrary.reader.library.chrome.orderingLabel
 import com.secondpasslibrary.reader.library.chrome.resultCount
+import com.secondpasslibrary.reader.library.isBookResults
 import com.secondpasslibrary.reader.library.presentation.LibraryPagingTriggerPolicy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -89,14 +88,14 @@ class LibraryAuthorSeriesPresentationTest {
     fun `active axis maps committed search sort and count from its child`() {
         val state =
             LibraryState(
-                axis = LibraryAxis.AUTHORS,
-                resultKind = LibraryResultKind.AUTHOR_INDEX,
-                authors =
-                    PagedLibraryAxisState(
-                        committedQuery = "le guin",
-                        ordering = AuthorOrdering.BOOK_COUNT_DESCENDING,
-                        totalCount = 7,
-                        currentPage = 1
+                result =
+                    LibraryResultState.AuthorIndex(
+                        PagedLibraryAxisState(
+                            committedQuery = "le guin",
+                            ordering = AuthorOrdering.BOOK_COUNT_DESCENDING,
+                            totalCount = 7,
+                            currentPage = 1
+                        )
                     )
             )
 
@@ -106,10 +105,16 @@ class LibraryAuthorSeriesPresentationTest {
     }
 
     @Test
-    fun `result kind owns Books layout-toggle availability`() {
-        assertTrue(LibraryResultKind.BOOKS.supportsBookLayout)
-        assertEquals(false, LibraryResultKind.AUTHOR_INDEX.supportsBookLayout)
-        assertEquals(false, LibraryResultKind.SERIES_INDEX.supportsBookLayout)
+    fun `result surface owns Books layout-toggle availability`() {
+        assertTrue(LibraryResultState.Books().isBookResults)
+        assertTrue(
+            LibraryResultState.AuthorBooks(
+                PagedLibraryAxisDetailState("author"),
+                books = com.secondpasslibrary.reader.library.books.LibraryBooksState()
+            ).isBookResults
+        )
+        assertEquals(false, LibraryResultState.AuthorIndex().isBookResults)
+        assertEquals(false, LibraryResultState.SeriesIndex().isBookResults)
     }
 
     @Test

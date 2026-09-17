@@ -29,7 +29,7 @@ import com.secondpasslibrary.reader.design.components.SegmentedIconOption
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 import com.secondpasslibrary.reader.library.LibraryAxis
-import com.secondpasslibrary.reader.library.LibraryResultKind
+import com.secondpasslibrary.reader.library.LibraryResultState
 import com.secondpasslibrary.reader.library.LibraryState
 import com.secondpasslibrary.reader.library.axis.authorOrderingOptions
 import com.secondpasslibrary.reader.library.axis.libraryLabel
@@ -40,6 +40,8 @@ import com.secondpasslibrary.reader.library.books.LibraryBooksMode
 import com.secondpasslibrary.reader.library.books.LibraryBooksOrdering
 import com.secondpasslibrary.reader.library.books.label
 import com.secondpasslibrary.reader.library.books.libraryOrderingOptions
+import com.secondpasslibrary.reader.library.booksStateOrNull
+import com.secondpasslibrary.reader.library.isBookResults
 
 @Composable
 internal fun LibraryControls(
@@ -57,12 +59,13 @@ internal fun LibraryControls(
     modifier: Modifier = Modifier
 ) {
     val committedQuery = state.committedQuery()
+    val bookResults = state.result.booksStateOrNull()
     var query by rememberSaveable(state.axis, committedQuery) { mutableStateOf(committedQuery) }
     var tagSheetOpen by rememberSaveable { mutableStateOf(false) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SearchRow(state, query, { query = it }) { onSearch(query) }
-        if (state.books.offlineDownloadedOnly) {
-            LayoutChoices(state.books.layout, onLayoutSelected)
+        if (bookResults?.offlineDownloadedOnly == true) {
+            LayoutChoices(bookResults.layout, onLayoutSelected)
         } else {
             LibrarySelectorRow(
                 state,
@@ -78,7 +81,7 @@ internal fun LibraryControls(
                         onSeriesOrderingSelected
                     )
                 },
-                { LayoutChoices(state.books.layout, onLayoutSelected) }
+                { bookResults?.let { LayoutChoices(it.layout, onLayoutSelected) } }
             )
         }
     }
@@ -126,26 +129,51 @@ private fun OrderingMenu(
             AppIconGraphic(AppIcon.Expand, null)
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            when {
-                state.resultKind == LibraryResultKind.BOOKS ->
-                    libraryOrderingOptions(state.books.mode, state.books.filter).forEach { option ->
-                        OrderingItem(option.label, option.ordering == state.books.ordering) {
+            when (val result = state.result) {
+                is LibraryResultState.Books ->
+                    libraryOrderingOptions(
+                        result.state.mode,
+                        result.state.filter
+                    ).forEach { option ->
+                        OrderingItem(option.label, option.ordering == result.state.ordering) {
                             onBookSelected(option.ordering)
                             expanded = false
                         }
                     }
 
-                state.axis == LibraryAxis.AUTHORS ->
+                is LibraryResultState.AuthorBooks ->
+                    libraryOrderingOptions(
+                        result.books.mode,
+                        result.books.filter
+                    ).forEach { option ->
+                        OrderingItem(option.label, option.ordering == result.books.ordering) {
+                            onBookSelected(option.ordering)
+                            expanded = false
+                        }
+                    }
+
+                is LibraryResultState.SeriesBooks ->
+                    libraryOrderingOptions(
+                        result.books.mode,
+                        result.books.filter
+                    ).forEach { option ->
+                        OrderingItem(option.label, option.ordering == result.books.ordering) {
+                            onBookSelected(option.ordering)
+                            expanded = false
+                        }
+                    }
+
+                is LibraryResultState.AuthorIndex ->
                     authorOrderingOptions().forEach { option ->
-                        OrderingItem(option.label, option.ordering == state.authors.ordering) {
+                        OrderingItem(option.label, option.ordering == result.state.ordering) {
                             onAuthorSelected(option.ordering)
                             expanded = false
                         }
                     }
 
-                else ->
+                is LibraryResultState.SeriesIndex ->
                     seriesOrderingOptions().forEach { option ->
-                        OrderingItem(option.label, option.ordering == state.series.ordering) {
+                        OrderingItem(option.label, option.ordering == result.state.ordering) {
                             onSeriesSelected(option.ordering)
                             expanded = false
                         }
@@ -178,43 +206,69 @@ private fun LayoutChoices(selected: LibraryBooksLayout, onSelected: (LibraryBook
 internal val LibraryAxis.label: String
     get() = name.lowercase().replaceFirstChar(Char::uppercase)
 
-internal fun LibraryState.committedQuery(): String = when {
-    resultKind == LibraryResultKind.BOOKS -> books.committedQuery
-    axis == LibraryAxis.AUTHORS -> authors.committedQuery
-    else -> series.committedQuery
+internal fun LibraryState.committedQuery(): String = when (val current = result) {
+    is LibraryResultState.Books -> current.state.committedQuery
+    is LibraryResultState.AuthorIndex -> current.state.committedQuery
+    is LibraryResultState.AuthorBooks -> current.books.committedQuery
+    is LibraryResultState.SeriesIndex -> current.state.committedQuery
+    is LibraryResultState.SeriesBooks -> current.books.committedQuery
 }
 
-internal fun LibraryState.resultCount(): Int? = when {
-    resultKind == LibraryResultKind.BOOKS -> books.totalCount.takeIf { books.currentPage > 0 }
-    axis == LibraryAxis.AUTHORS -> authors.totalCount.takeIf { authors.currentPage > 0 }
-    else -> series.totalCount.takeIf { series.currentPage > 0 }
+internal fun LibraryState.resultCount(): Int? = when (val current = result) {
+    is LibraryResultState.Books -> current.state.totalCount.takeIf { current.state.currentPage > 0 }
+
+    is LibraryResultState.AuthorIndex -> current.state.totalCount.takeIf {
+        current.state.currentPage >
+            0
+    }
+
+    is LibraryResultState.AuthorBooks -> current.books.totalCount.takeIf {
+        current.books.currentPage >
+            0
+    }
+
+    is LibraryResultState.SeriesIndex -> current.state.totalCount.takeIf {
+        current.state.currentPage >
+            0
+    }
+
+    is LibraryResultState.SeriesBooks -> current.books.totalCount.takeIf {
+        current.books.currentPage >
+            0
+    }
 }
 
-internal fun LibraryState.orderingLabel(): String = when {
-    resultKind == LibraryResultKind.BOOKS -> books.ordering.label()
-    axis == LibraryAxis.AUTHORS -> authors.ordering.libraryLabel()
-    else -> series.ordering.libraryLabel()
+internal fun LibraryState.orderingLabel(): String = when (val current = result) {
+    is LibraryResultState.Books -> current.state.ordering.label()
+    is LibraryResultState.AuthorIndex -> current.state.ordering.libraryLabel()
+    is LibraryResultState.AuthorBooks -> current.books.ordering.label()
+    is LibraryResultState.SeriesIndex -> current.state.ordering.libraryLabel()
+    is LibraryResultState.SeriesBooks -> current.books.ordering.label()
 }
 
-internal fun LibraryState.countLabel(count: Int) = when {
-    resultKind == LibraryResultKind.BOOKS -> if (count == 1) "book" else "books"
-    axis == LibraryAxis.AUTHORS -> if (count == 1) "author" else "authors"
-    else -> "series"
+internal fun LibraryState.countLabel(count: Int) = when (result) {
+    is LibraryResultState.Books,
+    is LibraryResultState.AuthorBooks,
+    is LibraryResultState.SeriesBooks -> if (count == 1) "book" else "books"
+
+    is LibraryResultState.AuthorIndex -> if (count == 1) "author" else "authors"
+
+    is LibraryResultState.SeriesIndex -> "series"
 }
 
-internal fun LibraryState.searchPlaceholder() = when {
-    books.filter is LibraryBooksFilter.Author -> "Search books by this author"
+internal fun LibraryState.searchPlaceholder() = when (val current = result) {
+    is LibraryResultState.AuthorBooks -> "Search books by this author"
 
-    books.filter is LibraryBooksFilter.Series -> "Search books in this series"
+    is LibraryResultState.SeriesBooks -> "Search books in this series"
 
-    axis == LibraryAxis.BOOKS ->
-        if (books.mode == LibraryBooksMode.BROAD_SEARCH) {
+    is LibraryResultState.Books ->
+        if (current.state.mode == LibraryBooksMode.BROAD_SEARCH) {
             "Title, author, series, publisher, or tag"
         } else {
             "Search book titles"
         }
 
-    axis == LibraryAxis.AUTHORS -> "Search authors"
+    is LibraryResultState.AuthorIndex -> "Search authors"
 
-    else -> "Search series"
+    is LibraryResultState.SeriesIndex -> "Search series"
 }

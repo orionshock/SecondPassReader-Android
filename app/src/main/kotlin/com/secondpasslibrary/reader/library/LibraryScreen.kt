@@ -34,7 +34,9 @@ internal fun LibraryScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     BackHandler(
-        enabled = state.resultKind == LibraryResultKind.BOOKS && state.axis != LibraryAxis.BOOKS,
+        enabled =
+            state.result is LibraryResultState.AuthorBooks ||
+                state.result is LibraryResultState.SeriesBooks,
         onBack = viewModel::clearSelectedAuthorSeries
     )
     LibraryContent(
@@ -111,7 +113,10 @@ private fun LibraryContent(
 }
 
 @Composable
-@Suppress("LongParameterList") // The rendering boundary receives typed parent-owned intents.
+@Suppress(
+    "LongMethod", // Exhaustive rendering keeps all five Library result surfaces visible here.
+    "LongParameterList" // The rendering seam receives typed parent-owned intents.
+)
 private fun LibraryBrowseContent(
     state: LibraryState,
     onSearch: (String) -> Unit,
@@ -149,22 +154,20 @@ private fun LibraryBrowseContent(
             Modifier.padding(top = 14.dp, bottom = 12.dp)
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        when {
-            state.resultKind == LibraryResultKind.BOOKS ->
-                FilterableBooksResults(
-                    state,
+        when (val result = state.result) {
+            is LibraryResultState.Books ->
+                LibraryBooksResults(
+                    result.state,
                     onLoadNextPage,
                     onRetry,
-                    onRetryAuthorDetail,
-                    onRetrySeriesDetail,
                     onBookSelected,
                     onBookAction,
                     Modifier.weight(1f)
                 )
 
-            state.axis == LibraryAxis.AUTHORS ->
+            is LibraryResultState.AuthorIndex ->
                 LibraryAuthorsResults(
-                    state.authors,
+                    result.state,
                     onAuthorSelected,
                     onLoadNextPage,
                     onRetry,
@@ -172,13 +175,45 @@ private fun LibraryBrowseContent(
                     Modifier.weight(1f)
                 )
 
-            else ->
+            is LibraryResultState.AuthorBooks ->
+                FilterableBooksResults(
+                    result.books,
+                    header = {
+                        SelectedAuthorSeriesHeader(
+                            result.author.toAuthorDetailPresentation(),
+                            onRetryAuthorDetail
+                        )
+                    },
+                    onLoadNextPage,
+                    onRetry,
+                    onBookSelected,
+                    onBookAction,
+                    Modifier.weight(1f)
+                )
+
+            is LibraryResultState.SeriesIndex ->
                 LibrarySeriesResults(
-                    state.series,
+                    result.state,
                     onSeriesSelected,
                     onLoadNextPage,
                     onRetry,
                     onRetrySeriesDetail,
+                    Modifier.weight(1f)
+                )
+
+            is LibraryResultState.SeriesBooks ->
+                FilterableBooksResults(
+                    result.books,
+                    header = {
+                        SelectedAuthorSeriesHeader(
+                            result.series.toSeriesDetailPresentation(),
+                            onRetrySeriesDetail
+                        )
+                    },
+                    onLoadNextPage,
+                    onRetry,
+                    onBookSelected,
+                    onBookAction,
                     Modifier.weight(1f)
                 )
         }
@@ -187,37 +222,18 @@ private fun LibraryBrowseContent(
 
 @Composable
 private fun FilterableBooksResults(
-    state: LibraryState,
+    books: com.secondpasslibrary.reader.library.books.LibraryBooksState,
+    header: @Composable () -> Unit,
     onLoadNextPage: () -> Unit,
     onRetry: () -> Unit,
-    onRetryAuthorDetail: () -> Unit,
-    onRetrySeriesDetail: () -> Unit,
     onBookSelected: (String) -> Unit,
     onBookAction: (BookCardAction) -> Unit,
     modifier: Modifier
 ) {
     Column(modifier) {
-        when (state.axis) {
-            LibraryAxis.BOOKS -> Unit
-
-            LibraryAxis.AUTHORS ->
-                state.authors.selected?.let { selected ->
-                    SelectedAuthorSeriesHeader(
-                        selected.toAuthorDetailPresentation(),
-                        onRetryAuthorDetail
-                    )
-                }
-
-            LibraryAxis.SERIES ->
-                state.series.selected?.let { selected ->
-                    SelectedAuthorSeriesHeader(
-                        selected.toSeriesDetailPresentation(),
-                        onRetrySeriesDetail
-                    )
-                }
-        }
+        header()
         LibraryBooksResults(
-            state.books,
+            books,
             onLoadNextPage,
             onRetry,
             onBookSelected,
