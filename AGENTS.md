@@ -37,15 +37,17 @@ Never allow `:spl-client -> :app`. The SDK must not depend on app UI, screens, a
 
 ## `:spl-client` ownership
 
-`:spl-client` owns SPL communication and should fill the role of the web reader's packaged `@secondpass/client` SDK. It owns:
+`:spl-client` owns the SPL protocol boundary and should fill the role of the web reader's packaged `@secondpass/client` SDK. It owns:
 
-- discovery, pairing/linking, bearer authentication, HTTP transport, requests, and response decoding;
-- wire DTOs, transport-error interpretation, and mapping to client-facing models;
-- server API workflow composition and contract-required retry/idempotency;
+- discovery and pairing HTTP, server-provided URL handling, bearer authentication, transport, requests, and response decoding;
+- schema validation, wire DTOs, transport-error interpretation, and mapping to client-facing models;
+- behavior required by protocol semantics, including protocol-level retry and idempotency;
 - EPUB asset downloads; and
 - reader-authorized account, library, session, marginalia, and shelf capabilities.
 
-Expose client workflows and domain-shaped types, not server implementation. Unless an explicit public SPL contract requires otherwise, hide Retrofit/OkHttp, headers, endpoint paths, JSON/wire naming, response envelopes, retry plumbing, authentication internals, and server-framework concepts.
+Application features may own product workflow sequencing, retry lifecycle, backoff, cancellation, and coordination. Connection owns pairing creation-to-consumption sequencing and the handoff into verification; `:spl-client` exclusively performs the pairing HTTP and protocol decoding.
+
+Expose client capabilities and domain-shaped types, not server implementation. Unless an explicit public SPL contract requires otherwise, hide Retrofit/OkHttp, headers, endpoint paths, JSON/wire naming, response envelopes, transport-internal retry plumbing, authentication internals, and server-framework concepts.
 
 App code must not construct SPL URLs, attach authorization headers, deserialize wire DTOs, or call Retrofit/OkHttp from ViewModels.
 
@@ -159,7 +161,7 @@ Marginalia—highlights, bookmarks, notes, progress, and session metadata—is f
 
 Server and device state have different owners. Never make a cache canonical when SPL owns the record. Local persistence may hold connection profiles, app/reader settings, device-local preferences, and explicitly justified caches/offline data.
 
-Any offline/cache design must define canonical ownership, synchronization, conflicts, expiration, and failure behavior. Do not accidentally create an offline-first architecture.
+Any offline behavior must define canonical ownership, synchronization, conflict handling, expiration, and failure behavior. Server-owned records remain authoritative. Reader-authored state may be local-first only where the offline product contract defines it; this does not make cached server metadata canonical or extend local-first ownership to librarian, admin, or catalog workflows.
 
 Treat bearer credentials as secrets: never log them, include them in diagnostics/exceptions, expose them unnecessarily through UI state, or store them in plaintext debug files. Use protected Android storage when persistent credentials are implemented; keep their lifecycle behind connection/SDK boundaries.
 
