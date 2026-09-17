@@ -55,6 +55,7 @@ internal fun ReaderStateHost(
     ReaderScreen(
         state = state,
         marginalia = marginalia,
+        navigationFailures = viewModel.navigationFailures,
         serverWritesAvailable = availability !is AppAvailability.Offline,
         onBack = { viewModel.flushThenExit(onBack) },
         onRetry = { viewModel.retry(availability) },

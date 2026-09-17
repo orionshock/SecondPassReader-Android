@@ -80,7 +80,7 @@ internal class ReaderViewModel @Inject constructor(
             foregroundSync::requestSync
         )
     private val navigation = ReaderNavigationController(controller.state, viewModelScope)
-    val navigationEvents = navigation.events
+    val navigationFailures = navigation.failures
     val onNavigationIntent: (ReaderNavigationIntent) -> Unit = navigation::accept
     private val marginalia = ReaderMarginaliaPresentationController(
         controller.state,
@@ -201,6 +201,7 @@ internal class ReaderViewModel @Inject constructor(
     }
 
     override fun onCleared() {
+        navigation.close()
         sessionReconciliation.clear()
         foregroundSync.clear()
         reconciliationEvents.close()

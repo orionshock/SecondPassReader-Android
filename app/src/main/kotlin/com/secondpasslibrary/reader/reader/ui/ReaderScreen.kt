@@ -9,9 +9,13 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,7 +54,9 @@ import com.secondpasslibrary.reader.reader.toc.ReaderTocDrawer
 import com.secondpasslibrary.reader.reader.ui.hud.ReaderAmbientHud
 import com.secondpasslibrary.reader.reader.ui.hud.ReaderHudPresentation
 import com.secondpasslibrary.reader.reader.ui.hud.rememberReaderHudPresentation
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 
 @Composable
 // Root layout composes established Reader owners without owning their behavior.
@@ -58,6 +64,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 internal fun ReaderScreen(
     state: ReaderState,
     marginalia: ReaderMarginaliaPresentationState = ReaderMarginaliaPresentationState(),
+    navigationFailures: Flow<Unit> = emptyFlow(),
     serverWritesAvailable: Boolean = true,
     onBack: () -> Unit,
     onRetry: () -> Unit,
@@ -71,6 +78,15 @@ internal fun ReaderScreen(
     onDismissHighlightDetail: () -> Unit = {}
 ) {
     val ready = state as? ReaderState.Ready
+    val navigationFailureHost = remember { SnackbarHostState() }
+    LaunchedEffect(navigationFailures, navigationFailureHost) {
+        navigationFailures.collect {
+            navigationFailureHost.showSnackbar(
+                message = READER_NAVIGATION_FAILURE_MESSAGE,
+                duration = SnackbarDuration.Short
+            )
+        }
+    }
     val appearance by remember(ready?.engine) { readyAppearance(ready) }.collectAsState()
     val palette = appearance.theme.readerPalette()
     val annotationWritesAvailable = ready?.let {
@@ -131,6 +147,7 @@ internal fun ReaderScreen(
             hud,
             marginalia.pageBookmarks,
             annotationWritesAvailable,
+            navigationFailureHost,
             onBack,
             onRetry,
             onAnnotationMutation,
@@ -156,6 +173,7 @@ private fun ReaderReadingSurface(
     hud: ReaderHudPresentation,
     pageBookmarks: ReaderVisiblePageBookmarks,
     annotationWritesAvailable: Boolean,
+    navigationFailureHost: SnackbarHostState,
     onBack: () -> Unit,
     onRetry: () -> Unit,
     onMutation: (ReaderAnnotationMutationIntent) -> Unit,
@@ -218,8 +236,16 @@ private fun ReaderReadingSurface(
             onDismissSelection,
             onDismissHighlightDetail
         )
+        SnackbarHost(
+            navigationFailureHost,
+            Modifier.align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(16.dp)
+        )
     }
 }
+
+internal const val READER_NAVIGATION_FAILURE_MESSAGE = "Couldn’t go to that location."
 
 @Composable
 private fun ReaderSelectionAnnotationOverlays(

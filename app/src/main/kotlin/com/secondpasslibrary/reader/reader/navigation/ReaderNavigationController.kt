@@ -6,10 +6,15 @@ import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationNavigatio
 import com.secondpasslibrary.reader.reader.annotations.navigateToReaderAnnotation
 import com.secondpasslibrary.reader.reader.toc.ReaderPublicationNavigationResult
 import com.secondpasslibrary.reader.reader.toc.ReaderPublicationTarget
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 internal sealed interface ReaderNavigationIntent {
@@ -20,62 +25,96 @@ internal sealed interface ReaderNavigationIntent {
     data class GoToPublicationTarget(val target: ReaderPublicationTarget) : ReaderNavigationIntent
 }
 
-internal enum class ReaderNavigationResult {
-    NAVIGATED,
-    INVALID_TARGET,
-    UNAVAILABLE,
-    REJECTED
-}
-
-internal data class ReaderNavigationEvent(
-    val intent: ReaderNavigationIntent,
-    val result: ReaderNavigationResult
-)
-
 /** Routes Reader UI navigation intents through renderer-neutral navigation contracts. */
 internal class ReaderNavigationController(
     private val state: StateFlow<ReaderState>,
     private val scope: CoroutineScope
 ) {
-    private val eventChannel = Channel<ReaderNavigationEvent>(Channel.BUFFERED)
-    val events = eventChannel.receiveAsFlow()
+    private val mutableFailures = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val failures = mutableFailures.asSharedFlow()
+    private var operation: Job? = null
 
     fun accept(intent: ReaderNavigationIntent) {
-        val ready = state.value as? ReaderState.Ready
-        if (ready == null) {
-            eventChannel.trySend(ReaderNavigationEvent(intent, ReaderNavigationResult.UNAVAILABLE))
-            return
-        }
-        scope.launch {
-            val result = when (intent) {
-                is ReaderNavigationIntent.GoToAnnotation ->
-                    navigateToReaderAnnotation(
-                        intent.annotation,
-                        ready.engine.cfiNavigator
-                    ).toResult()
-
-                is ReaderNavigationIntent.GoToBookmark ->
-                    navigateToReaderAnnotation(
-                        intent.bookmark,
-                        ready.engine.cfiNavigator
-                    ).toResult()
-
-                is ReaderNavigationIntent.GoToPublicationTarget ->
-                    ready.engine.tableOfContents.goTo(intent.target).toResult()
+        val ready = state.value as? ReaderState.Ready ?: return
+        operation?.cancel()
+        operation = scope.launch {
+            val outcome = navigateWhileCurrent(intent, ready)
+            if (outcome == CurrentNavigationOutcome.FAILED && ready.isCurrent()) {
+                mutableFailures.emit(Unit)
             }
-            eventChannel.trySend(ReaderNavigationEvent(intent, result))
         }
     }
+
+    fun close() {
+        operation?.cancel()
+        operation = null
+    }
+
+    private suspend fun navigateWhileCurrent(
+        intent: ReaderNavigationIntent,
+        ready: ReaderState.Ready
+    ): CurrentNavigationOutcome = coroutineScope {
+        val navigation = async {
+            try {
+                navigate(intent, ready)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                CurrentNavigationOutcome.FAILED
+            }
+        }
+        val engineLifetime = launch {
+            state.first { current ->
+                (current as? ReaderState.Ready)?.engine !== ready.engine
+            }
+            navigation.cancel()
+        }
+        try {
+            navigation.await()
+        } finally {
+            engineLifetime.cancel()
+        }
+    }
+
+    private suspend fun navigate(
+        intent: ReaderNavigationIntent,
+        ready: ReaderState.Ready
+    ): CurrentNavigationOutcome = when (intent) {
+        is ReaderNavigationIntent.GoToAnnotation ->
+            navigateToReaderAnnotation(
+                intent.annotation,
+                ready.engine.cfiNavigator
+            ).toOutcome()
+
+        is ReaderNavigationIntent.GoToBookmark ->
+            navigateToReaderAnnotation(
+                intent.bookmark,
+                ready.engine.cfiNavigator
+            ).toOutcome()
+
+        is ReaderNavigationIntent.GoToPublicationTarget ->
+            ready.engine.tableOfContents.goTo(intent.target).toOutcome()
+    }
+
+    private fun ReaderState.Ready.isCurrent() =
+        (state.value as? ReaderState.Ready)?.engine === engine
 }
 
-private fun ReaderAnnotationNavigationResult.toResult() = when (this) {
-    ReaderAnnotationNavigationResult.NAVIGATED -> ReaderNavigationResult.NAVIGATED
-    ReaderAnnotationNavigationResult.INVALID_CFI -> ReaderNavigationResult.INVALID_TARGET
-    ReaderAnnotationNavigationResult.UNAVAILABLE -> ReaderNavigationResult.UNAVAILABLE
+private enum class CurrentNavigationOutcome {
+    SUCCEEDED,
+    FAILED
 }
 
-private fun ReaderPublicationNavigationResult.toResult() = when (this) {
-    ReaderPublicationNavigationResult.NAVIGATED -> ReaderNavigationResult.NAVIGATED
-    ReaderPublicationNavigationResult.UNAVAILABLE -> ReaderNavigationResult.UNAVAILABLE
-    ReaderPublicationNavigationResult.REJECTED -> ReaderNavigationResult.REJECTED
+private fun ReaderAnnotationNavigationResult.toOutcome() = when (this) {
+    ReaderAnnotationNavigationResult.NAVIGATED -> CurrentNavigationOutcome.SUCCEEDED
+
+    ReaderAnnotationNavigationResult.INVALID_CFI,
+    ReaderAnnotationNavigationResult.UNAVAILABLE -> CurrentNavigationOutcome.FAILED
+}
+
+private fun ReaderPublicationNavigationResult.toOutcome() = when (this) {
+    ReaderPublicationNavigationResult.NAVIGATED -> CurrentNavigationOutcome.SUCCEEDED
+
+    ReaderPublicationNavigationResult.UNAVAILABLE,
+    ReaderPublicationNavigationResult.REJECTED -> CurrentNavigationOutcome.FAILED
 }

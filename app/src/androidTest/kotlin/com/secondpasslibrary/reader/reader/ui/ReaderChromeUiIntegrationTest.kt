@@ -1,6 +1,7 @@
 package com.secondpasslibrary.reader.reader.ui
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
@@ -32,6 +33,7 @@ import com.secondpasslibrary.reader.reader.toc.READER_TOC_HEADER_TAG
 import com.secondpasslibrary.reader.reader.toc.READER_TOC_TITLE_TAG
 import com.secondpasslibrary.reader.reader.toc.ReaderPublicationTarget
 import com.secondpasslibrary.reader.reader.toc.ReaderTocEntry
+import kotlinx.coroutines.flow.MutableSharedFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -39,6 +41,29 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 internal class ReaderChromeUiIntegrationTest : ReaderUiIntegrationTestSupport() {
+    @Test
+    fun navigationFailureIsTransientAndKeepsPublicationVisible() {
+        val failures = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+        compose.setContent {
+            SecondPassTheme {
+                ReaderScreen(
+                    state = readerReadyState(),
+                    navigationFailures = failures,
+                    onBack = {},
+                    onRetry = {}
+                )
+            }
+        }
+
+        compose.runOnIdle { check(failures.tryEmit(Unit)) }
+        compose.onNodeWithText(READER_NAVIGATION_FAILURE_MESSAGE).assertIsDisplayed()
+        compose.onNodeWithTag(TEST_PUBLICATION_CONTENT_TAG).assertIsDisplayed()
+
+        compose.mainClock.advanceTimeBy(10_000)
+        compose.waitForIdle()
+        compose.onAllNodesWithText(READER_NAVIGATION_FAILURE_MESSAGE).assertCountEquals(0)
+    }
+
     @Test
     fun readerChromeUsesSeparatedFloatingClustersAndProtectsPublicationTop() {
         compose.setContent {
