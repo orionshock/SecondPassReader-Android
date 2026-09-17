@@ -9,7 +9,7 @@ import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsController
-import com.secondpasslibrary.reader.reader.annotations.SplReaderAnnotationsLoader
+import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsLoader
 import com.secondpasslibrary.reader.reader.annotations.bookmark.ReaderBookmarkHudIntent
 import com.secondpasslibrary.reader.reader.annotations.bookmark.ReaderVisiblePageBookmarksController
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationDecorationController
@@ -20,27 +20,27 @@ import com.secondpasslibrary.reader.reader.annotations.mutation.captureReaderBoo
 import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelectionController
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceStore
-import com.secondpasslibrary.reader.reader.asset.SplReaderBookAssetResolver
+import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetResolver
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
 import com.secondpasslibrary.reader.reader.domain.ReaderEngineOpener
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaIntent
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayerDecorationController
+import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayerHistoryLoader
 import com.secondpasslibrary.reader.reader.marginalia.ReaderMarginaliaLayersController
-import com.secondpasslibrary.reader.reader.marginalia.SplReaderMarginaliaLayerHistoryLoader
 import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginaliaLayerPolicyController
 import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginaliaLayerPreferenceStore
 import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginaliaLayerVisibilityStore
 import com.secondpasslibrary.reader.reader.navigation.ReaderNavigationController
 import com.secondpasslibrary.reader.reader.navigation.ReaderNavigationIntent
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
+import com.secondpasslibrary.reader.reader.session.ReaderSessionCoordinator
 import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadataController
-import com.secondpasslibrary.reader.reader.session.ReaderSessionReconciler
+import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadataWriter
+import com.secondpasslibrary.reader.reader.session.ReaderSessionReconciliation
 import com.secondpasslibrary.reader.reader.session.ReaderSessionReconciliationController
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
-import com.secondpasslibrary.reader.reader.session.SplReaderSessionCoordinator
-import com.secondpasslibrary.reader.reader.session.SplReaderSessionMetadataWriter
 import com.secondpasslibrary.reader.reader.sync.ReaderReconnectController
-import com.secondpasslibrary.reader.reader.sync.ReaderReconnectOrchestrator
+import com.secondpasslibrary.reader.reader.sync.ReaderReconnectOperation
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -57,18 +57,18 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 internal class ReaderViewModel @Inject constructor(
-    assetResolver: SplReaderBookAssetResolver,
-    launchPolicy: ReaderLaunchPolicy,
+    assetResolver: ReaderBookAssetResolver,
+    launchPolicy: ReaderLaunchAdmission,
     engineOpener: ReaderEngineOpener,
-    sessionCoordinator: SplReaderSessionCoordinator,
+    sessionCoordinator: ReaderSessionCoordinator,
     appearanceStore: ReaderAppearanceStore,
-    annotationsLoader: SplReaderAnnotationsLoader,
-    marginaliaLayerHistoryLoader: SplReaderMarginaliaLayerHistoryLoader,
+    annotationsLoader: ReaderAnnotationsLoader,
+    marginaliaLayerHistoryLoader: ReaderMarginaliaLayerHistoryLoader,
     marginaliaLayerPreferenceStore: ReaderMarginaliaLayerPreferenceStore,
     marginaliaLayerVisibilityStore: ReaderMarginaliaLayerVisibilityStore,
-    sessionMetadataWriter: SplReaderSessionMetadataWriter,
-    private val sessionReconciler: ReaderSessionReconciler,
-    reconnectOrchestrator: ReaderReconnectOrchestrator,
+    sessionMetadataWriter: ReaderSessionMetadataWriter,
+    private val sessionReconciler: ReaderSessionReconciliation,
+    reconnectOrchestrator: ReaderReconnectOperation,
     private val localReaderStateStore: LocalReaderStateStore
 ) : ViewModel() {
     private val progressPersistenceJob = SupervisorJob()
@@ -278,6 +278,25 @@ internal class ReaderViewModel @Inject constructor(
                 }
         }
         viewModelScope.launch {
+            combine(controller.state, marginaliaLayersController.state) { reader, layers ->
+                reader to layers
+            }.collectLatest { (reader, layers) ->
+                val ready = reader as? ReaderState.Ready
+                val session = ready?.session
+                if (ready != null && session != null &&
+                    layers.currentLayer?.sessionId == session.sessionId
+                ) {
+                    marginaliaLayerDecorations.replace(
+                        readerSessionId = session.sessionId,
+                        target = ready.engine.annotationDecorations,
+                        layers = layers.previousLayers
+                    )
+                } else {
+                    marginaliaLayerDecorations.clear()
+                }
+            }
+        }
+        viewModelScope.launch {
             selections.selection.collect { selection ->
                 if (selection == null) {
                     annotationMutations.accept(ReaderAnnotationMutationIntent.DismissCreate)
@@ -307,25 +326,6 @@ internal class ReaderViewModel @Inject constructor(
         if (entryIdentity != nextIdentity) {
             annotationsController.clear()
             marginaliaLayersController.clear()
-        }
-        viewModelScope.launch {
-            combine(controller.state, marginaliaLayersController.state) { reader, layers ->
-                reader to layers
-            }.collectLatest { (reader, layers) ->
-                val ready = reader as? ReaderState.Ready
-                val session = ready?.session
-                if (ready != null && session != null &&
-                    layers.currentLayer?.sessionId == session.sessionId
-                ) {
-                    marginaliaLayerDecorations.replace(
-                        readerSessionId = session.sessionId,
-                        target = ready.engine.annotationDecorations,
-                        layers = layers.previousLayers
-                    )
-                } else {
-                    marginaliaLayerDecorations.clear()
-                }
-            }
         }
         entryIdentity = nextIdentity
         activeProfile = profile

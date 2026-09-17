@@ -121,7 +121,7 @@ internal class ReaderReconnectOrchestrator @Inject constructor(
 
 /** Foreground availability/generation adapter around the durable reconnect operation. */
 internal class ReaderReconnectController(
-    private val orchestrator: ReaderReconnectOrchestrator,
+    private val orchestrator: ReaderReconnectOperation,
     private val scope: CoroutineScope,
     private val onRunCompleted: () -> Unit = {},
     private val onAuthenticationRequired: () -> Unit
