@@ -19,6 +19,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -63,33 +65,69 @@ internal class HomeProjectionRepository internal constructor(
             refresh = HomeProjectionRefresh.Idle
         )
 
-    suspend fun refreshReadingHistory(
+    fun refreshReadingHistory(
         account: HomeProjectionAccount,
         variant: HomeRecentReadingVariant
-    ): HomeProjectionRefresh =
-        refreshOnce(ProjectionRequestKey.recent(account.scope.storageKey, variant)) {
-            val client = clientProvider.forProfile(account.profile)
-            val items =
-                client.marginalia.sessions.recent(
-                    RecentReadingOptions(variant.limit, variant.includeClosed)
-                )
-            store.replaceRecentReading(account.scope.storageKey, variant, items, clock.instant())
-        }
-
-    suspend fun refreshShelves(account: HomeProjectionAccount): HomeProjectionRefresh {
-        val variant = HomeShelfVariant.FirstPageWithPreviews
-        return refreshOnce(ProjectionRequestKey.shelves(account.scope.storageKey, variant)) {
-            val client = clientProvider.forProfile(account.profile)
-            val items =
-                client.shelves.list(
-                    ShelfListOptions(
-                        page = variant.page,
-                        pageSize = variant.pageSize,
-                        previewLimit = variant.previewLimit
+    ): Flow<HomeProjectionState<RecentReadingItem>> = cachedThenRefresh(
+        readCached = { readCachedReadingHistory(account.scope, variant).content },
+        refresh = {
+            refreshOnce(ProjectionRequestKey.recent(account.scope.storageKey, variant)) {
+                val client = clientProvider.forProfile(account.profile)
+                val items =
+                    client.marginalia.sessions.recent(
+                        RecentReadingOptions(variant.limit, variant.includeClosed)
                     )
-                ).shelves.map { it.toSummary() }
-            store.replaceShelves(account.scope.storageKey, variant, items, clock.instant())
+                store.replaceRecentReading(
+                    account.scope.storageKey,
+                    variant,
+                    items,
+                    clock.instant()
+                )
+            }
         }
+    )
+
+    fun refreshShelves(account: HomeProjectionAccount): Flow<HomeProjectionState<ShelfSummary>> {
+        val variant = HomeShelfVariant.FirstPageWithPreviews
+        return cachedThenRefresh(
+            readCached = { readCachedShelves(account.scope).content },
+            refresh = {
+                refreshOnce(ProjectionRequestKey.shelves(account.scope.storageKey, variant)) {
+                    val client = clientProvider.forProfile(account.profile)
+                    val items =
+                        client.shelves.list(
+                            ShelfListOptions(
+                                page = variant.page,
+                                pageSize = variant.pageSize,
+                                previewLimit = variant.previewLimit
+                            )
+                        ).shelves.map { it.toSummary() }
+                    store.replaceShelves(
+                        account.scope.storageKey,
+                        variant,
+                        items,
+                        clock.instant()
+                    )
+                }
+            }
+        )
+    }
+
+    private fun <T> cachedThenRefresh(
+        readCached: suspend () -> HomeProjectionContent<T>?,
+        refresh: suspend () -> HomeProjectionRefresh
+    ): Flow<HomeProjectionState<T>> = flow {
+        val cached = readCached()
+        emit(HomeProjectionState(cached, HomeProjectionRefresh.Idle))
+        emit(HomeProjectionState(cached, HomeProjectionRefresh.Refreshing))
+        val result = refresh()
+        val content =
+            if (result == HomeProjectionRefresh.Current) {
+                readCached()
+            } else {
+                cached
+            }
+        emit(HomeProjectionState(content, result))
     }
 
     private suspend fun refreshOnce(

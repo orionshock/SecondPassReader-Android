@@ -1,51 +1,57 @@
 package com.secondpasslibrary.reader.home
 
+import com.secondpasslibrary.client.RecentReadingItem
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.home.projection.HomeRecentReadingVariant
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ReadingHistoryProjectionRepositoryTest {
     @Test
-    fun `cached read precedes explicit refresh and success replaces it`() = runTest {
-        val account = projectionAccount()
-        val store = FakeHomeProjectionStore().apply {
-            seedRecent(account, ACTIVE_ONLY, listOf(recentItem("cached")))
-        }
-        val releaseRemote = CompletableDeferred<Unit>()
-        val client = FakeHomeAuthenticatedClient().apply {
-            recentCall = {
-                releaseRemote.await()
-                listOf(recentItem("fresh-2"), recentItem("fresh-1"))
+    fun `cached projection is emitted before refresh and success returns persisted projection`() =
+        runTest {
+            val account = projectionAccount()
+            val store = FakeHomeProjectionStore().apply {
+                seedRecent(account, ACTIVE_ONLY, listOf(recentItem("cached")))
             }
+            val releaseRemote = CompletableDeferred<Unit>()
+            val client = FakeHomeAuthenticatedClient().apply {
+                recentCall = {
+                    releaseRemote.await()
+                    listOf(recentItem("fresh-2"), recentItem("fresh-1"))
+                }
+            }
+            val repository = homeRepository(store, client)
+
+            val states = mutableListOf<HomeProjectionState<RecentReadingItem>>()
+            val refresh =
+                launch { repository.refreshReadingHistory(account, ACTIVE_ONLY).toList(states) }
+            runCurrent()
+
+            assertEquals(listOf("cached"), states[0].content?.items?.map { it.sessionId })
+            assertEquals(HomeProjectionRefresh.Idle, states[0].refresh)
+            assertEquals(HomeProjectionRefresh.Refreshing, states[1].refresh)
+            assertEquals(1, client.recentRequests.size)
+
+            releaseRemote.complete(Unit)
+            refresh.join()
+            val fresh = states.last()
+
+            assertEquals(HomeProjectionRefresh.Current, fresh.refresh)
+            assertEquals(listOf("fresh-2", "fresh-1"), fresh.content?.items?.map { it.sessionId })
+            assertEquals(NEW_FETCHED_AT, fresh.content?.fetchedAt)
+            assertEquals(1, store.recentReplacements)
         }
-        val repository = homeRepository(store, client)
-
-        val cached = repository.readCachedReadingHistory(account.scope, ACTIVE_ONLY)
-        val refresh = async { repository.refreshReadingHistory(account, ACTIVE_ONLY) }
-        runCurrent()
-
-        assertEquals(listOf("cached"), cached.content?.items?.map { it.sessionId })
-        assertEquals(HomeProjectionRefresh.Idle, cached.refresh)
-        assertEquals(1, client.recentRequests.size)
-
-        releaseRemote.complete(Unit)
-        assertEquals(HomeProjectionRefresh.Current, refresh.await())
-        val fresh = repository.readCachedReadingHistory(account.scope, ACTIVE_ONLY)
-
-        assertEquals(listOf("fresh-2", "fresh-1"), fresh.content?.items?.map { it.sessionId })
-        assertEquals(NEW_FETCHED_AT, fresh.content?.fetchedAt)
-        assertEquals(1, store.recentReplacements)
-    }
 
     @Test
     fun `successful empty response replaces old projection`() = runTest {
@@ -55,12 +61,11 @@ class ReadingHistoryProjectionRepositoryTest {
         }
         val repository = homeRepository(store, FakeHomeAuthenticatedClient())
 
-        val refresh = repository.refreshReadingHistory(account, ACTIVE_ONLY)
-        val cached = repository.readCachedReadingHistory(account.scope, ACTIVE_ONLY)
+        val refreshed = repository.refreshReadingHistory(account, ACTIVE_ONLY).toList().last()
 
-        assertEquals(HomeProjectionRefresh.Current, refresh)
-        assertEquals(emptyList<Any>(), cached.content?.items)
-        assertEquals(NEW_FETCHED_AT, cached.content?.fetchedAt)
+        assertEquals(HomeProjectionRefresh.Current, refreshed.refresh)
+        assertEquals(emptyList<Any>(), refreshed.content?.items)
+        assertEquals(NEW_FETCHED_AT, refreshed.content?.fetchedAt)
         assertEquals(1, store.recentReplacements)
     }
 
@@ -85,11 +90,10 @@ class ReadingHistoryProjectionRepositoryTest {
             }
             val repository = homeRepository(store, client)
 
-            val refresh = repository.refreshReadingHistory(account, ACTIVE_ONLY)
-            val cached = repository.readCachedReadingHistory(account.scope, ACTIVE_ONLY)
+            val refreshed = repository.refreshReadingHistory(account, ACTIVE_ONLY).toList().last()
 
-            assertEquals(HomeProjectionRefresh.Failed(expected), refresh)
-            assertEquals(listOf("cached"), cached.content?.items?.map { it.sessionId })
+            assertEquals(HomeProjectionRefresh.Failed(expected), refreshed.refresh)
+            assertEquals(listOf("cached"), refreshed.content?.items?.map { it.sessionId })
             assertEquals(0, store.recentReplacements)
         }
     }
@@ -102,11 +106,13 @@ class ReadingHistoryProjectionRepositoryTest {
         val account = projectionAccount()
         val repository = homeRepository(FakeHomeProjectionStore(), client)
 
-        val refresh = repository.refreshReadingHistory(account, ACTIVE_ONLY)
-        val cached = repository.readCachedReadingHistory(account.scope, ACTIVE_ONLY)
+        val refreshed = repository.refreshReadingHistory(account, ACTIVE_ONLY).toList().last()
 
-        assertNull(cached.content)
-        assertEquals(HomeProjectionRefresh.Failed(HomeProjectionFailure.Other), refresh)
+        assertNull(refreshed.content)
+        assertEquals(
+            HomeProjectionRefresh.Failed(HomeProjectionFailure.Other),
+            refreshed.refresh
+        )
     }
 
     @Test
@@ -142,17 +148,18 @@ class ReadingHistoryProjectionRepositoryTest {
         val repository = homeRepository(store, client)
         val account = projectionAccount()
 
-        val first = async { repository.refreshReadingHistory(account, ACTIVE_ONLY) }
+        val first = async { repository.refreshReadingHistory(account, ACTIVE_ONLY).toList().last() }
         runCurrent()
-        val second = async { repository.refreshReadingHistory(account, ACTIVE_ONLY) }
+        val second =
+            async { repository.refreshReadingHistory(account, ACTIVE_ONLY).toList().last() }
         runCurrent()
 
         assertEquals(1, client.recentRequests.size)
         gate.complete(Unit)
         advanceUntilIdle()
 
-        assertTrue(first.await() is HomeProjectionRefresh.Current)
-        assertTrue(second.await() is HomeProjectionRefresh.Current)
+        assertEquals(HomeProjectionRefresh.Current, first.await().refresh)
+        assertEquals(HomeProjectionRefresh.Current, second.await().refresh)
         assertEquals(1, store.recentReplacements)
     }
 
