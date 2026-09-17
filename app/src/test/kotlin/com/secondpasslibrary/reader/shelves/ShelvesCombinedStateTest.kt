@@ -3,6 +3,9 @@ package com.secondpasslibrary.reader.shelves
 import com.secondpasslibrary.reader.shelves.collection.ShelfCollectionState
 import com.secondpasslibrary.reader.shelves.detail.ShelfDetailState
 import com.secondpasslibrary.reader.shelves.editor.ShelfContentsEditorState
+import com.secondpasslibrary.reader.shelves.management.CreatePersonalShelfState
+import com.secondpasslibrary.reader.shelves.management.DeletePersonalShelfState
+import com.secondpasslibrary.reader.shelves.management.EditPersonalShelfState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -46,11 +49,17 @@ class ShelvesCombinedStateTest {
             sources.group.value = ShelfCollectionState(totalCount = 8)
             sources.detail.value = ShelfDetailState(shelfId = "shelf-1")
             sources.editor.value = ShelfContentsEditorState(shelfId = "shelf-1")
+            sources.create.value = CreatePersonalShelfState(name = "new")
+            sources.edit.value = EditPersonalShelfState(shelfId = "shelf-1")
+            sources.delete.value = DeletePersonalShelfState(shelfId = "shelf-2")
             runCurrent()
 
             assertEquals("shelf-1", state.value.detail.shelfId)
             assertEquals("shelf-1", state.value.editor.shelfId)
             assertEquals(8, state.value.group.totalCount)
+            assertEquals("new", state.value.create.name)
+            assertEquals("shelf-1", state.value.edit.shelfId)
+            assertEquals("shelf-2", state.value.delete.shelfId)
             assertEquals(state.value, async { state.first() }.await())
         }
 
@@ -76,7 +85,10 @@ private class ShelvesStateSources(
     shared: ShelfCollectionState = ShelfCollectionState(),
     group: ShelfCollectionState = ShelfCollectionState(),
     detail: ShelfDetailState = ShelfDetailState(),
-    editor: ShelfContentsEditorState = ShelfContentsEditorState()
+    editor: ShelfContentsEditorState = ShelfContentsEditorState(),
+    create: CreatePersonalShelfState = CreatePersonalShelfState(),
+    edit: EditPersonalShelfState = EditPersonalShelfState(),
+    delete: DeletePersonalShelfState = DeletePersonalShelfState()
 ) {
     val navigation = MutableStateFlow(navigation)
     val personal = MutableStateFlow(personal)
@@ -84,6 +96,9 @@ private class ShelvesStateSources(
     val group = MutableStateFlow(group)
     val detail = MutableStateFlow(detail)
     val editor = MutableStateFlow(editor)
+    val create = MutableStateFlow(create)
+    val edit = MutableStateFlow(edit)
+    val delete = MutableStateFlow(delete)
 
     fun aggregate(scope: CoroutineScope) = shelvesStateFlow(
         scope,
@@ -92,6 +107,9 @@ private class ShelvesStateSources(
         shared,
         group,
         detail,
-        editor
+        editor,
+        create,
+        edit,
+        delete
     )
 }

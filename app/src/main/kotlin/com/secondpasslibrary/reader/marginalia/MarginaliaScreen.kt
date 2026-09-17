@@ -10,10 +10,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondpasslibrary.reader.design.components.AppBarNavigation
 import com.secondpasslibrary.reader.design.components.AppBarPresentation
 import com.secondpasslibrary.reader.design.components.CompactSegmentedTextControl
@@ -23,12 +21,8 @@ import com.secondpasslibrary.reader.marginalia.books.MarginaliaBooksContent
 import com.secondpasslibrary.reader.marginalia.books.MarginaliaBooksState
 import com.secondpasslibrary.reader.marginalia.detail.ReadingSessionDetailActions
 import com.secondpasslibrary.reader.marginalia.detail.ReadingSessionDetailContent
-import com.secondpasslibrary.reader.marginalia.detail.ReadingSessionDetailIntent
 import com.secondpasslibrary.reader.marginalia.detail.ReadingSessionDetailState
-import com.secondpasslibrary.reader.marginalia.detail.annotations.ReadingSessionAnnotationsState
 import com.secondpasslibrary.reader.marginalia.detail.appBarPresentation as detailAppBarPresentation
-import com.secondpasslibrary.reader.marginalia.detail.close.ReadingSessionCloseState
-import com.secondpasslibrary.reader.marginalia.detail.metadata.ReadingSessionMetadataEditState
 import com.secondpasslibrary.reader.marginalia.history.ReadingSessionStatusFilter
 import com.secondpasslibrary.reader.marginalia.history.ReadingSessionsContent
 import com.secondpasslibrary.reader.marginalia.history.ReadingSessionsState
@@ -36,63 +30,62 @@ import com.secondpasslibrary.reader.marginalia.history.appBarPresentation as his
 
 @Composable
 internal fun MarginaliaScreen(
-    viewModel: MarginaliaViewModel,
+    state: MarginaliaState,
+    onIntent: (MarginaliaIntent) -> Unit,
     onOpenDrawer: () -> Unit,
     onBackFromHistory: (() -> Unit)? = null,
     onBackFromDetail: (() -> Unit)? = null
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    val sessionsState by viewModel.sessionsState.collectAsStateWithLifecycle()
-    val booksState by viewModel.booksState.collectAsStateWithLifecycle()
-    val detailState by viewModel.detailState.collectAsStateWithLifecycle()
-    val annotationState by viewModel.annotationState.collectAsStateWithLifecycle()
-    val metadataEditState by viewModel.metadataEditState.collectAsStateWithLifecycle()
-    val closeState by viewModel.closeState.collectAsStateWithLifecycle()
     val detail = state.destination as? MarginaliaDestination.SessionDetail
     val history = state.destination as? MarginaliaDestination.History
     val bookHistory = history?.context is MarginaliaHistoryContext.Book
     val bookHistoryBack = when {
         !bookHistory -> null
-        history.returnToBooks || history.returnToDetail != null -> viewModel::backFromBookHistory
+
+        history.returnToBooks || history.returnToDetail != null ->
+            ({ onIntent(MarginaliaIntent.BackFromBookHistory) })
+
         else -> onBackFromHistory
     }
     val sessionsListState = rememberLazyListState()
     val booksListState = rememberLazyListState()
 
-    MarginaliaBackHandler(detail != null, bookHistoryBack, onBackFromDetail, viewModel)
+    MarginaliaBackHandler(detail != null, bookHistoryBack, onBackFromDetail, onIntent)
     MarginaliaScaffold(
-        presentation = marginaliaAppBar(state, sessionsState, booksState, detailState, bookHistory),
+        presentation = marginaliaAppBar(
+            state,
+            state.sessions,
+            state.books,
+            state.detail,
+            bookHistory
+        ),
         onNavigation = marginaliaNavigation(
             detail != null,
             bookHistoryBack,
             onBackFromDetail,
             onOpenDrawer,
-            viewModel
+            onIntent
         ),
         titleActions = {
             if (detail == null) {
                 MarginaliaChromeControls(
                     browseMode = state.browseMode,
-                    status = sessionsState.statusFilter,
+                    status = state.sessions.statusFilter,
                     bookScoped = bookHistory,
-                    onBrowseModeSelected = viewModel::selectBrowseMode,
-                    onStatusSelected = viewModel::changeStatus
+                    onBrowseModeSelected = {
+                        onIntent(MarginaliaIntent.SelectBrowseMode(it))
+                    },
+                    onStatusSelected = { onIntent(MarginaliaIntent.ChangeStatus(it)) }
                 )
             }
         }
     ) { modifier ->
         MarginaliaDestinationContent(
             state,
-            sessionsState,
-            booksState,
-            detailState,
-            annotationState,
-            metadataEditState,
-            closeState,
             sessionsListState,
             booksListState,
             bookHistory,
-            viewModel,
+            onIntent,
             modifier
         )
     }
@@ -103,11 +96,11 @@ private fun MarginaliaBackHandler(
     detailVisible: Boolean,
     bookHistoryBack: (() -> Unit)?,
     onBackFromDetail: (() -> Unit)?,
-    viewModel: MarginaliaViewModel
+    onIntent: (MarginaliaIntent) -> Unit
 ) {
     BackHandler(enabled = detailVisible || bookHistoryBack != null) {
         if (detailVisible) {
-            onBackFromDetail?.invoke() ?: viewModel.backFromDetail()
+            onBackFromDetail?.invoke() ?: onIntent(MarginaliaIntent.BackFromDetail)
         } else {
             bookHistoryBack?.invoke()
         }
@@ -143,9 +136,9 @@ private fun marginaliaNavigation(
     bookHistoryBack: (() -> Unit)?,
     onBackFromDetail: (() -> Unit)?,
     onOpenDrawer: () -> Unit,
-    viewModel: MarginaliaViewModel
+    onIntent: (MarginaliaIntent) -> Unit
 ): () -> Unit = when {
-    detailVisible -> onBackFromDetail ?: viewModel::backFromDetail
+    detailVisible -> onBackFromDetail ?: { onIntent(MarginaliaIntent.BackFromDetail) }
     bookHistoryBack != null -> bookHistoryBack
     else -> onOpenDrawer
 }
@@ -153,47 +146,41 @@ private fun marginaliaNavigation(
 @Composable
 private fun MarginaliaDestinationContent(
     state: MarginaliaState,
-    sessions: ReadingSessionsState,
-    books: MarginaliaBooksState,
-    detail: ReadingSessionDetailState,
-    annotations: ReadingSessionAnnotationsState,
-    metadataEdit: ReadingSessionMetadataEditState,
-    close: ReadingSessionCloseState,
     sessionsListState: LazyListState,
     booksListState: LazyListState,
     bookHistory: Boolean,
-    viewModel: MarginaliaViewModel,
+    onIntent: (MarginaliaIntent) -> Unit,
     modifier: Modifier
 ) {
     when {
         state.destination is MarginaliaDestination.SessionDetail ->
             ReadingSessionDetailContent(
-                detail,
-                annotations,
-                metadataEdit,
-                close,
-                viewModel.detailActions(),
+                state.detail,
+                state.annotations,
+                state.metadataEdit,
+                state.close,
+                detailActions(onIntent),
                 modifier
             )
 
         state.browseMode == MarginaliaBrowseMode.BOOKS && !bookHistory ->
             MarginaliaBooksContent(
-                books,
+                state.books,
                 booksListState,
-                viewModel::commitBooksSearch,
-                viewModel::loadNextBooksPage,
-                viewModel::retryBooks,
-                viewModel::selectBook,
+                { onIntent(MarginaliaIntent.CommitBooksSearch(it)) },
+                { onIntent(MarginaliaIntent.LoadNextBooksPage) },
+                { onIntent(MarginaliaIntent.RetryBooks) },
+                { onIntent(MarginaliaIntent.SelectBook(it)) },
                 modifier
             )
 
         else -> ReadingSessionsContent(
-            sessions,
+            state.sessions,
             sessionsListState,
-            viewModel::commitSearch,
-            viewModel::loadNextPage,
-            viewModel::retrySessions,
-            viewModel::selectSession,
+            { onIntent(MarginaliaIntent.CommitSessionsSearch(it)) },
+            { onIntent(MarginaliaIntent.LoadNextSessionsPage) },
+            { onIntent(MarginaliaIntent.RetrySessions) },
+            { onIntent(MarginaliaIntent.SelectSession(it)) },
             modifier
         )
     }
@@ -254,21 +241,21 @@ internal fun marginaliaChromeControlOrder(
     if (!bookScoped) add(MarginaliaChromeControl.BROWSE_MODE)
 }
 
-private fun MarginaliaViewModel.detailActions() = ReadingSessionDetailActions(
-    retryDetail = { onDetailIntent(ReadingSessionDetailIntent.RetryDetail) },
-    retryAnnotations = { onDetailIntent(ReadingSessionDetailIntent.RetryAnnotations) },
-    beginEdit = { onDetailIntent(ReadingSessionDetailIntent.BeginEdit) },
-    editNameChanged = { onDetailIntent(ReadingSessionDetailIntent.EditName(it)) },
-    editNotesChanged = { onDetailIntent(ReadingSessionDetailIntent.EditNotes(it)) },
-    saveEdit = { onDetailIntent(ReadingSessionDetailIntent.SaveEdit) },
-    cancelEdit = { onDetailIntent(ReadingSessionDetailIntent.CancelEdit) },
-    beginClose = { onDetailIntent(ReadingSessionDetailIntent.BeginClose) },
-    closeNameChanged = { onDetailIntent(ReadingSessionDetailIntent.CloseName(it)) },
-    closeNotesChanged = { onDetailIntent(ReadingSessionDetailIntent.CloseNotes(it)) },
-    confirmClose = { onDetailIntent(ReadingSessionDetailIntent.ConfirmClose) },
-    cancelClose = { onDetailIntent(ReadingSessionDetailIntent.CancelClose) },
-    openBookMarginalia = ::showDetailBookHistory,
-    openBookDetail = ::openDetailBook
+private fun detailActions(onIntent: (MarginaliaIntent) -> Unit) = ReadingSessionDetailActions(
+    retryDetail = { onIntent(MarginaliaIntent.RetryDetail) },
+    retryAnnotations = { onIntent(MarginaliaIntent.RetryAnnotations) },
+    beginEdit = { onIntent(MarginaliaIntent.BeginEdit) },
+    editNameChanged = { onIntent(MarginaliaIntent.EditName(it)) },
+    editNotesChanged = { onIntent(MarginaliaIntent.EditNotes(it)) },
+    saveEdit = { onIntent(MarginaliaIntent.SaveEdit) },
+    cancelEdit = { onIntent(MarginaliaIntent.CancelEdit) },
+    beginClose = { onIntent(MarginaliaIntent.BeginClose) },
+    closeNameChanged = { onIntent(MarginaliaIntent.CloseName(it)) },
+    closeNotesChanged = { onIntent(MarginaliaIntent.CloseNotes(it)) },
+    confirmClose = { onIntent(MarginaliaIntent.ConfirmClose) },
+    cancelClose = { onIntent(MarginaliaIntent.CancelClose) },
+    openBookMarginalia = { onIntent(MarginaliaIntent.ShowDetailBookHistory) },
+    openBookDetail = { onIntent(MarginaliaIntent.OpenDetailBook) }
 )
 
 private val MARGINALIA_COUNT_SLOT_WIDTH = 84.dp

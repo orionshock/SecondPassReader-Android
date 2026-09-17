@@ -6,9 +6,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.secondpasslibrary.client.ShelfItemMove
 import com.secondpasslibrary.reader.design.components.AppBarPresentation
 import com.secondpasslibrary.reader.design.components.ContextualAppBar
 import com.secondpasslibrary.reader.shelves.collection.ShelvesRoot
@@ -24,88 +23,77 @@ import com.secondpasslibrary.reader.shelves.management.canManageShelf
 
 @Composable
 internal fun ShelvesScreen(
-    viewModel: ShelvesViewModel,
+    state: ShelvesState,
+    onIntent: (ShelvesIntent) -> Unit,
     serverMutationsAvailable: Boolean,
     onOpenDrawer: () -> Unit,
     onBookSelected: (ShelfBookNavigationRequest) -> Unit,
     onExitInitialDetail: (() -> Unit)? = null
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
     val detail = state.destination as? ShelvesDestination.Detail
     val editor = state.destination as? ShelvesDestination.ContentsEditor
-    BackHandler(
-        enabled = detail != null || editor != null,
-        onBack = if (editor !=
-            null
-        ) {
-            viewModel::backFromContentsEditor
-        } else {
-            onExitInitialDetail ?: viewModel::backFromDetail
-        }
-    )
+    val back = when {
+        editor != null -> ({ onIntent(ShelvesIntent.BackFromContentsEditor) })
+        detail != null -> onExitInitialDetail ?: { onIntent(ShelvesIntent.BackFromDetail) }
+        else -> onOpenDrawer
+    }
+    BackHandler(enabled = detail != null || editor != null, onBack = back)
 
-    ShelvesScaffold(
-        presentation = state.appBarPresentation(),
-        onNavigation = when {
-            editor != null -> viewModel::backFromContentsEditor
-            detail != null -> onExitInitialDetail ?: viewModel::backFromDetail
-            else -> onOpenDrawer
-        }
-    ) { modifier ->
+    ShelvesScaffold(state.appBarPresentation(), back) { modifier ->
         ShelvesDestinationContent(
             state,
-            viewModel,
+            onIntent,
             serverMutationsAvailable,
             onBookSelected,
             modifier
         )
     }
-    if (serverMutationsAvailable) ShelvesMutationDialogs(viewModel, state.createOpen)
+    if (serverMutationsAvailable) ShelvesMutationDialogs(state, onIntent)
 }
 
 @Composable
 private fun ShelvesDestinationContent(
     state: ShelvesState,
-    viewModel: ShelvesViewModel,
+    onIntent: (ShelvesIntent) -> Unit,
     serverMutationsAvailable: Boolean,
     onBookSelected: (ShelfBookNavigationRequest) -> Unit,
     modifier: Modifier
 ) {
     when (val destination = state.destination) {
         is ShelvesDestination.ContentsEditor ->
-            if (serverMutationsAvailable) ShelfEditorDestination(state.editor, viewModel, modifier)
+            if (serverMutationsAvailable) ShelfEditorDestination(state.editor, onIntent, modifier)
 
         is ShelvesDestination.Detail ->
             ShelfDetailDestination(
                 state,
                 destination,
-                viewModel,
+                onIntent,
                 serverMutationsAvailable,
                 onBookSelected,
                 modifier
             )
 
         is ShelvesDestination.Collection ->
-            ShelfCollectionDestination(state, viewModel, serverMutationsAvailable, modifier)
+            ShelfCollectionDestination(state, onIntent, serverMutationsAvailable, modifier)
     }
 }
 
 @Composable
 private fun ShelfEditorDestination(
     state: ShelfContentsEditorState,
-    viewModel: ShelvesViewModel,
+    onIntent: (ShelvesIntent) -> Unit,
     modifier: Modifier
 ) = ShelfContentsEditorContent(
     state = state,
-    onLoadNextPage = viewModel::loadNextEditorPage,
-    onRetry = viewModel::retryEditor,
-    onMoveUp = viewModel::moveEditorItemUp,
-    onMoveDown = viewModel::moveEditorItemDown,
-    onMoveToPosition = viewModel::openEditorPosition,
-    onRemove = viewModel::requestEditorRemoval,
-    onDismissFailure = viewModel::dismissEditorMutationFailure,
-    onEditDetails = viewModel::openEdit,
-    onDeleteShelf = viewModel::openDelete,
+    onLoadNextPage = { onIntent(ShelvesIntent.LoadNextEditorPage) },
+    onRetry = { onIntent(ShelvesIntent.RetryEditor) },
+    onMoveUp = { onIntent(ShelvesIntent.MoveEditorItem(it, ShelfItemMove.UP)) },
+    onMoveDown = { onIntent(ShelvesIntent.MoveEditorItem(it, ShelfItemMove.DOWN)) },
+    onMoveToPosition = { onIntent(ShelvesIntent.OpenEditorPosition(it)) },
+    onRemove = { onIntent(ShelvesIntent.RequestEditorRemoval(it)) },
+    onDismissFailure = { onIntent(ShelvesIntent.DismissEditorMutationFailure) },
+    onEditDetails = { onIntent(ShelvesIntent.OpenEdit) },
+    onDeleteShelf = { onIntent(ShelvesIntent.OpenDelete) },
     modifier = modifier
 )
 
@@ -113,97 +101,99 @@ private fun ShelfEditorDestination(
 private fun ShelfDetailDestination(
     state: ShelvesState,
     destination: ShelvesDestination.Detail,
-    viewModel: ShelvesViewModel,
+    onIntent: (ShelvesIntent) -> Unit,
     serverMutationsAvailable: Boolean,
     onBookSelected: (ShelfBookNavigationRequest) -> Unit,
     modifier: Modifier
 ) = ShelfDetailContent(
     state = state.detail,
-    onOrderingSelected = viewModel::changeItemOrdering,
-    onLayoutSelected = viewModel::setItemLayout,
-    onLoadNextPage = viewModel::loadNextItemPage,
-    onRetryDetail = viewModel::retryDetail,
-    onRetryItems = viewModel::retryItems,
+    onOrderingSelected = { onIntent(ShelvesIntent.ChangeItemOrdering(it)) },
+    onLayoutSelected = { onIntent(ShelvesIntent.SetItemLayout(it)) },
+    onLoadNextPage = { onIntent(ShelvesIntent.LoadNextItemPage) },
+    onRetryDetail = { onIntent(ShelvesIntent.RetryDetail) },
+    onRetryItems = { onIntent(ShelvesIntent.RetryItems) },
     onBookSelected = { bookId ->
         onBookSelected(ShelfBookNavigationRequest(bookId, destination.shelfId, destination.origin))
     },
     canManage = serverMutationsAvailable &&
         canManageShelf(destination.origin, state.detail.detail.shelf),
-    onManageContents = viewModel::openContentsEditor,
+    onManageContents = { onIntent(ShelvesIntent.OpenContentsEditor) },
     modifier = modifier
 )
 
 @Composable
 private fun ShelfCollectionDestination(
     state: ShelvesState,
-    viewModel: ShelvesViewModel,
+    onIntent: (ShelvesIntent) -> Unit,
     serverMutationsAvailable: Boolean,
     modifier: Modifier
 ) = ShelvesRoot(
     state = state,
-    onCollectionSelected = viewModel::showCollection,
-    onOrderingSelected = viewModel::changeCollectionOrdering,
-    onLoadNextPersonal = viewModel::loadNextPersonalPage,
-    onLoadNextShared = viewModel::loadNextSharedPage,
-    onLoadNextGroup = viewModel::loadNextGroupPage,
-    onRetryPersonal = viewModel::retryPersonal,
-    onRetryShared = viewModel::retryShared,
-    onRetryGroup = viewModel::retryGroup,
-    onShelfSelected = viewModel::selectShelf,
-    onCreateShelf = viewModel::openCreate,
+    onCollectionSelected = { onIntent(ShelvesIntent.ShowCollection(it)) },
+    onOrderingSelected = { onIntent(ShelvesIntent.ChangeCollectionOrdering(it)) },
+    onLoadNextPersonal = {
+        onIntent(ShelvesIntent.LoadNextCollectionPage(ShelvesCollection.PERSONAL))
+    },
+    onLoadNextShared = {
+        onIntent(ShelvesIntent.LoadNextCollectionPage(ShelvesCollection.SHARED))
+    },
+    onLoadNextGroup = {
+        onIntent(ShelvesIntent.LoadNextCollectionPage(ShelvesCollection.GROUP))
+    },
+    onRetryPersonal = { onIntent(ShelvesIntent.RetryCollection(ShelvesCollection.PERSONAL)) },
+    onRetryShared = { onIntent(ShelvesIntent.RetryCollection(ShelvesCollection.SHARED)) },
+    onRetryGroup = { onIntent(ShelvesIntent.RetryCollection(ShelvesCollection.GROUP)) },
+    onShelfSelected = { onIntent(ShelvesIntent.SelectShelf(it)) },
+    onCreateShelf = { onIntent(ShelvesIntent.OpenCreate) },
     createShelfAvailable = serverMutationsAvailable,
     modifier = modifier
 )
 
 @Composable
-private fun ShelvesMutationDialogs(viewModel: ShelvesViewModel, createOpen: Boolean) {
-    val createState by viewModel.createState.collectAsStateWithLifecycle()
-    val editState by viewModel.editState.collectAsStateWithLifecycle()
-    val deleteState by viewModel.deleteState.collectAsStateWithLifecycle()
-    val editorState by viewModel.editorState.collectAsStateWithLifecycle()
-    if (createOpen) {
+private fun ShelvesMutationDialogs(state: ShelvesState, onIntent: (ShelvesIntent) -> Unit) {
+    if (state.createOpen) {
         CreatePersonalShelfDialog(
-            state = createState,
-            onNameChanged = viewModel::updateCreateName,
-            onDescriptionChanged = viewModel::updateCreateDescription,
-            onVisibilityChanged = viewModel::updateCreateVisibility,
-            onSubmit = viewModel::submitCreate,
-            onDismiss = viewModel::dismissCreate
+            state = state.create,
+            onNameChanged = { onIntent(ShelvesIntent.UpdateCreateName(it)) },
+            onDescriptionChanged = { onIntent(ShelvesIntent.UpdateCreateDescription(it)) },
+            onVisibilityChanged = { onIntent(ShelvesIntent.UpdateCreateVisibility(it)) },
+            onSubmit = { onIntent(ShelvesIntent.SubmitCreate) },
+            onDismiss = { onIntent(ShelvesIntent.DismissCreate) }
         )
     }
-    if (editState.open) {
+    if (state.edit.open) {
         EditPersonalShelfDialog(
-            state = editState,
-            onNameChanged = viewModel::updateEditName,
-            onDescriptionChanged = viewModel::updateEditDescription,
-            onVisibilityChanged = viewModel::updateEditVisibility,
-            onSubmit = viewModel::submitEdit,
-            onDismiss = viewModel::dismissEdit
+            state = state.edit,
+            onNameChanged = { onIntent(ShelvesIntent.UpdateEditName(it)) },
+            onDescriptionChanged = { onIntent(ShelvesIntent.UpdateEditDescription(it)) },
+            onVisibilityChanged = { onIntent(ShelvesIntent.UpdateEditVisibility(it)) },
+            onSubmit = { onIntent(ShelvesIntent.SubmitEdit) },
+            onDismiss = { onIntent(ShelvesIntent.DismissEdit) }
         )
     }
-    if (deleteState.open) {
+    if (state.delete.open) {
         DeletePersonalShelfDialog(
-            state = deleteState,
-            onConfirm = viewModel::confirmDelete,
-            onDismiss = viewModel::dismissDelete
+            state = state.delete,
+            onConfirm = { onIntent(ShelvesIntent.ConfirmDelete) },
+            onDismiss = { onIntent(ShelvesIntent.DismissDelete) }
         )
     }
-    editorState.positionDialog?.let { dialog ->
+    state.editor.positionDialog?.let { dialog ->
         ShelfPositionDialog(
             state = dialog,
-            maximum = editorState.totalCount,
-            submitting = editorState.mutation.inProgress,
-            onValueChanged = viewModel::updateEditorPosition,
-            onSubmit = viewModel::submitEditorPosition,
-            onDismiss = viewModel::dismissEditorPosition
+            maximum = state.editor.totalCount,
+            submitting = state.editor.mutation.inProgress,
+            onValueChanged = { onIntent(ShelvesIntent.UpdateEditorPosition(it)) },
+            onSubmit = { onIntent(ShelvesIntent.SubmitEditorPosition) },
+            onDismiss = { onIntent(ShelvesIntent.DismissEditorPosition) }
         )
     }
-    editorState.removalDialog?.let { dialog ->
+    state.editor.removalDialog?.let { dialog ->
         RemoveShelfItemDialog(
             state = dialog,
-            submitting = editorState.mutation.inProgress,
-            onConfirm = viewModel::confirmEditorRemoval,
-            onDismiss = viewModel::dismissEditorRemoval
+            submitting = state.editor.mutation.inProgress,
+            onConfirm = { onIntent(ShelvesIntent.ConfirmEditorRemoval) },
+            onDismiss = { onIntent(ShelvesIntent.DismissEditorRemoval) }
         )
     }
 }

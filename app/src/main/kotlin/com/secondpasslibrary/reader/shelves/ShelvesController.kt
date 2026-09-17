@@ -18,34 +18,46 @@ import com.secondpasslibrary.reader.shelves.management.DeletePersonalShelfContro
 import com.secondpasslibrary.reader.shelves.management.EditPersonalShelfController
 import com.secondpasslibrary.reader.shelves.management.canManageShelf
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.merge
 
-@Suppress("TooManyFunctions") // Parent exposes typed coordination intents for its bounded children.
+// Parent exhaustively routes typed coordination intents to its bounded children.
+@Suppress("CyclomaticComplexMethod", "TooManyFunctions")
 internal class ShelvesController(
     clientProvider: AuthenticatedClientProvider,
     scope: CoroutineScope,
-    val personal: PersonalShelvesController = PersonalShelvesController(clientProvider, scope),
-    val shared: SharedShelvesController = SharedShelvesController(clientProvider, scope),
-    val group: GroupShelvesController = GroupShelvesController(clientProvider, scope),
-    val detail: ShelfDetailController = ShelfDetailController(clientProvider, scope)
+    private val personal: PersonalShelvesController =
+        PersonalShelvesController(clientProvider, scope),
+    private val shared: SharedShelvesController = SharedShelvesController(clientProvider, scope),
+    private val group: GroupShelvesController = GroupShelvesController(clientProvider, scope),
+    private val detail: ShelfDetailController = ShelfDetailController(clientProvider, scope),
+    private val create: CreatePersonalShelfController =
+        CreatePersonalShelfController(clientProvider, scope),
+    private val edit: EditPersonalShelfController =
+        EditPersonalShelfController(clientProvider, scope),
+    private val delete: DeletePersonalShelfController =
+        DeletePersonalShelfController(clientProvider, scope)
 ) {
-    val create = CreatePersonalShelfController(clientProvider, scope)
-    val edit = EditPersonalShelfController(clientProvider, scope)
-    val delete = DeletePersonalShelfController(clientProvider, scope)
-    val editor =
+    private val lifetimeJob = SupervisorJob(scope.coroutineContext[Job])
+    private val lifetimeScope = CoroutineScope(scope.coroutineContext + lifetimeJob)
+    private val editor =
         ShelfContentsEditorController(clientProvider, scope, ::reconcileShelfContents)
-
     private val navigation = MutableStateFlow(ShelvesNavigationState())
     val state =
         shelvesStateFlow(
-            scope,
+            lifetimeScope,
             navigation,
             personal.state,
             shared.state,
             group.state,
             detail.state,
-            editor.state
+            editor.state,
+            create.state,
+            edit.state,
+            delete.state
         )
     val connectionEvents =
         merge(
@@ -78,7 +90,95 @@ internal class ShelvesController(
         activateCurrentCollection()
     }
 
-    fun showCollection(collection: ShelvesCollection) {
+    fun accept(intent: ShelvesIntent) {
+        when (intent) {
+            is ShelvesIntent.ShowCollection -> showCollection(intent.collection)
+
+            is ShelvesIntent.SelectShelf -> selectShelf(intent.shelfId)
+
+            is ShelvesIntent.OpenShelf -> openShelf(intent.entry)
+
+            ShelvesIntent.BackFromDetail -> backFromDetail()
+
+            is ShelvesIntent.ChangeCollectionOrdering ->
+                changeCollectionOrdering(intent.ordering)
+
+            is ShelvesIntent.LoadNextCollectionPage ->
+                intent.collection.controller().loadNextPage()
+
+            is ShelvesIntent.RetryCollection -> intent.collection.controller().retry()
+
+            ShelvesIntent.OpenCreate -> openCreate()
+
+            ShelvesIntent.DismissCreate -> dismissCreate()
+
+            is ShelvesIntent.UpdateCreateName -> create.updateName(intent.value)
+
+            is ShelvesIntent.UpdateCreateDescription -> create.updateDescription(intent.value)
+
+            is ShelvesIntent.UpdateCreateVisibility -> create.updateVisibility(intent.value)
+
+            ShelvesIntent.SubmitCreate -> submitCreate()
+
+            ShelvesIntent.OpenEdit -> openEdit()
+
+            ShelvesIntent.DismissEdit -> edit.reset()
+
+            is ShelvesIntent.UpdateEditName -> edit.updateName(intent.value)
+
+            is ShelvesIntent.UpdateEditDescription -> edit.updateDescription(intent.value)
+
+            is ShelvesIntent.UpdateEditVisibility -> edit.updateVisibility(intent.value)
+
+            ShelvesIntent.SubmitEdit -> submitEdit()
+
+            ShelvesIntent.OpenDelete -> openDelete()
+
+            ShelvesIntent.DismissDelete -> delete.reset()
+
+            ShelvesIntent.ConfirmDelete -> confirmDelete()
+
+            ShelvesIntent.OpenContentsEditor -> openContentsEditor()
+
+            ShelvesIntent.BackFromContentsEditor -> backFromContentsEditor()
+
+            ShelvesIntent.LoadNextEditorPage -> editor.loadNextPage()
+
+            ShelvesIntent.RetryEditor -> editor.retry()
+
+            is ShelvesIntent.MoveEditorItem -> editor.move(intent.itemId, intent.direction)
+
+            is ShelvesIntent.OpenEditorPosition -> editor.openPosition(intent.itemId)
+
+            is ShelvesIntent.UpdateEditorPosition -> editor.updatePosition(intent.value)
+
+            ShelvesIntent.SubmitEditorPosition -> editor.submitPosition()
+
+            ShelvesIntent.DismissEditorPosition -> editor.dismissPosition()
+
+            is ShelvesIntent.RequestEditorRemoval -> editor.requestRemoval(intent.itemId)
+
+            ShelvesIntent.ConfirmEditorRemoval -> editor.confirmRemoval()
+
+            ShelvesIntent.DismissEditorRemoval -> editor.dismissRemoval()
+
+            ShelvesIntent.DismissEditorMutationFailure -> editor.dismissMutationFailure()
+
+            is ShelvesIntent.ChangeItemOrdering -> detail.changeItemOrdering(intent.ordering)
+
+            is ShelvesIntent.SetItemLayout -> detail.setLayout(intent.layout)
+
+            ShelvesIntent.LoadNextItemPage -> detail.loadNextPage()
+
+            ShelvesIntent.RetryDetail -> detail.retryDetail()
+
+            ShelvesIntent.RetryItems -> detail.retryItems()
+
+            ShelvesIntent.LeaveMutationSurfaces -> leaveMutationSurfaces()
+        }
+    }
+
+    private fun showCollection(collection: ShelvesCollection) {
         if (navigation.value.destination !is ShelvesDestination.Collection) {
             detail.clear()
             editor.clear()
@@ -89,7 +189,7 @@ internal class ShelvesController(
         collection.controller().activate()
     }
 
-    fun selectShelf(shelfId: String) {
+    private fun selectShelf(shelfId: String) {
         val current = navigation.value.destination as? ShelvesDestination.Collection ?: return
         edit.reset()
         delete.reset()
@@ -98,7 +198,7 @@ internal class ShelvesController(
             ShelvesNavigationState(ShelvesDestination.Detail(shelfId, current.collection))
     }
 
-    fun openShelf(entry: ShelfDetailEntry) {
+    private fun openShelf(entry: ShelfDetailEntry) {
         edit.reset()
         delete.reset()
         detail.select(entry.shelfId)
@@ -106,7 +206,7 @@ internal class ShelvesController(
             ShelvesNavigationState(ShelvesDestination.Detail(entry.shelfId, entry.origin))
     }
 
-    fun backFromDetail() {
+    private fun backFromDetail() {
         val current = navigation.value.destination as? ShelvesDestination.Detail ?: return
         edit.reset()
         delete.reset()
@@ -114,12 +214,12 @@ internal class ShelvesController(
         navigation.value = ShelvesNavigationState(ShelvesDestination.Collection(current.origin))
     }
 
-    fun changeCollectionOrdering(ordering: ShelfOrdering) {
+    private fun changeCollectionOrdering(ordering: ShelfOrdering) {
         val destination = navigation.value.destination as? ShelvesDestination.Collection ?: return
         destination.collection.controller().changeOrdering(ordering)
     }
 
-    fun openContentsEditor() {
+    private fun openContentsEditor() {
         val current = navigation.value.destination as? ShelvesDestination.Detail ?: return
         val shelf = detail.state.value.detail.shelf
         if (!canManageShelf(current.origin, shelf)) return
@@ -130,7 +230,7 @@ internal class ShelvesController(
             )
     }
 
-    fun backFromContentsEditor() {
+    private fun backFromContentsEditor() {
         val current =
             navigation.value.destination as? ShelvesDestination.ContentsEditor ?: return
         editor.clear()
@@ -138,25 +238,25 @@ internal class ShelvesController(
             ShelvesNavigationState(ShelvesDestination.Detail(current.shelfId, current.origin))
     }
 
-    fun openCreate() {
+    private fun openCreate() {
         val destination = navigation.value.destination as? ShelvesDestination.Collection ?: return
         if (destination.collection != ShelvesCollection.PERSONAL) return
         navigation.value = navigation.value.copy(createOpen = true)
     }
 
-    fun dismissCreate() {
+    private fun dismissCreate() {
         create.reset()
         navigation.value = navigation.value.copy(createOpen = false)
     }
 
-    fun submitCreate() {
+    private fun submitCreate() {
         create.submit { shelf ->
             navigation.value = navigation.value.copy(createOpen = false)
             personal.applyAuthoritativeChange(ShelfCollectionChange.Added(shelf), refresh = true)
         }
     }
 
-    fun openEdit() {
+    private fun openEdit() {
         val destination = currentManagedShelfDestination() ?: return
         val shelf = detail.state.value.detail.shelf
         if (!canManageShelf(destination.origin, shelf)) return
@@ -164,14 +264,14 @@ internal class ShelvesController(
         edit.begin(requireNotNull(shelf))
     }
 
-    fun submitEdit() {
+    private fun submitEdit() {
         edit.submit { shelf ->
             detail.applyAuthoritativeShelf(shelf)
             personal.applyAuthoritativeChange(ShelfCollectionChange.Updated(shelf))
         }
     }
 
-    fun openDelete() {
+    private fun openDelete() {
         val destination = currentManagedShelfDestination() ?: return
         val shelf = detail.state.value.detail.shelf
         if (!canManageShelf(destination.origin, shelf)) return
@@ -179,7 +279,7 @@ internal class ShelvesController(
         delete.begin(requireNotNull(shelf))
     }
 
-    fun confirmDelete() {
+    private fun confirmDelete() {
         delete.confirm { shelfId ->
             personal.applyAuthoritativeChange(ShelfCollectionChange.Removed(shelfId))
             leaveDeletedShelf()
@@ -195,6 +295,18 @@ internal class ShelvesController(
         edit.close()
         delete.close()
         editor.close()
+        lifetimeScope.cancel()
+    }
+
+    private fun leaveMutationSurfaces() {
+        dismissCreate()
+        edit.reset()
+        delete.reset()
+        editor.dismissPosition()
+        editor.dismissRemoval()
+        if (navigation.value.destination is ShelvesDestination.ContentsEditor) {
+            backFromContentsEditor()
+        }
     }
 
     private fun activateCurrentCollection() {

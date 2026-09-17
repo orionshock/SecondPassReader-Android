@@ -1,11 +1,11 @@
 package com.secondpasslibrary.reader.shelves
 
-import com.secondpasslibrary.reader.shelves.collection.ShelfCollectionChange
 import com.secondpasslibrary.reader.shelves.management.CreatePersonalShelfState
 import com.secondpasslibrary.reader.shelves.management.ShelfManagementFailure
 import com.secondpasslibrary.reader.shelves.management.canManageShelf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -27,7 +27,7 @@ class ShelvesControllerTest {
         val profile = shelvesProfile()
         controller.initialize(profile)
         advanceUntilIdle()
-        controller.selectShelf("personal")
+        controller.accept(ShelvesIntent.SelectShelf("personal"))
         advanceUntilIdle()
 
         controller.initialize(profile.copy(clientSessionId = "replacement-session"))
@@ -49,14 +49,14 @@ class ShelvesControllerTest {
         controller.initialize(shelvesProfile())
         advanceUntilIdle()
 
-        controller.selectShelf("personal")
+        controller.accept(ShelvesIntent.SelectShelf("personal"))
         advanceUntilIdle()
         assertEquals(
             ShelvesDestination.Detail("personal", ShelvesCollection.PERSONAL),
             controller.state.value.destination
         )
 
-        controller.backFromDetail()
+        controller.accept(ShelvesIntent.BackFromDetail)
         assertEquals(
             ShelvesDestination.Collection(ShelvesCollection.PERSONAL),
             controller.state.value.destination
@@ -72,7 +72,9 @@ class ShelvesControllerTest {
         val controller = controller(capability, this)
         controller.initialize(shelvesProfile())
 
-        controller.openShelf(ShelfDetailEntry("shared-1", ShelvesCollection.SHARED))
+        controller.accept(
+            ShelvesIntent.OpenShelf(ShelfDetailEntry("shared-1", ShelvesCollection.SHARED))
+        )
         advanceUntilIdle()
 
         assertEquals(
@@ -90,7 +92,7 @@ class ShelvesControllerTest {
         val controller = controller(capability, this)
         controller.initialize(shelvesProfile())
         advanceUntilIdle()
-        controller.showCollection(ShelvesCollection.SHARED)
+        controller.accept(ShelvesIntent.ShowCollection(ShelvesCollection.SHARED))
         advanceUntilIdle()
 
         assertEquals(listOf("PERSONAL"), controller.state.value.personal.shelves.map { it.id })
@@ -109,9 +111,9 @@ class ShelvesControllerTest {
         val controller = controller(capability, this)
         controller.initialize(shelvesProfile())
         advanceUntilIdle()
-        controller.showCollection(ShelvesCollection.SHARED)
+        controller.accept(ShelvesIntent.ShowCollection(ShelvesCollection.SHARED))
         advanceUntilIdle()
-        controller.showCollection(ShelvesCollection.GROUP)
+        controller.accept(ShelvesIntent.ShowCollection(ShelvesCollection.GROUP))
         advanceUntilIdle()
 
         assertEquals(listOf("PERSONAL"), controller.state.value.personal.shelves.map { it.id })
@@ -129,12 +131,12 @@ class ShelvesControllerTest {
         val controller = controller(capability, this)
         controller.initialize(shelvesProfile())
         advanceUntilIdle()
-        controller.showCollection(ShelvesCollection.SHARED)
+        controller.accept(ShelvesIntent.ShowCollection(ShelvesCollection.SHARED))
         advanceUntilIdle()
-        controller.selectShelf("shared")
+        controller.accept(ShelvesIntent.SelectShelf("shared"))
         advanceUntilIdle()
 
-        controller.backFromDetail()
+        controller.accept(ShelvesIntent.BackFromDetail)
 
         assertEquals(
             ShelvesDestination.Collection(ShelvesCollection.SHARED),
@@ -150,11 +152,11 @@ class ShelvesControllerTest {
         controller.initialize(shelvesProfile())
         advanceUntilIdle()
 
-        controller.openCreate()
+        controller.accept(ShelvesIntent.OpenCreate)
         assertTrue(controller.state.value.createOpen)
-        controller.dismissCreate()
-        controller.showCollection(ShelvesCollection.SHARED)
-        controller.openCreate()
+        controller.accept(ShelvesIntent.DismissCreate)
+        controller.accept(ShelvesIntent.ShowCollection(ShelvesCollection.SHARED))
+        controller.accept(ShelvesIntent.OpenCreate)
 
         assertFalse(controller.state.value.createOpen)
         assertTrue(capability.createRequests.isEmpty())
@@ -169,19 +171,19 @@ class ShelvesControllerTest {
         val controller = controller(capability, this)
         controller.initialize(shelvesProfile())
         advanceUntilIdle()
-        controller.showCollection(ShelvesCollection.SHARED)
+        controller.accept(ShelvesIntent.ShowCollection(ShelvesCollection.SHARED))
         advanceUntilIdle()
-        controller.showCollection(ShelvesCollection.GROUP)
+        controller.accept(ShelvesIntent.ShowCollection(ShelvesCollection.GROUP))
         advanceUntilIdle()
-        controller.showCollection(ShelvesCollection.PERSONAL)
-        controller.openCreate()
-        controller.create.updateName("New shelf")
+        controller.accept(ShelvesIntent.ShowCollection(ShelvesCollection.PERSONAL))
+        controller.accept(ShelvesIntent.OpenCreate)
+        controller.accept(ShelvesIntent.UpdateCreateName("New shelf"))
 
-        controller.submitCreate()
+        controller.accept(ShelvesIntent.SubmitCreate)
         advanceUntilIdle()
 
         assertFalse(controller.state.value.createOpen)
-        assertEquals(CreatePersonalShelfState(), controller.create.state.value)
+        assertEquals(CreatePersonalShelfState(), controller.state.value.create)
         assertEquals(2, capability.listRequests.count { it.scope.name == "PERSONAL" })
         assertEquals(1, capability.listRequests.count { it.scope.name == "SHARED" })
         assertEquals(1, capability.listRequests.count { it.scope.name == "GROUP" })
@@ -201,7 +203,16 @@ class ShelvesControllerTest {
     fun `successful edit updates detail and Personal only`() = runTest {
         val original = shelf("personal", canEdit = true)
         val capability = RecordingShelvesCapability().apply {
-            listCall = { options -> shelfPage(1, listOf(shelf(options.scope.name))) }
+            listCall = { options ->
+                val listed = if (options.scope.name ==
+                    "PERSONAL"
+                ) {
+                    original
+                } else {
+                    shelf(options.scope.name)
+                }
+                shelfPage(1, listOf(listed))
+            }
             detailCall = { original }
             updateCall = { _, _ ->
                 original.copy(
@@ -213,22 +224,21 @@ class ShelvesControllerTest {
         val controller = controller(capability, this)
         controller.initialize(shelvesProfile())
         advanceUntilIdle()
-        controller.personal.applyAuthoritativeChange(ShelfCollectionChange.Added(original))
-        controller.showCollection(ShelvesCollection.SHARED)
+        controller.accept(ShelvesIntent.ShowCollection(ShelvesCollection.SHARED))
         advanceUntilIdle()
-        controller.showCollection(ShelvesCollection.GROUP)
+        controller.accept(ShelvesIntent.ShowCollection(ShelvesCollection.GROUP))
         advanceUntilIdle()
-        controller.showCollection(ShelvesCollection.PERSONAL)
-        controller.selectShelf(original.id)
+        controller.accept(ShelvesIntent.ShowCollection(ShelvesCollection.PERSONAL))
+        controller.accept(ShelvesIntent.SelectShelf(original.id))
         advanceUntilIdle()
         val sharedBefore = controller.state.value.shared
         val groupBefore = controller.state.value.group
 
-        controller.openContentsEditor()
+        controller.accept(ShelvesIntent.OpenContentsEditor)
         advanceUntilIdle()
-        controller.openEdit()
-        controller.edit.updateName("Renamed")
-        controller.submitEdit()
+        controller.accept(ShelvesIntent.OpenEdit)
+        controller.accept(ShelvesIntent.UpdateEditName("Renamed"))
+        controller.accept(ShelvesIntent.SubmitEdit)
         advanceUntilIdle()
 
         assertEquals("Renamed", controller.state.value.detail.detail.shelf?.name)
@@ -249,28 +259,37 @@ class ShelvesControllerTest {
         runTest {
             val original = shelf("personal", canEdit = true)
             val capability = RecordingShelvesCapability().apply {
-                listCall = { options -> shelfPage(1, listOf(shelf(options.scope.name))) }
+                listCall = { options ->
+                    val listed =
+                        if (options.scope.name ==
+                            "PERSONAL"
+                        ) {
+                            original
+                        } else {
+                            shelf(options.scope.name)
+                        }
+                    shelfPage(1, listOf(listed))
+                }
                 detailCall = { original }
             }
             val controller = controller(capability, this)
             controller.initialize(shelvesProfile())
             advanceUntilIdle()
-            controller.personal.applyAuthoritativeChange(ShelfCollectionChange.Added(original))
-            controller.showCollection(ShelvesCollection.SHARED)
+            controller.accept(ShelvesIntent.ShowCollection(ShelvesCollection.SHARED))
             advanceUntilIdle()
-            controller.showCollection(ShelvesCollection.GROUP)
+            controller.accept(ShelvesIntent.ShowCollection(ShelvesCollection.GROUP))
             advanceUntilIdle()
-            controller.showCollection(ShelvesCollection.PERSONAL)
-            controller.selectShelf(original.id)
+            controller.accept(ShelvesIntent.ShowCollection(ShelvesCollection.PERSONAL))
+            controller.accept(ShelvesIntent.SelectShelf(original.id))
             advanceUntilIdle()
             val sharedBefore = controller.state.value.shared
             val groupBefore = controller.state.value.group
 
-            controller.openContentsEditor()
+            controller.accept(ShelvesIntent.OpenContentsEditor)
             advanceUntilIdle()
-            controller.openDelete()
-            assertTrue(controller.delete.state.value.open)
-            controller.confirmDelete()
+            controller.accept(ShelvesIntent.OpenDelete)
+            assertTrue(controller.state.value.delete.open)
+            controller.accept(ShelvesIntent.ConfirmDelete)
             advanceUntilIdle()
 
             assertEquals(listOf(original.id), capability.deleteRequests)
@@ -294,18 +313,18 @@ class ShelvesControllerTest {
         val controller = controller(capability, this)
         controller.initialize(shelvesProfile())
         advanceUntilIdle()
-        controller.selectShelf(original.id)
+        controller.accept(ShelvesIntent.SelectShelf(original.id))
         advanceUntilIdle()
 
-        controller.openDelete()
-        controller.confirmDelete()
+        controller.accept(ShelvesIntent.OpenDelete)
+        controller.accept(ShelvesIntent.ConfirmDelete)
         advanceUntilIdle()
 
         assertEquals(
             ShelvesDestination.Detail(original.id, ShelvesCollection.PERSONAL),
             controller.state.value.destination
         )
-        assertEquals(ShelfManagementFailure.UNREACHABLE, controller.delete.state.value.failure)
+        assertEquals(ShelfManagementFailure.UNREACHABLE, controller.state.value.delete.failure)
     }
 
     @Test
@@ -314,7 +333,16 @@ class ShelvesControllerTest {
         val updated = original.copy(itemCount = 1, previewBooks = emptyList())
         var mutated = false
         val capability = RecordingShelvesCapability().apply {
-            listCall = { options -> shelfPage(1, listOf(shelf(options.scope.name))) }
+            listCall = { options ->
+                val listed = if (options.scope.name ==
+                    "PERSONAL"
+                ) {
+                    original
+                } else {
+                    shelf(options.scope.name)
+                }
+                shelfPage(1, listOf(listed))
+            }
             detailCall = { if (mutated) updated else original }
             editorCall = { _, options ->
                 val entries = if (mutated) emptyList() else listOf(availableEditorItem("item", 0))
@@ -325,21 +353,20 @@ class ShelvesControllerTest {
         val controller = controller(capability, this)
         controller.initialize(shelvesProfile())
         advanceUntilIdle()
-        controller.personal.applyAuthoritativeChange(ShelfCollectionChange.Added(original))
-        controller.showCollection(ShelvesCollection.SHARED)
+        controller.accept(ShelvesIntent.ShowCollection(ShelvesCollection.SHARED))
         advanceUntilIdle()
-        controller.showCollection(ShelvesCollection.GROUP)
+        controller.accept(ShelvesIntent.ShowCollection(ShelvesCollection.GROUP))
         advanceUntilIdle()
-        controller.showCollection(ShelvesCollection.PERSONAL)
-        controller.selectShelf(original.id)
+        controller.accept(ShelvesIntent.ShowCollection(ShelvesCollection.PERSONAL))
+        controller.accept(ShelvesIntent.SelectShelf(original.id))
         advanceUntilIdle()
         val sharedBefore = controller.state.value.shared
         val groupBefore = controller.state.value.group
 
-        controller.openContentsEditor()
+        controller.accept(ShelvesIntent.OpenContentsEditor)
         advanceUntilIdle()
-        controller.editor.requestRemoval("item")
-        controller.editor.confirmRemoval()
+        controller.accept(ShelvesIntent.RequestEditorRemoval("item"))
+        controller.accept(ShelvesIntent.ConfirmEditorRemoval)
         advanceUntilIdle()
 
         assertEquals(1, controller.state.value.detail.detail.shelf?.itemCount)
@@ -353,7 +380,7 @@ class ShelvesControllerTest {
             ShelvesDestination.ContentsEditor(original.id, ShelvesCollection.PERSONAL),
             controller.state.value.destination
         )
-        controller.backFromContentsEditor()
+        controller.accept(ShelvesIntent.BackFromContentsEditor)
         assertEquals(
             ShelvesDestination.Detail(original.id, ShelvesCollection.PERSONAL),
             controller.state.value.destination
@@ -369,18 +396,41 @@ class ShelvesControllerTest {
         advanceUntilIdle()
 
         listOf(ShelvesCollection.SHARED, ShelvesCollection.GROUP).forEach { collection ->
-            controller.showCollection(collection)
+            controller.accept(ShelvesIntent.ShowCollection(collection))
             advanceUntilIdle()
-            controller.selectShelf("foreign")
+            controller.accept(ShelvesIntent.SelectShelf("foreign"))
             advanceUntilIdle()
-            controller.openContentsEditor()
+            controller.accept(ShelvesIntent.OpenContentsEditor)
             assertEquals(
                 ShelvesDestination.Detail("foreign", collection),
                 controller.state.value.destination
             )
-            controller.backFromDetail()
+            controller.accept(ShelvesIntent.BackFromDetail)
         }
         assertTrue(capability.editorRequests.isEmpty())
+    }
+
+    @Test
+    fun `close tears down child loading`() = runTest {
+        var cancelled = false
+        val capability = RecordingShelvesCapability().apply {
+            listCall = {
+                try {
+                    awaitCancellation()
+                } finally {
+                    cancelled = true
+                }
+            }
+        }
+        val controller = controller(capability, this)
+        controller.initialize(shelvesProfile())
+        advanceUntilIdle()
+
+        controller.close()
+        controller.close()
+        advanceUntilIdle()
+
+        assertTrue(cancelled)
     }
 
     private fun controller(capability: RecordingShelvesCapability, scope: TestScope) =

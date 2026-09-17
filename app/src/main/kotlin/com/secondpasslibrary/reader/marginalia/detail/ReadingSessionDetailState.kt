@@ -26,19 +26,4 @@ internal enum class ReadingSessionMutationFailure {
     OTHER
 }
 
-internal sealed interface ReadingSessionDetailIntent {
-    data object RetryDetail : ReadingSessionDetailIntent
-    data object RetryAnnotations : ReadingSessionDetailIntent
-    data object BeginEdit : ReadingSessionDetailIntent
-    data class EditName(val value: String) : ReadingSessionDetailIntent
-    data class EditNotes(val value: String) : ReadingSessionDetailIntent
-    data object SaveEdit : ReadingSessionDetailIntent
-    data object CancelEdit : ReadingSessionDetailIntent
-    data object BeginClose : ReadingSessionDetailIntent
-    data class CloseName(val value: String) : ReadingSessionDetailIntent
-    data class CloseNotes(val value: String) : ReadingSessionDetailIntent
-    data object ConfirmClose : ReadingSessionDetailIntent
-    data object CancelClose : ReadingSessionDetailIntent
-}
-
 internal const val MAX_READING_SESSION_NAME_LENGTH = 255

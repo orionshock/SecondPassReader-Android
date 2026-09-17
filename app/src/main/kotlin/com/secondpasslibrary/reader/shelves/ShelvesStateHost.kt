@@ -2,6 +2,8 @@ package com.secondpasslibrary.reader.shelves
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
@@ -20,10 +22,10 @@ internal fun ShelvesStateHost(
     val connectionIdentity = profile.authenticatedConnectionIdentity
     LaunchedEffect(connectionIdentity, initialDetail) {
         viewModel.initialize(profile)
-        initialDetail?.let(viewModel::openShelf)
+        initialDetail?.let { viewModel.accept(ShelvesIntent.OpenShelf(it)) }
     }
     LaunchedEffect(serverMutationsAvailable) {
-        if (!serverMutationsAvailable) viewModel.leaveMutationSurfaces()
+        if (!serverMutationsAvailable) viewModel.accept(ShelvesIntent.LeaveMutationSurfaces)
     }
     LaunchedEffect(viewModel, onAuthenticationRejected) {
         viewModel.connectionEvents.collect { event ->
@@ -32,8 +34,10 @@ internal fun ShelvesStateHost(
             }
         }
     }
+    val state by viewModel.state.collectAsStateWithLifecycle()
     ShelvesScreen(
-        viewModel,
+        state,
+        viewModel::accept,
         serverMutationsAvailable,
         onOpenDrawer,
         onBookSelected,

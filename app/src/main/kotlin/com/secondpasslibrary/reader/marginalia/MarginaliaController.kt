@@ -10,29 +10,44 @@ import com.secondpasslibrary.reader.marginalia.detail.ReadingSessionDetailContro
 import com.secondpasslibrary.reader.marginalia.history.ReadingSessionsController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
-@Suppress("TooManyFunctions") // Parent commands keep child ownership explicit and searchable.
+// Parent exhaustively routes typed coordination intents to its bounded children.
+@Suppress("CyclomaticComplexMethod", "TooManyFunctions")
 internal class MarginaliaController(
     clientProvider: AuthenticatedClientProvider,
     private val scope: CoroutineScope,
-    val sessions: ReadingSessionsController = ReadingSessionsController(clientProvider, scope),
-    val books: MarginaliaBooksController = MarginaliaBooksController(clientProvider, scope),
-    val detail: ReadingSessionDetailController =
+    private val sessions: ReadingSessionsController =
+        ReadingSessionsController(clientProvider, scope),
+    private val books: MarginaliaBooksController = MarginaliaBooksController(clientProvider, scope),
+    private val detail: ReadingSessionDetailController =
         ReadingSessionDetailController(
             clientProvider,
             scope,
             ReadingSessionAuthoritativeUpdateSink(sessions::reconcileAuthoritativeUpdate)
         )
 ) {
-    private val mutableState = MutableStateFlow(MarginaliaState())
-    val state = mutableState.asStateFlow()
+    private val lifetimeJob = SupervisorJob(scope.coroutineContext[Job])
+    private val lifetimeScope = CoroutineScope(scope.coroutineContext + lifetimeJob)
+    private val navigationState = MutableStateFlow(MarginaliaNavigationState())
+    val state =
+        marginaliaStateFlow(
+            lifetimeScope,
+            navigationState,
+            sessions.state,
+            books.state,
+            detail.state,
+            detail.annotations.state,
+            detail.metadataEditor.state,
+            detail.closeFlow.state
+        )
 
     private val navigationChannel = Channel<MarginaliaExternalNavigationIntent>(Channel.BUFFERED)
     val navigation = navigationChannel.receiveAsFlow()
@@ -50,7 +65,7 @@ internal class MarginaliaController(
     ) {
         val nextConnectionIdentity = profile.authenticatedConnectionIdentity
         val identityChanged = nextConnectionIdentity != connectionIdentity
-        val activeContext = when (val destination = state.value.destination) {
+        val activeContext = when (val destination = navigationState.value.destination) {
             is MarginaliaDestination.History -> destination.context
             is MarginaliaDestination.SessionDetail -> destination.returnContext
         }
@@ -60,71 +75,144 @@ internal class MarginaliaController(
         detail.prepare(profile)
         if (identityChanged) {
             connectionIdentity = nextConnectionIdentity
-            mutableState.value =
-                MarginaliaState(destination = MarginaliaDestination.History(initialContext))
+            navigationState.value =
+                MarginaliaNavigationState(
+                    destination = MarginaliaDestination.History(initialContext)
+                )
         } else if (contextChanged) {
             detail.clear()
-            mutableState.value =
-                state.value.copy(
+            navigationState.value =
+                navigationState.value.copy(
                     browseMode = MarginaliaBrowseMode.SESSIONS,
                     destination = MarginaliaDestination.History(initialContext)
                 )
         }
         if (detailEntry != null) {
-            val current = state.value.destination as? MarginaliaDestination.SessionDetail
+            val current = navigationState.value.destination as? MarginaliaDestination.SessionDetail
             if (identityChanged || contextChanged || current?.sessionId != detailEntry.sessionId) {
                 enterSessionDetail(detailEntry, initialContext)
             }
             return
         }
-        val destination = state.value.destination
+        val destination = navigationState.value.destination
         if (destination is MarginaliaDestination.History) {
             sessions.enter(destination.context, identityChanged || contextChanged)
         }
     }
 
-    fun selectBrowseMode(mode: MarginaliaBrowseMode) {
-        val history = state.value.destination as? MarginaliaDestination.History ?: return
+    fun accept(intent: MarginaliaIntent) {
+        when (intent) {
+            is MarginaliaIntent.SelectBrowseMode -> selectBrowseMode(intent.mode)
+
+            is MarginaliaIntent.ChangeStatus -> sessions.changeStatus(intent.filter)
+
+            is MarginaliaIntent.CommitSessionsSearch -> sessions.commitSearch(intent.query)
+
+            MarginaliaIntent.LoadNextSessionsPage -> sessions.loadNextPage()
+
+            MarginaliaIntent.RetrySessions -> sessions.retry()
+
+            is MarginaliaIntent.CommitBooksSearch -> books.commitSearch(intent.query)
+
+            MarginaliaIntent.LoadNextBooksPage -> books.loadNextPage()
+
+            MarginaliaIntent.RetryBooks -> books.retry()
+
+            is MarginaliaIntent.SelectBook -> selectBook(intent.bookId)
+
+            MarginaliaIntent.BackFromBookHistory -> backFromBookHistory()
+
+            MarginaliaIntent.ShowDetailBookHistory -> showDetailBookHistory()
+
+            MarginaliaIntent.OpenDetailBook -> openDetailBook()
+
+            is MarginaliaIntent.SelectSession -> selectSession(intent.sessionId)
+
+            MarginaliaIntent.BackFromDetail -> backFromDetail()
+
+            MarginaliaIntent.RetryDetail -> detail.retry()
+
+            MarginaliaIntent.RetryAnnotations -> detail.annotations.retry()
+
+            MarginaliaIntent.BeginEdit -> detail.beginMetadataEdit()
+
+            is MarginaliaIntent.EditName -> detail.metadataEditor.updateName(intent.value)
+
+            is MarginaliaIntent.EditNotes -> detail.metadataEditor.updateNotes(intent.value)
+
+            MarginaliaIntent.SaveEdit -> detail.saveMetadata()
+
+            MarginaliaIntent.CancelEdit -> detail.metadataEditor.reset()
+
+            MarginaliaIntent.BeginClose -> detail.beginClose()
+
+            is MarginaliaIntent.CloseName -> detail.closeFlow.updateName(intent.value)
+
+            is MarginaliaIntent.CloseNotes -> detail.closeFlow.updateNotes(intent.value)
+
+            MarginaliaIntent.ConfirmClose -> detail.confirmClose()
+
+            MarginaliaIntent.CancelClose -> detail.closeFlow.reset()
+
+            MarginaliaIntent.ShowGlobalHistory -> showHistory(MarginaliaHistoryContext.Global)
+
+            is MarginaliaIntent.ShowBookHistory ->
+                showHistory(MarginaliaHistoryContext.Book(intent.bookId))
+
+            is MarginaliaIntent.OpenBookDetail -> openBookDetail(intent.bookId)
+
+            is MarginaliaIntent.OpenReader -> openReader(intent.bookId, intent.sessionId)
+        }
+    }
+
+    fun close() {
+        detailEntryJob?.cancel()
+        sessions.close()
+        books.close()
+        detail.close()
+        lifetimeScope.cancel()
+    }
+
+    private fun selectBrowseMode(mode: MarginaliaBrowseMode) {
+        val history = navigationState.value.destination as? MarginaliaDestination.History ?: return
         if (history.context != MarginaliaHistoryContext.Global ||
-            state.value.browseMode == mode
+            navigationState.value.browseMode == mode
         ) {
             return
         }
-        mutableState.value = state.value.copy(browseMode = mode)
+        navigationState.value = navigationState.value.copy(browseMode = mode)
         when (mode) {
             MarginaliaBrowseMode.SESSIONS -> sessions.enter(MarginaliaHistoryContext.Global)
             MarginaliaBrowseMode.BOOKS -> books.enter()
         }
     }
 
-    fun showGlobalHistory() = showHistory(MarginaliaHistoryContext.Global)
-
-    fun showBookHistory(bookId: String) = showHistory(MarginaliaHistoryContext.Book(bookId))
-
-    fun selectBook(bookId: String) {
+    private fun selectBook(bookId: String) {
         require(bookId.isNotBlank()) { "Book ID must not be blank." }
         detailEntryJob?.cancel()
         detail.clear()
-        mutableState.value =
-            state.value.copy(
-                destination = MarginaliaDestination.History(
-                    MarginaliaHistoryContext.Book(bookId),
-                    returnToBooks = true
-                )
+        navigationState.value =
+            navigationState.value.copy(
+                destination =
+                    MarginaliaDestination.History(
+                        MarginaliaHistoryContext.Book(bookId),
+                        returnToBooks = true
+                    )
             )
         sessions.enter(MarginaliaHistoryContext.Book(bookId))
     }
 
-    fun backFromBookHistory() {
-        val current = state.value.destination as? MarginaliaDestination.History ?: return
+    private fun backFromBookHistory() {
+        val current = navigationState.value.destination as? MarginaliaDestination.History ?: return
         when {
             current.returnToDetail != null -> {
-                mutableState.value = state.value.copy(destination = current.returnToDetail)
+                navigationState.value =
+                    navigationState.value.copy(destination = current.returnToDetail)
             }
 
             current.returnToBooks -> {
-                mutableState.value =
-                    state.value.copy(
+                navigationState.value =
+                    navigationState.value.copy(
                         destination = MarginaliaDestination.History(MarginaliaHistoryContext.Global)
                     )
                 books.enter()
@@ -132,21 +220,24 @@ internal class MarginaliaController(
         }
     }
 
-    fun showDetailBookHistory() {
-        val current = state.value.destination as? MarginaliaDestination.SessionDetail ?: return
+    private fun showDetailBookHistory() {
+        val current =
+            navigationState.value.destination as? MarginaliaDestination.SessionDetail
+                ?: return
         val bookId = detail.state.value.detail?.book?.id ?: return
-        mutableState.value =
-            state.value.copy(
-                destination = MarginaliaDestination.History(
-                    context = MarginaliaHistoryContext.Book(bookId),
-                    returnToDetail = current
-                )
+        navigationState.value =
+            navigationState.value.copy(
+                destination =
+                    MarginaliaDestination.History(
+                        context = MarginaliaHistoryContext.Book(bookId),
+                        returnToDetail = current
+                    )
             )
         sessions.enter(MarginaliaHistoryContext.Book(bookId))
     }
 
-    fun selectSession(sessionId: String) {
-        val current = state.value.destination as? MarginaliaDestination.History ?: return
+    private fun selectSession(sessionId: String) {
+        val current = navigationState.value.destination as? MarginaliaDestination.History ?: return
         enterSessionDetail(
             ReadingSessionDetailEntry(sessionId),
             current.context,
@@ -155,12 +246,14 @@ internal class MarginaliaController(
         )
     }
 
-    fun backFromDetail() {
-        val current = state.value.destination as? MarginaliaDestination.SessionDetail ?: return
+    private fun backFromDetail() {
+        val current =
+            navigationState.value.destination as? MarginaliaDestination.SessionDetail
+                ?: return
         detailEntryJob?.cancel()
         detail.clear()
-        mutableState.value =
-            state.value.copy(
+        navigationState.value =
+            navigationState.value.copy(
                 destination =
                     MarginaliaDestination.History(
                         current.returnContext,
@@ -170,29 +263,26 @@ internal class MarginaliaController(
             )
     }
 
-    fun openBookDetail(bookId: String) {
+    private fun openDetailBook() {
+        detail.state.value.detail?.book?.id?.let(::openBookDetail)
+    }
+
+    private fun openBookDetail(bookId: String) {
         require(bookId.isNotBlank()) { "Book ID must not be blank." }
         navigationChannel.trySend(MarginaliaExternalNavigationIntent.BookDetail(bookId))
     }
 
-    fun openReader(bookId: String, sessionId: String) {
+    private fun openReader(bookId: String, sessionId: String) {
         require(bookId.isNotBlank()) { "Book ID must not be blank." }
         require(sessionId.isNotBlank()) { "Reading Session ID must not be blank." }
         navigationChannel.trySend(MarginaliaExternalNavigationIntent.Reader(bookId, sessionId))
     }
 
-    fun close() {
-        detailEntryJob?.cancel()
-        sessions.close()
-        books.close()
-        detail.close()
-    }
-
     private fun showHistory(context: MarginaliaHistoryContext) {
         detailEntryJob?.cancel()
         detail.clear()
-        mutableState.value =
-            state.value.copy(
+        navigationState.value =
+            navigationState.value.copy(
                 browseMode = MarginaliaBrowseMode.SESSIONS,
                 destination = MarginaliaDestination.History(context)
             )
@@ -208,8 +298,8 @@ internal class MarginaliaController(
         require(entry.sessionId.isNotBlank()) { "Reading Session ID must not be blank." }
         detailEntryJob?.cancel()
         detail.select(entry.sessionId)
-        mutableState.value =
-            state.value.copy(
+        navigationState.value =
+            navigationState.value.copy(
                 destination =
                     MarginaliaDestination.SessionDetail(
                         entry.sessionId,
@@ -221,7 +311,7 @@ internal class MarginaliaController(
         if (entry.action == ReadingSessionDetailEntryAction.VIEW) return
         detailEntryJob = scope.launch {
             detail.state.first { it.sessionId == entry.sessionId && it.detail != null }
-            val current = state.value.destination as? MarginaliaDestination.SessionDetail
+            val current = navigationState.value.destination as? MarginaliaDestination.SessionDetail
             if (current?.sessionId != entry.sessionId) return@launch
             when (entry.action) {
                 ReadingSessionDetailEntryAction.VIEW -> Unit

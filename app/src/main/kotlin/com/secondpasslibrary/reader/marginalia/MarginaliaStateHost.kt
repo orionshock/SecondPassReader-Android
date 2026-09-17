@@ -2,6 +2,8 @@ package com.secondpasslibrary.reader.marginalia
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
@@ -32,5 +34,12 @@ internal fun MarginaliaStateHost(
     LaunchedEffect(viewModel, onNavigation) {
         viewModel.navigation.collect(onNavigation)
     }
-    MarginaliaScreen(viewModel, onOpenDrawer, onBackFromHistory, onBackFromDetail)
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    MarginaliaScreen(
+        state,
+        viewModel::accept,
+        onOpenDrawer,
+        onBackFromHistory,
+        onBackFromDetail
+    )
 }

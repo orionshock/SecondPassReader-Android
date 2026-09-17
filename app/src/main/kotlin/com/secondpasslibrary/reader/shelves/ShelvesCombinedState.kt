@@ -3,6 +3,9 @@ package com.secondpasslibrary.reader.shelves
 import com.secondpasslibrary.reader.shelves.collection.ShelfCollectionState
 import com.secondpasslibrary.reader.shelves.detail.ShelfDetailState
 import com.secondpasslibrary.reader.shelves.editor.ShelfContentsEditorState
+import com.secondpasslibrary.reader.shelves.management.CreatePersonalShelfState
+import com.secondpasslibrary.reader.shelves.management.DeletePersonalShelfState
+import com.secondpasslibrary.reader.shelves.management.EditPersonalShelfState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -16,10 +19,14 @@ internal fun shelvesStateFlow(
     shared: StateFlow<ShelfCollectionState>,
     group: StateFlow<ShelfCollectionState>,
     detail: StateFlow<ShelfDetailState>,
-    editor: StateFlow<ShelfContentsEditorState>
+    editor: StateFlow<ShelfContentsEditorState>,
+    create: StateFlow<CreatePersonalShelfState>,
+    edit: StateFlow<EditPersonalShelfState>,
+    delete: StateFlow<DeletePersonalShelfState>
 ): StateFlow<ShelvesState> {
     val core = combine(navigation, personal, shared, group, detail, ::ShelvesCoreState)
-    return combine(core, editor, ::toShelvesState).stateIn(
+    val management = combine(create, edit, delete, ::ShelvesManagementState)
+    return combine(core, editor, management, ::toShelvesState).stateIn(
         scope,
         // Eager sharing matches the former aggregate, which stayed current without a collector.
         SharingStarted.Eagerly,
@@ -31,21 +38,28 @@ internal fun shelvesStateFlow(
                 group.value,
                 detail.value
             ),
-            editor.value
+            editor.value,
+            ShelvesManagementState(create.value, edit.value, delete.value)
         )
     )
 }
 
-private fun toShelvesState(core: ShelvesCoreState, editor: ShelfContentsEditorState): ShelvesState =
-    ShelvesState(
-        core.navigation.destination,
-        core.personal,
-        core.shared,
-        core.group,
-        core.detail,
-        editor,
-        core.navigation.createOpen
-    )
+private fun toShelvesState(
+    core: ShelvesCoreState,
+    editor: ShelfContentsEditorState,
+    management: ShelvesManagementState
+): ShelvesState = ShelvesState(
+    core.navigation.destination,
+    core.personal,
+    core.shared,
+    core.group,
+    core.detail,
+    editor,
+    management.create,
+    management.edit,
+    management.delete,
+    core.navigation.createOpen
+)
 
 private data class ShelvesCoreState(
     val navigation: ShelvesNavigationState,
@@ -53,4 +67,10 @@ private data class ShelvesCoreState(
     val shared: ShelfCollectionState,
     val group: ShelfCollectionState,
     val detail: ShelfDetailState
+)
+
+private data class ShelvesManagementState(
+    val create: CreatePersonalShelfState,
+    val edit: EditPersonalShelfState,
+    val delete: DeletePersonalShelfState
 )

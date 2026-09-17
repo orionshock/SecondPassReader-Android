@@ -2,8 +2,11 @@ package com.secondpasslibrary.reader.marginalia
 
 import com.secondpasslibrary.client.ReadingSessionStatus
 import com.secondpasslibrary.reader.marginalia.history.ReadingSessionStatusFilter
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -18,34 +21,44 @@ class MarginaliaControllerTest {
             globalCall = { marginaliaPage(it.page, listOf(sessionItem("session-1"))) }
             marginaliaBooksCall = { marginaliaPage(it.page, listOf(marginaliaBook("book-1"))) }
         }
-        val controller = MarginaliaController(marginaliaProvider(capability), this)
+        val controller = MarginaliaController(
+            marginaliaProvider(capability),
+            CoroutineScope(
+                backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler)
+            )
+        )
         controller.initialize(marginaliaProfile())
         advanceUntilIdle()
-        controller.sessions.commitSearch("session query")
+        controller.accept(MarginaliaIntent.CommitSessionsSearch("session query"))
         advanceUntilIdle()
 
-        controller.selectBrowseMode(MarginaliaBrowseMode.BOOKS)
+        controller.accept(MarginaliaIntent.SelectBrowseMode(MarginaliaBrowseMode.BOOKS))
         advanceUntilIdle()
-        controller.books.commitSearch("book query")
+        controller.accept(MarginaliaIntent.CommitBooksSearch("book query"))
         advanceUntilIdle()
-        controller.selectBrowseMode(MarginaliaBrowseMode.SESSIONS)
+        controller.accept(MarginaliaIntent.SelectBrowseMode(MarginaliaBrowseMode.SESSIONS))
 
         assertEquals(MarginaliaBrowseMode.SESSIONS, controller.state.value.browseMode)
-        assertEquals("session query", controller.sessions.state.value.committedQuery)
-        assertEquals("book query", controller.books.state.value.committedQuery)
+        assertEquals("session query", controller.state.value.sessions.committedQuery)
+        assertEquals("book query", controller.state.value.books.committedQuery)
         assertEquals(0, capability.openSessionRequests)
     }
 
     @Test
     fun `selecting a Marginalia Book enters scoped history and returns to Books`() = runTest {
         val capability = RecordingMarginaliaCapability()
-        val controller = MarginaliaController(marginaliaProvider(capability), this)
+        val controller = MarginaliaController(
+            marginaliaProvider(capability),
+            CoroutineScope(
+                backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler)
+            )
+        )
         controller.initialize(marginaliaProfile())
         advanceUntilIdle()
-        controller.selectBrowseMode(MarginaliaBrowseMode.BOOKS)
+        controller.accept(MarginaliaIntent.SelectBrowseMode(MarginaliaBrowseMode.BOOKS))
         advanceUntilIdle()
 
-        controller.selectBook("book-1")
+        controller.accept(MarginaliaIntent.SelectBook("book-1"))
         advanceUntilIdle()
         assertEquals(
             MarginaliaDestination.History(
@@ -54,9 +67,9 @@ class MarginaliaControllerTest {
             ),
             controller.state.value.destination
         )
-        controller.selectSession("session-1")
+        controller.accept(MarginaliaIntent.SelectSession("session-1"))
         advanceUntilIdle()
-        controller.backFromDetail()
+        controller.accept(MarginaliaIntent.BackFromDetail)
         assertEquals(
             MarginaliaDestination.History(
                 MarginaliaHistoryContext.Book("book-1"),
@@ -64,7 +77,7 @@ class MarginaliaControllerTest {
             ),
             controller.state.value.destination
         )
-        controller.backFromBookHistory()
+        controller.accept(MarginaliaIntent.BackFromBookHistory)
 
         assertEquals(MarginaliaBrowseMode.BOOKS, controller.state.value.browseMode)
         assertEquals(
@@ -76,7 +89,12 @@ class MarginaliaControllerTest {
     @Test
     fun `Book entry loads scoped history without creating a Reading Session`() = runTest {
         val capability = RecordingMarginaliaCapability()
-        val controller = MarginaliaController(marginaliaProvider(capability), this)
+        val controller = MarginaliaController(
+            marginaliaProvider(capability),
+            CoroutineScope(
+                backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler)
+            )
+        )
 
         controller.initialize(
             marginaliaProfile(),
@@ -90,21 +108,26 @@ class MarginaliaControllerTest {
         )
         assertEquals("book-1", capability.bookRequests.single().first)
         assertEquals(0, capability.openSessionRequests)
-        assertTrue(controller.sessions.state.value.sessions.isEmpty())
+        assertTrue(controller.state.value.sessions.sessions.isEmpty())
     }
 
     @Test
     fun `a different Book route starts with fresh history filters`() = runTest {
         val capability = RecordingMarginaliaCapability()
-        val controller = MarginaliaController(marginaliaProvider(capability), this)
+        val controller = MarginaliaController(
+            marginaliaProvider(capability),
+            CoroutineScope(
+                backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler)
+            )
+        )
         controller.initialize(
             marginaliaProfile(),
             MarginaliaHistoryContext.Book("book-1")
         )
         advanceUntilIdle()
-        controller.sessions.changeStatus(ReadingSessionStatusFilter.ACTIVE)
+        controller.accept(MarginaliaIntent.ChangeStatus(ReadingSessionStatusFilter.ACTIVE))
         advanceUntilIdle()
-        controller.sessions.commitSearch("Kindle")
+        controller.accept(MarginaliaIntent.CommitSessionsSearch("Kindle"))
         advanceUntilIdle()
 
         controller.initialize(
@@ -113,8 +136,8 @@ class MarginaliaControllerTest {
         )
         advanceUntilIdle()
 
-        assertEquals(ReadingSessionStatusFilter.ALL, controller.sessions.state.value.statusFilter)
-        assertEquals("", controller.sessions.state.value.committedQuery)
+        assertEquals(ReadingSessionStatusFilter.ALL, controller.state.value.sessions.statusFilter)
+        assertEquals("", controller.state.value.sessions.committedQuery)
         assertEquals("book-2", capability.bookRequests.last().first)
         assertEquals(null, capability.bookRequests.last().second.status)
         assertEquals(null, capability.bookRequests.last().second.q)
@@ -123,21 +146,26 @@ class MarginaliaControllerTest {
     @Test
     fun `Session selection and back preserve prior Book history state`() = runTest {
         val capability = RecordingMarginaliaCapability()
-        val controller = MarginaliaController(marginaliaProvider(capability), this)
+        val controller = MarginaliaController(
+            marginaliaProvider(capability),
+            CoroutineScope(
+                backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler)
+            )
+        )
         controller.initialize(marginaliaProfile())
         advanceUntilIdle()
-        controller.showBookHistory("book-1")
+        controller.accept(MarginaliaIntent.ShowBookHistory("book-1"))
         advanceUntilIdle()
-        controller.sessions.changeStatus(ReadingSessionStatusFilter.CLOSED)
+        controller.accept(MarginaliaIntent.ChangeStatus(ReadingSessionStatusFilter.CLOSED))
         advanceUntilIdle()
-        controller.sessions.commitSearch("notes")
+        controller.accept(MarginaliaIntent.CommitSessionsSearch("notes"))
         advanceUntilIdle()
         val requestsBeforeDetail = capability.bookRequests.size
 
-        controller.selectSession("session-1")
+        controller.accept(MarginaliaIntent.SelectSession("session-1"))
         advanceUntilIdle()
         assertTrue(controller.state.value.destination is MarginaliaDestination.SessionDetail)
-        controller.backFromDetail()
+        controller.accept(MarginaliaIntent.BackFromDetail)
 
         assertEquals(
             MarginaliaDestination.History(MarginaliaHistoryContext.Book("book-1")),
@@ -145,16 +173,21 @@ class MarginaliaControllerTest {
         )
         assertEquals(
             ReadingSessionStatusFilter.CLOSED,
-            controller.sessions.state.value.statusFilter
+            controller.state.value.sessions.statusFilter
         )
-        assertEquals("notes", controller.sessions.state.value.committedQuery)
+        assertEquals("notes", controller.state.value.sessions.committedQuery)
         assertEquals(requestsBeforeDetail, capability.bookRequests.size)
     }
 
     @Test
     fun `direct edit entry opens existing metadata workflow after detail loads`() = runTest {
         val capability = RecordingMarginaliaCapability()
-        val controller = MarginaliaController(marginaliaProvider(capability), this)
+        val controller = MarginaliaController(
+            marginaliaProvider(capability),
+            CoroutineScope(
+                backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler)
+            )
+        )
 
         controller.initialize(
             marginaliaProfile(),
@@ -167,14 +200,19 @@ class MarginaliaControllerTest {
         advanceUntilIdle()
 
         assertEquals(listOf("session-1"), capability.detailRequests)
-        assertTrue(controller.detail.metadataEditor.state.value.open)
+        assertTrue(controller.state.value.metadataEdit.open)
         assertTrue(controller.state.value.destination is MarginaliaDestination.SessionDetail)
     }
 
     @Test
     fun `direct close entry opens existing finalization workflow after detail loads`() = runTest {
         val capability = RecordingMarginaliaCapability()
-        val controller = MarginaliaController(marginaliaProvider(capability), this)
+        val controller = MarginaliaController(
+            marginaliaProvider(capability),
+            CoroutineScope(
+                backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler)
+            )
+        )
 
         controller.initialize(
             marginaliaProfile(),
@@ -187,23 +225,25 @@ class MarginaliaControllerTest {
         advanceUntilIdle()
 
         assertEquals(listOf("session-1"), capability.detailRequests)
-        assertTrue(controller.detail.closeFlow.state.value.open)
-        assertTrue(controller.detail.metadataEditor.state.value.open.not())
+        assertTrue(controller.state.value.close.open)
+        assertTrue(controller.state.value.metadataEdit.open.not())
     }
 
     @Test
     fun `parent exposes typed Book Detail and Reader navigation`() = runTest {
         val controller = MarginaliaController(
             marginaliaProvider(RecordingMarginaliaCapability()),
-            this
+            CoroutineScope(
+                backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler)
+            )
         )
 
-        controller.openBookDetail("book-1")
+        controller.accept(MarginaliaIntent.OpenBookDetail("book-1"))
         assertEquals(
             MarginaliaExternalNavigationIntent.BookDetail("book-1"),
             controller.navigation.first()
         )
-        controller.openReader("book-1", "session-1")
+        controller.accept(MarginaliaIntent.OpenReader("book-1", "session-1"))
         assertEquals(
             MarginaliaExternalNavigationIntent.Reader("book-1", "session-1"),
             controller.navigation.first()
@@ -215,18 +255,23 @@ class MarginaliaControllerTest {
         val capability = RecordingMarginaliaCapability().apply {
             globalCall = { marginaliaPage(1, listOf(sessionItem("session-1"))) }
         }
-        val controller = MarginaliaController(marginaliaProvider(capability), this)
+        val controller = MarginaliaController(
+            marginaliaProvider(capability),
+            CoroutineScope(
+                backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler)
+            )
+        )
         controller.initialize(marginaliaProfile())
         advanceUntilIdle()
-        controller.selectSession("session-1")
+        controller.accept(MarginaliaIntent.SelectSession("session-1"))
         advanceUntilIdle()
-        controller.detail.beginMetadataEdit()
-        controller.detail.metadataEditor.updateName("Renamed")
-        controller.detail.saveMetadata()
+        controller.accept(MarginaliaIntent.BeginEdit)
+        controller.accept(MarginaliaIntent.EditName("Renamed"))
+        controller.accept(MarginaliaIntent.SaveEdit)
         advanceUntilIdle()
 
-        assertEquals("Renamed", controller.detail.state.value.detail?.session?.summary?.name)
-        assertEquals("Renamed", controller.sessions.state.value.sessions.single().session.name)
+        assertEquals("Renamed", controller.state.value.detail.detail?.session?.summary?.name)
+        assertEquals("Renamed", controller.state.value.sessions.sessions.single().session.name)
     }
 
     @Test
@@ -240,26 +285,59 @@ class MarginaliaControllerTest {
             val capability = RecordingMarginaliaCapability().apply {
                 globalCall = { marginaliaPage(1, listOf(sessionItem("session-$filter"))) }
             }
-            val controller = MarginaliaController(marginaliaProvider(capability), this)
+            val controller = MarginaliaController(
+                marginaliaProvider(capability),
+                CoroutineScope(
+                    backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler)
+                )
+            )
             controller.initialize(marginaliaProfile())
             advanceUntilIdle()
-            controller.sessions.changeStatus(filter)
+            controller.accept(MarginaliaIntent.ChangeStatus(filter))
             advanceUntilIdle()
-            controller.selectSession("session-$filter")
+            controller.accept(MarginaliaIntent.SelectSession("session-$filter"))
             advanceUntilIdle()
-            controller.detail.beginClose()
-            controller.detail.confirmClose()
+            controller.accept(MarginaliaIntent.BeginClose)
+            controller.accept(MarginaliaIntent.ConfirmClose)
             advanceUntilIdle()
 
-            assertEquals(expectedCount, controller.sessions.state.value.sessions.size)
-            controller.sessions.state.value.sessions.firstOrNull()?.let {
+            assertEquals(expectedCount, controller.state.value.sessions.sessions.size)
+            controller.state.value.sessions.sessions.firstOrNull()?.let {
                 assertEquals(ReadingSessionStatus.CLOSED, it.session.status)
             }
             assertEquals(
                 ReadingSessionStatus.CLOSED,
-                controller.detail.state.value.detail?.session?.summary?.status
+                controller.state.value.detail.detail?.session?.summary?.status
             )
             controller.close()
         }
+    }
+
+    @Test
+    fun `close tears down child loading`() = runTest {
+        var cancelled = false
+        val capability = RecordingMarginaliaCapability().apply {
+            globalCall = {
+                try {
+                    awaitCancellation()
+                } finally {
+                    cancelled = true
+                }
+            }
+        }
+        val controller = MarginaliaController(
+            marginaliaProvider(capability),
+            CoroutineScope(
+                backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler)
+            )
+        )
+        controller.initialize(marginaliaProfile())
+        advanceUntilIdle()
+
+        controller.close()
+        controller.close()
+        advanceUntilIdle()
+
+        assertTrue(cancelled)
     }
 }
