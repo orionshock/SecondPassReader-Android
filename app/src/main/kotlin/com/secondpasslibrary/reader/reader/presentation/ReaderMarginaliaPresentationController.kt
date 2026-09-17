@@ -5,6 +5,7 @@ import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
+import com.secondpasslibrary.reader.reader.ReaderSessionAuthority
 import com.secondpasslibrary.reader.reader.ReaderState
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsController
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsLoader
@@ -120,14 +121,14 @@ internal class ReaderMarginaliaPresentationController(
         scope.launch {
             readerState.collect { readerState ->
                 val ready = readerState as? ReaderState.Ready
-                val session = ready?.session
-                if (ready == null || session == null) {
+                if (ready == null) {
                     selections.detach()
                     annotationsController.clear()
                     marginaliaLayersController.clear()
                     annotationMutations.clear()
                     visiblePageBookmarks.clear()
                 } else {
+                    val session = ready.session
                     selections.attach(ready.engine.selectionEvents, ready.engine.cfiNavigator)
                     activeProfile?.let { profile ->
                         val entry = entryIdentity ?: return@let
@@ -135,9 +136,9 @@ internal class ReaderMarginaliaPresentationController(
                             profile,
                             entry.profileId,
                             session,
-                            ready.localOnly
+                            ready.authority
                         )
-                        if (ready.localOnly) {
+                        if (ready.authority == ReaderSessionAuthority.LOCAL) {
                             marginaliaLayersController.selectLocal(session)
                         } else {
                             marginaliaLayersController.select(profile, entry.bookId, session)
@@ -151,7 +152,9 @@ internal class ReaderMarginaliaPresentationController(
                             entry.profileId,
                             session
                         )
-                        if (!ready.localOnly) sessionMetadata.select(profile, session)
+                        if (ready.authority == ReaderSessionAuthority.SERVER) {
+                            sessionMetadata.select(profile, session)
+                        }
                     }
                 }
             }
@@ -165,7 +168,7 @@ internal class ReaderMarginaliaPresentationController(
                 .collectLatest { (reader, annotations, layers) ->
                     val ready = reader as? ReaderState.Ready
                     val currentAnnotationValues = annotations.annotations.takeIf {
-                        annotations.sessionId == ready?.session?.sessionId
+                        ready != null && annotations.sessionId == ready.session.sessionId
                     }.orEmpty()
                     highlightActivations.select(ready?.engine?.annotationDecorations)
                     highlightActivations.replaceContext(
@@ -173,8 +176,8 @@ internal class ReaderMarginaliaPresentationController(
                         currentAnnotationValues,
                         layers.previousLayers
                     )
-                    val session = ready?.session
-                    if (ready != null && session != null) {
+                    if (ready != null) {
+                        val session = ready.session
                         visiblePageBookmarks.select(
                             session.sessionId,
                             ready.engine.visiblePageBookmarks
@@ -204,10 +207,10 @@ internal class ReaderMarginaliaPresentationController(
                 reader to layers
             }.collectLatest { (reader, layers) ->
                 val ready = reader as? ReaderState.Ready
-                val session = ready?.session
-                if (ready != null && session != null &&
-                    layers.currentLayer?.sessionId == session.sessionId
+                if (ready != null &&
+                    layers.currentLayer?.sessionId == ready.session.sessionId
                 ) {
+                    val session = ready.session
                     marginaliaLayerDecorations.replace(
                         readerSessionId = session.sessionId,
                         target = ready.engine.annotationDecorations,
@@ -250,7 +253,7 @@ internal class ReaderMarginaliaPresentationController(
 
     fun refreshLocalAnnotations() {
         if (closed) return
-        val sessionId = (readerState.value as? ReaderState.Ready)?.session?.sessionId
+        val sessionId = (readerState.value as? ReaderState.Ready)?.let { it.session.sessionId }
         val profile = activeProfile
         val entry = entryIdentity
         if (sessionId == null || profile == null || entry == null) return
@@ -308,8 +311,8 @@ internal class ReaderMarginaliaPresentationController(
 
     fun acceptBookmark(intent: ReaderBookmarkHudIntent) {
         val ready = readerState.value as? ReaderState.Ready
-        val session = ready?.session
-        if (closed || ready == null || session == null) return
+        if (closed || ready == null) return
+        val session = ready.session
         when (intent) {
             ReaderBookmarkHudIntent.Create -> when {
                 session.status != ReaderSessionStatus.ACTIVE -> Unit

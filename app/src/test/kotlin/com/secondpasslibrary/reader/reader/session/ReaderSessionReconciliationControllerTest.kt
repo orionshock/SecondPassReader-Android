@@ -3,6 +3,7 @@ package com.secondpasslibrary.reader.reader.session
 import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.app.AppAvailabilityReason
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.reader.ReaderSessionAuthority
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -30,7 +31,13 @@ class ReaderSessionReconciliationControllerTest {
             onResolved = { _, session -> resolved += session }
         )
 
-        controller.select(profile(), PROFILE_ID, BOOK_ID, provisional(), localOnly = true)
+        controller.select(
+            profile(),
+            PROFILE_ID,
+            BOOK_ID,
+            provisional(),
+            ReaderSessionAuthority.LOCAL
+        )
         controller.setAvailability(AppAvailability.Syncing)
         advanceUntilIdle()
         assertEquals(0, calls)
@@ -53,7 +60,13 @@ class ReaderSessionReconciliationControllerTest {
                 ReaderSessionReconciliationFailure.UNAVAILABLE
             )
         })
-        controller.select(profile(), PROFILE_ID, BOOK_ID, provisional(), localOnly = true)
+        controller.select(
+            profile(),
+            PROFILE_ID,
+            BOOK_ID,
+            provisional(),
+            ReaderSessionAuthority.LOCAL
+        )
 
         controller.setAvailability(AppAvailability.Online)
         advanceUntilIdle()
@@ -82,7 +95,13 @@ class ReaderSessionReconciliationControllerTest {
             onResolved = { localId, _ -> resolved += localId }
         )
         controller.setAvailability(AppAvailability.Online)
-        controller.select(profile(), PROFILE_ID, BOOK_ID, provisional(), localOnly = true)
+        controller.select(
+            profile(),
+            PROFILE_ID,
+            BOOK_ID,
+            provisional(),
+            ReaderSessionAuthority.LOCAL
+        )
         runCurrent()
 
         controller.select(
@@ -90,7 +109,7 @@ class ReaderSessionReconciliationControllerTest {
             PROFILE_ID,
             "book-2",
             provisional().copy(sessionId = "local-2"),
-            localOnly = true
+            authority = ReaderSessionAuthority.LOCAL
         )
         advanceUntilIdle()
         firstGate.complete(
@@ -117,7 +136,13 @@ class ReaderSessionReconciliationControllerTest {
             onResolved = { _, session -> resolved += session },
             onAuthenticationRejected = { rejected = true }
         )
-        controller.select(profile(), PROFILE_ID, BOOK_ID, provisional(), localOnly = true)
+        controller.select(
+            profile(),
+            PROFILE_ID,
+            BOOK_ID,
+            provisional(),
+            ReaderSessionAuthority.LOCAL
+        )
         controller.setAvailability(AppAvailability.Online)
         advanceUntilIdle()
 
@@ -139,7 +164,13 @@ class ReaderSessionReconciliationControllerTest {
             serverSessionId = "server-1",
             identityKind = ReaderSessionIdentityKind.SERVER_CONFIRMED
         )
-        controller.select(profile(), PROFILE_ID, BOOK_ID, bound, localOnly = false)
+        controller.select(
+            profile(),
+            PROFILE_ID,
+            BOOK_ID,
+            bound,
+            ReaderSessionAuthority.SERVER
+        )
         controller.setAvailability(AppAvailability.Online)
         advanceUntilIdle()
         assertEquals(0, calls)

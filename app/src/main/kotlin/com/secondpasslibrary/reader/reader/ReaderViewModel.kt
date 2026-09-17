@@ -73,10 +73,10 @@ internal class ReaderViewModel @Inject constructor(
             engineOpener,
             sessionCoordinator,
             viewModelScope,
+            localReaderStateStore,
             appearanceStore,
             progressPersistenceScope,
             launchPolicy,
-            localReaderStateStore,
             foregroundSync::requestSync
         )
     private val navigation = ReaderNavigationController(controller.state, viewModelScope)
@@ -122,8 +122,7 @@ internal class ReaderViewModel @Inject constructor(
         viewModelScope.launch {
             controller.state.collect { readerState ->
                 val ready = readerState as? ReaderState.Ready
-                val session = ready?.session
-                if (ready == null || session == null) {
+                if (ready == null) {
                     sessionReconciliation.clear()
                 } else {
                     val profile = activeProfile ?: return@collect
@@ -132,8 +131,8 @@ internal class ReaderViewModel @Inject constructor(
                         profile,
                         entry.profileId,
                         entry.bookId,
-                        session,
-                        ready.localOnly
+                        ready.session,
+                        ready.authority
                     )
                 }
             }

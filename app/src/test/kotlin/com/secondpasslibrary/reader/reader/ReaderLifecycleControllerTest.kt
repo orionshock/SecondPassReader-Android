@@ -91,7 +91,8 @@ internal class ReaderLifecycleControllerTest : ReaderControllerTestSupport() {
                 }
             },
             coordinator(),
-            this
+            this,
+            fakeLocalStore()
         )
 
         controller.initialize(profile(), "profile-1", "book-1", null)
@@ -110,7 +111,8 @@ internal class ReaderLifecycleControllerTest : ReaderControllerTestSupport() {
             ReaderBookAssetResolver { _, _ -> throw SplClientException.AuthenticationRejected() },
             ReaderEngineOpener { FakeEngine() },
             coordinator(),
-            this
+            this,
+            fakeLocalStore()
         )
 
         controller.initialize(profile(), "profile-1", "book-1", null)

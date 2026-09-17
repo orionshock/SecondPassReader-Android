@@ -73,7 +73,9 @@ internal fun ReaderScreen(
     val ready = state as? ReaderState.Ready
     val appearance by remember(ready?.engine) { readyAppearance(ready) }.collectAsState()
     val palette = appearance.theme.readerPalette()
-    val annotationWritesAvailable = ready?.session?.status == ReaderSessionStatus.ACTIVE
+    val annotationWritesAvailable = ready?.let {
+        it.session.status == ReaderSessionStatus.ACTIVE
+    } == true
     val highlightSelection = writableSelection(
         ready,
         marginalia.selection,

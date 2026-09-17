@@ -45,6 +45,7 @@ internal class ReaderAppearanceControllerTest : ReaderControllerTestSupport() {
             opener,
             coordinator(),
             this,
+            fakeLocalStore(),
             FakeAppearanceStore(saved)
         )
 
@@ -70,6 +71,7 @@ internal class ReaderAppearanceControllerTest : ReaderControllerTestSupport() {
             ReaderEngineOpener { engine },
             coordinator(),
             this,
+            fakeLocalStore(),
             store
         )
         controller.initialize(profile(), "profile-1", "book-1", null)

@@ -6,6 +6,7 @@ import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
+import com.secondpasslibrary.reader.reader.ReaderSessionAuthority
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
@@ -33,7 +34,7 @@ internal enum class ReaderAnnotationsFailure {
 internal class ReaderAnnotationsController(
     private val loader: ReaderAnnotationsLoader,
     private val scope: CoroutineScope,
-    private val localStore: LocalReaderStateStore? = null
+    private val localStore: LocalReaderStateStore
 ) {
     private val mutableState = MutableStateFlow(ReaderAnnotationsState())
     val state = mutableState.asStateFlow()
@@ -45,7 +46,7 @@ internal class ReaderAnnotationsController(
     private var profile: ConnectionProfile? = null
     private var profileId: String? = null
     private var session: ReaderSessionContext? = null
-    private var localOnly = false
+    private var authority = ReaderSessionAuthority.SERVER
     private var generation = 0L
     private var loadJob: Job? = null
 
@@ -53,20 +54,20 @@ internal class ReaderAnnotationsController(
         profile: ConnectionProfile,
         profileId: String,
         session: ReaderSessionContext,
-        localOnly: Boolean
+        authority: ReaderSessionAuthority
     ) {
         val sessionId = session.sessionId
         require(sessionId.isNotBlank()) { "Reading Session ID must not be blank." }
         val nextIdentity = profile.authenticatedConnectionIdentity
         if (state.value.sessionId == sessionId && connectionIdentity == nextIdentity &&
-            this.localOnly == localOnly
+            this.authority == authority
         ) {
             return
         }
         this.profile = profile
         this.profileId = profileId
         this.session = session
-        this.localOnly = localOnly
+        this.authority = authority
         connectionIdentity = nextIdentity
         loadJob?.cancel()
         generation += 1
@@ -79,7 +80,7 @@ internal class ReaderAnnotationsController(
             profile,
             profileId = profile.clientSessionId,
             session = ReaderSessionContext(sessionId, ReaderSessionStatus.ACTIVE, null),
-            localOnly = false
+            authority = ReaderSessionAuthority.SERVER
         )
     }
 
@@ -107,7 +108,7 @@ internal class ReaderAnnotationsController(
         mutableState.value = ReaderAnnotationsState()
         profileId = null
         session = null
-        localOnly = false
+        authority = ReaderSessionAuthority.SERVER
     }
 
     fun close() {
@@ -124,19 +125,21 @@ internal class ReaderAnnotationsController(
                 context.profileId
             )
             val result = runSuspendCatching {
-                if (localOnly || context.session.serverSessionId == null) {
-                    requireNotNull(localStore).readAnnotations(account, sessionId)
-                } else {
-                    loader.load(
-                        context.profile,
-                        requireNotNull(context.session.serverSessionId)
-                    ).let { authoritative ->
-                        localStore?.replaceAuthoritativeAnnotations(
+                when (authority) {
+                    ReaderSessionAuthority.LOCAL ->
+                        localStore.readAnnotations(account, sessionId)
+
+                    ReaderSessionAuthority.SERVER -> {
+                        val serverSessionId = requireNotNull(context.session.serverSessionId) {
+                            "Server Reader authority requires a server Session identity."
+                        }
+                        val authoritative = loader.load(context.profile, serverSessionId)
+                        localStore.replaceAuthoritativeAnnotations(
                             account,
                             sessionId,
                             authoritative
                         )
-                        localStore?.readAnnotations(account, sessionId) ?: authoritative
+                        localStore.readAnnotations(account, sessionId)
                     }
                 }
             }

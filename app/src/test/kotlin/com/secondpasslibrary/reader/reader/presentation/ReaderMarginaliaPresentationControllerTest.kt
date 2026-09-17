@@ -10,6 +10,7 @@ import com.secondpasslibrary.reader.reader.MarginaliaTestFakeLayerVisibilityStor
 import com.secondpasslibrary.reader.reader.MarginaliaTestFakeLocalReaderStateStore
 import com.secondpasslibrary.reader.reader.MarginaliaTestRecordingEngine
 import com.secondpasslibrary.reader.reader.ReaderProgressRestore
+import com.secondpasslibrary.reader.reader.ReaderSessionAuthority
 import com.secondpasslibrary.reader.reader.ReaderState
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsLoader
@@ -238,7 +239,8 @@ class ReaderMarginaliaPresentationControllerTest {
                     override val cfiNavigator = navigator
                 },
                 ReaderSessionContext("current", ReaderSessionStatus.ACTIVE, null),
-                ReaderProgressRestore.NOT_NEEDED
+                ReaderProgressRestore.NOT_NEEDED,
+                ReaderSessionAuthority.SERVER
             )
         }
     }

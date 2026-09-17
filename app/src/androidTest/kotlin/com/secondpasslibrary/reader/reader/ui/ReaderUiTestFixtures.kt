@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import com.secondpasslibrary.reader.reader.ReaderProgressRestore
+import com.secondpasslibrary.reader.reader.ReaderSessionAuthority
 import com.secondpasslibrary.reader.reader.ReaderState
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceController
@@ -49,7 +50,8 @@ internal fun readerReadyState(
     title = "A deliberately long Reader title that remains one line",
     engine = FakeReaderEngine(toc, appearance, navigator, hudEvents),
     session = ReaderSessionContext("session-1", status, null),
-    restore = ReaderProgressRestore.NOT_NEEDED
+    restore = ReaderProgressRestore.NOT_NEEDED,
+    authority = ReaderSessionAuthority.SERVER
 )
 
 internal class RecordingReaderToc(

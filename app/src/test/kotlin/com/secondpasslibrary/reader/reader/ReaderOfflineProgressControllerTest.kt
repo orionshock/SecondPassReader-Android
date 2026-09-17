@@ -57,9 +57,9 @@ internal class ReaderOfflineProgressControllerTest : ReaderControllerTestSupport
             val ready = controller.state.value as ReaderState.Ready
             assertTrue(localOnly)
             assertEquals("Cached title", ready.title)
-            assertEquals("local-session", ready.session?.sessionId)
-            assertEquals(ReaderSessionIdentityKind.PROVISIONAL, ready.session?.identityKind)
-            assertTrue(ready.localOnly)
+            assertEquals("local-session", ready.session.sessionId)
+            assertEquals(ReaderSessionIdentityKind.PROVISIONAL, ready.session.identityKind)
+            assertEquals(ReaderSessionAuthority.LOCAL, ready.authority)
             assertEquals(0, sessionCalls)
             controller.close()
             advanceUntilIdle()
@@ -145,7 +145,11 @@ internal class ReaderOfflineProgressControllerTest : ReaderControllerTestSupport
 
         assertEquals(
             "server-session",
-            (controller.state.value as ReaderState.Ready).session?.serverSessionId
+            (controller.state.value as ReaderState.Ready).session.serverSessionId
+        )
+        assertEquals(
+            ReaderSessionAuthority.SERVER,
+            (controller.state.value as ReaderState.Ready).authority
         )
         controller.close()
         advanceUntilIdle()

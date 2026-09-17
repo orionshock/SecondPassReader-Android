@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.reader.navigation
 
 import androidx.compose.ui.Modifier
 import com.secondpasslibrary.reader.reader.ReaderProgressRestore
+import com.secondpasslibrary.reader.reader.ReaderSessionAuthority
 import com.secondpasslibrary.reader.reader.ReaderState
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
@@ -16,6 +17,8 @@ import com.secondpasslibrary.reader.reader.cfi.EpubCfiSelection
 import com.secondpasslibrary.reader.reader.domain.ReaderEngine
 import com.secondpasslibrary.reader.reader.domain.ReaderViewport
 import com.secondpasslibrary.reader.reader.domain.ReaderViewportMovements
+import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
+import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import com.secondpasslibrary.reader.reader.toc.ReaderPublicationNavigationResult
 import com.secondpasslibrary.reader.reader.toc.ReaderPublicationTarget
 import com.secondpasslibrary.reader.reader.toc.ReaderTableOfContents
@@ -107,8 +110,13 @@ class ReaderNavigationControllerTest {
             ReaderState.Ready(
                 title = "Book",
                 engine = FakeEngine(navigator, toc),
-                session = null,
-                restore = ReaderProgressRestore.NOT_NEEDED
+                session = ReaderSessionContext(
+                    "session-1",
+                    ReaderSessionStatus.ACTIVE,
+                    null
+                ),
+                restore = ReaderProgressRestore.NOT_NEEDED,
+                authority = ReaderSessionAuthority.SERVER
             )
         )
         return ReaderNavigationController(state, scope)

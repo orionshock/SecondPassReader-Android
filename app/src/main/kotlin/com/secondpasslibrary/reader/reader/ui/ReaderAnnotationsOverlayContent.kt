@@ -36,7 +36,7 @@ internal fun ReaderAnnotationsOverlayContent(
         layers = layers,
         autoShowPrevious = autoShowPrevious,
         drawerState = rememberMarginaliaDrawerState(
-            ready?.session?.sessionId.orEmpty(),
+            ready?.let { it.session.sessionId }.orEmpty(),
             layers
         ),
         palette = palette,
@@ -44,7 +44,7 @@ internal fun ReaderAnnotationsOverlayContent(
         onMarginaliaIntent = onMarginaliaIntent,
         editable = annotationWritesAvailable,
         sessionMetadataEditable = sessionMetadataEditable &&
-            ready?.session?.status == ReaderSessionStatus.ACTIVE,
+            ready?.let { it.session.status == ReaderSessionStatus.ACTIVE } == true,
         mutationState = mutationState,
         sessionMetadata = sessionMetadata,
         onCreateBookmark = onCreateBookmark,

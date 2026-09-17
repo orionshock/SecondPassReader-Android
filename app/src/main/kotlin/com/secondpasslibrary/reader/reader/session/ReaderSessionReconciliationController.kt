@@ -3,6 +3,7 @@ package com.secondpasslibrary.reader.reader.session
 import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
+import com.secondpasslibrary.reader.reader.ReaderSessionAuthority
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -25,14 +26,14 @@ internal class ReaderSessionReconciliationController(
         profileId: String,
         bookId: String,
         session: ReaderSessionContext,
-        localOnly: Boolean
+        authority: ReaderSessionAuthority
     ) {
         val next = Owner(
             profile,
             LocalReaderAccountKey.from(profile.serverOrigin, profileId),
             bookId,
             session,
-            localOnly
+            authority
         )
         if (owner != next) {
             job?.cancel()
@@ -65,7 +66,8 @@ internal class ReaderSessionReconciliationController(
 
     private fun startIfEligible(force: Owner? = null) {
         val selected = force ?: owner?.takeIf {
-            it.localOnly && availability is AppAvailability.Online
+            it.authority == ReaderSessionAuthority.LOCAL &&
+                availability is AppAvailability.Online
         } ?: return
         val eligible = availability is AppAvailability.Online &&
             attemptedGeneration != onlineGeneration && job?.isActive != true
@@ -102,6 +104,6 @@ internal class ReaderSessionReconciliationController(
         val account: LocalReaderAccountKey,
         val bookId: String,
         val session: ReaderSessionContext,
-        val localOnly: Boolean
+        val authority: ReaderSessionAuthority
     )
 }

@@ -47,11 +47,16 @@ internal sealed interface ReaderState {
     data class Ready(
         val title: String,
         val engine: ReaderEngine,
-        val session: ReaderSessionContext?,
+        val session: ReaderSessionContext,
         val restore: ReaderProgressRestore,
-        val localOnly: Boolean = false
+        val authority: ReaderSessionAuthority
     ) : ReaderState
     data class Failure(val kind: ReaderFailure) : ReaderState
+}
+
+internal enum class ReaderSessionAuthority {
+    SERVER,
+    LOCAL
 }
 
 internal enum class ReaderProgressRestore {
@@ -81,12 +86,12 @@ internal class ReaderController(
     private val engineOpener: ReaderEngineOpener,
     private val sessionCoordinator: ReaderSessionCoordinator,
     private val scope: CoroutineScope,
+    private val localStateStore: LocalReaderStateStore,
     private val appearanceStore: ReaderAppearanceStore = DefaultReaderAppearanceStore,
     private val progressPersistenceScope: CoroutineScope = scope,
     private val launchPolicy: ReaderLaunchAdmission = ReaderLaunchAdmission { _, _, _, _ ->
         ReaderLaunchDecision.ONLINE
     },
-    private val localStateStore: LocalReaderStateStore? = null,
     private val onSyncRequested: () -> Unit = {}
 ) {
     private val mutableState = MutableStateFlow<ReaderState>(ReaderState.Resolving)
@@ -95,9 +100,11 @@ internal class ReaderController(
     val connectionEvents = connectionEventChannel.receiveAsFlow()
     private val progressController = ReaderProgressController(scope)
     val progress = progressController.state
-    private val progressPersistence = localStateStore?.let {
-        ReaderProgressPersistenceController(progressPersistenceScope, it, onSyncRequested)
-    }
+    private val progressPersistence = ReaderProgressPersistenceController(
+        progressPersistenceScope,
+        localStateStore,
+        onSyncRequested
+    )
     private var job: Job? = null
     private var progressCaptureFallbackJob: Job? = null
     private var request: ReaderRequest? = null
@@ -136,14 +143,15 @@ internal class ReaderController(
 
     fun acceptReconciledSession(expectedLocalSessionId: String, session: ReaderSessionContext) {
         val ready = mutableState.value as? ReaderState.Ready ?: return
-        if (ready.session?.sessionId != expectedLocalSessionId) return
-        mutableState.value = ready.copy(session = session, localOnly = false)
+        if (ready.session.sessionId != expectedLocalSessionId) return
+        mutableState.value = ready.copy(
+            session = session,
+            authority = ReaderSessionAuthority.SERVER
+        )
     }
 
-    suspend fun flushLatestProgress(): ReaderProgressFlushResult {
-        val result = progressPersistence?.flushLatestLocal() ?: ReaderProgressFlushResult.CLEAN
-        return result
-    }
+    suspend fun flushLatestProgress(): ReaderProgressFlushResult =
+        progressPersistence.flushLatestLocal()
 
     fun updateAppearance(appearance: ReaderAppearance) {
         val engine = (state.value as? ReaderState.Ready)?.engine ?: return
@@ -164,7 +172,7 @@ internal class ReaderController(
                 flushLatestProgress()
             } finally {
                 progressController.reset()
-                progressPersistence?.close()
+                progressPersistence.close()
                 closeEngine()
                 onProgressSyncClosed()
             }
@@ -187,7 +195,7 @@ internal class ReaderController(
                     try {
                         flushLatestProgress()
                     } finally {
-                        progressPersistence?.reset()
+                        progressPersistence.reset()
                         progressController.reset()
                         previousEngine?.close()
                     }
@@ -204,19 +212,17 @@ internal class ReaderController(
                     val engine = engineOpener.open(book.file, initialAppearance.await())
                     openedEngine = engine
                     coroutineContext.ensureActive()
-                    val ready = if (resolved.localOnly) {
+                    val ready = if (resolved.authority == ReaderSessionAuthority.LOCAL) {
                         prepareLocalReady(request, book.title, engine)
                     } else {
                         failureKind = ReaderFailure.SESSION
                         prepareReady(request, book.title, engine)
                     }
                     coroutineContext.ensureActive()
-                    ready.session?.let { progressController.prepare(it, engine) }
+                    progressController.prepare(ready.session, engine)
                     mutableState.value = ready
                     openedEngine = null
-                    ready.session?.let { session ->
-                        scheduleProgressCaptureFallback(ready, session)
-                    }
+                    scheduleProgressCaptureFallback(ready, ready.session)
                     restoreProgress(ready)
                 }
                 result.fold(
@@ -224,9 +230,7 @@ internal class ReaderController(
                         progressCaptureFallbackJob?.cancel()
                         progressCaptureFallbackJob = null
                         mutableState.value = ready
-                        ready.session?.let { session ->
-                            startProgressPersistence(session)
-                        }
+                        startProgressPersistence(ready.session)
                         openedEngine = null
                     },
                     onFailure = { failure ->
@@ -247,7 +251,7 @@ internal class ReaderController(
                             else -> failureKind
                         }
                         progressController.reset()
-                        progressPersistence?.reset()
+                        progressPersistence.reset()
                         mutableState.value = ReaderState.Failure(kind)
                     }
                 )
@@ -260,7 +264,7 @@ internal class ReaderController(
     private fun startProgressPersistence(session: ReaderSessionContext) {
         progressController.enableAfterStartupRestore()
         val current = requireNotNull(request)
-        progressPersistence?.start(
+        progressPersistence.start(
             LocalReaderAccountKey.from(current.profile.serverOrigin, current.profileId),
             session,
             progressController.state
@@ -277,7 +281,7 @@ internal class ReaderController(
             val current = mutableState.value as? ReaderState.Ready ?: return@launch
             if (
                 current.engine !== ready.engine ||
-                current.session?.sessionId != session.sessionId
+                current.session.sessionId != session.sessionId
             ) {
                 return@launch
             }
@@ -305,11 +309,11 @@ internal class ReaderController(
         if (session.progressFailure == ReaderProgressLoadFailure.AUTHENTICATION_REQUIRED) {
             connectionEventChannel.trySend(ReaderConnectionEvent.AuthenticationRejected)
         }
-        val retained = localStateStore?.retainServerSession(
+        val retained = localStateStore.retainServerSession(
             LocalReaderAccountKey.from(request.profile.serverOrigin, request.profileId),
             request.bookId,
             session
-        ) ?: session
+        )
         return ReaderState.Ready(
             title = title,
             engine = engine,
@@ -318,7 +322,8 @@ internal class ReaderController(
                 ReaderProgressRestore.NOT_NEEDED
             } else {
                 ReaderProgressRestore.WAITING
-            }
+            },
+            authority = ReaderSessionAuthority.SERVER
         )
     }
 
@@ -327,10 +332,7 @@ internal class ReaderController(
         title: String,
         engine: ReaderEngine
     ): ReaderState.Ready {
-        val store = requireNotNull(localStateStore) {
-            "Offline Reader requires local Reader state storage."
-        }
-        val session = store.selectOfflineSession(
+        val session = localStateStore.selectOfflineSession(
             LocalReaderAccountKey.from(request.profile.serverOrigin, request.profileId),
             request.bookId
         )
@@ -343,7 +345,7 @@ internal class ReaderController(
             } else {
                 ReaderProgressRestore.WAITING
             },
-            localOnly = true
+            authority = ReaderSessionAuthority.LOCAL
         )
     }
 
@@ -369,7 +371,7 @@ internal class ReaderController(
 }
 
 private suspend fun restoreSavedProgress(ready: ReaderState.Ready): ReaderState.Ready {
-    val rawCfi = ready.session?.savedProgressCfi
+    val rawCfi = ready.session.savedProgressCfi
     val cfi = rawCfi?.let { runCatching { EpubCfi(it) }.getOrNull() }
     return when {
         rawCfi == null -> ready
@@ -398,7 +400,7 @@ private suspend fun restoreValidProgress(
     )
 }
 
-private fun ReaderState.Ready.restoredStartupPosition(): EpubCfi? = session?.savedProgressCfi
+private fun ReaderState.Ready.restoredStartupPosition(): EpubCfi? = session.savedProgressCfi
     ?.takeIf { restore == ReaderProgressRestore.RESTORED }
     ?.let { runCatching { EpubCfi(it) }.getOrNull() }
 
@@ -430,7 +432,7 @@ private data class ReaderRequest(
 
 private data class ReaderBookResolution(
     val book: com.secondpasslibrary.reader.reader.asset.ResolvedReaderBook,
-    val localOnly: Boolean
+    val authority: ReaderSessionAuthority
 )
 
 private class ReaderOfflineAssetUnavailableException : Exception()
@@ -450,18 +452,22 @@ private suspend fun resolveReaderBook(
     if (launch == ReaderLaunchDecision.OFFLINE_ASSET_UNAVAILABLE) {
         throw ReaderOfflineAssetUnavailableException()
     }
-    val localOnly = launch == ReaderLaunchDecision.LOCAL_AVAILABLE
+    val authority = if (launch == ReaderLaunchDecision.LOCAL_AVAILABLE) {
+        ReaderSessionAuthority.LOCAL
+    } else {
+        ReaderSessionAuthority.SERVER
+    }
     val book = assetResolver.resolve(
         ReaderBookAssetRequest(
             request.profile,
             request.profileId,
             request.bookId,
             request.titleHint,
-            localOnly
+            authority == ReaderSessionAuthority.LOCAL
         ),
         onDownloadStarted
     )
-    return ReaderBookResolution(book, localOnly)
+    return ReaderBookResolution(book, authority)
 }
 
 private suspend inline fun EpubCfiOutcome<Unit>.then(

@@ -6,6 +6,11 @@ import com.secondpasslibrary.client.MarginaliaHighlightBody
 import com.secondpasslibrary.client.MarginaliaHighlightColor
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
+import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationRequest
+import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
+import com.secondpasslibrary.reader.reader.persistence.LocalReaderWriteProvenance
+import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
@@ -32,7 +37,8 @@ class ReaderAnnotationsControllerTest {
                 requests += sessionId
                 annotations
             },
-            this
+            this,
+            FakeLocalReaderStateStore()
         )
 
         controller.select(profile(), "active-session")
@@ -61,7 +67,8 @@ class ReaderAnnotationsControllerTest {
                     listOf(ReaderAnnotation.Bookmark("b", "client-b", CFI, "B", UPDATED_AT))
                 }
             },
-            this
+            this,
+            FakeLocalReaderStateStore()
         )
 
         controller.select(profile(), "session-a")
@@ -89,7 +96,8 @@ class ReaderAnnotationsControllerTest {
                     throw SplClientException.ServerUnreachable()
                 }
             },
-            this
+            this,
+            FakeLocalReaderStateStore()
         )
         controller.select(profile(), "session")
         advanceUntilIdle()
@@ -182,6 +190,57 @@ class ReaderAnnotationsControllerTest {
         clientName = "Reader",
         clientType = "reader"
     )
+
+    private class FakeLocalReaderStateStore : LocalReaderStateStore {
+        private val annotations = mutableMapOf<String, List<ReaderAnnotation>>()
+
+        override suspend fun selectOfflineSession(
+            account: LocalReaderAccountKey,
+            bookId: String
+        ): ReaderSessionContext = error("Offline selection is not used by annotation tests.")
+
+        override suspend fun retainServerSession(
+            account: LocalReaderAccountKey,
+            bookId: String,
+            session: ReaderSessionContext
+        ) = session
+
+        override suspend fun writeProgress(
+            account: LocalReaderAccountKey,
+            localSessionId: String,
+            cfi: String,
+            provenance: LocalReaderWriteProvenance,
+            locationLabel: String?
+        ) = Unit
+
+        override suspend fun acknowledgeProgress(
+            account: LocalReaderAccountKey,
+            localSessionId: String,
+            cfi: String
+        ) = Unit
+
+        override suspend fun readAnnotations(
+            account: LocalReaderAccountKey,
+            localSessionId: String
+        ) = annotations[localSessionId].orEmpty()
+
+        override suspend fun applyAnnotationMutation(
+            account: LocalReaderAccountKey,
+            localSessionId: String,
+            request: ReaderAnnotationMutationRequest
+        ) = readAnnotations(account, localSessionId)
+
+        override suspend fun replaceAuthoritativeAnnotations(
+            account: LocalReaderAccountKey,
+            localSessionId: String,
+            annotations: List<ReaderAnnotation>,
+            acknowledgedMutation: ReaderAnnotationMutationRequest?
+        ) {
+            this.annotations[localSessionId] = annotations
+        }
+
+        override suspend fun purgeAccount(account: LocalReaderAccountKey) = Unit
+    }
 
     private companion object {
         const val CFI = "epubcfi(/6/2!/4/2:3)"

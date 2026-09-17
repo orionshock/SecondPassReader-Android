@@ -38,7 +38,8 @@ internal class ReaderLaunchRestorationControllerTest : ReaderControllerTestSuppo
             resolver,
             ReaderEngineOpener { engine },
             coordinator(),
-            this
+            this,
+            fakeLocalStore()
         )
         val states = mutableListOf<ReaderState>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -57,10 +58,13 @@ internal class ReaderLaunchRestorationControllerTest : ReaderControllerTestSuppo
             ),
             states.map { it::class }
         )
-        assertEquals("Academ's Fury", (controller.state.value as ReaderState.Ready).title)
+        val ready = controller.state.value as ReaderState.Ready
+        assertEquals("Academ's Fury", ready.title)
+        assertEquals("session-1", ready.session.sessionId)
+        assertEquals(ReaderSessionAuthority.SERVER, ready.authority)
         assertEquals(
             ReaderProgressRestore.NOT_NEEDED,
-            (controller.state.value as ReaderState.Ready).restore
+            ready.restore
         )
         assertTrue(engine.navigator.destinations.isEmpty())
         controller.close()
@@ -75,14 +79,15 @@ internal class ReaderLaunchRestorationControllerTest : ReaderControllerTestSuppo
             ReaderBookAssetResolver { _, _ -> ResolvedReaderBook("Book", file, reused = true) },
             ReaderEngineOpener { engine },
             coordinator(PROGRESS_CFI),
-            this
+            this,
+            fakeLocalStore()
         )
 
         controller.initialize(profile(), "profile-1", "book-1", "session-existing")
         runCurrent()
 
         val waiting = controller.state.value as ReaderState.Ready
-        assertEquals("session-existing", requireNotNull(waiting.session).sessionId)
+        assertEquals("session-existing", waiting.session.sessionId)
         assertEquals(ReaderProgressRestore.WAITING, waiting.restore)
         assertTrue(engine.navigator.destinations.isEmpty())
 
@@ -104,7 +109,8 @@ internal class ReaderLaunchRestorationControllerTest : ReaderControllerTestSuppo
             ReaderBookAssetResolver { _, _ -> ResolvedReaderBook("Book", file, reused = true) },
             ReaderEngineOpener { engine },
             coordinator(PROGRESS_CFI),
-            this
+            this,
+            fakeLocalStore()
         )
 
         controller.initialize(profile(), "profile-1", "book-1", "session-existing")
@@ -139,7 +145,8 @@ internal class ReaderLaunchRestorationControllerTest : ReaderControllerTestSuppo
             ReaderBookAssetResolver { _, _ -> ResolvedReaderBook("Book", file, reused = true) },
             ReaderEngineOpener { engine },
             coordinator(PROGRESS_CFI),
-            this
+            this,
+            fakeLocalStore()
         )
 
         controller.initialize(profile(), "profile-1", "book-1", null)
@@ -168,13 +175,15 @@ internal class ReaderLaunchRestorationControllerTest : ReaderControllerTestSuppo
             ReaderBookAssetResolver { _, _ -> ResolvedReaderBook("Book", file, reused = true) },
             ReaderEngineOpener { malformedEngine },
             coordinator(" "),
-            this
+            this,
+            fakeLocalStore()
         )
         val rejected = ReaderController(
             ReaderBookAssetResolver { _, _ -> ResolvedReaderBook("Book", file, reused = true) },
             ReaderEngineOpener { rejectedEngine },
             coordinator(PROGRESS_CFI),
-            this
+            this,
+            fakeLocalStore()
         )
 
         malformed.initialize(profile(), "profile-1", "book-1", null)
@@ -206,7 +215,8 @@ internal class ReaderLaunchRestorationControllerTest : ReaderControllerTestSuppo
                 FakeEngine()
             },
             coordinator(),
-            this
+            this,
+            fakeLocalStore()
         )
 
         controller.initialize(profile(), "profile-1", "book-1", null)
@@ -227,7 +237,8 @@ internal class ReaderLaunchRestorationControllerTest : ReaderControllerTestSuppo
                 FakeEngine()
             },
             coordinator(),
-            this
+            this,
+            fakeLocalStore()
         )
 
         controller.initialize(profile(), "profile-1", "book-1", null)
@@ -248,13 +259,15 @@ internal class ReaderLaunchRestorationControllerTest : ReaderControllerTestSuppo
             resolved,
             ReaderEngineOpener { throw ReaderEngineOpenException("broken") },
             coordinator(),
-            this
+            this,
+            fakeLocalStore()
         )
         val noEpub = ReaderController(
             ReaderBookAssetResolver { _, _ -> throw ReaderEpubUnavailableException() },
             ReaderEngineOpener { FakeEngine() },
             coordinator(),
-            this
+            this,
+            fakeLocalStore()
         )
 
         openFailure.initialize(profile(), "profile-1", "book-1", null)
