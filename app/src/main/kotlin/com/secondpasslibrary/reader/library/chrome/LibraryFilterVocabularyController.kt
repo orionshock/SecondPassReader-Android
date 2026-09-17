@@ -32,6 +32,7 @@ internal class LibraryFilterVocabularyController(
     private var connectionIdentity: AuthenticatedConnectionIdentity? = null
     private var advancedGroupsEnabled: Boolean? = null
     private var tagScope: LibraryScope = LibraryScope.Global
+    private var authorityGeneration = 0L
     private var groupsJob: Job? = null
     private var tagsJob: Job? = null
 
@@ -42,8 +43,11 @@ internal class LibraryFilterVocabularyController(
                 advancedGroupsEnabled != this.advancedGroupsEnabled
         this.profile = profile
         if (connectionChanged) {
+            authorityGeneration += 1
             groupsJob?.cancel()
+            groupsJob = null
             tagsJob?.cancel()
+            tagsJob = null
             connectionIdentity = nextIdentity
             this.advancedGroupsEnabled = advancedGroupsEnabled
             tagScope = scope
@@ -61,7 +65,9 @@ internal class LibraryFilterVocabularyController(
 
     fun selectScope(scope: LibraryScope) {
         if (scope == tagScope) return
+        authorityGeneration += 1
         tagsJob?.cancel()
+        tagsJob = null
         tagScope = scope
         mutableState.value =
             state.value.copy(tagSelector = LibraryTagSelectorState(loading = true))
@@ -71,6 +77,20 @@ internal class LibraryFilterVocabularyController(
     fun retryGroups() = loadGroups()
 
     fun retryTags() = loadTags()
+
+    fun deactivate() {
+        authorityGeneration += 1
+        profile = null
+        connectionIdentity = null
+        advancedGroupsEnabled = null
+        tagScope = LibraryScope.Global
+        groupsJob?.cancel()
+        groupsJob = null
+        tagsJob?.cancel()
+        tagsJob = null
+        mutableState.value = LibraryFilterVocabularyState()
+        discardConnectionEvents()
+    }
 
     fun close() {
         groupsJob?.cancel()
@@ -93,7 +113,10 @@ internal class LibraryFilterVocabularyController(
             val result = runSuspendCatching {
                 clientProvider.forProfile(requestContext.profile).library.loadAllGroups()
             }
-            if (requestContext.identity != connectionIdentity || advancedGroupsEnabled != true) {
+            if (requestContext.generation != authorityGeneration ||
+                requestContext.identity != connectionIdentity ||
+                advancedGroupsEnabled != true
+            ) {
                 return@launch
             }
             result.fold(
@@ -124,7 +147,10 @@ internal class LibraryFilterVocabularyController(
                     .library
                     .loadAllTags(requestedScope)
             }
-            if (requestContext.identity != connectionIdentity || requestedScope != tagScope) {
+            if (requestContext.generation != authorityGeneration ||
+                requestContext.identity != connectionIdentity ||
+                requestedScope != tagScope
+            ) {
                 return@launch
             }
             result.fold(
@@ -163,14 +189,21 @@ internal class LibraryFilterVocabularyController(
         val activeProfile = profile
         val activeIdentity = connectionIdentity
         return if (activeProfile != null && activeIdentity != null) {
-            VocabularyRequestContext(activeProfile, activeIdentity)
+            VocabularyRequestContext(activeProfile, activeIdentity, authorityGeneration)
         } else {
             null
+        }
+    }
+
+    private fun discardConnectionEvents() {
+        while (connectionEventChannel.tryReceive().isSuccess) {
+            // Events from the ended authority lifetime must not survive a later reconnect.
         }
     }
 }
 
 private data class VocabularyRequestContext(
     val profile: ConnectionProfile,
-    val identity: AuthenticatedConnectionIdentity
+    val identity: AuthenticatedConnectionIdentity,
+    val generation: Long
 )

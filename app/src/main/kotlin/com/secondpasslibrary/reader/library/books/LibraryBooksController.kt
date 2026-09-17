@@ -76,6 +76,7 @@ internal class LibraryBooksController(
         unfilteredState = null
         loadJob?.cancel()
         requestGeneration += 1
+        discardConnectionEvents()
         loadDisplayPreference()
         mutableState.value = LibraryBooksState(
             offlineDownloadedOnly = true,
@@ -403,6 +404,12 @@ internal class LibraryBooksController(
             hasNext = false,
             currentPage = 1
         )
+    }
+
+    private fun discardConnectionEvents() {
+        while (connectionEventChannel.tryReceive().isSuccess) {
+            // Online authentication events do not belong to the offline Books lifetime.
+        }
     }
 }
 

@@ -31,7 +31,7 @@ import kotlinx.coroutines.launch
 internal class PagedLibraryAxisController<T, O>(
     private val clientProvider: AuthenticatedClientProvider,
     private val coroutineScope: CoroutineScope,
-    defaultOrdering: O,
+    private val defaultOrdering: O,
     private val pageLoader: suspend (AuthenticatedSecondPassClient, PagedLibraryAxisRequest<O>) ->
     CatalogResultPage<T>,
     private val detailLoader: suspend (AuthenticatedSecondPassClient, String) -> T
@@ -161,8 +161,19 @@ internal class PagedLibraryAxisController<T, O>(
 
     fun clearSelection() {
         detailJob?.cancel()
+        detailJob = null
         detailGeneration += 1
         mutableState.value = mutableState.value.copy(selected = null)
+    }
+
+    fun deactivate() {
+        profile = null
+        connectionIdentity = null
+        selectedScope = LibraryScope.Global
+        selectedTagSlug = null
+        reset(cancelDetail = true)
+        mutableState.value = mutableState.value.copy(ordering = defaultOrdering)
+        discardConnectionEvents()
     }
 
     fun close() {
@@ -172,9 +183,11 @@ internal class PagedLibraryAxisController<T, O>(
 
     private fun reset(cancelDetail: Boolean) {
         loadJob?.cancel()
+        loadJob = null
         generation += 1
         if (cancelDetail) {
             detailJob?.cancel()
+            detailJob = null
             detailGeneration += 1
         }
         val current = mutableState.value
@@ -279,6 +292,7 @@ internal class PagedLibraryAxisController<T, O>(
 
     private fun resetPreservingSelection() {
         loadJob?.cancel()
+        loadJob = null
         generation += 1
         val current = mutableState.value
         mutableState.value =
@@ -288,6 +302,12 @@ internal class PagedLibraryAxisController<T, O>(
                 pageSize = current.pageSize,
                 selected = current.selected
             )
+    }
+
+    private fun discardConnectionEvents() {
+        while (connectionEventChannel.tryReceive().isSuccess) {
+            // Events from the ended authority lifetime must not survive a later reconnect.
+        }
     }
 }
 

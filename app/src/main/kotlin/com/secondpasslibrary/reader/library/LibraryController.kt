@@ -25,6 +25,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
@@ -44,6 +45,7 @@ internal class LibraryController(
     private val vocabulary: LibraryFilterVocabularyController =
         LibraryFilterVocabularyController(clientProvider, scope)
 ) {
+    private var authorityMode = LibraryAuthorityMode.OFFLINE
     private val chrome = MutableStateFlow(LibraryChromeState())
     val state: StateFlow<LibraryState> =
         libraryStateFlow(
@@ -61,21 +63,20 @@ internal class LibraryController(
             authors.connectionEvents,
             series.connectionEvents,
             vocabulary.connectionEvents
-        )
+        ).filter { authorityMode == LibraryAuthorityMode.ONLINE }
 
     private var entryKey: LibraryBooksEntry? = null
     private var connectionIdentity: AuthenticatedConnectionIdentity? = null
     private var advancedGroupsCapability: Boolean? = null
     private var pendingTagNavigation: LibraryExternalNavigation.Tag? = null
     private var pendingTagResolutionJob: Job? = null
-    private var offline = false
 
     fun initialize(
         profile: ConnectionProfile,
         entry: LibraryBooksEntry,
         advancedGroupsEnabled: Boolean
     ) {
-        offline = false
+        authorityMode = LibraryAuthorityMode.ONLINE
         val nextConnectionIdentity = profile.authenticatedConnectionIdentity
         val sameConnection = hasSameConnection(nextConnectionIdentity, advancedGroupsEnabled)
         if (sameConnection && entry == entryKey) return
@@ -123,12 +124,15 @@ internal class LibraryController(
     }
 
     fun initializeOffline(profile: ConnectionProfile, profileId: String, entry: LibraryBooksEntry) {
-        offline = true
+        authorityMode = LibraryAuthorityMode.OFFLINE
         connectionIdentity = null
         entryKey = null
         advancedGroupsCapability = null
         pendingTagResolutionJob?.cancel()
         pendingTagNavigation = null
+        authors.deactivate()
+        series.deactivate()
+        vocabulary.deactivate()
         chrome.value = LibraryChromeState()
         val query = (entry as? LibraryBooksEntry.BroadSearch)?.query.orEmpty()
         books.initializeOffline(profile, profileId, query)
@@ -141,7 +145,7 @@ internal class LibraryController(
 
     @Suppress("ReturnCount") // Offline capability rejection joins the existing validation exits.
     fun selectScope(selected: LibraryScope) {
-        if (offline) return
+        if (authorityMode != LibraryAuthorityMode.ONLINE) return
         var current = chrome.value
         if (selected == current.scope) return
         if (selected is LibraryScope.Group &&
@@ -175,7 +179,7 @@ internal class LibraryController(
     }
 
     fun selectAxis(selected: LibraryAxis) {
-        if (offline) return
+        if (authorityMode != LibraryAuthorityMode.ONLINE) return
         var current = chrome.value
         if (selected == current.axis) {
             if (current.isSelectedAuthorSeriesBooks) clearSelectedAuthorSeries()
@@ -256,6 +260,7 @@ internal class LibraryController(
     fun retrySeriesDetail() = series.retryDetail()
 
     fun selectAuthor(authorId: String) {
+        if (authorityMode != LibraryAuthorityMode.ONLINE) return
         if (chrome.value.axis != LibraryAxis.AUTHORS) {
             selectAxis(LibraryAxis.AUTHORS)
         }
@@ -265,6 +270,7 @@ internal class LibraryController(
     }
 
     fun selectSeries(seriesId: String) {
+        if (authorityMode != LibraryAuthorityMode.ONLINE) return
         if (chrome.value.axis != LibraryAxis.SERIES) {
             selectAxis(LibraryAxis.SERIES)
         }
@@ -274,6 +280,7 @@ internal class LibraryController(
     }
 
     fun navigateTo(target: LibraryExternalNavigation) {
+        if (authorityMode != LibraryAuthorityMode.ONLINE) return
         when (target) {
             is LibraryExternalNavigation.Author -> {
                 val selectedId = chrome.value.takeIf { it.isSelectedAuthorSeriesBooks }
@@ -308,7 +315,7 @@ internal class LibraryController(
     fun retryGroups() = vocabulary.retryGroups()
 
     fun selectTag(tag: LibraryCatalogTag?) {
-        if (offline) return
+        if (authorityMode != LibraryAuthorityMode.ONLINE) return
         val current = chrome.value
         val selectableTags =
             state.value.tagSelector.tags + vocabulary.state.value.tagSelector.tags
@@ -341,6 +348,7 @@ internal class LibraryController(
     }
 
     fun close() {
+        authorityMode = LibraryAuthorityMode.OFFLINE
         pendingTagResolutionJob?.cancel()
         vocabulary.close()
         books.close()

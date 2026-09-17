@@ -17,6 +17,11 @@ internal enum class LibraryAxis {
     SERIES
 }
 
+internal enum class LibraryAuthorityMode {
+    ONLINE,
+    OFFLINE
+}
+
 internal enum class LibraryResultKind {
     BOOKS,
     AUTHOR_INDEX,
