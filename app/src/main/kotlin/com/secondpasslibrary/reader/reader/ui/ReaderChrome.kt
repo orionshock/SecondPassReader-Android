@@ -54,10 +54,10 @@ internal fun ReaderChrome(
     onAppearanceRequested: () -> Unit,
     bookmarks: List<ReaderAnnotation.Bookmark> = emptyList(),
     bookmarksWritable: Boolean = false,
-    onCreateBookmark: () -> Unit = {},
-    onNavigateBookmark: (ReaderAnnotation.Bookmark) -> Unit = {},
-    onRemoveBookmark: (ReaderAnnotation.Bookmark) -> Unit = {},
-    onBookmarkMenuVisibilityChanged: (Boolean) -> Unit = {},
+    onCreateBookmark: () -> Unit,
+    onNavigateBookmark: (ReaderAnnotation.Bookmark) -> Unit,
+    onRemoveBookmark: (ReaderAnnotation.Bookmark) -> Unit,
+    onBookmarkMenuVisibilityChanged: (Boolean) -> Unit,
     onAnnotationsRequested: () -> Unit
 ) {
     AnimatedVisibility(visible = visible, enter = fadeIn(), exit = fadeOut()) {

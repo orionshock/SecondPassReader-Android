@@ -29,7 +29,7 @@ internal class ReaderBookmarkUiIntegrationTest : ReaderUiIntegrationTestSupport(
         val visibleBookmarks = mutableStateOf(ReaderVisiblePageBookmarks())
         compose.setContent {
             SecondPassTheme {
-                ReaderScreen(
+                ReaderTestScreen(
                     state = readerReadyState(),
                     onBack = {},
                     onRetry = {},
@@ -84,7 +84,7 @@ internal class ReaderBookmarkUiIntegrationTest : ReaderUiIntegrationTestSupport(
         var creates = 0
         compose.setContent {
             SecondPassTheme {
-                ReaderScreen(
+                ReaderTestScreen(
                     state = readerReadyState(status = ReaderSessionStatus.CLOSED),
                     onBack = {},
                     onRetry = {},

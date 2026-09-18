@@ -13,6 +13,7 @@ captures/
 Thumbs.db
 .DS_Store
 gitlog.txt
+/debug.log
 node_modules/
 artifacts/*
 test-results/

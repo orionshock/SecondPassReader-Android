@@ -60,7 +60,7 @@ internal class ReaderMarginaliaUiIntegrationTest : ReaderUiIntegrationTestSuppor
         var exits = 0
         compose.setContent {
             SecondPassTheme {
-                ReaderScreen(
+                ReaderTestScreen(
                     state = readerReadyState(navigator = navigator),
                     onBack = { exits += 1 },
                     onRetry = {},
@@ -100,7 +100,7 @@ internal class ReaderMarginaliaUiIntegrationTest : ReaderUiIntegrationTestSuppor
         var retries = 0
         compose.setContent {
             SecondPassTheme {
-                ReaderScreen(
+                ReaderTestScreen(
                     state = readerReadyState(),
                     onBack = {},
                     onRetry = {},
@@ -145,7 +145,7 @@ internal class ReaderMarginaliaUiIntegrationTest : ReaderUiIntegrationTestSuppor
         )
         compose.setContent {
             SecondPassTheme {
-                ReaderScreen(
+                ReaderTestScreen(
                     state = readerReadyState(status = status.value),
                     onBack = {},
                     onRetry = {},
@@ -253,7 +253,7 @@ internal class ReaderMarginaliaUiIntegrationTest : ReaderUiIntegrationTestSuppor
         )
         compose.setContent {
             SecondPassTheme {
-                ReaderScreen(
+                ReaderTestScreen(
                     state = readerReadyState(),
                     onBack = { exits += 1 },
                     onRetry = {},
@@ -303,7 +303,7 @@ internal class ReaderMarginaliaUiIntegrationTest : ReaderUiIntegrationTestSuppor
         var exits = 0
         compose.setContent {
             SecondPassTheme {
-                ReaderScreen(
+                ReaderTestScreen(
                     state = readerReadyState(status = status.value),
                     onBack = { exits += 1 },
                     onRetry = {},
@@ -392,7 +392,7 @@ internal class ReaderMarginaliaUiIntegrationTest : ReaderUiIntegrationTestSuppor
         val intents = mutableListOf<ReaderMarginaliaIntent>()
         compose.setContent {
             SecondPassTheme {
-                ReaderScreen(
+                ReaderTestScreen(
                     state = readerReadyState(status = ReaderSessionStatus.ACTIVE),
                     onBack = {},
                     onRetry = {},
@@ -485,7 +485,7 @@ internal class ReaderMarginaliaUiIntegrationTest : ReaderUiIntegrationTestSuppor
         var dismissed = false
         compose.setContent {
             SecondPassTheme {
-                ReaderScreen(
+                ReaderTestScreen(
                     state = readerReadyState(),
                     onBack = {},
                     onRetry = {},

@@ -56,7 +56,6 @@ import com.secondpasslibrary.reader.reader.ui.hud.ReaderHudPresentation
 import com.secondpasslibrary.reader.reader.ui.hud.rememberReaderHudPresentation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.emptyFlow
 
 @Composable
 // Root layout composes established Reader owners without owning their behavior.
@@ -64,18 +63,18 @@ import kotlinx.coroutines.flow.emptyFlow
 internal fun ReaderScreen(
     state: ReaderState,
     marginalia: ReaderMarginaliaPresentationState = ReaderMarginaliaPresentationState(),
-    navigationFailures: Flow<Unit> = emptyFlow(),
+    navigationFailures: Flow<Unit>,
     serverWritesAvailable: Boolean = true,
     onBack: () -> Unit,
     onRetry: () -> Unit,
-    onAppearanceChanged: (ReaderAppearance) -> Unit = {},
-    onMarginaliaIntent: (ReaderMarginaliaIntent) -> Unit = {},
-    onAnnotationMutation: (ReaderAnnotationMutationIntent) -> Unit = {},
-    onCreateBookmark: () -> Unit = {},
-    onNavigationIntent: (ReaderNavigationIntent) -> Unit = {},
-    onRemoveBookmark: (ReaderAnnotation.Bookmark) -> Unit = {},
-    onDismissSelection: () -> Unit = {},
-    onDismissHighlightDetail: () -> Unit = {}
+    onAppearanceChanged: (ReaderAppearance) -> Unit,
+    onMarginaliaIntent: (ReaderMarginaliaIntent) -> Unit,
+    onAnnotationMutation: (ReaderAnnotationMutationIntent) -> Unit,
+    onCreateBookmark: () -> Unit,
+    onNavigationIntent: (ReaderNavigationIntent) -> Unit,
+    onRemoveBookmark: (ReaderAnnotation.Bookmark) -> Unit,
+    onDismissSelection: () -> Unit,
+    onDismissHighlightDetail: () -> Unit
 ) {
     val ready = state as? ReaderState.Ready
     val navigationFailureHost = remember { SnackbarHostState() }

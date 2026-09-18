@@ -46,7 +46,7 @@ internal class ReaderChromeUiIntegrationTest : ReaderUiIntegrationTestSupport() 
         val failures = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
         compose.setContent {
             SecondPassTheme {
-                ReaderScreen(
+                ReaderTestScreen(
                     state = readerReadyState(),
                     navigationFailures = failures,
                     onBack = {},
@@ -68,7 +68,7 @@ internal class ReaderChromeUiIntegrationTest : ReaderUiIntegrationTestSupport() 
     fun readerChromeUsesSeparatedFloatingClustersAndProtectsPublicationTop() {
         compose.setContent {
             SecondPassTheme {
-                ReaderScreen(readerReadyState(), onBack = {}, onRetry = {})
+                ReaderTestScreen(readerReadyState())
             }
         }
 
@@ -98,7 +98,7 @@ internal class ReaderChromeUiIntegrationTest : ReaderUiIntegrationTestSupport() 
         compose.mainClock.autoAdvance = false
         compose.setContent {
             SecondPassTheme {
-                ReaderScreen(
+                ReaderTestScreen(
                     readerReadyState(hudEvents = hud),
                     onBack = {},
                     onRetry = {}
@@ -126,7 +126,7 @@ internal class ReaderChromeUiIntegrationTest : ReaderUiIntegrationTestSupport() 
         var exits = 0
         compose.setContent {
             SecondPassTheme {
-                ReaderScreen(
+                ReaderTestScreen(
                     readerReadyState(toc),
                     onBack = { exits += 1 },
                     onRetry = {},
@@ -196,7 +196,7 @@ internal class ReaderChromeUiIntegrationTest : ReaderUiIntegrationTestSupport() 
         }
         compose.setContent {
             SecondPassTheme {
-                ReaderScreen(
+                ReaderTestScreen(
                     readerReadyState(RecordingReaderToc(entries, resource = null)),
                     onBack = {},
                     onRetry = {}
@@ -226,7 +226,7 @@ internal class ReaderChromeUiIntegrationTest : ReaderUiIntegrationTestSupport() 
         val appearance = RecordingReaderAppearance()
         compose.setContent {
             SecondPassTheme {
-                ReaderScreen(
+                ReaderTestScreen(
                     readerReadyState(RecordingReaderToc(), appearance),
                     onBack = {},
                     onRetry = {},

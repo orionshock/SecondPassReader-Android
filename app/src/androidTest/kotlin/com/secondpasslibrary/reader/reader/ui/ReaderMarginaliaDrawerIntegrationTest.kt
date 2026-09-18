@@ -1,10 +1,8 @@
 package com.secondpasslibrary.reader.reader.ui
 
-import androidx.activity.ComponentActivity
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -27,15 +25,11 @@ import com.secondpasslibrary.reader.reader.marginalia.ui.READER_MARGINALIA_LOAD_
 import com.secondpasslibrary.reader.reader.presentation.ReaderMarginaliaPresentationState
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import org.junit.Assert.assertEquals
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
-class ReaderMarginaliaDrawerIntegrationTest {
-    @get:Rule
-    val compose = createAndroidComposeRule<ComponentActivity>()
-
+internal class ReaderMarginaliaDrawerIntegrationTest : ReaderUiIntegrationTestSupport() {
     @Test
     fun tabletDrawerSeparatesLayerControlFromSelectedAnnotationCollection() {
         val current = annotation("current-annotation", "Current passage")
@@ -56,7 +50,7 @@ class ReaderMarginaliaDrawerIntegrationTest {
         var loadMore = 0
         compose.setContent {
             SecondPassTheme {
-                ReaderScreen(
+                ReaderTestScreen(
                     state = readerReadyState(),
                     onBack = {},
                     onRetry = {},

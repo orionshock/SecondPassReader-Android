@@ -13,7 +13,7 @@ import androidx.navigation3.runtime.rememberNavBackStack
 internal class AppNavigationState(
     private val backStacks: Map<AppDestination, MutableList<AppRoute>>,
     initialDestination: AppDestination = AppDestination.Home,
-    private val onDestinationSelected: (AppDestination) -> Unit = {}
+    private val onDestinationSelected: (AppDestination) -> Unit
 ) {
     var selectedDestination by mutableStateOf(initialDestination)
         private set
@@ -88,7 +88,8 @@ internal fun appNavigationStateForTest(
     initialDestination: AppDestination = AppDestination.Home
 ): AppNavigationState = AppNavigationState(
     AppDestination.entries.associateWith { mutableListOf<AppRoute>(it) },
-    initialDestination
+    initialDestination,
+    onDestinationSelected = {}
 )
 
 /** Keeps Navigation 3's NavKey-only storage behind the app-owned closed route interface. */

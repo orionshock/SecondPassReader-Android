@@ -1,6 +1,7 @@
 package com.secondpasslibrary.reader.reader.ui
 
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
@@ -24,6 +25,7 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondpasslibrary.reader.design.SecondPassTheme
+import com.secondpasslibrary.reader.reader.ReaderState
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsFailure
@@ -35,6 +37,7 @@ import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderHighlightEditDraft
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderPendingHighlight
 import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelection
+import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
 import com.secondpasslibrary.reader.reader.appearance.ReaderLayoutMode
 import com.secondpasslibrary.reader.reader.appearance.ReaderTheme
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
@@ -59,6 +62,8 @@ import com.secondpasslibrary.reader.reader.toc.READER_TOC_HEADER_TAG
 import com.secondpasslibrary.reader.reader.toc.READER_TOC_TITLE_TAG
 import com.secondpasslibrary.reader.reader.toc.ReaderPublicationTarget
 import com.secondpasslibrary.reader.reader.toc.ReaderTocEntry
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -75,5 +80,38 @@ internal abstract class ReaderUiIntegrationTestSupport {
         cfi = TEST_ANNOTATION_CFI,
         locationLabel = label,
         updatedAt = "2026-08-28T00:00:00Z"
+    )
+
+    @Composable
+    protected fun ReaderTestScreen(
+        state: ReaderState,
+        marginalia: ReaderMarginaliaPresentationState = ReaderMarginaliaPresentationState(),
+        navigationFailures: Flow<Unit> = emptyFlow(),
+        serverWritesAvailable: Boolean = true,
+        onBack: () -> Unit = {},
+        onRetry: () -> Unit = {},
+        onAppearanceChanged: (ReaderAppearance) -> Unit = {},
+        onMarginaliaIntent: (ReaderMarginaliaIntent) -> Unit = {},
+        onAnnotationMutation: (ReaderAnnotationMutationIntent) -> Unit = {},
+        onCreateBookmark: () -> Unit = {},
+        onNavigationIntent: (ReaderNavigationIntent) -> Unit = {},
+        onRemoveBookmark: (ReaderAnnotation.Bookmark) -> Unit = {},
+        onDismissSelection: () -> Unit = {},
+        onDismissHighlightDetail: () -> Unit = {}
+    ) = ReaderScreen(
+        state,
+        marginalia,
+        navigationFailures,
+        serverWritesAvailable,
+        onBack,
+        onRetry,
+        onAppearanceChanged,
+        onMarginaliaIntent,
+        onAnnotationMutation,
+        onCreateBookmark,
+        onNavigationIntent,
+        onRemoveBookmark,
+        onDismissSelection,
+        onDismissHighlightDetail
     )
 }
