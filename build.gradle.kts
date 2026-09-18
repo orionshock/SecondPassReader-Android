@@ -52,10 +52,10 @@ tasks.register<StaticHygieneTask>("staticHygiene") {
     repositoryDirectory.set(layout.projectDirectory)
 }
 
-val readerBoundaryCheck =
-    tasks.register<ReaderBoundaryCheckTask>("readerBoundaryCheck") {
+val architectureBoundaryCheck =
+    tasks.register<ArchitectureBoundaryCheckTask>("architectureBoundaryCheck") {
         group = LifecycleBasePlugin.VERIFICATION_GROUP
-        description = "Checks Reader isolation and SDK transport seams."
+        description = "Checks repository architecture and transport seams."
         productionSources.from(
             fileTree("app/src/main/kotlin") { include("**/*.kt") },
             fileTree("app/src/debug/kotlin") { include("**/*.kt") },
@@ -65,7 +65,14 @@ val readerBoundaryCheck =
         authoredJavascript.from(
             file("app/src/main/assets/reader/cfi/secondpass-epub-cfi-runtime.js")
         )
+        repositoryDirectory.set(layout.projectDirectory)
     }
+
+tasks.register("readerBoundaryCheck") {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = "Compatibility alias for architectureBoundaryCheck."
+    dependsOn(architectureBoundaryCheck)
+}
 
 val colibrioBundleCheck =
     tasks.register<ColibrioBundleCheckTask>("colibrioBundleCheck") {
@@ -89,46 +96,75 @@ val colibrioBundleCheck =
         )
     }
 
+val cfiProtocolManifest =
+    layout.projectDirectory.file("tools/reader-cfi-runtime/protocol.json")
+val cfiKotlinProtocolDeclaration =
+    layout.projectDirectory.file(
+        "app/src/main/kotlin/com/secondpasslibrary/reader/reader/readium/cfi/CfiProtocol.kt"
+    )
+val cfiTypescriptProtocolDeclaration =
+    layout.projectDirectory.file("tools/reader-cfi-runtime/src/protocol.generated.ts")
+val cfiTypescriptEntrypoint =
+    layout.projectDirectory.file("tools/reader-cfi-runtime/src/runtime.ts")
+val cfiKotlinRuntimeAdapter =
+    layout.projectDirectory.file(
+        "app/src/main/kotlin/com/secondpasslibrary/reader/reader/readium/cfi/ReadiumCfiJavascriptRuntime.kt"
+    )
+val cfiSourceInputs =
+    files(
+        fileTree("tools/reader-cfi-runtime/src") { include("**/*.ts") },
+        file("tools/reader-cfi-runtime/package.json"),
+        file("tools/reader-cfi-runtime/package-lock.json"),
+        file("tools/reader-cfi-runtime/tsconfig.json"),
+        cfiProtocolManifest,
+        file("tools/reader-cfi-runtime/scripts/protocol.mjs"),
+        file("tools/reader-cfi-runtime/scripts/build-support.mjs")
+    )
+
+fun registerCfiRuntimeCheck(
+    name: String,
+    taskDescription: String,
+    runtimePath: String
+) = tasks.register<ReaderCfiRuntimeCheckTask>(name) {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = taskDescription
+    sourceInputs.from(cfiSourceInputs)
+    protocolManifest.set(cfiProtocolManifest)
+    kotlinProtocolDeclaration.set(cfiKotlinProtocolDeclaration)
+    typescriptProtocolDeclaration.set(cfiTypescriptProtocolDeclaration)
+    typescriptEntrypoint.set(cfiTypescriptEntrypoint)
+    kotlinRuntimeAdapter.set(cfiKotlinRuntimeAdapter)
+    generatedRuntime.set(
+        layout.projectDirectory.file(runtimePath)
+    )
+    repositoryDirectory.set(layout.projectDirectory)
+}
+
 val readerCfiRuntimeCheck =
-    tasks.register<ReaderCfiRuntimeCheckTask>("readerCfiRuntimeCheck") {
-        group = LifecycleBasePlugin.VERIFICATION_GROUP
-        description = "Verifies the generated Reader CFI runtime source digest without Node."
-        sourceInputs.from(
-            fileTree("tools/reader-cfi-runtime/src") { include("**/*.ts") },
-            file("tools/reader-cfi-runtime/package.json"),
-            file("tools/reader-cfi-runtime/package-lock.json"),
-            file("tools/reader-cfi-runtime/tsconfig.json"),
-            file("tools/reader-cfi-runtime/protocol.json"),
-            file("tools/reader-cfi-runtime/scripts/protocol.mjs"),
-            file("tools/reader-cfi-runtime/scripts/build-support.mjs")
-        )
-        generatedRuntime.set(
-            layout.projectDirectory.file(
-                "app/src/main/assets/reader/cfi/secondpass-epub-cfi-runtime.js"
-            )
-        )
-        repositoryDirectory.set(layout.projectDirectory)
-        protocolInputs.from(
-            file("tools/reader-cfi-runtime/protocol.json"),
-            file("tools/reader-cfi-runtime/src/protocol.generated.ts"),
-            file("tools/reader-cfi-runtime/src/runtime.ts"),
-            file("app/src/main/kotlin/com/secondpasslibrary/reader/reader/readium/cfi/CfiProtocol.kt"),
-            file("app/src/main/kotlin/com/secondpasslibrary/reader/reader/readium/cfi/ReadiumCfiJavascriptRuntime.kt")
-        )
-    }
+    registerCfiRuntimeCheck(
+        name = "readerCfiRuntimeCheck",
+        taskDescription = "Verifies the readable Reader CFI runtime without Node.",
+        runtimePath = "app/src/main/assets/reader/cfi/secondpass-epub-cfi-runtime.js"
+    )
 
 val releaseReaderCfiRuntimeCheck =
-    tasks.register<ReaderCfiRuntimeCheckTask>("releaseReaderCfiRuntimeCheck") {
+    registerCfiRuntimeCheck(
+        name = "releaseReaderCfiRuntimeCheck",
+        taskDescription = "Verifies the minified release Reader CFI runtime without Node.",
+        runtimePath = "app/src/release/assets/reader/cfi/secondpass-epub-cfi-runtime.js"
+    )
+
+val buildLogicTest =
+    tasks.register<Exec>("buildLogicTest") {
         group = LifecycleBasePlugin.VERIFICATION_GROUP
-        description = "Verifies the minified release Reader CFI runtime source digest without Node."
-        sourceInputs.from(readerCfiRuntimeCheck.get().sourceInputs)
-        protocolInputs.from(readerCfiRuntimeCheck.get().protocolInputs)
-        generatedRuntime.set(
-            layout.projectDirectory.file(
-                "app/src/release/assets/reader/cfi/secondpass-epub-cfi-runtime.js"
-            )
+        description = "Runs deterministic tests for repository build logic."
+        workingDir(rootDir)
+        commandLine(
+            rootDir.resolve("gradlew.bat").absolutePath,
+            "-p",
+            rootDir.resolve("buildSrc").absolutePath,
+            "test"
         )
-        repositoryDirectory.set(layout.projectDirectory)
     }
 
 project(":app") {
@@ -156,9 +192,10 @@ tasks.named("check") {
         "detekt",
         "ktlintCheck",
         "staticHygiene",
-        readerBoundaryCheck,
+        architectureBoundaryCheck,
         colibrioBundleCheck,
         readerCfiRuntimeCheck,
-        releaseReaderCfiRuntimeCheck
+        releaseReaderCfiRuntimeCheck,
+        buildLogicTest
     )
 }

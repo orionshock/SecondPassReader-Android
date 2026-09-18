@@ -74,7 +74,9 @@ class CfiProtocolCheckTest {
     private class Fixture(directory: File) {
         private val repository = File("..").canonicalFile
         private val workspace = repository.resolve("tools/reader-cfi-runtime")
-        val checker = CfiProtocolCheck(workspace.resolve("protocol.json"))
+        private val manifest = workspace.resolve("protocol.json").copyTo(
+            directory.resolve("protocol.json")
+        )
         val kotlin = repository.resolve("app/src/main/kotlin/com/secondpasslibrary/reader/reader/readium/cfi/CfiProtocol.kt")
             .copyTo(directory.resolve("CfiProtocol.kt"))
         val typescript = workspace.resolve("src/protocol.generated.ts").copyTo(directory.resolve("protocol.ts"))
@@ -83,7 +85,17 @@ class CfiProtocolCheckTest {
             .copyTo(directory.resolve("runtime.js"))
         val adapter = repository.resolve("app/src/main/kotlin/com/secondpasslibrary/reader/reader/readium/cfi/ReadiumCfiJavascriptRuntime.kt")
             .copyTo(directory.resolve("adapter.kt"))
+        val checker = CfiProtocolCheck(
+            CfiProtocolFiles(
+                manifest = manifest,
+                kotlinDeclaration = kotlin,
+                typescriptDeclaration = typescript,
+                typescriptEntrypoint = entry,
+                generatedRuntime = runtime,
+                kotlinAdapter = adapter
+            )
+        )
 
-        fun check() = checker.check(kotlin, typescript, entry, runtime, adapter)
+        fun check() = checker.check()
     }
 }

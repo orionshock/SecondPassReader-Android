@@ -26,11 +26,12 @@ and TypeScript result shapes, then produces the readable dev and minified releas
 their installed method surface/version and error envelope in Node.
 
 The root Gradle `readerCfiRuntimeCheck` and `releaseReaderCfiRuntimeCheck` run before Android
-`preBuild`. They independently derive the expected declarations from the manifest, check
-entrypoint names/argument order and embedded versions, and retain the source-digest checks.
-They never invoke Node or generate runtime code. Edit the manifest and adapters together, then
-run `npm.cmd run build` and `npm.cmd run check`; hand-edited or stale declarations fail Gradle.
-`gradlew.bat -p buildSrc test` exercises the Node-free checker with deliberate protocol drift.
+`preBuild`. One explicit verifier configuration supplies the manifest, Kotlin and TypeScript
+declarations, TypeScript entrypoint, Kotlin adapter, digest sources, and each variant's generated
+asset. The checks never invoke Node or generate runtime code. Edit the manifest and adapters
+together, then run `npm.cmd run build` and `npm.cmd run check`; hand-edited or stale declarations
+fail Gradle. Root `check` runs the buildSrc negative fixtures; use `gradlew.bat -p buildSrc test`
+for the same focused suite.
 
 Protocol declarations stay inside the Readium CFI adapter/runtime; Reader domain and UI do not
 consume them. The two small declaration renderers (Node regeneration and JVM verification) are

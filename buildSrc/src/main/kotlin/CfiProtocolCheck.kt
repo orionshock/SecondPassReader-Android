@@ -3,19 +3,37 @@ import groovy.json.JsonSlurper
 import java.io.File
 import org.gradle.api.GradleException
 
+/** Explicit CFI protocol file graph consumed by the Node-free verifier. */
+internal data class CfiProtocolFiles(
+    val manifest: File,
+    val kotlinDeclaration: File,
+    val typescriptDeclaration: File,
+    val typescriptEntrypoint: File,
+    val generatedRuntime: File,
+    val kotlinAdapter: File
+)
+
 /** Checks committed wire declarations without Node or runtime generation. */
-internal class CfiProtocolCheck(manifest: File) {
-    private val protocol = JsonSlurper().parse(manifest).objectMap()
+internal class CfiProtocolCheck(private val files: CfiProtocolFiles) {
+    private val protocol = JsonSlurper().parse(files.manifest).objectMap()
     private val methods = protocol.getValue("methods").objectMap().toSortedMap()
     private val types = protocol.getValue("types").objectMap().toSortedMap()
     private val envelope = protocol.getValue("envelope").objectMap()
     val version: String = protocol.getValue("runtimeVersion").toString()
 
-    fun check(kotlin: File, typescript: File, entrypoint: File, runtime: File, adapter: File) {
-        verify(kotlin.readText(), kotlinDeclarations(), kotlin.path)
-        verify(typescript.readText(), typescriptDeclarations(), typescript.path)
-        checkKotlinArguments(adapter.readText())
-        val entry = entrypoint.readText()
+    fun check() {
+        verify(
+            files.kotlinDeclaration.readText(),
+            kotlinDeclarations(),
+            files.kotlinDeclaration.path
+        )
+        verify(
+            files.typescriptDeclaration.readText(),
+            typescriptDeclarations(),
+            files.typescriptDeclaration.path
+        )
+        checkKotlinArguments(files.kotlinAdapter.readText())
+        val entry = files.typescriptEntrypoint.readText()
         methods.forEach { (name, value) ->
             val expected = value.objectMap().arguments().map { it[0] }
             val pattern = Regex("\\[P\\.METHOD_${symbol(name)}]:\\s*\\(([^)]*)\\)\\s*=>")
@@ -23,7 +41,7 @@ internal class CfiProtocolCheck(manifest: File) {
                 ?.split(',')?.map(String::trim)?.filter(String::isNotEmpty)
             if (actual != expected) fail("TypeScript entrypoint $name arguments drifted")
         }
-        val asset = runtime.readText().replace("\r\n", "\n")
+        val asset = files.generatedRuntime.readText().replace("\r\n", "\n")
         if (!asset.contains("// CFI-Protocol-Version: $version\n")) {
             fail("Generated runtime protocol version mismatch")
         }

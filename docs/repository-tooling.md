@@ -10,7 +10,7 @@ Run before handing back a normal code change:
 .\gradlew.bat check assembleDebug
 ```
 
-`check` runs both modules' JVM tests, detekt, ktlint, Android Lint, text hygiene, Reader and transport boundary enforcement, the pinned Colibrio hash/license check, and both Node-free CFI protocol/runtime checks. `assembleDebug` proves debug packaging and runs the packaged-asset checks through `preBuild`.
+`check` runs both modules' JVM tests, detekt, ktlint, Android Lint, text hygiene, architecture-boundary enforcement, deterministic buildSrc checker tests, the pinned Colibrio hash/license check, and both Node-free CFI protocol/runtime checks. `assembleDebug` proves debug packaging and runs the packaged CFI and Colibrio checks through `preBuild`; Gradle reuses those task results when `check` and assembly run together.
 
 This gate does not run instrumentation, a device or emulator, Node, the development server, or release signing. Run `assembleRelease` when release asset selection or release resources change; signing and distribution are not configured repository tooling.
 
@@ -28,17 +28,20 @@ Use focused JVM tests while developing:
 | Gradle Wrapper | A | Repository build entry point; pins Gradle for Windows and other hosts | `.\gradlew.bat <tasks>` | All documented Gradle commands |
 | `test`, `detekt`, `ktlintCheck` | A | Root lifecycle tasks aggregate the corresponding module checks | `.\gradlew.bat test detekt ktlintCheck` | Included by root `check` |
 | `staticHygiene` | A | `buildSrc/StaticHygieneTask`; checks UTF-8, mojibake markers, trailing whitespace, the cancellation-safe capture idiom, and `git diff --check` | `.\gradlew.bat staticHygiene` | Included by root `check` |
-| `readerBoundaryCheck` | B | `buildSrc/ReaderBoundaryCheckTask`; protects Reader/Readium/CFI, Connection pairing presentation, account-storage, and SDK transport boundaries | `.\gradlew.bat readerBoundaryCheck` | Included by root `check` |
+| `architectureBoundaryCheck` | B | Pure `ArchitectureBoundaryEvaluator` rules adapted by `ArchitectureBoundaryCheckTask`; protects Reader/Readium/CFI, Connection and Library ownership, and SDK transport seams | `.\gradlew.bat architectureBoundaryCheck` | Included by root `check` |
 | `readerCfiRuntimeCheck` | A, B | `buildSrc/ReaderCfiRuntimeCheckTask`; verifies the protocol declarations, adapter method arguments, development asset protocol/version, and source digest without Node | `.\gradlew.bat readerCfiRuntimeCheck` | Root `check` and Android `preBuild` |
 | `releaseReaderCfiRuntimeCheck` | A, E | Same verification for the minified release override | `.\gradlew.bat releaseReaderCfiRuntimeCheck` | Root `check` and Android `preBuild` |
 | `colibrioBundleCheck` | A, E | `buildSrc/ColibrioBundleCheckTask`; verifies the pinned browser bundle hash and packaged MIT license | `.\gradlew.bat colibrioBundleCheck` | Root `check` and Android `preBuild` |
-| CFI protocol checker tests | A | `buildSrc/CfiProtocolCheckTest`; proves protocol drift is rejected by the Node-free checker | `.\gradlew.bat -p buildSrc test` | Not part of the root build; run after changing the checker itself |
+| Build-logic tests | A | buildSrc tests prove architecture violations and CFI declaration, argument, version, envelope, and generated-constant drift are rejected | `.\gradlew.bat -p buildSrc test` | Included by root `check` through `buildLogicTest` |
 | CFI npm scripts | A, E | `tools/reader-cfi-runtime`; `typecheck` checks TypeScript, `build` generates declarations plus readable/minified assets, and `check` performs Node-side type/runtime/staleness checks | `npm.cmd run typecheck`, `npm.cmd run build`, or `npm.cmd run check` in that directory | Manual; Node is not used by Gradle |
 | Colibrio rebuild script | E | `tools/reader-cfi/rebuild-colibrio-bundle.ps1`; rebuilds the pinned third-party browser bundle from an exact external checkout revision | See the CFI runtime README | Manual dependency maintenance only |
 | Daily Git log | C | `scripts/daily-git-log.ps1`; prints commits and line totals for today or a requested number of prior days | `.\scripts\daily-git-log.ps1 [-PreviousDays N]` | Manual; no build or validation role |
 | Debug pairing harness | D | `tools/pair-debug-reader.ps1` plus debug-only `DebugPairingActivity`; pairs an installed debug APK through the public Connection flow | See [Development test server](development-test-server.md) | Manual, Windows-only, network/device dependent |
 | Readium CFI test host | D | Debug-only `ReadiumCfiTestActivity`; gives instrumentation tests a real Readium navigator lifecycle | Invoked by Reader CFI instrumentation tests | Built only into debug variants |
 | `LiveServerTest` marker | D | Marks instrumentation that contacts or mutates the development server | Select or exclude with instrumentation runner arguments | Live tests also require a test-specific opt-in argument before any server work |
+
+`readerBoundaryCheck` remains a compatibility alias for `architectureBoundaryCheck`; new tooling and
+documentation use the broader name.
 
 Test fixtures and support classes under `src/test` and `src/androidTest` are not standalone tools. Their owning suites construct them directly.
 

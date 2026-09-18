@@ -18,11 +18,27 @@ abstract class ReaderCfiRuntimeCheckTask : DefaultTask() {
 
     @get:InputFile
     @get:PathSensitive(PathSensitivity.RELATIVE)
-    abstract val generatedRuntime: RegularFileProperty
+    abstract val protocolManifest: RegularFileProperty
 
-    @get:InputFiles
+    @get:InputFile
     @get:PathSensitive(PathSensitivity.RELATIVE)
-    abstract val protocolInputs: ConfigurableFileCollection
+    abstract val kotlinProtocolDeclaration: RegularFileProperty
+
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val typescriptProtocolDeclaration: RegularFileProperty
+
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val typescriptEntrypoint: RegularFileProperty
+
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val kotlinRuntimeAdapter: RegularFileProperty
+
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val generatedRuntime: RegularFileProperty
 
     @get:Internal
     abstract val repositoryDirectory: DirectoryProperty
@@ -30,13 +46,16 @@ abstract class ReaderCfiRuntimeCheckTask : DefaultTask() {
     @TaskAction
     fun check() {
         val repository = repositoryDirectory.get().asFile
-        CfiProtocolCheck(repository.resolve("tools/reader-cfi-runtime/protocol.json")).check(
-            repository.resolve("app/src/main/kotlin/com/secondpasslibrary/reader/reader/readium/cfi/CfiProtocol.kt"),
-            repository.resolve("tools/reader-cfi-runtime/src/protocol.generated.ts"),
-            repository.resolve("tools/reader-cfi-runtime/src/runtime.ts"),
-            generatedRuntime.get().asFile,
-            repository.resolve("app/src/main/kotlin/com/secondpasslibrary/reader/reader/readium/cfi/ReadiumCfiJavascriptRuntime.kt")
-        )
+        CfiProtocolCheck(
+            CfiProtocolFiles(
+                manifest = protocolManifest.get().asFile,
+                kotlinDeclaration = kotlinProtocolDeclaration.get().asFile,
+                typescriptDeclaration = typescriptProtocolDeclaration.get().asFile,
+                typescriptEntrypoint = typescriptEntrypoint.get().asFile,
+                generatedRuntime = generatedRuntime.get().asFile,
+                kotlinAdapter = kotlinRuntimeAdapter.get().asFile
+            )
+        ).check()
         val digest = MessageDigest.getInstance("SHA-256")
         sourceInputs.files.filter { it.isFile }
             .sortedBy { it.relativeTo(repository).invariantSeparatorsPath }
