@@ -14,6 +14,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -22,21 +24,34 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.secondpasslibrary.reader.connection.discovery.ConnectionLibrarySuggestion
 import com.secondpasslibrary.reader.design.components.InformationCard
 import com.secondpasslibrary.reader.design.components.InformationDetail
+import com.secondpasslibrary.reader.design.richtext.ServerRichText
 
 @Composable
-internal fun ConnectionScreen(state: ConnectionUiState, actions: ConnectionScreenActions) {
+internal fun ConnectionScreen(
+    state: ConnectionUiState,
+    actions: ConnectionScreenActions,
+    requestLanDiscoveryAccess: (() -> Unit)? = null
+) {
     ConnectionFrame {
         when (state) {
             ConnectionUiState.Restoring -> BusyContent("Reconnecting")
 
             is ConnectionUiState.ServerEntry ->
-                ServerEntryContent(state, actions.updateServerUrl, actions.verifyServer)
+                ServerEntryContent(
+                    state,
+                    actions.updateServerUrl,
+                    actions.selectSuggestedServer,
+                    actions.verifyServer,
+                    requestLanDiscoveryAccess
+                )
 
             is ConnectionUiState.VerifyingServer -> BusyContent("Checking ${state.serverUrl}")
 
@@ -165,16 +180,24 @@ private fun ConnectionFrame(content: @Composable () -> Unit) {
 private fun ServerEntryContent(
     state: ConnectionUiState.ServerEntry,
     onUrlChanged: (String) -> Unit,
-    onVerify: () -> Unit
+    onSuggestionSelected: (String) -> Unit,
+    onVerify: () -> Unit,
+    requestLanDiscoveryAccess: (() -> Unit)?
 ) {
     SectionTitle(
         "Connect to Second Pass Library",
         "Enter the address of your Second Pass Library."
     )
+    requestLanDiscoveryAccess?.let { requestAccess ->
+        OutlinedButton(onClick = requestAccess) {
+            Text("Find libraries on the local network")
+        }
+    }
+    LibrarySuggestions(state.suggestions, onSuggestionSelected)
     OutlinedTextField(
         value = state.serverUrl,
         onValueChange = onUrlChanged,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().testTag("library-address-field"),
         label = { Text("Library address") },
         placeholder = { Text("https://library.example") },
         singleLine = true,
@@ -182,6 +205,60 @@ private fun ServerEntryContent(
         supportingText = state.message?.let { message -> { Text(message) } }
     )
     Button(onClick = onVerify, enabled = state.serverUrl.isNotBlank()) { Text("Check address") }
+}
+
+@Composable
+private fun LibrarySuggestions(
+    suggestions: List<ConnectionLibrarySuggestion>,
+    onSelected: (String) -> Unit
+) {
+    if (suggestions.isNotEmpty()) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                "Libraries found nearby",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            suggestions.forEach { suggestion ->
+                Card(
+                    onClick = { onSelected(suggestion.url) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors =
+                        CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer
+                        )
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            suggestion.name,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            suggestion.url,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        ServerRichText(
+                            suggestion.description,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            collapsedMaxLines = 3
+                        )
+                        Text(
+                            "Use this address",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable

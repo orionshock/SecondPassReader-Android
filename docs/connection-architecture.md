@@ -30,6 +30,8 @@ Public well-known discovery verifies SPL identity. Its public, non-secret `insta
 
 Public discovery and authenticated `/server/info/` are deliberately different models. The former establishes where and what the server is before trust; the latter describes account-visible server configuration after bearer verification.
 
+Android may browse `_secondpass._tcp` over native DNS-SD while the server-entry surface is active. The only Second Pass-specific TXT attribute is `url`, whose value is an externally reachable Library URL. mDNS supplies location only: Android never reconstructs a URL from the service name, SRV host or port, `.local` hostname, or IP address. Each candidate still passes through the normal SDK well-known discovery, which supplies installation identity and presentation metadata. Validated installations appear as compact suggestions that only prefill the existing address field; manual entry remains available and the user must still run the normal confirmation and pairing flow.
+
 ## Pairing lifecycle
 
 The application state sequence is:

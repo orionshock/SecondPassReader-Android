@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.connection
 
 internal data class ConnectionScreenActions(
     val updateServerUrl: (String) -> Unit,
+    val selectSuggestedServer: (String) -> Unit,
     val verifyServer: () -> Unit,
     val updateClientName: (String) -> Unit,
     val beginPairing: () -> Unit,

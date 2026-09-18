@@ -2,12 +2,16 @@ package com.secondpasslibrary.reader.connection
 
 import com.secondpasslibrary.client.AuthenticatedContext
 import com.secondpasslibrary.client.DiscoveredServer
+import com.secondpasslibrary.reader.connection.discovery.ConnectionLibrarySuggestion
 
 sealed interface ConnectionUiState {
     data object Restoring : ConnectionUiState
 
-    data class ServerEntry(val serverUrl: String = "", val message: String? = null) :
-        ConnectionUiState
+    data class ServerEntry(
+        val serverUrl: String = "",
+        val message: String? = null,
+        val suggestions: List<ConnectionLibrarySuggestion> = emptyList()
+    ) : ConnectionUiState
 
     data class VerifyingServer(val serverUrl: String) : ConnectionUiState
 
