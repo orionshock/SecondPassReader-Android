@@ -2,6 +2,7 @@ package com.secondpasslibrary.client
 
 data class DiscoveredServer(
     val serverOrigin: ServerOrigin,
+    val installationId: String,
     val serverBaseUrl: String,
     val apiBaseUrl: String,
     val name: String,

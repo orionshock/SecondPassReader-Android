@@ -63,6 +63,7 @@ internal abstract class ConnectionCoordinatorTestSupport {
 
     protected class FakeClient(
         private val events: MutableList<String> = mutableListOf(),
+        private val discoveryFailures: ArrayDeque<Exception> = ArrayDeque(),
         private val pollStatuses: ArrayDeque<PairingStatus> = ArrayDeque(),
         private val authFailure: Exception? = null,
         private val authFailures: ArrayDeque<Exception> = ArrayDeque(),
@@ -74,7 +75,10 @@ internal abstract class ConnectionCoordinatorTestSupport {
     ) : SecondPassClient {
         var consumeCalls = 0
 
-        override suspend fun discoverServer(userInput: String): DiscoveredServer = server()
+        override suspend fun discoverServer(userInput: String): DiscoveredServer {
+            discoveryFailures.removeFirstOrNull()?.let { throw it }
+            return server()
+        }
 
         override suspend fun beginPairing(
             server: DiscoveredServer,
@@ -218,6 +222,7 @@ internal abstract class ConnectionCoordinatorTestSupport {
     protected companion object {
         fun server() = DiscoveredServer(
             ServerOrigin.fromUserInput("https://library.example"),
+            "a6722b5a-7982-4778-8c74-39be4241a654",
             "https://library.example/",
             "https://library.example/api/v1/",
             "Library",

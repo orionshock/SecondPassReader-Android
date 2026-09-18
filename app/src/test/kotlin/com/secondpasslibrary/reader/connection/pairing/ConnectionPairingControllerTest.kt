@@ -312,6 +312,7 @@ private class FakePairingClient : SecondPassClient {
 
 private fun server() = DiscoveredServer(
     ServerOrigin.fromUserInput("https://library.example"),
+    "a6722b5a-7982-4778-8c74-39be4241a654",
     "https://library.example/", "https://library.example/api/v1/", "Library", "Books",
     "1.0", "", "0.1", "https://library.example/login-requests/", "Bearer"
 )

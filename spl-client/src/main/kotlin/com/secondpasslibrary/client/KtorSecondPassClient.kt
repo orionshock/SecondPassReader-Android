@@ -17,6 +17,7 @@ import com.secondpasslibrary.client.internal.transport.requireClientSessionRevoc
 import com.secondpasslibrary.client.internal.transport.requireConsumeSuccess
 import com.secondpasslibrary.client.internal.transport.requireDiscoveryBearer
 import com.secondpasslibrary.client.internal.transport.requireDiscoverySuccess
+import com.secondpasslibrary.client.internal.transport.requireInstallationId
 import com.secondpasslibrary.client.internal.transport.requirePairingCreateSuccess
 import com.secondpasslibrary.client.internal.transport.requirePairingStatusSuccess
 import com.secondpasslibrary.client.internal.transport.required
@@ -74,6 +75,7 @@ class KtorSecondPassClient internal constructor(private val httpClient: HttpClie
             safeRequest { httpClient.get(origin.endpoint("/.well-known/secondpass")) }
         requireDiscoverySuccess(wellKnownResponse)
         val wellKnown = decode<WellKnownWire>(wellKnownResponse, "Second Pass discovery", true)
+        val installationId = requireInstallationId(wellKnown.installationId)
         val name = discoveryValue { wellKnown.serverName.required("Second Pass discovery") }
         val advertisedApiBase = discoveryValue {
             requireAbsoluteHttpUrl(wellKnown.apiBaseUrl, "Second Pass discovery")
@@ -103,6 +105,7 @@ class KtorSecondPassClient internal constructor(private val httpClient: HttpClie
 
         return DiscoveredServer(
             serverOrigin = origin,
+            installationId = installationId,
             serverBaseUrl = serverBaseUrl,
             apiBaseUrl = apiBaseUrl,
             name = name,

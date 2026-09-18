@@ -79,12 +79,20 @@ class KtorSecondPassClientTest {
 
         val server = client.discoverServer("https://library.example/some/random/path")
 
+        assertEquals("https://library.example", server.serverOrigin.value)
+        assertEquals(INSTALLATION_ID, server.installationId)
+        assertEquals("https://library.example/", server.serverBaseUrl)
         assertEquals("Second Pass Library", server.name)
+        assertEquals("Books", server.description)
+        assertEquals("0.1.0", server.version)
+        assertEquals("2026-07-19", server.releaseDate)
         assertEquals("https://library.example/api/v1/", server.apiBaseUrl)
+        assertEquals("0.1", server.discoveryVersion)
         assertEquals(
             "https://library.example/api/v1/client-api/login-requests/",
             server.loginRequestUrl
         )
+        assertEquals("Bearer", server.tokenType)
         assertEquals(
             listOf("/.well-known/secondpass", "/api/v1/client-api/discovery/"),
             requests.map {
@@ -96,6 +104,15 @@ class KtorSecondPassClientTest {
     @Test
     fun `malformed well-known response is not accepted as an SPL server`() {
         val client = client { jsonResponse("""{"server_name":"Library"}""") }
+
+        assertThrows(SplClientException.NotSecondPassServer::class.java) {
+            runBlocking { client.discoverServer("https://library.example") }
+        }
+    }
+
+    @Test
+    fun `missing well-known endpoint is not accepted as an SPL server`() {
+        val client = client { respondError(HttpStatusCode.NotFound) }
 
         assertThrows(SplClientException.NotSecondPassServer::class.java) {
             runBlocking { client.discoverServer("https://library.example") }
@@ -149,6 +166,27 @@ class KtorSecondPassClientTest {
 
         assertThrows(SplClientException.AmbiguousConsumeFailure::class.java) {
             runBlocking { client.consumeApprovedPairing(pairingRequest()) }
+        }
+    }
+
+    @Test
+    fun `missing installation identity fails discovery without URL fallback`() {
+        val withoutInstallationId =
+            WELL_KNOWN.replace("\"installation_id\":\"$INSTALLATION_ID\",", "")
+        val client = client { jsonResponse(withoutInstallationId) }
+
+        assertThrows(SplClientException.NotSecondPassServer::class.java) {
+            runBlocking { client.discoverServer("https://$INSTALLATION_ID.example") }
+        }
+    }
+
+    @Test
+    fun `malformed installation identity fails discovery`() {
+        val malformedInstallationId = WELL_KNOWN.replace(INSTALLATION_ID, "library.example")
+        val client = client { jsonResponse(malformedInstallationId) }
+
+        assertThrows(SplClientException.NotSecondPassServer::class.java) {
+            runBlocking { client.discoverServer("https://library.example") }
         }
     }
 
@@ -303,6 +341,7 @@ class KtorSecondPassClientTest {
 
     private fun discoveredServer() = DiscoveredServer(
         serverOrigin = ServerOrigin.fromUserInput("https://library.example"),
+        installationId = INSTALLATION_ID,
         serverBaseUrl = "https://library.example/",
         apiBaseUrl = "https://library.example/api/v1/",
         name = "Library",
@@ -324,8 +363,9 @@ class KtorSecondPassClientTest {
     )
 
     private companion object {
+        const val INSTALLATION_ID = "a6722b5a-7982-4778-8c74-39be4241a654"
         const val WELL_KNOWN =
-            """{"server_name":"Second Pass Library","server_description":"Books","server_version":"0.1.0","server_release_date":"2026-07-19","api_base_url":"https://library.example/api/v1/"}"""
+            """{"installation_id":"$INSTALLATION_ID","server_name":"Second Pass Library","server_description":"Books","server_version":"0.1.0","server_release_date":"2026-07-19","api_base_url":"https://library.example/api/v1/"}"""
         const val PAIRING_DISCOVERY =
             """{"discovery_version":"0.1","server_name":"Second Pass Library","server_description":"Books","api_base_url":"https://library.example/api/v1/","login_request_endpoint":"https://library.example/api/v1/client-api/login-requests/","poll_endpoint_template":"https://library.example/api/v1/client-api/login-requests/%7Bid%7D/poll/","consume_endpoint_template":"https://library.example/api/v1/client-api/login-requests/%7Bid%7D/poll/","token_type":"Bearer","server_base_url":"https://library.example/"}"""
         const val LOGIN_REQUEST =

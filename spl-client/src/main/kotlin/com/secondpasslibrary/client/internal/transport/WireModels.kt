@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 internal data class WellKnownWire(
+    @SerialName("installation_id") val installationId: String? = null,
     @SerialName("server_name") val serverName: String? = null,
     @SerialName("server_description") val serverDescription: String? = null,
     @SerialName("server_version") val serverVersion: String? = null,
