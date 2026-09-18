@@ -13,6 +13,8 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
 import java.io.IOException
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -22,6 +24,47 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class KtorSecondPassClientTest {
+    @Test
+    fun `root close releases the shared transport once and invalidates authenticated children`() {
+        var requests = 0
+        val transport = HttpClient(
+            MockEngine {
+                requests += 1
+                jsonResponse("""{"results":[]}""")
+            }
+        ) { expectSuccess = false }
+        val root = KtorSecondPassClient(transport)
+        val authenticated = root.authenticated(
+            "https://library.example/api/v1/",
+            BearerCredential.restore("spl_secret")
+        )
+        val transportJob = checkNotNull(transport.coroutineContext[Job])
+
+        val result = runBlocking {
+            authenticated.marginalia.sessions.recent(
+                RecentReadingOptions(limit = 10, includeClosed = true)
+            )
+        }
+
+        assertTrue(result.isEmpty())
+        assertEquals(1, requests)
+        assertTrue(transportJob.isActive)
+        assertFalse(authenticated is AutoCloseable)
+
+        root.close()
+        root.close()
+        runBlocking { transportJob.join() }
+
+        assertTrue(transportJob.isCompleted)
+        assertThrows(CancellationException::class.java) {
+            runBlocking {
+                authenticated.marginalia.sessions.recent(
+                    RecentReadingOptions(limit = 10, includeClosed = true)
+                )
+            }
+        }
+    }
+
     @Test
     fun `discovery uses well-known identity and server-provided pairing endpoint`() = runBlocking {
         val requests = mutableListOf<HttpRequestData>()

@@ -13,6 +13,7 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object SplClientModule {
+    /** Process-lifetime transport owner; Android's application component does not dispose it. */
     @Provides
     @Singleton
     fun provideKtorSecondPassClient(): KtorSecondPassClient = KtorSecondPassClient()

@@ -40,17 +40,33 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.encodeURLPathPart
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.SerializationException
 
+/**
+ * Transport-owning SPL client.
+ *
+ * The public constructor creates a private Ktor/OkHttp transport. Call [close] when the client is no
+ * longer needed. Authenticated clients returned by [authenticated] share this transport and remain
+ * usable only for the lifetime of this root client; they neither own nor close it themselves.
+ *
+ * The internal constructor transfers ownership of its [HttpClient] to this client.
+ */
 class KtorSecondPassClient internal constructor(private val httpClient: HttpClient) :
     SecondPassClient,
     ClientSessionRevocationClient,
-    AuthenticatedSecondPassClientFactory {
+    AuthenticatedSecondPassClientFactory,
+    AutoCloseable {
     constructor() : this(defaultHttpClient())
 
     private val json = splProtocolJson
+    private val closed = AtomicBoolean(false)
+
+    override fun close() {
+        if (closed.compareAndSet(false, true)) httpClient.close()
+    }
 
     override suspend fun discoverServer(userInput: String): DiscoveredServer {
         val origin = ServerOrigin.fromUserInput(userInput)

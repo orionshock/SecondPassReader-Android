@@ -14,6 +14,12 @@ UI owns presentation only; pairing does not publish a verified account by itself
 
 `:spl-client` owns URL normalization, public discovery, pairing request HTTP, status polling HTTP, consumption HTTP, bearer attachment, transport DTOs, response validation, and authenticated account/server-context mapping. It remains a pure Kotlin/JVM module. Ktor Client 3 uses its OkHttp engine, and kotlinx.serialization decodes internal wire models. Exact dependency versions come from `gradle/libs.versions.toml`. Neither transport type is exposed to `:app`.
 
+`KtorSecondPassClient` is the public transport owner and implements `AutoCloseable`. Its public
+constructor creates an internally owned Ktor/OkHttp client; callers close the root client when they
+are finished. Authenticated clients and their capabilities share that root transport and do not
+have independent disposal. Android binds one root client for the application process lifetime, so
+features and ViewModels do not perform transport shutdown.
+
 `:app` owns Android lifecycle sequencing, user-facing state, encrypted credential persistence, non-secret connection persistence, and display mapping. Compose receives no bearer credential and performs no network or persistence work.
 
 ## Discovery and URL normalization
