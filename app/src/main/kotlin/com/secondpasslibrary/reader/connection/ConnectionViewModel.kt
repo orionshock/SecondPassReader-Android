@@ -6,7 +6,6 @@ import com.secondpasslibrary.client.ClientSessionRevocationClient
 import com.secondpasslibrary.client.SecondPassClient
 import com.secondpasslibrary.reader.app.storage.AccountLocalDataLifecycle
 import com.secondpasslibrary.reader.connection.pairing.CoroutinePairingPollDelay
-import com.secondpasslibrary.reader.connection.storage.PersistedAccountContextStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
@@ -16,9 +15,7 @@ class ConnectionViewModel
 internal constructor(
     client: SecondPassClient,
     clientSessionRevocationClient: ClientSessionRevocationClient,
-    profileStore: ConnectionProfileStore,
-    credentialStore: BearerCredentialStore,
-    accountContextStore: PersistedAccountContextStore,
+    persistence: ConnectionPersistence,
     accountLocalDataLifecycle: AccountLocalDataLifecycle,
     pollDelay: CoroutinePairingPollDelay,
     clientNameProvider: AndroidClientNameProvider
@@ -27,9 +24,7 @@ internal constructor(
         ConnectionCoordinator(
             client = client,
             clientSessionRevocationClient = clientSessionRevocationClient,
-            profileStore = profileStore,
-            credentialStore = credentialStore,
-            accountContextStore = accountContextStore,
+            persistence = persistence,
             accountLocalDataLifecycle = accountLocalDataLifecycle,
             pollDelay = pollDelay,
             defaultClientName = clientNameProvider.defaultName(),

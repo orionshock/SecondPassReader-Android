@@ -6,6 +6,9 @@ internal object ConnectionErrorPresenter {
     fun message(error: Throwable): String = storageMessage(error) ?: clientMessage(error)
 
     private fun storageMessage(error: Throwable): String? = when (error) {
+        is ConnectionPersistenceClearException ->
+            "Could not remove the connection from this device. Retry."
+
         is CredentialStorageException ->
             "Couldn’t save the connection securely. Retry or remove its local data."
 

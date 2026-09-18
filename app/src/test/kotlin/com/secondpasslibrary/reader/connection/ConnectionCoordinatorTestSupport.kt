@@ -54,9 +54,7 @@ internal abstract class ConnectionCoordinatorTestSupport {
     ) = ConnectionCoordinator(
         client = client,
         clientSessionRevocationClient = revocationClient,
-        profileStore = profileStore,
-        credentialStore = credentialStore,
-        accountContextStore = accountContextStore,
+        persistence = ConnectionPersistence(profileStore, credentialStore, accountContextStore),
         accountLocalDataLifecycle = cleaner,
         pollDelay = PairingPollDelay {},
         defaultClientName = "Second Pass Reader · Android",

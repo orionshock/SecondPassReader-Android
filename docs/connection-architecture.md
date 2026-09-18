@@ -6,9 +6,11 @@ This document defines Android connection ownership and failure semantics. Raw en
 
 The SPL server owns pairing semantics. `:spl-client` owns transport, schema validation, typed
 protocol results, and following server-provided URLs. The Android Connection feature owns
-create -> wait -> poll -> consume sequencing, polling cadence, retry/backoff, and cancellation.
-UI owns presentation only. App shell/storage owns workflow gating, the single active connection,
-and secure persistence; pairing does not publish a verified account by itself.
+create -> wait -> poll -> consume sequencing, verification, repair/logout/forget workflow,
+account replacement, and authenticated publication. `ConnectionPersistence` owns durable commit,
+interrupted-commit recovery, and clear across the profile, secure credential, and account descriptor
+stores. `AccountLocalDataLifecycle` separately owns destructive cross-feature account-data cleanup.
+UI owns presentation only; pairing does not publish a verified account by itself.
 
 `:spl-client` owns URL normalization, public discovery, pairing request HTTP, status polling HTTP, consumption HTTP, bearer attachment, transport DTOs, response validation, and authenticated account/server-context mapping. It remains a pure Kotlin/JVM module. Ktor Client 3 uses its OkHttp engine, and kotlinx.serialization decodes internal wire models. Exact dependency versions come from `gradle/libs.versions.toml`. Neither transport type is exposed to `:app`.
 
@@ -65,7 +67,7 @@ If secure storage fails, the UI reports that a one-time credential was issued bu
 
 `KeystoreBearerCredentialStore` generates a non-exportable AES-256-GCM key in Android Keystore. The token is encrypted with a random IV and associated data before ciphertext is committed to private preferences. The project does not use deprecated `EncryptedSharedPreferences`, plaintext preferences, DataStore, saved state, logs, or UI state for the token.
 
-The encrypted credential envelope temporarily includes a recovery copy of the non-secret profile. This is a transaction journal: it allows restart recovery if DataStore fails after one-time consumption. Once the Preferences DataStore profile commits, the envelope is rewritten without the recovery profile. DataStore separately owns the normal non-secret server/client-session connection record.
+The encrypted credential envelope temporarily includes a recovery copy of the non-secret profile. `ConnectionPersistence` coordinates this transaction journal: it writes the secure credential first, commits the Preferences DataStore profile second, then rewrites the envelope without the recovery profile. Restart recovery repairs a missing profile from the journal. Clear attempts the profile, credential, and account descriptor stores even when one removal fails, allowing a later retry to converge. DataStore separately owns the normal non-secret server/client-session connection record.
 
 On startup, matching profile and credential state is verified through `/accounts/me/` and `/server/info/`. A rejected/revoked credential preserves the known account and enters the re-link flow; a transient server/network failure preserves both stores and exposes retry. An interrupted profile commit is repaired from the encrypted transaction journal.
 

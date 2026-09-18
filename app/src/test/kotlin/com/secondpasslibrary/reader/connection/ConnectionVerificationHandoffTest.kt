@@ -95,7 +95,7 @@ internal class ConnectionVerificationHandoffTest : ConnectionCoordinatorTestSupp
         }
 
     @Test
-    fun `approved pairing stores credential then profile before verification`() = runTest {
+    fun `approved pairing commits before verification and publishes linked account`() = runTest {
         val events = mutableListOf<String>()
         val client =
             FakeClient(events = events, pollStatuses = ArrayDeque(listOf(PairingStatus.APPROVED)))
@@ -109,10 +109,9 @@ internal class ConnectionVerificationHandoffTest : ConnectionCoordinatorTestSupp
         advanceUntilIdle()
 
         assertTrue(coordinator.state.value is ConnectionUiState.Linked)
-        assertEquals(
-            listOf("consume", "credential", "profile", "verify", "account"),
-            events.take(5)
-        )
+        assertTrue(events.indexOf("profile") < events.indexOf("verify"))
+        assertEquals(profile(), profileStore.stored)
+        assertNull(credentialStore.stored?.recoveryProfile)
         assertEquals(
             PersistedAccountContext(profile().authenticatedConnectionIdentity, "profile-1"),
             accountContextStore.stored

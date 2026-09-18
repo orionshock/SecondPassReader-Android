@@ -6,10 +6,8 @@ import com.secondpasslibrary.client.PairingConsumption
 import com.secondpasslibrary.client.SecondPassClient
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.app.storage.AccountLocalDataLifecycle
-import com.secondpasslibrary.reader.app.storage.AccountLocalScope
 import com.secondpasslibrary.reader.connection.pairing.ConnectionPairingController
 import com.secondpasslibrary.reader.connection.pairing.PairingPollDelay
-import com.secondpasslibrary.reader.connection.storage.PersistedAccountContextStore
 import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -24,9 +22,7 @@ import kotlinx.coroutines.launch
 internal class ConnectionCoordinator(
     private val client: SecondPassClient,
     private val clientSessionRevocationClient: ClientSessionRevocationClient,
-    private val profileStore: ConnectionProfileStore,
-    private val credentialStore: BearerCredentialStore,
-    private val accountContextStore: PersistedAccountContextStore,
+    private val persistence: ConnectionPersistence,
     private val accountLocalDataLifecycle: AccountLocalDataLifecycle,
     pollDelay: PairingPollDelay,
     private val defaultClientName: String,
@@ -55,55 +51,37 @@ internal class ConnectionCoordinator(
 
     fun restore() = replaceOperation {
         mutableState.value = ConnectionUiState.Restoring
-        var (profile, stored) = readPersistedConnection() ?: return@replaceOperation
-        if (profile == null && stored?.recoveryProfile != null) {
-            profile = stored.recoveryProfile
-            attempt { profileStore.write(profile) }.onFailure {
-                mutableState.value =
-                    ConnectionUiState.PersistenceRecovery(
-                        profile,
-                        "The connection is secure but couldn’t be saved on this device. Retry."
-                    )
-                return@replaceOperation
+        attempt {
+            persistence.restore { profile, persistedAccount ->
+                mutableLocalAccountContext.value =
+                    persistedAccount?.let { LocalAccountContext(profile, it) }
             }
-            resolveLocalAccountContext(profile)
-        }
-        if (profile == null || stored == null) {
-            if (stored != null || profile != null) {
-                attempt { clearConnectionPersistence() }.onFailure {
-                    mutableState.value =
-                        ConnectionUiState.LocalStorageProblem(ConnectionErrorPresenter.message(it))
-                    return@replaceOperation
+        }.onSuccess { restored ->
+            when (restored) {
+                DurableConnectionRestore.None -> {
+                    mutableLocalAccountContext.value = null
+                    mutableState.value = ConnectionUiState.ServerEntry()
                 }
-            }
-            mutableState.value = ConnectionUiState.ServerEntry()
-            return@replaceOperation
-        }
-        attempt { credentialStore.markProfileCommitted() }
-        verifyStored(profile, stored.credential, restoring = true)
-    }
 
-    private suspend fun readPersistedConnection(): Pair<ConnectionProfile?, StoredCredential?>? {
-        var persistedConnection: Pair<ConnectionProfile?, StoredCredential?>? = null
-        val profileResult = attempt { profileStore.read() }
-        profileResult.onFailure {
-            mutableLocalAccountContext.value = null
+                is DurableConnectionRestore.RecoveryRequired ->
+                    mutableState.value = persistenceRecoveryState(restored.profile)
+
+                is DurableConnectionRestore.Committed ->
+                    verifyStored(
+                        restored.connection.profile,
+                        restored.connection.credential,
+                        restoring = true
+                    )
+            }
+        }.onFailure { failure ->
+            if (failure is ConnectionProfileStorageException ||
+                failure is ConnectionPersistenceClearException
+            ) {
+                mutableLocalAccountContext.value = null
+            }
             mutableState.value =
-                ConnectionUiState.LocalStorageProblem(ConnectionErrorPresenter.message(it))
+                ConnectionUiState.LocalStorageProblem(ConnectionErrorPresenter.message(failure))
         }
-        if (profileResult.isSuccess) {
-            val profile = profileResult.getOrNull()
-            profile?.let { resolveLocalAccountContext(it) }
-            val storedResult = attempt { credentialStore.read() }
-            storedResult.onFailure {
-                mutableState.value =
-                    ConnectionUiState.LocalStorageProblem(ConnectionErrorPresenter.message(it))
-            }
-            if (storedResult.isSuccess) {
-                persistedConnection = profile to storedResult.getOrNull()
-            }
-        }
-        return persistedConnection
     }
 
     fun updateServerUrl(value: String) {
@@ -186,15 +164,24 @@ internal class ConnectionCoordinator(
     fun retryProfilePersistence() {
         val recovery = mutableState.value as? ConnectionUiState.PersistenceRecovery ?: return
         replaceOperation {
-            val stored = credentialStore.read()
-            if (stored == null) {
-                mutableState.value =
-                    ConnectionUiState.ServerEntry(
-                        message = "The connection can’t be recovered. Enter the Library address."
+            when (val restored = persistence.retryInterruptedCommit(recovery.profile)) {
+                DurableConnectionRestore.None ->
+                    mutableState.value =
+                        ConnectionUiState.ServerEntry(
+                            message =
+                                "The connection can’t be recovered. Enter the Library address."
+                        )
+
+                is DurableConnectionRestore.RecoveryRequired ->
+                    mutableState.value = persistenceRecoveryState(restored.profile)
+
+                is DurableConnectionRestore.Committed ->
+                    verifyStored(
+                        restored.connection.profile,
+                        restored.connection.credential,
+                        restoring = false
                     )
-                return@replaceOperation
             }
-            persistProfileAndVerify(recovery.profile, stored.credential)
         }
     }
 
@@ -207,8 +194,8 @@ internal class ConnectionCoordinator(
                 else -> return
             }
         replaceOperation {
-            val stored = credentialStore.read()
-            if (stored == null) {
+            val credential = persistence.readCredential()
+            if (credential == null) {
                 mutableState.value =
                     ConnectionUiState.ServerEntry(
                         message = "The saved connection is missing. Enter the Library address."
@@ -216,7 +203,7 @@ internal class ConnectionCoordinator(
             } else {
                 verifyStored(
                     profile,
-                    stored.credential,
+                    credential,
                     restoring = current is ConnectionUiState.RestoreProblem
                 )
             }
@@ -240,17 +227,17 @@ internal class ConnectionCoordinator(
         val linked = mutableState.value as? ConnectionUiState.Linked ?: return
         replaceOperation {
             mutableLifecycleActionState.value = ConnectionLifecycleActionState.LoggingOut
-            val storedResult = attempt { credentialStore.read() }
-            val stored = storedResult.getOrNull()
+            val credentialResult = attempt { persistence.readCredential() }
+            val credential = credentialResult.getOrNull()
             val revokeFailure = when {
-                storedResult.isFailure -> storedResult.exceptionOrNull()
+                credentialResult.isFailure -> credentialResult.exceptionOrNull()
 
-                stored == null -> MissingLogoutCredentialException()
+                credential == null -> MissingLogoutCredentialException()
 
                 else -> attempt {
                     clientSessionRevocationClient.revokeCurrentClientSession(
                         linked.profile.apiBaseUrl,
-                        stored.credential,
+                        credential,
                         linked.profile.clientSessionId
                     )
                 }.exceptionOrNull()
@@ -283,39 +270,20 @@ internal class ConnectionCoordinator(
         issued: PairingConsumption.CredentialIssued
     ) {
         val profile = ConnectionProfile.linked(server, issued.clientSession)
-        try {
-            credentialStore.write(issued.credential, profile)
-            currentCoroutineContext().ensureActive()
-        } catch (_: CredentialStorageException) {
-            currentCoroutineContext().ensureActive()
-            mutableState.value =
-                ConnectionUiState.TerminalPairingProblem(
-                    "The connection was approved but couldn’t be saved securely. " +
-                        "Start again."
-                )
-            return
-        }
-        persistProfileAndVerify(profile, issued.credential)
-    }
+        when (val committed = persistence.commit(profile, issued.credential)) {
+            DurableConnectionCommit.Committed ->
+                verifyStored(profile, issued.credential, restoring = false)
 
-    private suspend fun persistProfileAndVerify(
-        profile: ConnectionProfile,
-        credential: BearerCredential
-    ) {
-        try {
-            profileStore.write(profile)
-            currentCoroutineContext().ensureActive()
-        } catch (_: ConnectionProfileStorageException) {
-            currentCoroutineContext().ensureActive()
-            mutableState.value =
-                ConnectionUiState.PersistenceRecovery(
-                    profile,
-                    "The connection is secure but couldn’t be saved on this device. Retry."
-                )
-            return
+            DurableConnectionCommit.SecureCredentialFailed ->
+                mutableState.value =
+                    ConnectionUiState.TerminalPairingProblem(
+                        "The connection was approved but couldn’t be saved securely. " +
+                            "Start again."
+                    )
+
+            is DurableConnectionCommit.RecoveryRequired ->
+                mutableState.value = persistenceRecoveryState(committed.profile)
         }
-        attempt { credentialStore.markProfileCommitted() }
-        verifyStored(profile, credential, restoring = false)
     }
 
     private suspend fun verifyStored(
@@ -332,14 +300,14 @@ internal class ConnectionCoordinator(
                 accountServerOrigin = profile.serverOrigin
             )
             val previousAccount = mutableLocalAccountContext.value?.persistedAccount
-                ?: accountContextStore.read()
+                ?: persistence.readAccountContext()
             currentCoroutineContext().ensureActive()
             if (previousAccount != null &&
                 previousAccount.localDataScope() != persistedAccount.localDataScope()
             ) {
                 val purgeResult = attempt {
                     accountLocalDataLifecycle.purge(previousAccount.localDataScope())
-                    accountContextStore.clear()
+                    persistence.clearAccountContext()
                 }
                 purgeResult.exceptionOrNull()?.let { failure ->
                     mutableState.value =
@@ -350,7 +318,7 @@ internal class ConnectionCoordinator(
                 }
                 mutableLocalAccountContext.value = null
             }
-            attempt { accountContextStore.write(persistedAccount) }
+            attempt { persistence.writeAccountContext(persistedAccount) }
                 .onSuccess {
                     mutableLocalAccountContext.value =
                         LocalAccountContext(profile, persistedAccount)
@@ -386,38 +354,17 @@ internal class ConnectionCoordinator(
     private suspend fun resetLocalAccount() {
         val localDataScope =
             mutableLocalAccountContext.value?.persistedAccount?.localDataScope()
-                ?: run {
-                    val profile = profileStore.read()
-                    accountContextStore.read()
-                        ?.takeIf { account -> profile != null && account.matches(profile) }
-                        ?.let { account ->
-                            AccountLocalScope.from(
-                                checkNotNull(profile).serverOrigin,
-                                account.profileId
-                            )
-                        }
-                }
+                ?: persistence.readLocalAccountScope()
         localDataScope?.let { accountLocalDataLifecycle.purge(it) }
-        clearConnectionPersistence()
-    }
-
-    private suspend fun clearConnectionPersistence() {
         mutableLocalAccountContext.value = null
-        val profileResult = runCatching { profileStore.clear() }
-        val credentialResult = runCatching { credentialStore.clear() }
-        val accountContextResult = runCatching { accountContextStore.clear() }
-        listOf(credentialResult, profileResult, accountContextResult)
-            .firstNotNullOfOrNull { it.exceptionOrNull() }
-            ?.let { throw it }
+        persistence.clear()
     }
 
-    private suspend fun resolveLocalAccountContext(profile: ConnectionProfile) {
-        mutableLocalAccountContext.value =
-            attempt { accountContextStore.read() }
-                .getOrNull()
-                ?.takeIf { it.matches(profile) }
-                ?.let { LocalAccountContext(profile, it) }
-    }
+    private fun persistenceRecoveryState(profile: ConnectionProfile) =
+        ConnectionUiState.PersistenceRecovery(
+            profile,
+            "The connection is secure but couldn’t be saved on this device. Retry."
+        )
 
     private fun replaceOperation(block: suspend () -> Unit) {
         pairing.cancel()
