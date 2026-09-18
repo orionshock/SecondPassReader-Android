@@ -1,13 +1,13 @@
 package com.secondpasslibrary.reader.reader.sync
 
+import com.secondpasslibrary.client.MAX_ANNOTATION_BATCH_SIZE
 import com.secondpasslibrary.client.ReadingSessionLifecycleRejection
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationBatchWriter
-import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationRequest
+import com.secondpasslibrary.reader.reader.annotations.mutation.forSession
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
-import com.secondpasslibrary.reader.reader.persistence.LocalAnnotationKind
 import com.secondpasslibrary.reader.reader.persistence.ReaderBoundOutboxSession
 import com.secondpasslibrary.reader.reader.persistence.ReaderOutboxIntent
 import com.secondpasslibrary.reader.reader.persistence.ReaderOutboxStore
@@ -58,10 +58,7 @@ internal class ReaderOutboxSynchronizer @Inject constructor(
             ReaderOutboxSyncReport()
         } else {
             var report = ReaderOutboxSyncReport()
-            val annotationIntents = initial.filter {
-                it is ReaderOutboxIntent.AnnotationUpsert ||
-                    it is ReaderOutboxIntent.AnnotationDelete
-            }
+            val annotationIntents = initial.filterIsInstance<ReaderOutboxIntent.Annotation>()
             for (chunk in annotationIntents.chunked(MAX_ANNOTATION_BATCH_SIZE)) {
                 val outcome = deliverAnnotationChunk(profile, account, session, chunk)
                 report += outcome
@@ -82,12 +79,12 @@ internal class ReaderOutboxSynchronizer @Inject constructor(
         profile: ConnectionProfile,
         account: LocalReaderAccountKey,
         session: ReaderBoundOutboxSession,
-        sent: List<ReaderOutboxIntent>
+        sent: List<ReaderOutboxIntent.Annotation>
     ): ReaderOutboxSyncReport = try {
         val authoritative = annotations.synchronize(
             profile,
             session.serverSessionId,
-            sent.map { it.toMutation(session.serverSessionId) }
+            sent.map { it.mutation.forSession(session.serverSessionId) }
         )
         outbox.acceptAnnotationBatch(account, session.localSessionId, sent, authoritative)
         ReaderOutboxSyncReport(deliveredAnnotationIntents = sent.size)
@@ -136,12 +133,7 @@ internal class ReaderOutboxSynchronizer @Inject constructor(
             ReaderProgressSyncFailure.UNAVAILABLE -> ReaderOutboxSyncReport(unavailable = true)
         }
     }
-
-    private companion object {
-        const val MAX_ANNOTATION_BATCH_SIZE = 100
-    }
 }
-
 private val ReaderOutboxSyncReport.shouldStop: Boolean
     get() = authenticationRequired || unavailable || reconciliationSessionIds.isNotEmpty()
 
@@ -157,33 +149,3 @@ private operator fun ReaderOutboxSyncReport.plus(other: ReaderOutboxSyncReport) 
 private val ReadingSessionLifecycleRejection.requiresSessionReconciliation: Boolean
     get() = this == ReadingSessionLifecycleRejection.SESSION_CLOSED ||
         this == ReadingSessionLifecycleRejection.RESOURCE_NOT_FOUND
-
-private fun ReaderOutboxIntent.toMutation(serverSessionId: String) = when (this) {
-    is ReaderOutboxIntent.AnnotationDelete -> ReaderAnnotationMutationRequest.Delete(
-        serverSessionId,
-        clientId
-    )
-
-    is ReaderOutboxIntent.AnnotationUpsert -> when (kind) {
-        LocalAnnotationKind.BOOKMARK -> ReaderAnnotationMutationRequest.UpsertBookmark(
-            serverSessionId,
-            clientId,
-            cfi,
-            requireNotNull(locationLabel)
-        )
-
-        else -> ReaderAnnotationMutationRequest.UpsertHighlight(
-            serverSessionId,
-            clientId,
-            cfi,
-            locationLabel,
-            requireNotNull(quote),
-            prefix,
-            suffix,
-            requireNotNull(color),
-            note.orEmpty()
-        )
-    }
-
-    else -> error("Only annotation intents can enter an annotation batch.")
-}

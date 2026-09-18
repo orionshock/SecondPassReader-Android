@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.reader.sync
 
+import com.secondpasslibrary.client.MAX_ANNOTATION_BATCH_SIZE
 import com.secondpasslibrary.client.ReadingSessionLifecycleRejection
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.ConnectionProfile
@@ -64,7 +65,9 @@ class ReaderOutboxSynchronizerTest {
     @Test
     fun `more than one hundred annotation intents use deterministic chunks`() = runTest {
         val store = MemoryOutboxStore(
-            MutableList(205) { index -> bookmark(index.toString()) }
+            MutableList(MAX_ANNOTATION_BATCH_SIZE * 2 + 5) { index ->
+                bookmark(index.toString())
+            }
         )
         val sizes = mutableListOf<Int>()
         val synchronizer = synchronizer(store, annotationWriter = { _, _, requests ->
@@ -74,8 +77,8 @@ class ReaderOutboxSynchronizerTest {
 
         val report = synchronizer.syncBoundSession(profile(), account(), LOCAL_SESSION_ID)
 
-        assertEquals(listOf(100, 100, 5), sizes)
-        assertEquals(205, report.deliveredAnnotationIntents)
+        assertEquals(listOf(MAX_ANNOTATION_BATCH_SIZE, MAX_ANNOTATION_BATCH_SIZE, 5), sizes)
+        assertEquals(MAX_ANNOTATION_BATCH_SIZE * 2 + 5, report.deliveredAnnotationIntents)
     }
 
     @Test
@@ -106,8 +109,10 @@ class ReaderOutboxSynchronizerTest {
 
         assertEquals(
             "newer",
-            store.intents.filterIsInstance<ReaderOutboxIntent.AnnotationUpsert>()
-                .single().note
+            (
+                store.intents.filterIsInstance<ReaderOutboxIntent.Annotation>()
+                    .single().mutation as ReaderAnnotationMutationRequest.UpsertHighlight
+                ).note
         )
         assertEquals(
             "cfi-2",
@@ -268,48 +273,47 @@ class ReaderOutboxSynchronizerTest {
         override suspend fun acceptAnnotationBatch(
             account: LocalReaderAccountKey,
             localSessionId: String,
-            sent: List<ReaderOutboxIntent>,
+            sent: List<ReaderOutboxIntent.Annotation>,
             authoritative: List<ReaderAnnotation>
         ) {
             intents.removeAll { it in sent }
         }
     }
 
-    private fun highlight(id: String, note: String = "note") = ReaderOutboxIntent.AnnotationUpsert(
+    private fun highlight(id: String, note: String = "note") = ReaderOutboxIntent.Annotation(
         "annotation:$LOCAL_SESSION_ID:$id",
         BOOK_ID,
         LOCAL_SESSION_ID,
-        id,
-        "HIGHLIGHT",
-        CFI,
-        "Chapter",
-        "quote",
-        "before",
-        "after",
-        note,
-        ReaderAnnotationColor.YELLOW
+        ReaderAnnotationMutationRequest.UpsertHighlight(
+            LOCAL_SESSION_ID,
+            id,
+            CFI,
+            "Chapter",
+            "quote",
+            "before",
+            "after",
+            ReaderAnnotationColor.YELLOW,
+            note
+        )
     )
 
-    private fun bookmark(id: String) = ReaderOutboxIntent.AnnotationUpsert(
+    private fun bookmark(id: String) = ReaderOutboxIntent.Annotation(
         "annotation:$LOCAL_SESSION_ID:$id",
         BOOK_ID,
         LOCAL_SESSION_ID,
-        id,
-        "BOOKMARK",
-        CFI,
-        "Chapter",
-        null,
-        null,
-        null,
-        null,
-        null
+        ReaderAnnotationMutationRequest.UpsertBookmark(
+            LOCAL_SESSION_ID,
+            id,
+            CFI,
+            "Chapter"
+        )
     )
 
-    private fun delete(id: String) = ReaderOutboxIntent.AnnotationDelete(
+    private fun delete(id: String) = ReaderOutboxIntent.Annotation(
         "annotation:$LOCAL_SESSION_ID:$id",
         BOOK_ID,
         LOCAL_SESSION_ID,
-        id
+        ReaderAnnotationMutationRequest.Delete(LOCAL_SESSION_ID, id)
     )
 
     private fun progress(cfi: String) = ReaderOutboxIntent.Progress(

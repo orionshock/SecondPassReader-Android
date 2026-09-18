@@ -12,8 +12,12 @@ import com.secondpasslibrary.reader.reader.session.ReaderContinuationAnnotation
 import com.secondpasslibrary.reader.reader.session.ReaderContinuationProgressSource
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * Intentional deep Room boundary for cross-table Reader transactions. Domain policy belongs
+ * outside this file; atomic row matching, ordering, acknowledgement, merge, and rollback mechanics
+ * belong here. Do not split by table or method count without an independent transaction boundary.
+ */
 @Dao
-// One cohesive Room boundary exposes explicit Reader table operations.
 @Suppress("TooManyFunctions")
 internal abstract class LocalReaderDao {
     @Query(
@@ -497,7 +501,7 @@ internal abstract class LocalReaderDao {
     open suspend fun mergeAuthoritativeAnnotations(
         accountKey: String,
         localSessionId: String,
-        acknowledgementCandidates: List<ReaderOutboxIntent>,
+        acknowledgementCandidates: List<ReaderOutboxIntent.Annotation>,
         authoritative: List<LocalReaderAnnotationEntity>
     ) {
         val currentIntents = pendingReaderIntents(accountKey, localSessionId)
@@ -505,13 +509,7 @@ internal abstract class LocalReaderDao {
         val acknowledged = acknowledgementCandidates.filter { intent ->
             currentIntents[intent.id]?.toIntent() == intent
         }
-        val acknowledgedClientIds = acknowledged.mapNotNull { intent ->
-            when (intent) {
-                is ReaderOutboxIntent.AnnotationDelete -> intent.clientId
-                is ReaderOutboxIntent.AnnotationUpsert -> intent.clientId
-                else -> null
-            }
-        }.toSet()
+        val acknowledgedClientIds = acknowledged.map { it.mutation.clientId }.toSet()
         val newerPending = pendingAnnotations(accountKey, localSessionId).filterNot {
             it.clientId in acknowledgedClientIds
         }

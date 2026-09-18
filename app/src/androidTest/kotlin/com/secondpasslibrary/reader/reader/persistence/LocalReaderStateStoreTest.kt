@@ -439,9 +439,12 @@ class LocalReaderStateStoreTest {
         )
         val pending = RoomReaderOutboxStore(database.localReaderDao())
             .pendingReaderIntents(account, session.sessionId)
-            .filterIsInstance<ReaderOutboxIntent.AnnotationUpsert>()
+            .filterIsInstance<ReaderOutboxIntent.Annotation>()
             .single()
-        assertEquals("newer", pending.note)
+        assertEquals(
+            "newer",
+            (pending.mutation as ReaderAnnotationMutationRequest.UpsertHighlight).note
+        )
     }
 
     @Test
@@ -476,7 +479,7 @@ class LocalReaderStateStoreTest {
         assertTrue(
             RoomReaderOutboxStore(database.localReaderDao())
                 .pendingReaderIntents(account, next.sessionId)
-                .any { it is ReaderOutboxIntent.AnnotationUpsert }
+                .any { it is ReaderOutboxIntent.Annotation }
         )
     }
 

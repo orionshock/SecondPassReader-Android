@@ -306,42 +306,26 @@ internal class RoomLocalReaderStateStore @Inject constructor(
 private fun ReaderAnnotationMutationRequest.toOutboxIntent(
     bookId: String,
     localSessionId: String
-): ReaderOutboxIntent = when (this) {
-    is ReaderAnnotationMutationRequest.UpsertHighlight -> ReaderOutboxIntent.AnnotationUpsert(
+): ReaderOutboxIntent.Annotation = when (this) {
+    is ReaderAnnotationMutationRequest.UpsertHighlight -> ReaderOutboxIntent.Annotation(
         ReaderOutboxIdentity.annotation(localSessionId, clientId),
         bookId,
         localSessionId,
-        clientId,
-        LocalAnnotationKind.HIGHLIGHT,
-        cfi,
-        locationLabel,
-        text,
-        prefix,
-        suffix,
-        note,
-        color
+        copy(sessionId = localSessionId)
     )
 
-    is ReaderAnnotationMutationRequest.UpsertBookmark -> ReaderOutboxIntent.AnnotationUpsert(
+    is ReaderAnnotationMutationRequest.UpsertBookmark -> ReaderOutboxIntent.Annotation(
         ReaderOutboxIdentity.annotation(localSessionId, clientId),
         bookId,
         localSessionId,
-        clientId,
-        LocalAnnotationKind.BOOKMARK,
-        cfi,
-        locationLabel,
-        null,
-        null,
-        null,
-        null,
-        null
+        copy(sessionId = localSessionId)
     )
 
-    is ReaderAnnotationMutationRequest.Delete -> ReaderOutboxIntent.AnnotationDelete(
+    is ReaderAnnotationMutationRequest.Delete -> ReaderOutboxIntent.Annotation(
         ReaderOutboxIdentity.annotation(localSessionId, clientId),
         bookId,
         localSessionId,
-        clientId
+        copy(sessionId = localSessionId, localSnapshot = null)
     )
 }
 

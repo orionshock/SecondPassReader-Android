@@ -90,8 +90,8 @@ internal fun validateAnnotationClientId(clientId: String) {
     }
 }
 
-internal const val MAX_ANNOTATION_CLIENT_ID_LENGTH = 255
+const val MAX_ANNOTATION_CLIENT_ID_LENGTH = 255
 internal const val MAX_HIGHLIGHT_TEXT_LENGTH = 64 * 1024
 const val MAX_HIGHLIGHT_NOTE_LENGTH = 64 * 1024
 internal const val MAX_HIGHLIGHT_CONTEXT_LENGTH = 500
-private const val MAX_ANNOTATION_BATCH_SIZE = 100
+const val MAX_ANNOTATION_BATCH_SIZE = 100

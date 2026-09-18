@@ -170,7 +170,7 @@ class ReaderClosedSessionContinuationStoreTest {
             "042% - Chapter 08",
             intents.filterIsInstance<ReaderOutboxIntent.Progress>().single().locationLabel
         )
-        assertEquals(3, intents.count { it is ReaderOutboxIntent.AnnotationUpsert })
+        assertEquals(3, intents.count { it is ReaderOutboxIntent.Annotation })
         assertTrue(intents.any { it is ReaderOutboxIntent.EstablishSession })
         assertTrue(outbox.pendingReaderIntents(account, active.sessionId).isEmpty())
 

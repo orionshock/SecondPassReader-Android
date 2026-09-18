@@ -127,9 +127,11 @@ class ReaderOutboxStoreTest {
         store.applyAnnotationMutation(account, session.sessionId, highlight("first"))
         store.applyAnnotationMutation(account, session.sessionId, highlight("latest"))
         val upsert = outbox.pendingReaderIntents(account, session.sessionId)
-            .single { it is ReaderOutboxIntent.AnnotationUpsert } as
-            ReaderOutboxIntent.AnnotationUpsert
-        assertEquals("latest", upsert.note)
+            .single { it is ReaderOutboxIntent.Annotation } as ReaderOutboxIntent.Annotation
+        assertEquals(
+            "latest",
+            (upsert.mutation as ReaderAnnotationMutationRequest.UpsertHighlight).note
+        )
 
         store.applyAnnotationMutation(
             account,
@@ -139,8 +141,7 @@ class ReaderOutboxStoreTest {
 
         assertFalse(
             outbox.pendingReaderIntents(account, session.sessionId).any {
-                it is ReaderOutboxIntent.AnnotationUpsert ||
-                    it is ReaderOutboxIntent.AnnotationDelete
+                it is ReaderOutboxIntent.Annotation
             }
         )
         assertTrue(store.readAnnotations(account, session.sessionId).isEmpty())
@@ -168,7 +169,7 @@ class ReaderOutboxStoreTest {
         store.applyAnnotationMutation(account, session.sessionId, highlight("edited"))
         assertTrue(
             outbox.pendingReaderIntents(account, session.sessionId).single() is
-                ReaderOutboxIntent.AnnotationUpsert
+                ReaderOutboxIntent.Annotation
         )
 
         store.applyAnnotationMutation(
@@ -178,7 +179,7 @@ class ReaderOutboxStoreTest {
         )
         assertTrue(
             outbox.pendingReaderIntents(account, session.sessionId).single() is
-                ReaderOutboxIntent.AnnotationDelete
+                ReaderOutboxIntent.Annotation
         )
 
         store.applyAnnotationMutation(
@@ -192,8 +193,11 @@ class ReaderOutboxStoreTest {
             )
         )
         val restored = outbox.pendingReaderIntents(account, session.sessionId).single()
-            as ReaderOutboxIntent.AnnotationUpsert
-        assertEquals(NEXT_CFI, restored.cfi)
+            as ReaderOutboxIntent.Annotation
+        assertEquals(
+            NEXT_CFI,
+            (restored.mutation as ReaderAnnotationMutationRequest.UpsertBookmark).cfi
+        )
     }
 
     @Test
@@ -260,7 +264,7 @@ class ReaderOutboxStoreTest {
         store.retainServerSession(account, "book-1", session)
         store.applyAnnotationMutation(account, session.sessionId, highlight("sent"))
         val sent = outbox.pendingReaderIntents(account, session.sessionId)
-            .filterIsInstance<ReaderOutboxIntent.AnnotationUpsert>()
+            .filterIsInstance<ReaderOutboxIntent.Annotation>()
 
         store.applyAnnotationMutation(account, session.sessionId, highlight("newer"))
         outbox.acceptAnnotationBatch(
@@ -271,9 +275,12 @@ class ReaderOutboxStoreTest {
         )
 
         val pending = outbox.pendingReaderIntents(account, session.sessionId)
-            .filterIsInstance<ReaderOutboxIntent.AnnotationUpsert>()
+            .filterIsInstance<ReaderOutboxIntent.Annotation>()
             .single()
-        assertEquals("newer", pending.note)
+        assertEquals(
+            "newer",
+            (pending.mutation as ReaderAnnotationMutationRequest.UpsertHighlight).note
+        )
         assertEquals(
             "newer",
             (
@@ -290,7 +297,7 @@ class ReaderOutboxStoreTest {
         store.retainServerSession(account, "book-1", session)
         store.applyAnnotationMutation(account, session.sessionId, highlight("sent"))
         val sentUpsert = outbox.pendingReaderIntents(account, session.sessionId)
-            .filterIsInstance<ReaderOutboxIntent.AnnotationUpsert>()
+            .filterIsInstance<ReaderOutboxIntent.Annotation>()
         outbox.acceptAnnotationBatch(
             account,
             session.sessionId,
@@ -312,7 +319,7 @@ class ReaderOutboxStoreTest {
             ReaderAnnotationMutationRequest.Delete(session.sessionId, CLIENT_ID)
         )
         val sentDelete = outbox.pendingReaderIntents(account, session.sessionId)
-            .filterIsInstance<ReaderOutboxIntent.AnnotationDelete>()
+            .filterIsInstance<ReaderOutboxIntent.Annotation>()
         outbox.acceptAnnotationBatch(account, session.sessionId, sentDelete, emptyList())
 
         assertTrue(outbox.pendingReaderIntents(account, session.sessionId).isEmpty())
@@ -373,12 +380,12 @@ class ReaderOutboxStoreTest {
 
         assertTrue(
             outbox.pendingReaderIntents(firstAccount, first.sessionId).any {
-                it is ReaderOutboxIntent.AnnotationUpsert
+                it is ReaderOutboxIntent.Annotation
             }
         )
         assertTrue(
             outbox.pendingReaderIntents(firstAccount, otherBook.sessionId).any {
-                it is ReaderOutboxIntent.AnnotationUpsert
+                it is ReaderOutboxIntent.Annotation
             }
         )
 

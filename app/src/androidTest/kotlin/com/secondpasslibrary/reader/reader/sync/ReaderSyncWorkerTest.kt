@@ -64,7 +64,7 @@ class ReaderSyncWorkerTest {
         override suspend fun acceptAnnotationBatch(
             account: LocalReaderAccountKey,
             localSessionId: String,
-            sent: List<ReaderOutboxIntent>,
+            sent: List<ReaderOutboxIntent.Annotation>,
             authoritative: List<ReaderAnnotation>
         ) = Unit
     }

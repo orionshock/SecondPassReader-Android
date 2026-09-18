@@ -69,7 +69,7 @@ class ReaderSessionBindingStoreTest {
         assertEquals(2, intents.size)
         assertTrue(intents.none { it is ReaderOutboxIntent.EstablishSession })
         assertTrue(intents.any { it is ReaderOutboxIntent.Progress })
-        assertTrue(intents.any { it is ReaderOutboxIntent.AnnotationUpsert })
+        assertTrue(intents.any { it is ReaderOutboxIntent.Annotation })
         assertTrue(
             local.readAnnotations(account, provisional.sessionId).single() is
                 ReaderAnnotation.Highlight
@@ -169,7 +169,7 @@ class ReaderSessionBindingStoreTest {
         assertEquals("server-new", current.sessionId)
         assertTrue(
             outbox.pendingReaderIntents(account, former.sessionId).any {
-                it is ReaderOutboxIntent.AnnotationUpsert
+                it is ReaderOutboxIntent.Annotation
             }
         )
         assertEquals(

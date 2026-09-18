@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.reader.annotations.mutation
 
+import com.secondpasslibrary.client.MAX_ANNOTATION_CLIENT_ID_LENGTH
 import com.secondpasslibrary.client.MAX_HIGHLIGHT_NOTE_LENGTH
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
 import com.secondpasslibrary.reader.reader.annotations.ReaderQuoteContextPolicy
@@ -68,9 +69,7 @@ internal fun ReaderPendingBookmark.toRequest(sessionId: String) =
     )
 
 internal fun validateClientId(value: String) {
-    require(value.isNotBlank() && value.length <= MAX_CLIENT_ID_LENGTH) {
+    require(value.isNotBlank() && value.length <= MAX_ANNOTATION_CLIENT_ID_LENGTH) {
         "Invalid annotation client ID."
     }
 }
-
-private const val MAX_CLIENT_ID_LENGTH = 255

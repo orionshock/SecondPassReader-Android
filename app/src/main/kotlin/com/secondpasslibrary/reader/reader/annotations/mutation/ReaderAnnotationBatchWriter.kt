@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.reader.annotations.mutation
 
+import com.secondpasslibrary.client.MAX_ANNOTATION_BATCH_SIZE
 import com.secondpasslibrary.client.MarginaliaAnnotationDraft
 import com.secondpasslibrary.client.MarginaliaAnnotationLocationInput
 import com.secondpasslibrary.client.MarginaliaAnnotationOperation
@@ -17,10 +18,11 @@ import kotlinx.coroutines.sync.withLock
 
 internal sealed interface ReaderAnnotationMutationRequest {
     val sessionId: String
+    val clientId: String
 
     data class UpsertHighlight(
         override val sessionId: String,
-        val clientId: String,
+        override val clientId: String,
         val cfi: String,
         val locationLabel: String?,
         val text: String,
@@ -28,20 +30,40 @@ internal sealed interface ReaderAnnotationMutationRequest {
         val suffix: String?,
         val color: ReaderAnnotationColor,
         val note: String
-    ) : ReaderAnnotationMutationRequest
+    ) : ReaderAnnotationMutationRequest {
+        init {
+            validateIdentityAndAnchor(sessionId, clientId, cfi)
+            require(text.isNotBlank()) { "Highlight text must not be blank." }
+        }
+    }
 
     data class UpsertBookmark(
         override val sessionId: String,
-        val clientId: String,
+        override val clientId: String,
         val cfi: String,
         val locationLabel: String
-    ) : ReaderAnnotationMutationRequest
+    ) : ReaderAnnotationMutationRequest {
+        init {
+            validateIdentityAndAnchor(sessionId, clientId, cfi)
+        }
+    }
 
     data class Delete(
         override val sessionId: String,
-        val clientId: String,
+        override val clientId: String,
         val localSnapshot: ReaderAnnotation? = null
-    ) : ReaderAnnotationMutationRequest
+    ) : ReaderAnnotationMutationRequest {
+        init {
+            require(sessionId.isNotBlank()) { "Reader Session ID must not be blank." }
+            validateClientId(clientId)
+        }
+    }
+}
+
+private fun validateIdentityAndAnchor(sessionId: String, clientId: String, cfi: String) {
+    require(sessionId.isNotBlank()) { "Reader Session ID must not be blank." }
+    validateClientId(clientId)
+    require(cfi.isNotBlank()) { "Annotation CFI must not be blank." }
 }
 
 internal fun interface ReaderAnnotationBatchWriter {
@@ -64,24 +86,27 @@ internal class SplReaderAnnotationWriter @Inject constructor(
         requests: List<ReaderAnnotationMutationRequest>
     ): List<ReaderAnnotation> = deliveryMutex.withLock {
         require(requests.size in 1..MAX_ANNOTATION_BATCH_SIZE)
-        val operations = requests.map { request ->
-            when (request) {
-                is ReaderAnnotationMutationRequest.UpsertHighlight -> request.toOperation()
-
-                is ReaderAnnotationMutationRequest.UpsertBookmark -> request.toOperation()
-
-                is ReaderAnnotationMutationRequest.Delete ->
-                    MarginaliaAnnotationOperation.Delete(request.clientId)
-            }
-        }
+        require(requests.all { it.sessionId == serverSessionId })
+        val operations = requests.map(ReaderAnnotationMutationRequest::toOperation)
         clientProvider.forProfile(profile)
             .marginalia.sessions.synchronizeAnnotations(serverSessionId, operations)
             .map { it.toReaderAnnotation() }
     }
+}
 
-    private companion object {
-        const val MAX_ANNOTATION_BATCH_SIZE = 100
+internal fun ReaderAnnotationMutationRequest.toOperation(): MarginaliaAnnotationOperation =
+    when (this) {
+        is ReaderAnnotationMutationRequest.UpsertHighlight -> toOperation()
+        is ReaderAnnotationMutationRequest.UpsertBookmark -> toOperation()
+        is ReaderAnnotationMutationRequest.Delete -> MarginaliaAnnotationOperation.Delete(clientId)
     }
+
+internal fun ReaderAnnotationMutationRequest.forSession(
+    sessionId: String
+): ReaderAnnotationMutationRequest = when (this) {
+    is ReaderAnnotationMutationRequest.UpsertHighlight -> copy(sessionId = sessionId)
+    is ReaderAnnotationMutationRequest.UpsertBookmark -> copy(sessionId = sessionId)
+    is ReaderAnnotationMutationRequest.Delete -> copy(sessionId = sessionId, localSnapshot = null)
 }
 
 private fun ReaderAnnotationMutationRequest.UpsertHighlight.toOperation() =

@@ -66,7 +66,7 @@ internal object LocalReaderPersistedStateValidator {
 
             LocalAnnotationKind.HIGHLIGHT -> {
                 invalidUnless(
-                    entity.quote != null && entity.color != null,
+                    !entity.quote.isNullOrBlank() && entity.color != null,
                     "reader_annotations",
                     entity.clientId,
                     "highlight lacks quote or color"

@@ -6,6 +6,7 @@ import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationBatchWriter
+import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationRequest
 import com.secondpasslibrary.reader.reader.persistence.ReaderBoundOutboxSession
 import com.secondpasslibrary.reader.reader.persistence.ReaderOutboxIntent
 import com.secondpasslibrary.reader.reader.persistence.ReaderOutboxStore
@@ -279,16 +280,22 @@ class ReaderReconnectOrchestratorTest {
 
                     is ReaderOutboxIntent.Progress -> progress(localSessionId)
 
-                    is ReaderOutboxIntent.AnnotationUpsert -> if (intent.kind == "BOOKMARK") {
-                        bookmark(localSessionId)
-                    } else {
-                        highlight(localSessionId)
-                    }
+                    is ReaderOutboxIntent.Annotation -> when (intent.mutation) {
+                        is ReaderAnnotationMutationRequest.UpsertBookmark -> bookmark(
+                            localSessionId
+                        )
 
-                    is ReaderOutboxIntent.AnnotationDelete -> intent.copy(
-                        id = "annotation:$localSessionId:${intent.clientId}",
-                        localSessionId = localSessionId
-                    )
+                        is ReaderAnnotationMutationRequest.UpsertHighlight -> highlight(
+                            localSessionId
+                        )
+
+                        is ReaderAnnotationMutationRequest.Delete -> ReaderOutboxIntent.Annotation(
+                            "annotation:$localSessionId:${intent.mutation.clientId}",
+                            intent.bookId,
+                            localSessionId,
+                            intent.mutation.copy(sessionId = localSessionId)
+                        )
+                    }
                 }
             }
             intents.clear()
@@ -327,7 +334,7 @@ class ReaderReconnectOrchestratorTest {
         override suspend fun acceptAnnotationBatch(
             account: LocalReaderAccountKey,
             localSessionId: String,
-            sent: List<ReaderOutboxIntent>,
+            sent: List<ReaderOutboxIntent.Annotation>,
             authoritative: List<ReaderAnnotation>
         ) {
             acceptedAccounts += account
@@ -381,19 +388,21 @@ class ReaderReconnectOrchestratorTest {
             localSessionId
         )
 
-        fun highlight(localSessionId: String) = ReaderOutboxIntent.AnnotationUpsert(
+        fun highlight(localSessionId: String) = ReaderOutboxIntent.Annotation(
             "annotation:$localSessionId:highlight",
             BOOK_ID,
             localSessionId,
-            "highlight",
-            "HIGHLIGHT",
-            "epubcfi(/6/2!/4/2:1,/1:0,/1:4)",
-            "Chapter 1",
-            "text",
-            "before",
-            "after",
-            "note",
-            com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor.YELLOW
+            ReaderAnnotationMutationRequest.UpsertHighlight(
+                localSessionId,
+                "highlight",
+                "epubcfi(/6/2!/4/2:1,/1:0,/1:4)",
+                "Chapter 1",
+                "text",
+                "before",
+                "after",
+                com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor.YELLOW,
+                "note"
+            )
         )
 
         fun progress(localSessionId: String) = ReaderOutboxIntent.Progress(
@@ -403,19 +412,16 @@ class ReaderReconnectOrchestratorTest {
             "epubcfi(/6/2!/4/2:3)"
         )
 
-        fun bookmark(localSessionId: String) = ReaderOutboxIntent.AnnotationUpsert(
+        fun bookmark(localSessionId: String) = ReaderOutboxIntent.Annotation(
             "annotation:$localSessionId:bookmark",
             BOOK_ID,
             localSessionId,
-            "bookmark",
-            "BOOKMARK",
-            "epubcfi(/6/2!/4/2:3)",
-            "Chapter 1",
-            null,
-            null,
-            null,
-            null,
-            null
+            ReaderAnnotationMutationRequest.UpsertBookmark(
+                localSessionId,
+                "bookmark",
+                "epubcfi(/6/2!/4/2:3)",
+                "Chapter 1"
+            )
         )
     }
 }

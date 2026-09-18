@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.reader.persistence
 
 import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationColor
+import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationRequest
 
 internal interface ReaderOutboxStore {
     suspend fun pendingSessions(account: LocalReaderAccountKey): List<ReaderPendingOutboxSession>
@@ -24,7 +25,7 @@ internal interface ReaderOutboxStore {
     suspend fun acceptAnnotationBatch(
         account: LocalReaderAccountKey,
         localSessionId: String,
-        sent: List<ReaderOutboxIntent>,
+        sent: List<ReaderOutboxIntent.Annotation>,
         authoritative: List<com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation>
     )
 }
@@ -80,7 +81,7 @@ internal class RoomReaderOutboxStore @javax.inject.Inject constructor(
     override suspend fun acceptAnnotationBatch(
         account: LocalReaderAccountKey,
         localSessionId: String,
-        sent: List<ReaderOutboxIntent>,
+        sent: List<ReaderOutboxIntent.Annotation>,
         authoritative: List<com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation>
     ) {
         dao.mergeAuthoritativeAnnotations(
@@ -122,27 +123,18 @@ internal sealed interface ReaderOutboxIntent {
         val locationLabel: String? = null
     ) : ReaderOutboxIntent
 
-    data class AnnotationUpsert(
+    data class Annotation(
         override val id: String,
         override val bookId: String,
         override val localSessionId: String,
-        val clientId: String,
-        val kind: String,
-        val cfi: String,
-        val locationLabel: String?,
-        val quote: String?,
-        val prefix: String?,
-        val suffix: String?,
-        val note: String?,
-        val color: ReaderAnnotationColor?
-    ) : ReaderOutboxIntent
-
-    data class AnnotationDelete(
-        override val id: String,
-        override val bookId: String,
-        override val localSessionId: String,
-        val clientId: String
-    ) : ReaderOutboxIntent
+        val mutation: ReaderAnnotationMutationRequest
+    ) : ReaderOutboxIntent {
+        init {
+            require(mutation.sessionId == localSessionId) {
+                "Durable annotation intent must belong to its outbox Session."
+            }
+        }
+    }
 }
 
 internal object ReaderOutboxOperation {
@@ -181,26 +173,40 @@ internal fun LocalReaderOutboxEntity.toIntent(): ReaderOutboxIntent {
             locationLabel
         )
 
-        ReaderOutboxOperation.ANNOTATION_UPSERT -> ReaderOutboxIntent.AnnotationUpsert(
+        ReaderOutboxOperation.ANNOTATION_UPSERT -> ReaderOutboxIntent.Annotation(
             outboxId,
             bookId,
             localSessionId,
-            requireNotNull(annotationClientId),
-            requireNotNull(annotationKind),
-            requireNotNull(cfi),
-            locationLabel,
-            quote,
-            prefix,
-            suffix,
-            note,
-            color?.let(ReaderAnnotationColor::valueOf)
+            when (requireNotNull(annotationKind)) {
+                LocalAnnotationKind.BOOKMARK -> ReaderAnnotationMutationRequest.UpsertBookmark(
+                    localSessionId,
+                    requireNotNull(annotationClientId),
+                    requireNotNull(cfi),
+                    requireNotNull(locationLabel)
+                )
+
+                else -> ReaderAnnotationMutationRequest.UpsertHighlight(
+                    localSessionId,
+                    requireNotNull(annotationClientId),
+                    requireNotNull(cfi),
+                    locationLabel,
+                    requireNotNull(quote),
+                    prefix,
+                    suffix,
+                    ReaderAnnotationColor.valueOf(requireNotNull(color)),
+                    note.orEmpty()
+                )
+            }
         )
 
-        ReaderOutboxOperation.ANNOTATION_DELETE -> ReaderOutboxIntent.AnnotationDelete(
+        ReaderOutboxOperation.ANNOTATION_DELETE -> ReaderOutboxIntent.Annotation(
             outboxId,
             bookId,
             localSessionId,
-            requireNotNull(annotationClientId)
+            ReaderAnnotationMutationRequest.Delete(
+                localSessionId,
+                requireNotNull(annotationClientId)
+            )
         )
 
         else -> error("Unknown Reader outbox operation: $operationKind")

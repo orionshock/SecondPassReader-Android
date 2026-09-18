@@ -96,13 +96,11 @@ class LocalReaderProcessRecreationTest {
                         ReaderOutboxIntent.Progress
                     ).cfi
             )
+            val durableAnnotation = intents.single { it is ReaderOutboxIntent.Annotation }
+                as ReaderOutboxIntent.Annotation
             assertEquals(
                 "offline note",
-                (
-                    intents.single {
-                        it is ReaderOutboxIntent.AnnotationUpsert
-                    } as ReaderOutboxIntent.AnnotationUpsert
-                    ).note
+                (durableAnnotation.mutation as ReaderAnnotationMutationRequest.UpsertHighlight).note
             )
         } finally {
             reopenedDatabase.close()

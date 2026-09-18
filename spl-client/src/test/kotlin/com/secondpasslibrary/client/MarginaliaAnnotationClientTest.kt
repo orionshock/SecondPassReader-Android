@@ -131,7 +131,9 @@ class MarginaliaAnnotationClientTest {
             runBlocking {
                 noTransportClient().marginalia.sessions.synchronizeAnnotations(
                     "s",
-                    List(101) { MarginaliaAnnotationOperation.Delete("client-$it") }
+                    List(MAX_ANNOTATION_BATCH_SIZE + 1) {
+                        MarginaliaAnnotationOperation.Delete("client-$it")
+                    }
                 )
             }
         }
