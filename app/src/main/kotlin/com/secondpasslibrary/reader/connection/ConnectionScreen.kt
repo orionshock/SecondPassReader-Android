@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.connection
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -221,8 +223,14 @@ private fun LibrarySuggestions(
             )
             suggestions.forEach { suggestion ->
                 Card(
-                    onClick = { onSelected(suggestion.url) },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable(
+                                onClickLabel = "Use this address",
+                                onClick = { onSelected(suggestion.url) }
+                            )
+                            .semantics(mergeDescendants = true) {},
                     colors =
                         CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceContainer
@@ -248,11 +256,6 @@ private fun LibrarySuggestions(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             collapsedMaxLines = 3
-                        )
-                        Text(
-                            "Use this address",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
