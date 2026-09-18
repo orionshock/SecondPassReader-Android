@@ -1,11 +1,14 @@
 package com.secondpasslibrary.reader.reader.marginalia
 
+import com.secondpasslibrary.client.BookReadingSessionHistory
 import com.secondpasslibrary.client.BookReadingSessionListOptions
 import com.secondpasslibrary.client.ReadingSessionStatus as SplReadingSessionStatus
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
+import com.secondpasslibrary.reader.sessions.history.BookScopedReadingSessionHistoryLoader
+import com.secondpasslibrary.reader.sessions.history.BookScopedReadingSessionHistoryResult
 import javax.inject.Inject
 
 internal data class ReaderMarginaliaLayerHistoryPage(
@@ -23,7 +26,8 @@ internal fun interface ReaderMarginaliaLayerHistoryLoader {
 }
 
 internal class SplReaderMarginaliaLayerHistoryLoader @Inject constructor(
-    private val clientProvider: AuthenticatedClientProvider
+    private val clientProvider: AuthenticatedClientProvider,
+    private val bookHistoryLoader: BookScopedReadingSessionHistoryLoader
 ) : ReaderMarginaliaLayerHistoryLoader {
     override suspend fun load(
         profile: ConnectionProfile,
@@ -34,34 +38,43 @@ internal class SplReaderMarginaliaLayerHistoryLoader @Inject constructor(
         require(page > 0) { "History page must be positive." }
         val books = clientProvider.forProfile(profile).marginalia.books
         val options = BookReadingSessionListOptions(page = page)
-        val history = try {
-            books.listSessions(bookId, options)
-        } catch (notFound: SplClientException.BookReadingSessionHistoryNotFound) {
-            if (page != 1) throw notFound
-            val bootstrap = books.getActiveSession(bookId)
-            if (bootstrap.activeSession != null) {
-                throw SplClientException.ProtocolInvalid("Book reading sessions")
-            }
-            return ReaderMarginaliaLayerHistoryPage(emptyList(), page = 1, hasMore = false)
+        if (page > 1) {
+            return books.listSessions(bookId, options).toReaderMarginaliaLayerHistoryPage()
         }
-        return ReaderMarginaliaLayerHistoryPage(
-            layers = history.sessions.results.map { session ->
-                ReaderMarginaliaLayerSummary(
-                    sessionId = session.id,
-                    role = ReaderMarginaliaLayerRole.PREVIOUS,
-                    sessionStatus = when (session.status) {
-                        SplReadingSessionStatus.ACTIVE -> ReaderSessionStatus.ACTIVE
-                        SplReadingSessionStatus.CLOSED -> ReaderSessionStatus.CLOSED
-                    },
-                    sessionName = session.name,
-                    startedAt = session.startedAt,
-                    closedAt = session.closedAt,
-                    lastActivityAt = session.lastActivityAt,
-                    annotationCount = session.annotationCount
-                )
-            },
-            page = history.sessions.page,
-            hasMore = history.sessions.hasNext
-        )
+        return bookHistoryLoader.loadFirstPage(books, bookId, options)
+            .toReaderMarginaliaLayerHistoryPage()
     }
 }
+
+internal fun BookScopedReadingSessionHistoryResult.toReaderMarginaliaLayerHistoryPage() =
+    when (this) {
+        is BookScopedReadingSessionHistoryResult.History ->
+            value.toReaderMarginaliaLayerHistoryPage()
+
+        is BookScopedReadingSessionHistoryResult.VisibleBookWithoutHistory ->
+            ReaderMarginaliaLayerHistoryPage(emptyList(), page = 1, hasMore = false)
+
+        BookScopedReadingSessionHistoryResult.ProtocolInvalidActiveSessionMissingHistory ->
+            throw SplClientException.ProtocolInvalid("Book reading sessions")
+    }
+
+private fun BookReadingSessionHistory.toReaderMarginaliaLayerHistoryPage() =
+    ReaderMarginaliaLayerHistoryPage(
+        layers = sessions.results.map { session ->
+            ReaderMarginaliaLayerSummary(
+                sessionId = session.id,
+                role = ReaderMarginaliaLayerRole.PREVIOUS,
+                sessionStatus = when (session.status) {
+                    SplReadingSessionStatus.ACTIVE -> ReaderSessionStatus.ACTIVE
+                    SplReadingSessionStatus.CLOSED -> ReaderSessionStatus.CLOSED
+                },
+                sessionName = session.name,
+                startedAt = session.startedAt,
+                closedAt = session.closedAt,
+                lastActivityAt = session.lastActivityAt,
+                annotationCount = session.annotationCount
+            )
+        },
+        page = sessions.page,
+        hasMore = sessions.hasNext
+    )

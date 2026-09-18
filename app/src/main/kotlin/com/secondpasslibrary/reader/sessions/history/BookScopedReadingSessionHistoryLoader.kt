@@ -1,36 +1,41 @@
-package com.secondpasslibrary.reader.marginalia.history
+package com.secondpasslibrary.reader.sessions.history
 
 import com.secondpasslibrary.client.AuthenticatedMarginaliaBooksClient
 import com.secondpasslibrary.client.BookReadingSessionHistory
 import com.secondpasslibrary.client.BookReadingSessionListOptions
 import com.secondpasslibrary.client.ReadingSessionBook
 import com.secondpasslibrary.client.SplClientException
+import javax.inject.Inject
 
-internal class BookScopedReadingSessionHistoryLoader {
-    suspend fun loadInitial(
+internal class BookScopedReadingSessionHistoryLoader @Inject constructor() {
+    suspend fun loadFirstPage(
         books: AuthenticatedMarginaliaBooksClient,
         bookId: String,
         options: BookReadingSessionListOptions
-    ): BookScopedReadingSessionHistoryLoadResult {
+    ): BookScopedReadingSessionHistoryResult {
         require(options.page == 1) { "Book-scoped initial history must request page one." }
         return try {
-            BookScopedReadingSessionHistoryLoadResult.LinkedHistory(
+            BookScopedReadingSessionHistoryResult.History(
                 books.listSessions(bookId, options)
             )
         } catch (_: SplClientException.BookReadingSessionHistoryNotFound) {
             val bootstrap = books.getActiveSession(bookId)
             if (bootstrap.activeSession != null) {
-                throw SplClientException.ProtocolInvalid("Book reading sessions")
+                BookScopedReadingSessionHistoryResult.ProtocolInvalidActiveSessionMissingHistory
+            } else {
+                BookScopedReadingSessionHistoryResult.VisibleBookWithoutHistory(bootstrap.book)
             }
-            BookScopedReadingSessionHistoryLoadResult.VisibleBookWithoutHistory(bootstrap.book)
         }
     }
 }
 
-internal sealed interface BookScopedReadingSessionHistoryLoadResult {
-    data class LinkedHistory(val history: BookReadingSessionHistory) :
-        BookScopedReadingSessionHistoryLoadResult
+internal sealed interface BookScopedReadingSessionHistoryResult {
+    data class History(val value: BookReadingSessionHistory) :
+        BookScopedReadingSessionHistoryResult
 
     data class VisibleBookWithoutHistory(val book: ReadingSessionBook) :
-        BookScopedReadingSessionHistoryLoadResult
+        BookScopedReadingSessionHistoryResult
+
+    data object ProtocolInvalidActiveSessionMissingHistory :
+        BookScopedReadingSessionHistoryResult
 }

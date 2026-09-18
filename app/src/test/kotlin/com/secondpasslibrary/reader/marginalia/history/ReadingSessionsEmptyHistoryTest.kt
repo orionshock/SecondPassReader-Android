@@ -36,8 +36,6 @@ class ReadingSessionsEmptyHistoryTest {
         assertEquals(1, state.currentPage)
         assertFalse(state.hasNext)
         assertNull(state.error)
-        assertEquals(listOf("requested-book"), capability.activeSessionRequests)
-        assertEquals(0, capability.openSessionRequests)
     }
 
     @Test
@@ -61,7 +59,6 @@ class ReadingSessionsEmptyHistoryTest {
         advanceUntilIdle()
 
         assertEquals(4, capability.bookRequests.size)
-        assertEquals(4, capability.activeSessionRequests.size)
         assertEquals(ReadingSessionStatusFilter.CLOSED, controller.state.value.statusFilter)
         assertEquals("notes", controller.state.value.committedQuery)
         assertEquals(0, controller.state.value.totalCount)

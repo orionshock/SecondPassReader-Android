@@ -8,6 +8,7 @@ import com.secondpasslibrary.client.ReadingSessionDetailResult
 import com.secondpasslibrary.client.ReadingSessionListItem
 import com.secondpasslibrary.client.ReadingSessionListOptions
 import com.secondpasslibrary.client.ReadingSessionStatus
+import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
@@ -17,6 +18,8 @@ import com.secondpasslibrary.reader.marginalia.MarginaliaConnectionEvent
 import com.secondpasslibrary.reader.marginalia.MarginaliaFailure
 import com.secondpasslibrary.reader.marginalia.MarginaliaHistoryContext
 import com.secondpasslibrary.reader.marginalia.toMarginaliaFailure
+import com.secondpasslibrary.reader.sessions.history.BookScopedReadingSessionHistoryLoader
+import com.secondpasslibrary.reader.sessions.history.BookScopedReadingSessionHistoryResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -235,16 +238,16 @@ private sealed interface ReadingSessionsRequest {
         ): ReadingSessionsPage {
             if (phase == MarginaliaLoadPhase.INITIAL) {
                 return when (
-                    val result = bookHistoryLoader.loadInitial(
+                    val result = bookHistoryLoader.loadFirstPage(
                         client.marginalia.books,
                         bookId,
                         options
                     )
                 ) {
-                    is BookScopedReadingSessionHistoryLoadResult.LinkedHistory ->
-                        result.history.toReadingSessionsPage()
+                    is BookScopedReadingSessionHistoryResult.History ->
+                        result.value.toReadingSessionsPage()
 
-                    is BookScopedReadingSessionHistoryLoadResult.VisibleBookWithoutHistory ->
+                    is BookScopedReadingSessionHistoryResult.VisibleBookWithoutHistory ->
                         ReadingSessionsPage(
                             result.book,
                             MarginaliaPage(
@@ -256,6 +259,10 @@ private sealed interface ReadingSessionsRequest {
                                 pageSize = options.pageSize
                             )
                         )
+
+                    BookScopedReadingSessionHistoryResult
+                        .ProtocolInvalidActiveSessionMissingHistory ->
+                        throw SplClientException.ProtocolInvalid("Book reading sessions")
                 }
             }
             return client.marginalia.books.listSessions(bookId, options).toReadingSessionsPage()
