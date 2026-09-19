@@ -67,10 +67,14 @@ internal fun HomeScreen(
     LaunchedEffect(accountScope, availability) {
         offlineActions.initialize(profile, profileId, availability)
     }
-    LaunchedEffect(state.recentReading.content?.items) {
-        offlineActions.observeBooks(
-            state.recentReading.content?.items.orEmpty().mapTo(mutableSetOf()) { it.book.id }
-        )
+    LaunchedEffect(state.recentReading.content?.items, state.shelves.content?.items) {
+        val recent = state.recentReading.content?.items.orEmpty().associate {
+            it.book.id to it.book.cover
+        }
+        val previews = state.shelves.content?.items.orEmpty()
+            .flatMap { it.previewBooks.orEmpty() }
+            .associate { it.id to it.cover }
+        offlineActions.observeBooks(previews + recent)
     }
     LaunchedEffect(offlineActions) {
         offlineActions.changes.collect { viewModel.refreshLocalBookAvailability() }
@@ -196,14 +200,16 @@ private fun HomeContent(
             onContextAction = onReadingHistoryAction,
             onViewAll = onViewAllSessions,
             availableBookIds = offlineActions.availableBookIds,
-            busyBookIds = offlineActions.busyBookIds
+            busyBookIds = offlineActions.busyBookIds,
+            localCovers = offlineActions.localCovers
         )
         ShelvesSection(
             state = state.shelves,
             onRetry = onRetryShelves,
             onOpenShelves = onOpenShelves,
             onShelfSelected = onShelfSelected,
-            modifier = Modifier.padding(horizontal = 24.dp)
+            modifier = Modifier.padding(horizontal = 24.dp),
+            localCovers = offlineActions.localCovers
         )
     }
 }

@@ -202,19 +202,31 @@ private fun EntryProviderScope<AppRoute>.registerSharedBookDetailEntry(
     environment: State<AccountDestinationEnvironment>
 ) {
     entry<BookDetailRoute> { route ->
-        AuthenticatedDestination(environment) { bindings ->
+        val current = environment.value
+        val session = current.session
+        if (session.availability is AppAvailability.Offline ||
+            session.authenticatedFeatureContext != null
+        ) {
             BookDetailStateHost(
-                profile = bindings.profile,
-                profileId = environment.value.session.profileId,
-                availability = environment.value.session.availability,
-                serverMutationsAvailable = bindings.serverMutationsAvailable,
+                profile = session.profile,
+                profileId = session.profileId,
+                availability = session.availability,
+                serverMutationsAvailable = session.availability !is AppAvailability.Offline,
                 bookId = route.bookId,
                 appBarContext = route.returnTarget.appBarContextLabel(),
-                onBack = bindings.navigator::goBack,
+                onBack = current.navigator::goBack,
                 onNavigation = { intent ->
-                    bindings.navigator.handleBookDetailNavigation(intent, route)
+                    current.navigator.handleBookDetailNavigation(intent, route)
                 },
-                onAuthenticationRejected = bindings.onAuthenticationRejected
+                onAuthenticationRejected = current.onAuthenticationRejected
+            )
+        } else {
+            ConnectionRequiredDestination(
+                session.authority,
+                current.onRetryConnection,
+                current.onRelinkAccount,
+                current.onForgetAccount,
+                current.onOpenDrawer
             )
         }
     }

@@ -28,6 +28,7 @@ import androidx.compose.ui.zIndex
 import com.secondpasslibrary.client.ShelfSummary
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
+import java.io.File
 
 @Composable
 internal fun ShelvesSection(
@@ -35,7 +36,8 @@ internal fun ShelvesSection(
     onRetry: () -> Unit,
     onOpenShelves: () -> Unit,
     onShelfSelected: (HomeNavigationIntent.OpenShelfDetail) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    localCovers: Map<String, File> = emptyMap()
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         val content = state.content
@@ -65,7 +67,7 @@ internal fun ShelvesSection(
         if (content.items.isEmpty()) {
             HomeSectionEmpty(AppIcon.Shelf, "No Shelves yet.")
         } else {
-            ShelfGrid(content.items.map(HomePresenter::shelf), onShelfSelected)
+            ShelfGrid(content.items.map(HomePresenter::shelf), onShelfSelected, localCovers)
         }
     }
 }
@@ -73,7 +75,8 @@ internal fun ShelvesSection(
 @Composable
 private fun ShelfGrid(
     shelves: List<ShelfCardModel>,
-    onShelfSelected: (HomeNavigationIntent.OpenShelfDetail) -> Unit
+    onShelfSelected: (HomeNavigationIntent.OpenShelfDetail) -> Unit,
+    localCovers: Map<String, File>
 ) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val columns = when {
@@ -95,7 +98,8 @@ private fun ShelfGrid(
                                     HomeNavigationIntent.OpenShelfDetail(shelf.id, shelf.origin)
                                 )
                             },
-                            Modifier.weight(1f)
+                            Modifier.weight(1f),
+                            localCovers
                         )
                     }
                     repeat(columns - rowShelves.size) { Spacer(Modifier.weight(1f)) }
@@ -106,7 +110,12 @@ private fun ShelfGrid(
 }
 
 @Composable
-private fun ShelfCard(model: ShelfCardModel, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun ShelfCard(
+    model: ShelfCardModel,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    localCovers: Map<String, File>
+) {
     Surface(
         onClick = onClick,
         modifier = modifier.height(154.dp),
@@ -154,13 +163,13 @@ private fun ShelfCard(model: ShelfCardModel, onClick: () -> Unit, modifier: Modi
                     style = MaterialTheme.typography.labelMedium
                 )
             }
-            ShelfPreviewStack(model)
+            ShelfPreviewStack(model, localCovers)
         }
     }
 }
 
 @Composable
-private fun ShelfPreviewStack(model: ShelfCardModel) {
+private fun ShelfPreviewStack(model: ShelfCardModel, localCovers: Map<String, File>) {
     val previews = model.previewBooks.orEmpty().take(3)
     Box(
         modifier = Modifier.width(140.dp).height(124.dp),
@@ -177,6 +186,7 @@ private fun ShelfPreviewStack(model: ShelfCardModel) {
                 HomeBookCover(
                     cover = book.cover,
                     title = book.title,
+                    localCover = localCovers[book.id],
                     modifier =
                         Modifier
                             .offset(x = (index * 30).dp)

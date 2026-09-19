@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.app.storage
 
+import com.secondpasslibrary.client.PublicBookCoverReference
 import com.secondpasslibrary.reader.home.FakeHomeProjectionStore
 import com.secondpasslibrary.reader.home.projection.HomeProjectionStore
 import com.secondpasslibrary.reader.home.projection.HomeRecentReadingVariant
@@ -90,6 +91,27 @@ class AccountLocalBookCatalogTest {
             assertEquals(listOf("book-local"), result.map { it.id })
             assertEquals("Local Book", result.single().title)
         }
+
+    @Test
+    fun `cover from cached Book survives coverless asset metadata precedence`() = runTest {
+        val root = Files.createTempDirectory("offline-library-cover").toFile()
+        val assets = ReaderBookAssetStore.forTests(root)
+        val home = FakeHomeProjectionStore()
+        val account = projectionAccount()
+        val cover = PublicBookCoverReference.fromAbsoluteUrl("https://library.example/cover.png")
+        val recent = recentItem("covered")
+        home.seedRecent(
+            account,
+            HomeRecentReadingVariant.ActiveOnly,
+            listOf(recent.copy(book = recent.book.copy(cover = cover)))
+        )
+        complete(assets, account.profile.serverOrigin, account.profileId, "book-covered")
+
+        assertEquals(
+            cover,
+            catalog(home, assets).downloadedBooks(account.localScope()).single().cover
+        )
+    }
 
     @Test
     fun `corrupt completed EPUB is excluded from offline Library`() = runTest {

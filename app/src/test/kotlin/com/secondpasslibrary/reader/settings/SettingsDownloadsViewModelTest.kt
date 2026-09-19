@@ -101,7 +101,10 @@ class SettingsDownloadsViewModelTest {
             resolver = ReaderBookAssetResolver { _, _ -> error("No download in this test") },
             assets = ReaderBookAssetStore.forTests(temporary.newFolder()),
             downloads = repository,
-            sessions = ReaderExistingSessionsCache { _, _, _ -> }
+            sessions = ReaderExistingSessionsCache { _, _, _ -> },
+            coverSource = com.secondpasslibrary.reader.app.storage.OfflineBookCoverSource {
+                error("No cover in this test")
+            }
         )
 
     private class FakeDownloadsRepository : AccountLocalDownloadRepository {

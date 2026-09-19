@@ -58,9 +58,42 @@ internal class ReaderBookAssetStore private constructor(private val root: File) 
                 if (metadata == null) {
                     completedFile(account, bookId).delete()
                     metadataFile(account, bookId).delete()
+                    coverFile(account, bookId).delete()
                     return@withLock null
                 }
                 verifiedCompleted(account, bookId, metadata.checksum)
+            }
+        }
+
+    suspend fun findCover(account: ReaderAccountScope, bookId: String): File? =
+        withContext(Dispatchers.IO) {
+            writes.withLock {
+                val metadata = readMetadata(metadataFile(account, bookId))
+                    ?.takeIf { it.bookId == bookId } ?: return@withLock null
+                if (verifiedCompleted(account, bookId, metadata.checksum) == null) {
+                    return@withLock null
+                }
+                coverFile(account, bookId).takeIf { it.isFile && it.length() > 0L }
+            }
+        }
+
+    suspend fun retainCover(account: ReaderAccountScope, bookId: String, bytes: ByteArray) =
+        withContext(Dispatchers.IO) {
+            require(bytes.isNotEmpty()) { "Book cover must not be empty." }
+            writes.withLock {
+                val metadata = readMetadata(metadataFile(account, bookId))
+                    ?.takeIf { it.bookId == bookId } ?: return@withLock
+                if (verifiedCompleted(account, bookId, metadata.checksum) == null) return@withLock
+                val destination = coverFile(account, bookId)
+                if (destination.isFile && destination.length() > 0L) return@withLock
+                val partial = File(destination.parentFile, "${destination.name}.part")
+                partial.delete()
+                try {
+                    partial.writeBytes(bytes)
+                    moveCompleted(partial, destination)
+                } finally {
+                    partial.delete()
+                }
             }
         }
 
@@ -121,7 +154,13 @@ internal class ReaderBookAssetStore private constructor(private val root: File) 
                     }
                     .mapNotNull { metadata ->
                         verifiedCompleted(account, metadata.bookId, metadata.checksum)?.let {
-                            metadata.copy(sizeBytes = it.file.length())
+                            metadata.copy(
+                                sizeBytes = it.file.length() +
+                                    (
+                                        coverFile(account, metadata.bookId).takeIf(File::isFile)
+                                            ?.length() ?: 0L
+                                        )
+                            )
                         }
                     }
             }
@@ -133,11 +172,14 @@ internal class ReaderBookAssetStore private constructor(private val root: File) 
             writes.withLock {
                 val completed = completedFile(account, bookId)
                 val partial = File(completed.parentFile, "${completed.name}.part")
-                listOf(completed, metadataFile(account, bookId), partial).forEach { file ->
-                    if (file.exists() && !file.delete()) {
-                        throw IOException("Reader download could not be removed.")
+                val cover = coverFile(account, bookId)
+                val coverPartial = File(cover.parentFile, "${cover.name}.part")
+                listOf(completed, metadataFile(account, bookId), partial, cover, coverPartial)
+                    .forEach { file ->
+                        if (file.exists() && !file.delete()) {
+                            throw IOException("Reader download could not be removed.")
+                        }
                     }
-                }
             }
         }
 
@@ -158,6 +200,11 @@ internal class ReaderBookAssetStore private constructor(private val root: File) 
     private fun metadataFile(account: ReaderAccountScope, bookId: String): File = File(
         accountDirectory(account),
         "${digest(bookId)}.metadata"
+    )
+
+    private fun coverFile(account: ReaderAccountScope, bookId: String): File = File(
+        accountDirectory(account),
+        "${digest(bookId)}.cover.png"
     )
 
     private fun accountDirectory(account: ReaderAccountScope) =
@@ -183,6 +230,7 @@ internal class ReaderBookAssetStore private constructor(private val root: File) 
         if (checksum.matches(completed)) return ReaderBookAsset(completed, reused = true)
         completed.delete()
         metadataFile(account, bookId).delete()
+        coverFile(account, bookId).delete()
         return null
     }
 

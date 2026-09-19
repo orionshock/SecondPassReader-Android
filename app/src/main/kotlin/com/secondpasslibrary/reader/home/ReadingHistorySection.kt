@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.client.RecentReadingItem
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
+import java.io.File
 import kotlinx.coroutines.launch
 
 @Composable
@@ -44,7 +45,8 @@ internal fun ReadingHistorySection(
     onContextAction: (HomeNavigationIntent) -> Unit,
     onViewAll: () -> Unit,
     availableBookIds: Set<String> = emptySet(),
-    busyBookIds: Set<String> = emptySet()
+    busyBookIds: Set<String> = emptySet(),
+    localCovers: Map<String, File> = emptyMap()
 ) {
     val emptyMessage =
         if (showClosed) "No Reading Sessions yet." else "No active Reading Sessions yet."
@@ -85,7 +87,8 @@ internal fun ReadingHistorySection(
                             offlineReadable = !offline || item.book.id in locallyReadableBookIds,
                             offline = offline,
                             availableOffline = item.book.id in availableBookIds,
-                            downloadBusy = item.book.id in busyBookIds
+                            downloadBusy = item.book.id in busyBookIds,
+                            localCover = localCovers[item.book.id]
                         ),
                         onPrimaryAction,
                         onContextAction

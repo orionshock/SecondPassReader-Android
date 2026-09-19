@@ -10,6 +10,11 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 internal abstract class AccountLocalStorageModule {
     @Binds
+    abstract fun bindOfflineBookCoverSource(
+        adapter: CoilOfflineBookCoverAdapter
+    ): OfflineBookCoverSource
+
+    @Binds
     @Singleton
     abstract fun bindAccountLocalDataLifecycle(
         repository: AccountLocalDataRepository

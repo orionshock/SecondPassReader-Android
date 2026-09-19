@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondpasslibrary.client.BookAuthorSummary
@@ -69,16 +70,13 @@ class LibraryBooksResultsTest {
     }
 
     @Test
-    fun offlineDownloadedListUsesSameWideCompositionWithoutServerActions() {
+    fun offlineDownloadedListKeepsLocalDownloadActionWithoutServerActions() {
         setResults(widthDp = 1100, book = richBook(), offlineDownloadedOnly = true)
 
         compose.onNodeWithTag(WIDE_BOOK_ROW_TAG).assertHasClickAction()
-        assertTrue(
-            compose
-                .onAllNodesWithContentDescription("Book actions for $LONG_TITLE")
-                .fetchSemanticsNodes()
-                .isEmpty()
-        )
+        compose.onNodeWithContentDescription("Book actions for $LONG_TITLE").performClick()
+        compose.onNodeWithText("Remove download").assertIsDisplayed()
+        compose.onNodeWithText("Reading Sessions").assertDoesNotExist()
         compose.onNodeWithText("eng · EPUB").assertIsDisplayed()
     }
 

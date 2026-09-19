@@ -43,12 +43,15 @@ internal fun BookDetailScreen(
     readAvailable: Boolean = true,
     serverActionsAvailable: Boolean = true,
     offlineAction: BookOfflineActionState = BookOfflineActionState(),
+    offlineUnavailable: Boolean = false,
     onMakeAvailable: () -> Unit = {},
     onRemoveDownload: () -> Unit = {}
 ) {
     Column(Modifier.fillMaxSize()) {
         ContextualAppBar(state.appBarPresentation(appBarContext), onNavigation = onBack)
         when {
+            offlineUnavailable -> DetailOfflineUnavailable(onBack)
+
             state.loading -> DetailLoading()
 
             state.failure != null -> DetailFailure(onRetry)
@@ -66,6 +69,20 @@ internal fun BookDetailScreen(
                     serverActionsAvailable,
                     BookOfflineActionBinding(offlineAction, onMakeAvailable, onRemoveDownload)
                 )
+        }
+    }
+}
+
+@Composable
+private fun DetailOfflineUnavailable(onBack: () -> Unit) {
+    Column(
+        Modifier.fillMaxSize().testTag("book-detail-offline-unavailable"),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text("This Book isn't available offline.")
+        TextButton(onClick = onBack, modifier = Modifier.testTag("book-detail-offline-back")) {
+            Text("Go back")
         }
     }
 }
@@ -197,16 +214,17 @@ private fun BookDetailWideContent(
                 Modifier.width(WIDE_COVER_WIDTH),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                BookDetailCover(book, Modifier.fillMaxWidth())
+                BookDetailCover(book, Modifier.fillMaxWidth(), offlineAction.state.localCover)
                 BookDetailActions(
                     onReadBook,
                     onReadingSessions,
                     onAddToShelf,
-                    readBookEnabled = book.hasReadableEpub && readAvailable,
+                    readBookEnabled =
+                        (book.hasReadableEpub || offlineAction.state.available) && readAvailable,
                     serverActionsAvailable = serverActionsAvailable,
                     BookDetailActionLayout.VERTICAL
                 )
-                if (book.hasReadableEpub) {
+                if (book.hasReadableEpub || offlineAction.state.available) {
                     BookOfflineAction(
                         offlineAction.state,
                         offlineAction.onMakeAvailable,
@@ -244,7 +262,8 @@ private fun BookDetailMediumHero(
         Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
             BookDetailCover(
                 book,
-                Modifier.fillMaxWidth(MEDIUM_COVER_WIDTH_FRACTION).widthIn(max = 280.dp)
+                Modifier.fillMaxWidth(MEDIUM_COVER_WIDTH_FRACTION).widthIn(max = 280.dp),
+                offlineAction.state.localCover
             )
             BookDetailMetadata(
                 book,
@@ -257,11 +276,12 @@ private fun BookDetailMediumHero(
             onReadBook,
             onReadingSessions,
             onAddToShelf,
-            readBookEnabled = book.hasReadableEpub && readAvailable,
+            readBookEnabled =
+                (book.hasReadableEpub || offlineAction.state.available) && readAvailable,
             serverActionsAvailable = serverActionsAvailable,
             BookDetailActionLayout.HORIZONTAL
         )
-        if (book.hasReadableEpub) {
+        if (book.hasReadableEpub || offlineAction.state.available) {
             BookOfflineAction(
                 offlineAction.state,
                 offlineAction.onMakeAvailable,
@@ -288,18 +308,19 @@ private fun BookDetailNarrowHero(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            BookDetailCover(book, Modifier.widthIn(max = 220.dp))
+            BookDetailCover(book, Modifier.widthIn(max = 220.dp), offlineAction.state.localCover)
         }
         BookDetailMetadata(book, onAuthorSelected, onSeriesSelected)
         BookDetailActions(
             onReadBook,
             onReadingSessions,
             onAddToShelf,
-            readBookEnabled = book.hasReadableEpub && readAvailable,
+            readBookEnabled =
+                (book.hasReadableEpub || offlineAction.state.available) && readAvailable,
             serverActionsAvailable = serverActionsAvailable,
             BookDetailActionLayout.HORIZONTAL
         )
-        if (book.hasReadableEpub) {
+        if (book.hasReadableEpub || offlineAction.state.available) {
             BookOfflineAction(
                 offlineAction.state,
                 offlineAction.onMakeAvailable,

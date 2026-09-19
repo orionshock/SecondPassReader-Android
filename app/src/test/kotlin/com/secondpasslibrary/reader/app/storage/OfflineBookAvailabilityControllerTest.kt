@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.app.storage
 
+import com.secondpasslibrary.client.PublicBookCoverReference
 import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.app.AppAvailabilityReason
 import com.secondpasslibrary.reader.connection.ConnectionProfile
@@ -70,6 +71,39 @@ class OfflineBookAvailabilityControllerTest {
     }
 
     @Test
+    fun `download retains cover and existing asset backfills without another EPUB download`() =
+        runTest {
+            val fixture = fixture(withCover = true)
+            fixture.controller.makeAvailable(profile(), PROFILE_ID, BOOK_ID, AppAvailability.Online)
+            val firstCover = fixture.controller.localCover(fixture.account, BOOK_ID)
+            assertTrue(firstCover?.isFile == true)
+            assertTrue(firstCover!!.readBytes().contentEquals(COVER))
+            assertEquals(1, fixture.coverFetches)
+            firstCover.delete()
+
+            fixture.controller.backfillCover(
+                fixture.account,
+                BOOK_ID,
+                PublicBookCoverReference.fromAbsoluteUrl("https://library.example/cover.png")
+            )
+            assertEquals(1, fixture.resolves)
+            assertEquals(1, fixture.downloads)
+            assertEquals(2, fixture.coverFetches)
+            assertTrue(fixture.controller.localCover(fixture.account, BOOK_ID)?.isFile == true)
+
+            fixture.controller.remove(fixture.account, BOOK_ID)
+            assertEquals(null, fixture.controller.localCover(fixture.account, BOOK_ID))
+        }
+
+    @Test
+    fun `cover failure leaves verified EPUB available`() = runTest {
+        val fixture = fixture(withCover = true, failCover = true)
+        fixture.controller.makeAvailable(profile(), PROFILE_ID, BOOK_ID, AppAvailability.Online)
+        assertTrue(fixture.controller.isAvailable(fixture.account, BOOK_ID))
+        assertEquals(null, fixture.controller.localCover(fixture.account, BOOK_ID))
+    }
+
+    @Test
     fun `removal waits for a download and removes only completed asset metadata`() = runTest {
         val release = CompletableDeferred<Unit>()
         val fixture = fixture(release = release)
@@ -96,7 +130,9 @@ class OfflineBookAvailabilityControllerTest {
 
     private fun fixture(
         corrupt: Boolean = false,
-        release: CompletableDeferred<Unit>? = null
+        release: CompletableDeferred<Unit>? = null,
+        withCover: Boolean = false,
+        failCover: Boolean = false
     ): Fixture {
         val store = ReaderBookAssetStore.forTests(temporary.newFolder())
         val account = AccountLocalScope.from(ORIGIN, PROFILE_ID)
@@ -113,15 +149,17 @@ class OfflineBookAvailabilityControllerTest {
                 store.purgeAccount(ReaderAccountScope.from(account))
         }
         var downloads = 0
+        var resolves = 0
+        var coverFetches = 0
         var cachedSessions = 0
         val resolver = ReaderBookAssetResolver { request, _ ->
-            downloads++
+            resolves++
             val checksum = checksum(if (corrupt) "other".toByteArray() else EPUB)
             val asset = store.acquire(
                 ReaderAccountScope(request.profile.serverOrigin, request.profileId),
                 request.bookId,
                 checksum,
-                onDownloadStarted = {}
+                onDownloadStarted = { downloads++ }
             ) { output ->
                 release?.await()
                 output.write(EPUB)
@@ -132,20 +170,36 @@ class OfflineBookAvailabilityControllerTest {
                 "Book",
                 checksum
             )
-            ResolvedReaderBook("Book", asset.file, asset.reused)
+            ResolvedReaderBook(
+                title = "Book",
+                file = asset.file,
+                reused = asset.reused,
+                cover = if (withCover) {
+                    PublicBookCoverReference.fromAbsoluteUrl("https://library.example/cover.png")
+                } else {
+                    null
+                }
+            )
         }
         val controller = OfflineBookAvailabilityController(
             resolver,
             store,
             repository,
-            ReaderExistingSessionsCache { _, _, _ -> cachedSessions++ }
+            ReaderExistingSessionsCache { _, _, _ -> cachedSessions++ },
+            OfflineBookCoverSource {
+                coverFetches++
+                if (failCover) throw IllegalStateException("cover failed")
+                COVER
+            }
         )
         return Fixture(
             controller,
             repository,
             account,
             { downloads },
-            { cachedSessions }
+            { cachedSessions },
+            { resolves },
+            { coverFetches }
         )
     }
 
@@ -154,10 +208,14 @@ class OfflineBookAvailabilityControllerTest {
         val repository: AccountLocalDownloadRepository,
         val account: AccountLocalScope,
         val downloadCount: () -> Int,
-        val sessionCount: () -> Int
+        val sessionCount: () -> Int,
+        val resolveCount: () -> Int,
+        val coverFetchCount: () -> Int
     ) {
         val downloads get() = downloadCount()
         val cachedSessions get() = sessionCount()
+        val resolves get() = resolveCount()
+        val coverFetches get() = coverFetchCount()
     }
 
     private fun checksum(bytes: ByteArray) = ReaderBookAssetChecksum.fromServer(
@@ -175,5 +233,6 @@ class OfflineBookAvailabilityControllerTest {
         const val PROFILE_ID = "profile-1"
         const val BOOK_ID = "book-1"
         val EPUB = "valid immutable epub bytes".toByteArray()
+        val COVER = "cover bytes".toByteArray()
     }
 }

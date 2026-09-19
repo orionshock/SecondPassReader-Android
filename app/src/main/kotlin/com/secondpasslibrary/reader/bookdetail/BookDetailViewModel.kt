@@ -2,8 +2,10 @@ package com.secondpasslibrary.reader.bookdetail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.secondpasslibrary.client.LibraryBookDetail
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.app.AppAvailability
+import com.secondpasslibrary.reader.app.storage.AccountLocalBookCatalog
 import com.secondpasslibrary.reader.app.storage.AccountLocalScope
 import com.secondpasslibrary.reader.app.storage.OfflineBookAvailabilityController
 import com.secondpasslibrary.reader.bookdetail.shelfpicker.BookShelfPickerController
@@ -13,6 +15,7 @@ import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.io.File
 import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -28,7 +31,8 @@ internal class BookDetailViewModel
 @Inject
 constructor(
     clientProvider: AuthenticatedClientProvider,
-    private val offlineBooks: OfflineBookAvailabilityController
+    private val offlineBooks: OfflineBookAvailabilityController,
+    private val catalog: AccountLocalBookCatalog
 ) : ViewModel() {
     private val controller = BookDetailController(clientProvider, viewModelScope)
     private val shelfPicker = BookShelfPickerController(clientProvider, viewModelScope)
@@ -37,6 +41,10 @@ constructor(
     val offlineReadable = mutableOfflineReadable.asStateFlow()
     private val mutableOfflineAction = MutableStateFlow(BookOfflineActionState())
     val offlineAction = mutableOfflineAction.asStateFlow()
+    private val mutableOfflineDetail = MutableStateFlow<LibraryBookDetail?>(null)
+    val offlineDetail = mutableOfflineDetail.asStateFlow()
+    private val mutableOfflineDetailLoaded = MutableStateFlow(false)
+    val offlineDetailLoaded = mutableOfflineDetailLoaded.asStateFlow()
     private var offlineAvailabilityJob: Job? = null
     private var selectedProfile: ConnectionProfile? = null
     private var selectedProfileId: String? = null
@@ -54,6 +62,26 @@ constructor(
     )
 
     init {
+        viewModelScope.launch {
+            controller.state.collect { loaded ->
+                val detail = loaded.detail ?: return@collect
+                val profile = selectedProfile ?: return@collect
+                val profileId = selectedProfileId ?: return@collect
+                if (selectedAvailability is AppAvailability.Offline ||
+                    selectedBookId != detail.id
+                ) {
+                    return@collect
+                }
+                detail.cover?.let { cover ->
+                    offlineBooks.backfillCover(
+                        AccountLocalScope.from(profile.serverOrigin, profileId),
+                        detail.id,
+                        cover
+                    )
+                    refreshOfflineStatus()
+                }
+            }
+        }
         viewModelScope.launch { offlineBooks.revision.collect { refreshOfflineStatus() } }
         viewModelScope.launch {
             offlineBooks.busy.collect { busy ->
@@ -85,12 +113,50 @@ constructor(
         }
         controller.prepare(profile)
         shelfPicker.prepare(profile)
-        controller.select(bookId)
         selectedProfile = profile
         selectedProfileId = profileId
         selectedAvailability = availability
         selectedBookId = bookId
         offlineGeneration++
+        mutableOfflineDetail.value = null
+        mutableOfflineDetailLoaded.value = false
+        if (availability is AppAvailability.Offline) {
+            controller.clear()
+            val generation = offlineGeneration
+            viewModelScope.launch {
+                val account = AccountLocalScope.from(profile.serverOrigin, profileId)
+                val book = runSuspendCatching {
+                    catalog.downloadedBooks(account).firstOrNull { it.id == bookId }
+                }.getOrNull()
+                if (generation == offlineGeneration) {
+                    mutableOfflineDetail.value = book?.let {
+                        LibraryBookDetail(
+                            id = it.id,
+                            title = it.title,
+                            sortTitle = it.sortTitle,
+                            subtitle = it.subtitle,
+                            authors = it.authors,
+                            series = it.series,
+                            language = it.language,
+                            publisher = it.publisher,
+                            publishedYear = it.publishedYear,
+                            publishedMonth = it.publishedMonth,
+                            publishedDay = it.publishedDay,
+                            publicationDatePrecision = it.publicationDatePrecision,
+                            cover = it.cover,
+                            description = "",
+                            identifiers = emptyList(),
+                            catalogTags = it.catalogTags,
+                            file = null,
+                            groups = emptyList()
+                        )
+                    }
+                    mutableOfflineDetailLoaded.value = true
+                }
+            }
+        } else {
+            controller.select(bookId)
+        }
         mutableOfflineAction.value = BookOfflineActionState()
         offlineAvailabilityJob?.cancel()
         refreshOfflineStatus()
@@ -143,8 +209,15 @@ constructor(
                 AccountLocalScope.from(profile.serverOrigin, profileId),
                 bookId
             )
+            val cover = offlineBooks.localCover(
+                AccountLocalScope.from(profile.serverOrigin, profileId),
+                bookId
+            )
             if (generation != offlineGeneration) return@launch
-            mutableOfflineAction.value = mutableOfflineAction.value.copy(available = available)
+            mutableOfflineAction.value = mutableOfflineAction.value.copy(
+                available = available,
+                localCover = cover
+            )
             mutableOfflineReadable.value =
                 selectedAvailability !is AppAvailability.Offline || available
         }
@@ -173,6 +246,7 @@ constructor(
 
 internal data class BookOfflineActionState(
     val available: Boolean = false,
+    val localCover: File? = null,
     val downloading: Boolean = false,
     val error: Boolean = false
 )

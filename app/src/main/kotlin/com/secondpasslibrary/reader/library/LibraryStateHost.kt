@@ -39,7 +39,7 @@ internal fun LibraryStateHost(
     }
     LaunchedEffect(libraryState.result.booksStateOrNull()?.books) {
         offlineActions.observeBooks(
-            libraryState.result.booksStateOrNull()?.books.orEmpty().mapTo(mutableSetOf()) { it.id }
+            libraryState.result.booksStateOrNull()?.books.orEmpty().associate { it.id to it.cover }
         )
     }
     LaunchedEffect(offlineActions, availability) {

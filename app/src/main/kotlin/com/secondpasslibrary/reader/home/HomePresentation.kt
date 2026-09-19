@@ -7,6 +7,7 @@ import com.secondpasslibrary.client.ShelfOwner
 import com.secondpasslibrary.client.ShelfSummary
 import com.secondpasslibrary.reader.design.book.BookCardAction
 import com.secondpasslibrary.reader.design.icons.AppIcon
+import java.io.File
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -34,6 +35,7 @@ internal data class ReadingHistoryCardModel(
     val statusIndicator: ReadingStatusIndicator,
     val accessibilityDescription: String,
     val cover: BookCoverPresentation,
+    val localCover: File? = null,
     val primaryIntent: OpenReaderIntent?,
     val unavailableOffline: Boolean = false,
     val contextActions: List<HomeNavigationIntent>
@@ -50,7 +52,11 @@ internal data class ShelfCardModel(
     val previewBooks: List<ShelfPreviewCardModel>?
 )
 
-internal data class ShelfPreviewCardModel(val title: String, val cover: BookCoverPresentation)
+internal data class ShelfPreviewCardModel(
+    val id: String,
+    val title: String,
+    val cover: BookCoverPresentation
+)
 
 internal object HomePresenter {
     fun readingHistory(
@@ -60,7 +66,8 @@ internal object HomePresenter {
         zoneId: ZoneId = ZoneId.systemDefault(),
         locale: Locale = Locale.getDefault(),
         availableOffline: Boolean = false,
-        downloadBusy: Boolean = false
+        downloadBusy: Boolean = false,
+        localCover: File? = null
     ): ReadingHistoryCardModel {
         val sessionIdentity = item.sessionIdentityLabel(zoneId, locale)
         val location = item.progress?.locationLabel?.trim()?.ifEmpty { null }
@@ -76,6 +83,7 @@ internal object HomePresenter {
                 listOfNotNull(item.book.title, sessionIdentity, location, item.status.label)
                     .joinToString(", "),
             cover = item.book.cover.toPresentation(),
+            localCover = localCover,
             primaryIntent =
                 item.book.takeIf { (offline && offlineReadable) || (!offline && it.canOpen) }?.let {
                     OpenReaderIntent(it.id, item.sessionId, it.title)
@@ -101,7 +109,7 @@ internal object HomePresenter {
             itemCountLabel = shelf.itemCount.bookCountLabel,
             previewBooks =
                 shelf.previewBooks?.map { preview ->
-                    ShelfPreviewCardModel(preview.title, preview.cover.toPresentation())
+                    ShelfPreviewCardModel(preview.id, preview.title, preview.cover.toPresentation())
                 }
         )
     }

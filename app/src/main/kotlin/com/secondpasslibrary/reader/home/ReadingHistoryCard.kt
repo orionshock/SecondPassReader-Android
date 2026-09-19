@@ -96,7 +96,8 @@ private fun ReadingHistoryCardSurface(
             HomeBookCover(
                 model.cover,
                 model.title,
-                Modifier.fillMaxSize().clearAndSetSemantics { }
+                Modifier.fillMaxSize().clearAndSetSemantics { },
+                localCover = model.localCover
             )
             Box(
                 Modifier

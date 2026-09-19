@@ -81,6 +81,7 @@ private fun CompactBookRowContent(
         Box(Modifier.size(width = 64.dp, height = 96.dp)) {
             PublicBookCover(
                 reference = book.cover,
+                localCover = book.localCover,
                 title = book.title,
                 modifier = Modifier.fillMaxSize(),
                 contentDescription = null
@@ -135,6 +136,7 @@ private fun WideCompactBookRowContent(
     ) {
         PublicBookCover(
             reference = book.cover,
+            localCover = book.localCover,
             title = book.title,
             modifier =
                 Modifier.size(width = 60.dp, height = 90.dp)
@@ -201,6 +203,7 @@ internal fun CompactBookGridCard(
             Box {
                 PublicBookCover(
                     reference = book.cover,
+                    localCover = book.localCover,
                     title = book.title,
                     modifier = Modifier.fillMaxWidth().aspectRatio(BOOK_COVER_ASPECT_RATIO),
                     contentDescription = null

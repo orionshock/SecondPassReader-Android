@@ -1,12 +1,15 @@
 package com.secondpasslibrary.reader.app.storage
 
+import com.secondpasslibrary.client.PublicBookCoverReference
 import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import com.secondpasslibrary.reader.reader.asset.ReaderAccountScope
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetRequest
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetResolver
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetStore
 import com.secondpasslibrary.reader.reader.session.ReaderExistingSessionsCache
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,7 +28,8 @@ internal class OfflineBookAvailabilityController @Inject constructor(
     private val resolver: ReaderBookAssetResolver,
     private val assets: ReaderBookAssetStore,
     private val downloads: AccountLocalDownloadRepository,
-    private val sessions: ReaderExistingSessionsCache
+    private val sessions: ReaderExistingSessionsCache,
+    private val coverSource: OfflineBookCoverSource
 ) {
     private val mutation = Mutex()
     private val mutableBusy = MutableStateFlow<Set<OfflineBookKey>>(emptySet())
@@ -35,6 +39,9 @@ internal class OfflineBookAvailabilityController @Inject constructor(
 
     suspend fun isAvailable(account: AccountLocalScope, bookId: String): Boolean =
         assets.findCompleted(ReaderAccountScope.from(account), bookId) != null
+
+    suspend fun localCover(account: AccountLocalScope, bookId: String): File? =
+        assets.findCover(ReaderAccountScope.from(account), bookId)
 
     suspend fun makeAvailable(
         profile: ConnectionProfile,
@@ -49,15 +56,43 @@ internal class OfflineBookAvailabilityController @Inject constructor(
             if (availability is AppAvailability.Offline) throw BookDownloadNeedsLibraryException()
             mutableBusy.value = mutableBusy.value + key
             try {
-                resolver.resolve(
+                val resolved = resolver.resolve(
                     ReaderBookAssetRequest(profile, profileId, bookId),
                     onDownloadStarted = {}
                 )
                 mutableRevision.value++
                 sessions.cache(profile, profileId, bookId)
+                resolved.cover?.let { retainCover(account, bookId, it) }
             } finally {
                 mutableBusy.value = mutableBusy.value - key
             }
+        }
+    }
+
+    /** Existing downloaded Books can gain their cover from ordinary online Book metadata. */
+    suspend fun backfillCover(
+        account: AccountLocalScope,
+        bookId: String,
+        reference: PublicBookCoverReference
+    ) {
+        mutation.withLock {
+            if (isAvailable(account, bookId) && localCover(account, bookId) == null) {
+                retainCover(account, bookId, reference)
+            }
+        }
+    }
+
+    private suspend fun retainCover(
+        account: AccountLocalScope,
+        bookId: String,
+        reference: PublicBookCoverReference
+    ) {
+        val bytes = runSuspendCatching { coverSource.fetch(reference) }.getOrNull() ?: return
+        if (runSuspendCatching {
+                assets.retainCover(ReaderAccountScope.from(account), bookId, bytes)
+            }.isSuccess
+        ) {
+            mutableRevision.value++
         }
     }
 

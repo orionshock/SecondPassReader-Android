@@ -170,7 +170,8 @@ private fun LibraryBrowseContent(
                     onBookAction,
                     Modifier.weight(1f),
                     offlineActions.availableBookIds,
-                    offlineActions.busyBookIds
+                    offlineActions.busyBookIds,
+                    offlineActions.localCovers
                 )
 
             is LibraryResultState.AuthorIndex ->
@@ -251,7 +252,8 @@ private fun FilterableBooksResults(
             onBookAction,
             Modifier.weight(1f),
             offlineActions.availableBookIds,
-            offlineActions.busyBookIds
+            offlineActions.busyBookIds,
+            offlineActions.localCovers
         )
     }
 }

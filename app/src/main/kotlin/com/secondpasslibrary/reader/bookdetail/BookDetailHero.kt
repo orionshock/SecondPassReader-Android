@@ -31,13 +31,19 @@ import com.secondpasslibrary.client.LibraryBookDetail
 import com.secondpasslibrary.reader.design.book.PublicBookCover
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
+import java.io.File
 
 private const val BOOK_COVER_ASPECT_RATIO = 2f / 3f
 
 @Composable
-internal fun BookDetailCover(book: LibraryBookDetail, modifier: Modifier = Modifier) {
+internal fun BookDetailCover(
+    book: LibraryBookDetail,
+    modifier: Modifier = Modifier,
+    localCover: File? = null
+) {
     PublicBookCover(
         reference = book.cover,
+        localCover = localCover,
         title = book.title,
         modifier = modifier.aspectRatio(BOOK_COVER_ASPECT_RATIO),
         contentScale = ContentScale.Fit

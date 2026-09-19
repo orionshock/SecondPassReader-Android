@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.design.book
 
 import com.secondpasslibrary.client.CompactBook
 import com.secondpasslibrary.client.PublicBookCoverReference
+import java.io.File
 
 internal data class CompactBookPresentation(
     val id: String,
@@ -12,7 +13,8 @@ internal data class CompactBookPresentation(
     val publisher: String?,
     val language: String?,
     val format: String?,
-    val cover: PublicBookCoverReference?
+    val cover: PublicBookCoverReference?,
+    val localCover: File? = null
 )
 
 internal fun CompactBook.toCompactBookPresentation() = CompactBookPresentation(

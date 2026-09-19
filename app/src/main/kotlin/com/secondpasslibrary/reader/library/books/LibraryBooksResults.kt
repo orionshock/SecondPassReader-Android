@@ -32,6 +32,7 @@ import com.secondpasslibrary.reader.design.book.CompactBookRow
 import com.secondpasslibrary.reader.design.book.CompactBookRowLayout
 import com.secondpasslibrary.reader.library.presentation.LibraryBrowseLoading
 import com.secondpasslibrary.reader.library.presentation.LibraryPagingTriggerPolicy
+import java.io.File
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
@@ -45,7 +46,8 @@ internal fun LibraryBooksResults(
     onBookAction: (BookCardAction) -> Unit,
     modifier: Modifier = Modifier,
     availableBookIds: Set<String> = emptySet(),
-    busyBookIds: Set<String> = emptySet()
+    busyBookIds: Set<String> = emptySet(),
+    localCovers: Map<String, File> = emptyMap()
 ) {
     when {
         state.books.isEmpty() && state.initialLoading -> LibraryBrowseLoading(modifier)
@@ -75,7 +77,8 @@ internal fun LibraryBooksResults(
                                 onBookAction,
                                 Modifier.weight(1f),
                                 availableBookIds,
-                                busyBookIds
+                                busyBookIds,
+                                localCovers
                             )
 
                         LibraryBooksLayout.GRID ->
@@ -87,7 +90,8 @@ internal fun LibraryBooksResults(
                                 onBookAction,
                                 Modifier.weight(1f),
                                 availableBookIds,
-                                busyBookIds
+                                busyBookIds,
+                                localCovers
                             )
                     }
                 }
@@ -104,7 +108,8 @@ private fun LibraryBooksList(
     onBookAction: (BookCardAction) -> Unit,
     modifier: Modifier,
     availableBookIds: Set<String>,
-    busyBookIds: Set<String>
+    busyBookIds: Set<String>,
+    localCovers: Map<String, File>
 ) {
     BoxWithConstraints(modifier.fillMaxWidth()) {
         val rowLayout = libraryBookRowLayoutForWidth(maxWidth)
@@ -122,7 +127,7 @@ private fun LibraryBooksList(
                 ) {
                     Column(Modifier.fillMaxWidth().widthIn(max = LIBRARY_LIST_MAX_WIDTH)) {
                         CompactBookRow(
-                            book = book.toLibraryCompactBookPresentation(),
+                            book = book.toLibraryCompactBookPresentation(localCovers[book.id]),
                             onClick = { onBookSelected(book.id) },
                             actions = book.bookCardActions(
                                 downloaded =
@@ -161,7 +166,8 @@ private fun LibraryBooksGrid(
     onBookAction: (BookCardAction) -> Unit,
     modifier: Modifier,
     availableBookIds: Set<String>,
-    busyBookIds: Set<String>
+    busyBookIds: Set<String>,
+    localCovers: Map<String, File>
 ) {
     val gridState = rememberLazyGridState()
     NextPageEffect(gridState, state, onLoadNextPage)
@@ -175,7 +181,7 @@ private fun LibraryBooksGrid(
     ) {
         items(state.books, key = { it.id }) { book ->
             CompactBookGridCard(
-                book = book.toLibraryCompactBookPresentation(),
+                book = book.toLibraryCompactBookPresentation(localCovers[book.id]),
                 onClick = { onBookSelected(book.id) },
                 actions = book.bookCardActions(
                     downloaded = state.offlineDownloadedOnly || book.id in availableBookIds,

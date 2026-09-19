@@ -158,6 +158,40 @@ class ReaderBookAssetStoreTest {
     }
 
     @Test
+    fun `retained cover survives store recreation and is account scoped`() = runTest {
+        val fixture = fixture()
+        val other = ReaderAccountScope("https://library.example", "profile-2")
+        complete(fixture, "book-1", EPUB_BYTES)
+        fixture.store.retainCover(fixture.account, "book-1", COVER_BYTES)
+
+        val reopened = ReaderBookAssetStore.forTests(fixture.root)
+        assertTrue(
+            reopened.findCover(fixture.account, "book-1")!!
+                .readBytes().contentEquals(COVER_BYTES)
+        )
+        assertEquals(null, reopened.findCover(other, "book-1"))
+        assertEquals(
+            EPUB_BYTES.size + COVER_BYTES.size,
+            reopened.completedBooks(fixture.account).single().sizeBytes.toInt()
+        )
+
+        reopened.removeCompleted(fixture.account, "book-1")
+        assertEquals(null, reopened.findCover(fixture.account, "book-1"))
+        assertTrue(fixture.root.walkTopDown().none { it.name.endsWith(".cover.png") })
+    }
+
+    @Test
+    fun `cover is invalidated with corrupt EPUB`() = runTest {
+        val fixture = fixture()
+        complete(fixture, "book-1", EPUB_BYTES)
+        fixture.store.retainCover(fixture.account, "book-1", COVER_BYTES)
+        fixture.store.completedFile(fixture.account, "book-1").writeBytes("bad".toByteArray())
+
+        assertEquals(null, fixture.store.findCover(fixture.account, "book-1"))
+        assertTrue(fixture.root.walkTopDown().none { it.name.endsWith(".cover.png") })
+    }
+
+    @Test
     fun `removing one download removes epub and metadata without touching another account`() =
         runTest {
             val fixture = fixture()
@@ -242,5 +276,6 @@ class ReaderBookAssetStoreTest {
 
     private companion object {
         val EPUB_BYTES = "representative epub bytes".toByteArray()
+        val COVER_BYTES = "representative cover bytes".toByteArray()
     }
 }

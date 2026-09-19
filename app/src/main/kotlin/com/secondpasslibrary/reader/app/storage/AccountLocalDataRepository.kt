@@ -73,7 +73,10 @@ internal class AccountLocalDataRepository @Inject constructor(
                 ?.items.orEmpty()
                 .flatMap { it.previewBooks.orEmpty() }
                 .forEach { add(CachedBook(it.id, it.title, it.cover)) }
-        }.distinctBy(CachedBook::id)
+        }.groupBy(CachedBook::id).values.map { records ->
+            val first = records.first()
+            first.copy(cover = records.firstNotNullOfOrNull(CachedBook::cover))
+        }
         return candidates.mapNotNull { book ->
             book.takeIf { assets.findCompleted(readerAccount, it.id) != null }?.toCompactBook()
         }.sortedBy { it.sortTitle.lowercase() }

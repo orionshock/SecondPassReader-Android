@@ -17,6 +17,7 @@ import coil3.compose.SubcomposeAsyncImageContent
 import com.secondpasslibrary.client.PublicBookCoverReference
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
+import java.io.File
 
 @Composable
 internal fun PublicBookCover(
@@ -24,7 +25,8 @@ internal fun PublicBookCover(
     title: String,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
-    contentDescription: String? = "Cover of $title"
+    contentDescription: String? = "Cover of $title",
+    localCover: File? = null
 ) {
     Box(
         modifier =
@@ -33,11 +35,12 @@ internal fun PublicBookCover(
                 .background(MaterialTheme.colorScheme.surfaceContainerHighest),
         contentAlignment = Alignment.Center
     ) {
-        if (reference == null) {
+        val source = bookCoverSource(localCover, reference)
+        if (source == null) {
             MissingBookCover(contentDescription?.let { "No cover available for $title" })
         } else {
             SubcomposeAsyncImage(
-                model = reference.url,
+                model = source,
                 contentDescription = contentDescription,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = contentScale,
@@ -50,6 +53,9 @@ internal fun PublicBookCover(
         }
     }
 }
+
+internal fun bookCoverSource(localCover: File?, reference: PublicBookCoverReference?): Any? =
+    localCover?.takeIf { it.isFile && it.length() > 0L } ?: reference?.url
 
 @Composable
 private fun CoverLoading() {

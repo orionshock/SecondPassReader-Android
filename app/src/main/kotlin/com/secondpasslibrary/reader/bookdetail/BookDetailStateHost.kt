@@ -37,6 +37,8 @@ internal fun BookDetailStateHost(
     val shelfPickerState by viewModel.shelfPickerState.collectAsStateWithLifecycle()
     val offlineReadable by viewModel.offlineReadable.collectAsStateWithLifecycle()
     val offlineAction by viewModel.offlineAction.collectAsStateWithLifecycle()
+    val offlineDetail by viewModel.offlineDetail.collectAsStateWithLifecycle()
+    val offlineDetailLoaded by viewModel.offlineDetailLoaded.collectAsStateWithLifecycle()
     var confirmRemoval by remember(bookId) { mutableStateOf(false) }
     val connectionIdentity = profile.authenticatedConnectionIdentity
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshOfflineAvailability() }
@@ -52,7 +54,15 @@ internal fun BookDetailStateHost(
         }
     }
     BookDetailScreen(
-        state = state,
+        state = if (availability is AppAvailability.Offline) {
+            state.copy(
+                detail = offlineDetail,
+                loading = offlineDetail == null,
+                failure = null
+            )
+        } else {
+            state
+        },
         appBarContext = appBarContext,
         onBack = onBack,
         onRetry = viewModel::retry,
@@ -60,7 +70,12 @@ internal fun BookDetailStateHost(
         onSeriesSelected = { onNavigation(BookDetailNavigationIntent.Series(it)) },
         onTagSelected = { id, slug -> onNavigation(BookDetailNavigationIntent.Tag(id, slug)) },
         onReadBook = {
-            onNavigation(BookDetailNavigationIntent.ReadBook(bookId, state.detail?.title))
+            onNavigation(
+                BookDetailNavigationIntent.ReadBook(
+                    bookId,
+                    state.detail?.title ?: offlineDetail?.title
+                )
+            )
         },
         onReadingSessions = {
             onNavigation(BookDetailNavigationIntent.ReadingSessions(bookId))
@@ -69,6 +84,8 @@ internal fun BookDetailStateHost(
         readAvailable = offlineReadable,
         serverActionsAvailable = serverMutationsAvailable,
         offlineAction = offlineAction,
+        offlineUnavailable = availability is AppAvailability.Offline &&
+            offlineDetailLoaded && offlineDetail == null,
         onMakeAvailable = viewModel::makeAvailable,
         onRemoveDownload = { confirmRemoval = true }
     )

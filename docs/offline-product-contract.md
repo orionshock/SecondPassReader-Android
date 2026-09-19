@@ -28,7 +28,10 @@ new write.
 or creating a Reading Session. It retains any existing per-Book Sessions, progress, and annotations
 through read-only server calls; an empty Session list remains empty. Offline availability means a
 completed, checksum-valid account-local asset, not a cached flag. “Remove download” removes only
-that asset and its metadata, leaving Reader-authored state and pending sync intact.
+that asset, its retained cover, and its metadata, leaving Reader-authored state and pending sync
+intact. A Book made available offline retains its EPUB, offline listing metadata, and cover image
+when available. The cover is local downloaded content; Reader-authored data remains separately
+owned. A cover-fetch failure does not discard an otherwise verified EPUB.
 
 ## Reader mutation contracts
 

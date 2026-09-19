@@ -76,6 +76,45 @@ class BookDetailScreenTest {
     }
 
     @Test
+    fun downloadedOfflineDetailCanReadWithoutRemoteBookFileMetadata() {
+        setBookDetail(
+            widthDp = 1000,
+            book = richBook().copy(file = null),
+            serverActionsAvailable = false,
+            offlineAction = BookOfflineActionState(available = true)
+        )
+
+        compose.onNodeWithText("Read Book").assertIsEnabled()
+        compose.onNodeWithText("Reading Sessions").assertIsNotEnabled()
+        compose.onNodeWithTag("remove-book-download").assertExists()
+    }
+
+    @Test
+    fun removedOfflineBookShowsUnavailableStateInsteadOfLoadingForever() {
+        var back = 0
+        compose.setContent {
+            SecondPassTheme {
+                BookDetailScreen(
+                    state = BookDetailState(loading = true),
+                    appBarContext = "Library",
+                    onBack = { back++ },
+                    onRetry = {},
+                    onAuthorSelected = {},
+                    onSeriesSelected = {},
+                    onTagSelected = { _, _ -> },
+                    onReadBook = {},
+                    onReadingSessions = {},
+                    onAddToShelf = {},
+                    offlineUnavailable = true
+                )
+            }
+        }
+        compose.onNodeWithTag("book-detail-offline-unavailable").assertExists()
+        compose.onNodeWithTag("book-detail-offline-back").performClick()
+        assertEquals(1, back)
+    }
+
+    @Test
     fun richHtmlDescriptionRendersAsOneReadableAccessibleTextNode() {
         val description = "<p>A first paragraph with <em>emphasis</em> &amp; meaning.</p>" +
             "<p>A second paragraph.</p>" +
@@ -129,7 +168,8 @@ class BookDetailScreenTest {
         widthDp: Int,
         book: LibraryBookDetail,
         readAvailable: Boolean = true,
-        serverActionsAvailable: Boolean = true
+        serverActionsAvailable: Boolean = true,
+        offlineAction: BookOfflineActionState = BookOfflineActionState()
     ) {
         compose.setContent {
             SecondPassTheme {
@@ -146,7 +186,8 @@ class BookDetailScreenTest {
                         onReadingSessions = {},
                         onAddToShelf = {},
                         readAvailable = readAvailable,
-                        serverActionsAvailable = serverActionsAvailable
+                        serverActionsAvailable = serverActionsAvailable,
+                        offlineAction = offlineAction
                     )
                 }
             }

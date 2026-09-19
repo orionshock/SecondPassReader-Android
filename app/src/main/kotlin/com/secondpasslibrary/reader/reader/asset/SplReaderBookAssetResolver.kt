@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.reader.asset
 
+import com.secondpasslibrary.client.PublicBookCoverReference
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import java.io.File
@@ -9,7 +10,12 @@ import javax.inject.Singleton
 
 internal class ReaderEpubUnavailableException : Exception("The Book has no EPUB asset.")
 
-internal data class ResolvedReaderBook(val title: String, val file: File, val reused: Boolean)
+internal data class ResolvedReaderBook(
+    val title: String,
+    val file: File,
+    val reused: Boolean,
+    val cover: PublicBookCoverReference? = null
+)
 
 internal fun interface ReaderBookAssetResolver {
     suspend fun resolve(
@@ -57,6 +63,6 @@ internal class SplReaderBookAssetResolver @Inject constructor(
             onDownloadStarted
         ) { output -> client.library.books.downloadBook(file.download, output) }
         assetStore.rememberCompletedBook(account, request.bookId, book.title, checksum)
-        return ResolvedReaderBook(book.title, asset.file, asset.reused)
+        return ResolvedReaderBook(book.title, asset.file, asset.reused, book.cover)
     }
 }
