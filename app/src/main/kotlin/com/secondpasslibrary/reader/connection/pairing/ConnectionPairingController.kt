@@ -102,17 +102,17 @@ internal class ConnectionPairingController(
                 }
 
                 PairingStatus.DENIED -> {
-                    terminal("The link request was denied. Start again for a new code.")
+                    terminal("Approval was denied. Start again for a new code.")
                     return
                 }
 
                 PairingStatus.EXPIRED -> {
-                    terminal("The link request expired. Start again to request a new code.")
+                    terminal("The code expired. Start again for a new one.")
                     return
                 }
 
                 PairingStatus.CONSUMED -> {
-                    terminal("This approval was already used. Start again with a new code.")
+                    terminal("This code was already used. Start again for a new one.")
                     return
                 }
             }

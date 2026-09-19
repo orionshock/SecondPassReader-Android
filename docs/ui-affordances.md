@@ -10,6 +10,15 @@ current, and focused on reusable product behavior rather than implementation his
 - Prefer compact controls with touch-safe targets over oversized Material defaults.
 - Use muted secondary metadata and preserve clear information hierarchy.
 
+## Forms and dialogs
+
+- In bounded action rows, put the primary or forward action on the right. Put Cancel, Back,
+  Change address, and less-likely or destructive alternatives to its left. Visual and focus order
+  should agree; depart from this only for a concrete layout reason.
+- Keep copy brief, specific, and non-technical. Say what the person needs to know or do next;
+  remove repeated explanations and internal protocol terms.
+- Show local or relative time in ordinary UI. Raw timestamps belong in diagnostics only.
+
 ## App bars
 
 - Root routes use a hamburger and current destination title.

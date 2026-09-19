@@ -118,19 +118,18 @@ class ConnectionPairingControllerTest {
 
     @Test
     fun `denied expired consumed and invalid polling results remain terminal`() = runTest {
-        val terminal = listOf(
-            PairingStatus.DENIED to "The link request was denied. Start again for a new code.",
-            PairingStatus.EXPIRED to "The link request expired. Start again to request a new code.",
-            PairingStatus.CONSUMED to "This approval was already used. Start again with a new code."
-        )
-        terminal.forEach { (status, message) ->
+        val terminal = listOf(PairingStatus.DENIED, PairingStatus.EXPIRED, PairingStatus.CONSUMED)
+        terminal.forEach { status ->
             val fixture = Fixture(this)
             fixture.client.statuses += status
             fixture.start()
             advanceUntilIdle()
             fixture.controller.foregrounded()
             advanceUntilIdle()
-            assertEquals(ConnectionUiState.TerminalPairingProblem(message), fixture.state)
+            assertTrue(fixture.state is ConnectionUiState.TerminalPairingProblem)
+            assertTrue(
+                (fixture.state as ConnectionUiState.TerminalPairingProblem).message.isNotBlank()
+            )
             assertEquals(1, fixture.client.pollCalls)
             assertEquals(0, fixture.client.consumeCalls)
         }

@@ -8,7 +8,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
@@ -18,7 +20,10 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.secondpasslibrary.client.DiscoveredServer
+import com.secondpasslibrary.client.ServerOrigin
 import com.secondpasslibrary.reader.connection.discovery.ConnectionLibrarySuggestion
 import com.secondpasslibrary.reader.design.SecondPassTheme
 import org.junit.Assert.assertEquals
@@ -63,10 +68,13 @@ class ConnectionScreenTest {
                 }
             }
         }
-        compose.onNodeWithText("Enter this code in My Library.").assertIsDisplayed()
         compose.onNodeWithText(state.code).assertIsDisplayed()
-        compose.onNodeWithText(state.expiresAt).assertIsDisplayed()
+        compose.onNodeWithText(ApprovalExpiryPresenter.label(state.expiresAt)).assertIsDisplayed()
+        compose.onAllNodesWithText(state.expiresAt).assertCountEquals(0)
         compose.onNodeWithText(state.statusText).assertIsDisplayed()
+        assertEquals(0, opened.size)
+        assertEquals(0, cancellations)
+        assertLeftOf("Cancel", "Open approval page")
         compose.onNodeWithText("Open approval page").performClick()
         assertEquals(listOf(state.authorizeUrl), opened)
         compose.onNodeWithText("Cancel").performClick()
@@ -113,8 +121,15 @@ class ConnectionScreenTest {
                 }
             )
         suggestion.assertIsDisplayed().assertHasClickAction()
-        compose.onNodeWithText("Second Pass Library").assertIsDisplayed()
-        compose.onNodeWithText("Test Deploy, this is the description line").assertIsDisplayed()
+        suggestion.assert(
+            SemanticsMatcher("describes Library, address, and sanitized description") { node ->
+                node.config[SemanticsProperties.ContentDescription].single().let { description ->
+                    description.contains("Second Pass Library") &&
+                        description.contains(url) &&
+                        description.contains("Test Deploy, this is the description line")
+                }
+            }
+        )
         compose.onAllNodesWithText("Use this address").assertCountEquals(0)
         suggestion.performClick()
 
@@ -125,4 +140,109 @@ class ConnectionScreenTest {
         assertEquals(1, confirmations)
         assertEquals(0, pairings)
     }
+
+    @Test
+    fun addressErrorStaysWithEditableFieldAndCheckAddressIsRightAligned() {
+        val url = "https://not-a-library.example"
+        val message = "Address problem"
+        var edited = ""
+        var checks = 0
+        compose.setContent {
+            SecondPassTheme {
+                ConnectionScreen(
+                    ConnectionUiState.ServerEntry(serverUrl = url, message = message),
+                    actions(updateServerUrl = { edited = it }, verifyServer = { checks++ })
+                )
+            }
+        }
+        compose.onNodeWithTag("library-address-field").assertTextContains(url)
+        compose.onNodeWithTag("library-address-field").assert(
+            SemanticsMatcher("field exposes error") { node ->
+                SemanticsProperties.Error in node.config &&
+                    node.config[SemanticsProperties.Error] == message
+            }
+        )
+        compose.onNodeWithText(message).assertIsDisplayed()
+        compose.onNodeWithTag("library-address-field")
+            .performTextReplacement("https://other.example")
+        assertEquals("https://other.example", edited)
+        val fieldRight = compose.onNodeWithTag("library-address-field")
+            .fetchSemanticsNode().boundsInRoot.right
+        val checkRight = compose.onNodeWithText("Check address")
+            .fetchSemanticsNode().boundsInRoot.right
+        assertEquals(true, checkRight > fieldRight / 2f)
+        compose.onNodeWithText("Check address").performClick()
+        assertEquals(1, checks)
+    }
+
+    @Test
+    fun confirmedLibraryKeepsIdentityProminentAndPrimaryActionOnRight() {
+        val url = "https://library.example"
+        var changedAddress = 0
+        var linked = 0
+        var deviceName = ""
+        val server = DiscoveredServer(
+            serverOrigin = ServerOrigin.fromUserInput(url),
+            installationId = "a6722b5a-7982-4778-8c74-39be4241a654",
+            serverBaseUrl = "$url/",
+            apiBaseUrl = "$url/api/v1/",
+            name = "My Library",
+            description = "<p>A <strong>quiet</strong> library</p>",
+            version = "alpha-rc1",
+            releaseDate = "2026-09-17",
+            discoveryVersion = "1",
+            loginRequestUrl = "$url/pair",
+            tokenType = "Bearer"
+        )
+        compose.setContent {
+            SecondPassTheme {
+                ConnectionScreen(
+                    ConnectionUiState.ServerConfirmed(server, "Tablet"),
+                    actions(
+                        updateClientName = { deviceName = it },
+                        beginPairing = { linked++ },
+                        abandonPairing = { changedAddress++ }
+                    )
+                )
+            }
+        }
+        compose.onNodeWithText("My Library").assertIsDisplayed()
+        compose.onNodeWithText("$url/").assertIsDisplayed()
+        compose.onAllNodesWithText("alpha-rc1").assertCountEquals(0)
+        compose.onAllNodesWithText("$url/api/v1/").assertCountEquals(0)
+        assertLeftOf("Change address", "Link device")
+        compose.onNodeWithText("Tablet").performTextReplacement("Bedroom tablet")
+        assertEquals("Bedroom tablet", deviceName)
+        assertEquals(0, linked)
+        compose.onNodeWithText("Change address").performClick()
+        assertEquals(1, changedAddress)
+        compose.onNodeWithText("Link device").performClick()
+        assertEquals(1, linked)
+    }
+
+    private fun assertLeftOf(left: String, right: String) {
+        val leftBounds = compose.onNodeWithText(left).fetchSemanticsNode().boundsInRoot
+        val rightBounds = compose.onNodeWithText(right).fetchSemanticsNode().boundsInRoot
+        assertEquals(true, leftBounds.right <= rightBounds.left)
+    }
+
+    private fun actions(
+        updateServerUrl: (String) -> Unit = {},
+        verifyServer: () -> Unit = {},
+        updateClientName: (String) -> Unit = {},
+        beginPairing: () -> Unit = {},
+        abandonPairing: () -> Unit = {}
+    ) = ConnectionScreenActions(
+        updateServerUrl = updateServerUrl,
+        selectSuggestedServer = {},
+        verifyServer = verifyServer,
+        updateClientName = updateClientName,
+        beginPairing = beginPairing,
+        relinkLocalAccount = {},
+        abandonPairing = abandonPairing,
+        retryProfilePersistence = {},
+        retryStoredVerification = {},
+        retryRestore = {},
+        forgetLocalConnection = {}
+    )
 }

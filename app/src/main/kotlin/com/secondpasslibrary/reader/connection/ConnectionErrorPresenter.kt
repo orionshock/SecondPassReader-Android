@@ -20,25 +20,25 @@ internal object ConnectionErrorPresenter {
 
     private fun clientMessage(error: Throwable): String = when (error) {
         is SplClientException.InvalidServerUrl ->
-            "Enter a valid HTTP or HTTPS address."
+            "Enter a valid Library address."
 
         is SplClientException.ServerUnreachable ->
-            "Couldn’t reach Second Pass Library. Check the address and your connection."
+            "Couldn’t reach that Library. Check the address or your connection."
 
         is SplClientException.NotSecondPassServer ->
-            "That address isn’t a Second Pass Library server. Check the address."
+            "That address isn’t a Second Pass Library. Check the address."
 
         is SplClientException.PairingValidationRejected ->
             "Use a device name between 1 and 200 characters."
 
         is SplClientException.PairingThrottled ->
-            "Second Pass Library is limiting requests. Try again shortly."
+            "Too many requests. Try again shortly."
 
         is SplClientException.AuthenticationRejected ->
             "This connection is no longer authorized. Repair the connection."
 
         is SplClientException.AmbiguousConsumeFailure ->
-            "The approval may already be used. Start linking again with a new code."
+            "This approval may already have been used. Start again."
 
         is SplClientException ->
             "Couldn’t connect to Second Pass Library. Check the address and retry."

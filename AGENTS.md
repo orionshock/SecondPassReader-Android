@@ -193,6 +193,8 @@ Scrutinize large ViewModels, repositories, engine adapters, and orchestrators.
 
 Test at the narrowest meaningful boundary. Pure Kotlin should not require a device unless Android behavior is under test. Prioritize policies, mappers, presenters, session transitions, app-owned CFI/location translation, SDK wire/model and error mapping, retry/idempotency, persistence rules, and orchestration. Use instrumented tests for platform integration; do not move domain logic into Compose because UI tests exist.
 
+Runtime tests protect runtime code, not copy text unless that copy text is actually making deterministic runtime code changes. Apply this guidance when test files are touched.
+
 Validation is CLI/Gradle-owned through the committed wrapper. Once scaffolded, the baseline is Android Lint, Kotlin compilation, unit tests, detekt, and ktlint. Editor diagnostics are advisory. Do not add overlapping formatters or redundant analyzers without a concrete reason.
 
 The canonical commands and device/live-test split are documented in [Repository tooling](docs/repository-tooling.md).

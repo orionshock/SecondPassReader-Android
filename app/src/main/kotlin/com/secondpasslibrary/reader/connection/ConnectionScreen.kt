@@ -1,6 +1,6 @@
 package com.secondpasslibrary.reader.connection
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,18 +23,16 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.secondpasslibrary.reader.connection.discovery.ConnectionLibrarySuggestion
-import com.secondpasslibrary.reader.design.components.InformationCard
-import com.secondpasslibrary.reader.design.components.InformationDetail
-import com.secondpasslibrary.reader.design.richtext.ServerRichText
 
 @Composable
 internal fun ConnectionScreen(
@@ -82,7 +80,7 @@ internal fun ConnectionScreen(
 
             is ConnectionUiState.TerminalPairingProblem ->
                 ProblemContent(
-                    "Linking stopped",
+                    "Device not linked",
                     state.message,
                     "Start again",
                     actions.abandonPairing
@@ -154,23 +152,20 @@ private fun ConnectionFrame(content: @Composable () -> Unit) {
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
+                .padding(horizontal = 24.dp, vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        Column(modifier = Modifier.fillMaxWidth().widthIn(max = 920.dp)) {
+        Column(modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth()) {
             Text(
-                "SECOND PASS",
+                "Second Pass Reader",
                 color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.labelLarge
-            )
-            Text(
-                "Reader",
-                style = MaterialTheme.typography.displayMedium,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
         }
         Column(
-            modifier = Modifier.fillMaxWidth().widthIn(max = 920.dp),
+            modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             content()
@@ -186,80 +181,29 @@ private fun ServerEntryContent(
     onVerify: () -> Unit,
     requestLanDiscoveryAccess: (() -> Unit)?
 ) {
-    SectionTitle(
-        "Connect to Second Pass Library",
-        "Enter the address of your Second Pass Library."
-    )
+    SectionTitle("Connect to a Library")
     requestLanDiscoveryAccess?.let { requestAccess ->
         OutlinedButton(onClick = requestAccess) {
-            Text("Find libraries on the local network")
+            Text("Find nearby libraries")
         }
     }
-    LibrarySuggestions(state.suggestions, onSuggestionSelected)
+    LibrarySuggestions(state.suggestions, state.serverUrl, onSuggestionSelected)
+    val addressError = state.message?.takeIf { state.serverUrl.isNotBlank() }
     OutlinedTextField(
         value = state.serverUrl,
         onValueChange = onUrlChanged,
-        modifier = Modifier.fillMaxWidth().testTag("library-address-field"),
+        modifier = Modifier.fillMaxWidth().testTag("library-address-field")
+            .then(addressError?.let { Modifier.semantics { error(it) } } ?: Modifier),
         label = { Text("Library address") },
         placeholder = { Text("https://library.example") },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-        supportingText = state.message?.let { message -> { Text(message) } }
+        isError = addressError != null,
+        supportingText = addressError?.let { message -> { Text(message) } }
     )
-    Button(onClick = onVerify, enabled = state.serverUrl.isNotBlank()) { Text("Check address") }
-}
-
-@Composable
-private fun LibrarySuggestions(
-    suggestions: List<ConnectionLibrarySuggestion>,
-    onSelected: (String) -> Unit
-) {
-    if (suggestions.isNotEmpty()) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                "Libraries found nearby",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            suggestions.forEach { suggestion ->
-                Card(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable(
-                                onClickLabel = "Use this address",
-                                onClick = { onSelected(suggestion.url) }
-                            )
-                            .semantics(mergeDescendants = true) {},
-                    colors =
-                        CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer
-                        )
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            suggestion.name,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            suggestion.url,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontFamily = FontFamily.Monospace,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        ServerRichText(
-                            suggestion.description,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            collapsedMaxLines = 3
-                        )
-                    }
-                }
-            }
+    ActionRow {
+        Button(onClick = onVerify, enabled = state.serverUrl.isNotBlank()) {
+            Text("Check address")
         }
     }
 }
@@ -271,49 +215,66 @@ private fun ServerConfirmedContent(
     onStart: () -> Unit,
     onBack: () -> Unit
 ) {
-    SectionTitle(
-        "Library found",
-        "Confirm the Library and name this device."
-    )
+    SectionTitle("Is this your Library?")
     ServerIdentityCard(state.server)
     OutlinedTextField(
         value = state.clientName,
         onValueChange = onNameChanged,
         modifier = Modifier.fillMaxWidth(),
         label = { Text("Device name") },
-        singleLine = true,
-        supportingText = { Text("1–200 characters") }
+        singleLine = true
     )
     ActionRow {
-        Button(onClick = onStart, enabled = state.clientName.isNotBlank()) { Text("Link device") }
         OutlinedButton(onClick = onBack) { Text("Change address") }
+        Button(onClick = onStart, enabled = state.clientName.isNotBlank()) { Text("Link device") }
     }
 }
 
 @Composable
 private fun WaitingContent(state: ConnectionUiState.WaitingForApproval, onCancel: () -> Unit) {
     val uriHandler = LocalUriHandler.current
-    SectionTitle(
-        "Approve this device",
-        "Enter this code in ${state.serverName}."
-    )
-    InformationCard("Approval code") {
-        SelectionContainer {
+    SectionTitle("Approve this device")
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("Approval code", style = MaterialTheme.typography.labelLarge)
+            SelectionContainer {
+                Text(
+                    state.code,
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.displayLarge,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
             Text(
-                state.code,
-                color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.displayMedium,
-                fontFamily = FontFamily.Monospace
+                "Open the approval page in ${state.serverName}.",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text(
+                state.statusText,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                ApprovalExpiryPresenter.label(state.expiresAt),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        InformationDetail("Status", state.statusText)
-        InformationDetail("Expires", state.expiresAt)
     }
     ActionRow {
+        OutlinedButton(onClick = onCancel) { Text("Cancel") }
         Button(onClick = {
             uriHandler.openUri(state.authorizeUrl)
         }) { Text("Open approval page") }
-        OutlinedButton(onClick = onCancel) { Text("Cancel") }
     }
 }
 
@@ -327,10 +288,10 @@ private fun ProblemContent(
 ) {
     SectionTitle(title, message)
     ActionRow {
-        primaryLabel?.let { Button(onClick = onPrimary) { Text(it) } }
         onForget?.let {
             OutlinedButton(onClick = it) { Text("Forget connection and local data") }
         }
+        primaryLabel?.let { Button(onClick = onPrimary) { Text(it) } }
     }
 }
 
@@ -343,16 +304,22 @@ private fun BusyContent(message: String) {
 }
 
 @Composable
-private fun SectionTitle(title: String, detail: String) {
+private fun SectionTitle(title: String, detail: String? = null) {
     Text(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
-    Text(
-        detail,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        style = MaterialTheme.typography.bodyLarge
-    )
+    detail?.let {
+        Text(
+            it,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyLarge
+        )
+    }
 }
 
 @Composable
 private fun ActionRow(content: @Composable () -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), content = { content() })
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
+        content = { content() }
+    )
 }
