@@ -36,6 +36,7 @@ internal class ReadiumCfiJavascriptGenerationTest : ReadiumCfiJavascriptRuntimeT
 
         harness.selectNestedInlineRange()
         val selection = successObject(harness.runtime("generateSelectionContentCfi"))
+        assertCompactDurableCfi(selection.getString("contentCfi"))
         val rangeCfi = harness.compose(packageCfi, selection.getString("contentCfi"))
         val parsedRange = successObject(harness.runtime("parse", rangeCfi))
         assertEquals("range", parsedRange.getString("kind"))
@@ -65,12 +66,14 @@ internal class ReadiumCfiJavascriptGenerationTest : ReadiumCfiJavascriptRuntimeT
             )
             val single = successObject(harness.runtime("generateSelectionContentCfi"))
             assertEquals("repeated phrase", single.getString("selectedText"))
+            assertCompactDurableCfi(single.getString("contentCfi"))
             assertTrue(single.getString("prefix").length <= 2_000)
             assertTrue(single.getString("suffix").length <= 2_000)
 
             harness.selectNestedInlineRange()
             val nested = successObject(harness.runtime("generateSelectionContentCfi"))
             assertEquals("nested inline", nested.getString("selectedText"))
+            assertCompactDurableCfi(nested.getString("contentCfi"))
             assertTrue(nested.getString("prefix").endsWith("Before "))
             assertTrue(nested.getString("suffix").startsWith(" markup"))
         }
@@ -97,6 +100,7 @@ internal class ReadiumCfiJavascriptGenerationTest : ReadiumCfiJavascriptRuntimeT
         val selection = successObject(harness.runtime("generateSelectionContentCfi"))
 
         assertEquals("selected", selection.getString("selectedText"))
+        assertCompactDurableCfi(selection.getString("contentCfi"))
         assertEquals("p".repeat(2_000), selection.getString("prefix"))
         assertEquals("s".repeat(2_000), selection.getString("suffix"))
 

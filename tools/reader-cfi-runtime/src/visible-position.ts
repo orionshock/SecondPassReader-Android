@@ -9,7 +9,6 @@ import {
 } from "./publication-dom";
 import { containsDurableText } from "./quote-context";
 import {
-    CONTEXT_LENGTH,
     MIN_VISIBLE_EXTENT_PIXELS,
     parseCfi,
     targetKind
@@ -37,11 +36,6 @@ export function generateVisiblePositionContentCfi(): string {
     validateTextBoundary(snapshotRange.startContainer, snapshotRange.startOffset);
 
     const builder = new colibrio.EpubCfiBuilder();
-    builder.setTextAssertionOptions({
-        preLength: CONTEXT_LENGTH,
-        postLength: CONTEXT_LENGTH,
-        snapToWordBoundaries: false
-    });
     builder.appendTerminalDomPosition(
         snapshotRange.startContainer,
         snapshotRange.startOffset

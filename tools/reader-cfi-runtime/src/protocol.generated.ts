@@ -71,7 +71,7 @@ export const Protocol = {
   METHOD_VERIFY_CONTENT_TARGET: "verifyContentTarget",
   METHOD_VISIBLE_POINT_TARGETS: "visiblePointTargets",
   MOVEMENT_QUOTE_LENGTH: 128,
-  RUNTIME_VERSION: "1.12.9",
+  RUNTIME_VERSION: "1.12.10",
   SELECTION_CONTEXT_LENGTH: 2000
 } as const;
 export type TargetKind = "point" | "range";

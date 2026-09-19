@@ -1,6 +1,6 @@
 // GENERATED from tools/reader-cfi-runtime; do not edit.
-// Source-SHA256: 098C1606D37096700B7632DC6205B46B47CB3BB437EDA6E48640AC5E9896D02E
-// CFI-Protocol-Version: 1.12.9
+// Source-SHA256: 4FD882DB9B14F5D49E0C67FD7AAD95C8AA3187A7208CCB0C35389178CAD033BD
+// CFI-Protocol-Version: 1.12.10
 // Rebuild: cd tools/reader-cfi-runtime && npm run build
 "use strict";
 (() => {
@@ -86,7 +86,7 @@
     METHOD_VERIFY_CONTENT_TARGET: "verifyContentTarget",
     METHOD_VISIBLE_POINT_TARGETS: "visiblePointTargets",
     MOVEMENT_QUOTE_LENGTH: 128,
-    RUNTIME_VERSION: "1.12.9",
+    RUNTIME_VERSION: "1.12.10",
     SELECTION_CONTEXT_LENGTH: 2e3
   };
 
@@ -680,11 +680,6 @@
     }
     validateTextBoundary(snapshotRange.startContainer, snapshotRange.startOffset);
     const builder = new colibrio.EpubCfiBuilder();
-    builder.setTextAssertionOptions({
-      preLength: CONTEXT_LENGTH,
-      postLength: CONTEXT_LENGTH,
-      snapToWordBoundaries: false
-    });
     builder.appendTerminalDomPosition(
       snapshotRange.startContainer,
       snapshotRange.startOffset
@@ -1162,13 +1157,6 @@
       throw new Error("SELECTION_UNAVAILABLE");
     }
     const builder = new colibrio.EpubCfiBuilder();
-    if (context.prefix !== null && context.suffix !== null) {
-      builder.setTextAssertionOptions({
-        preLength: CONTEXT_LENGTH,
-        postLength: CONTEXT_LENGTH,
-        snapToWordBoundaries: false
-      });
-    }
     builder.appendTerminalDomRange(rangeForCfiBuilder(snapshotRange));
     const contentCfi = builder.toString();
     parseCfi(contentCfi);

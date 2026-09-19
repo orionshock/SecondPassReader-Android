@@ -73,7 +73,7 @@ internal object CfiProtocol {
     const val METHOD_VERIFY_CONTENT_TARGET = "verifyContentTarget"
     const val METHOD_VISIBLE_POINT_TARGETS = "visiblePointTargets"
     const val MOVEMENT_QUOTE_LENGTH = 128
-    const val RUNTIME_VERSION = "1.12.9"
+    const val RUNTIME_VERSION = "1.12.10"
     const val SELECTION_CONTEXT_LENGTH = 2000
 }
 

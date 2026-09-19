@@ -209,11 +209,19 @@ internal suspend fun EpubCfiWebViewHarness.assertCurrentPositionStartsWith(
     expectedPrefix: String
 ) {
     val contentCfi = successString(runtime("generateVisiblePositionContentCfi"))
+    assertCompactDurableCfi(contentCfi)
     val resolution = resolve(compose(packageCfi, contentCfi))
     val exact = resolution.getJSONObject("movementAnchor").getString("exact")
     assertTrue(
         "Expected '$expectedPrefix' at the viewport lead, got '$exact' from $contentCfi",
         exact.startsWith(expectedPrefix)
+    )
+}
+
+internal fun assertCompactDurableCfi(cfi: String) {
+    assertFalse(
+        "Durable CFI contains a text-location assertion: $cfi",
+        TEXT_LOCATION_ASSERTION.containsMatchIn(cfi)
     )
 }
 
@@ -292,3 +300,5 @@ internal fun JSONObject.nullableString(name: String): String? =
     if (isNull(name)) null else getString(name)
 
 internal fun String.jsonString(): String = JSONTokener(this).nextValue() as String
+
+private val TEXT_LOCATION_ASSERTION = Regex(":\\d+\\[")

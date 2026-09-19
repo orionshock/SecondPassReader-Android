@@ -37,6 +37,17 @@ new write.
   request from arriving after a newer request.
 - Canonical EPUB CFI remains opaque. Clients do not compare CFIs to infer reading order.
 
+### Durable EPUB CFI profile
+
+The server stores EPUB CFIs opaquely; clients own their generation and resolution. Second Pass
+clients emit compact structural CFIs made from package/content paths and character offsets. Text
+location assertions are outside the supported durable interoperability profile. Highlight quote
+and repair context is carried separately as exact text, prefix, and suffix.
+
+An imported EPUB's bytes are immutable for the lifetime of its Book identity, so mutation-repair
+assertions are unnecessary for the canonical baseline. A materially changed EPUB is a different
+Book and defines a different CFI address space.
+
 ### Write failures and retry
 
 Progress replacement and annotation batch writes return HTTP `409 Conflict` with

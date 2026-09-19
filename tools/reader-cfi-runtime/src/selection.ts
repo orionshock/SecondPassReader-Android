@@ -6,7 +6,6 @@ import {
 } from "./publication-dom";
 import { publicationBody, textContext } from "./quote-context";
 import {
-    CONTEXT_LENGTH,
     parseCfi,
     SELECTION_CONTEXT_LENGTH
 } from "./protocol";
@@ -46,13 +45,6 @@ export function generateSelectionContentCfi(): ContentSelection | null {
         throw new Error("SELECTION_UNAVAILABLE");
     }
     const builder = new colibrio.EpubCfiBuilder();
-    if (context.prefix !== null && context.suffix !== null) {
-        builder.setTextAssertionOptions({
-            preLength: CONTEXT_LENGTH,
-            postLength: CONTEXT_LENGTH,
-            snapToWordBoundaries: false
-        });
-    }
     builder.appendTerminalDomRange(rangeForCfiBuilder(snapshotRange));
     const contentCfi = builder.toString();
     parseCfi(contentCfi);

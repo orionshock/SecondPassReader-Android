@@ -26,6 +26,7 @@ internal class ReadiumCfiGenerationIntegrationTest : ReadiumEpubCfiNavigatorTest
             val point = runBlocking {
                 host.engine.cfiNavigator.currentPosition().requireSuccess()
             }
+            assertCompactDurableCfi(point.value)
             val pointResolution = runBlocking {
                 host.engine.cfiNavigator.resolve(point).requireSuccess()
             }
@@ -34,6 +35,7 @@ internal class ReadiumCfiGenerationIntegrationTest : ReadiumEpubCfiNavigatorTest
             assertEquals(SyntheticEpubCfiSources.CHAPTER_ONE_PATH, pointResolution.resourceHref)
 
             val knownRange = EpubCfi(CROSS_MARKUP_RANGE_CFI)
+            assertCompactDurableCfi(knownRange.value)
             val knownRangeResolution = runBlocking {
                 host.engine.cfiNavigator.resolve(knownRange).requireSuccess()
             }
@@ -57,6 +59,7 @@ internal class ReadiumCfiGenerationIntegrationTest : ReadiumEpubCfiNavigatorTest
             }
 
             assertNotNull(selection)
+            assertCompactDurableCfi(requireNotNull(selection).cfi.value)
             assertTrue(requireNotNull(selection).selectedText.contains("nested"))
             assertEquals(1, selection.chapterOrdinal)
             assertNotNull(selection.totalProgression)

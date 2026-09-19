@@ -32,10 +32,6 @@ export interface ColibrioBuilder {
   appendLocalPathTo(element: Element): void;
   appendTerminalDomPosition(node: Node, offset: number): void;
   appendTerminalDomRange(range: CfiDomRange): void;
-  setTextAssertionOptions(options: {
-    readonly preLength: number; readonly postLength: number;
-    readonly snapToWordBoundaries: boolean;
-  }): void;
   toString(): string;
 }
 export interface CfiDomRange {

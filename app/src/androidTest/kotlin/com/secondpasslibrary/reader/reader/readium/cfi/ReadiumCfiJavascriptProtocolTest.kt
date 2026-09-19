@@ -30,14 +30,14 @@ internal class ReadiumCfiJavascriptProtocolTest : ReadiumCfiJavascriptRuntimeTes
             harness.evaluate("typeof SecondPassColibrio.EpubCfiParser.parse").jsonString()
         )
         assertEquals(
-            "1.12.9",
+            CfiProtocol.RUNTIME_VERSION,
             harness.evaluate("__secondPassEpubCfi.runtimeVersion()").jsonString()
         )
 
         harness.evaluate(asset("reader/cfi/secondpass-epub-cfi-runtime.js"))
 
         assertEquals(
-            "1.12.9",
+            CfiProtocol.RUNTIME_VERSION,
             harness.evaluate("__secondPassEpubCfi.runtimeVersion()").jsonString()
         )
     }
