@@ -7,6 +7,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -28,6 +29,7 @@ import com.secondpasslibrary.client.AuthenticatedServerInfo
 import com.secondpasslibrary.client.CurrentUser
 import com.secondpasslibrary.reader.app.AppSessionAuthority
 import com.secondpasslibrary.reader.app.AppSessionState
+import com.secondpasslibrary.reader.bookdetail.BookDetailNavigationIntent
 import com.secondpasslibrary.reader.connection.ConnectionLifecycleActionState
 import com.secondpasslibrary.reader.connection.ConnectionLifecycleActions
 import com.secondpasslibrary.reader.connection.ConnectionProfile
@@ -44,6 +46,113 @@ import org.junit.runner.RunWith
 class AppNavigationEntryLifecycleTest {
     @get:Rule
     val compose = createAndroidComposeRule<ComponentActivity>()
+
+    @Test
+    fun systemBackPopsNestedLibraryThenReturnsNonHomeRootToHome() {
+        lateinit var navigation: AppNavigationState
+        lateinit var navigator: AppNavigator
+        compose.setContent {
+            navigation = rememberAppNavigationState()
+            navigator = remember(navigation) { AppNavigator(navigation) }
+            val provider = entryProvider<AppRoute> {
+                AppDestination.entries.forEach { destination ->
+                    entry(key = destination) { Text(destination.label) }
+                }
+                entry<BookDetailRoute> { route -> Text("Book ${route.bookId}") }
+                entry<LibraryTagRoute> { route -> Text("Tag ${route.tagId}") }
+            }
+            NavDisplay(
+                entries = retainedActiveEntries(navigation, provider),
+                onBack = { navigator.goBack() }
+            )
+            AppShellRootBackHandler(navigation, navigator)
+        }
+
+        val detail = BookDetailRoute("book-1", BookDetailReturnTarget.Library)
+        compose.runOnUiThread {
+            navigator.select(AppDestination.Library)
+            navigation.push(detail)
+            navigator.handleBookDetailNavigation(
+                BookDetailNavigationIntent.Tag("tag-1", "fiction"),
+                detail
+            )
+        }
+        compose.onNodeWithText("Tag tag-1").assertIsDisplayed()
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithText("Book book-1").assertIsDisplayed()
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithText("Library").assertIsDisplayed()
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithText("Home").assertIsDisplayed()
+        assertEquals(AppDestination.Home, navigation.selectedDestination)
+    }
+
+    @Test
+    fun systemBackFromCrossRootFilterRestoresOriginDetail() {
+        lateinit var navigation: AppNavigationState
+        lateinit var navigator: AppNavigator
+        compose.setContent {
+            navigation = rememberAppNavigationState()
+            navigator = remember(navigation) { AppNavigator(navigation) }
+            val provider = entryProvider<AppRoute> {
+                AppDestination.entries.forEach { destination ->
+                    entry(key = destination) { Text(destination.label) }
+                }
+                entry<BookDetailRoute> { route -> Text("Book ${route.bookId}") }
+                entry<LibraryAuthorRoute> { route -> Text("Author ${route.authorId}") }
+            }
+            NavDisplay(
+                entries = retainedActiveEntries(navigation, provider),
+                onBack = { navigator.goBack() }
+            )
+            AppShellRootBackHandler(navigation, navigator)
+        }
+
+        val detail = BookDetailRoute("book-1", BookDetailReturnTarget.Home)
+        compose.runOnUiThread {
+            navigation.push(detail)
+            navigator.handleBookDetailNavigation(
+                BookDetailNavigationIntent.Author("author-1"),
+                detail
+            )
+        }
+        compose.onNodeWithText("Author author-1").assertIsDisplayed()
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithText("Book book-1").assertIsDisplayed()
+        assertEquals(AppDestination.Home, navigation.selectedDestination)
+        assertEquals(detail, navigation.currentRoute)
+    }
+
+    @Test
+    fun systemBackFromShelvesMarginaliaAndSettingsRootsReturnsHome() {
+        lateinit var navigation: AppNavigationState
+        lateinit var navigator: AppNavigator
+        compose.setContent {
+            navigation = rememberAppNavigationState()
+            navigator = remember(navigation) { AppNavigator(navigation) }
+            val provider = entryProvider<AppRoute> {
+                AppDestination.entries.forEach { destination ->
+                    entry(key = destination) { Text(destination.label) }
+                }
+            }
+            NavDisplay(
+                entries = retainedActiveEntries(navigation, provider),
+                onBack = { navigator.goBack() }
+            )
+            AppShellRootBackHandler(navigation, navigator)
+        }
+
+        listOf(AppDestination.Shelves, AppDestination.Marginalia, AppDestination.Settings)
+            .forEach { destination ->
+                compose.runOnUiThread { navigator.select(destination) }
+                compose.onNodeWithText(destination.label).assertIsDisplayed()
+                compose.runOnUiThread {
+                    compose.activity.onBackPressedDispatcher.onBackPressed()
+                }
+                compose.onNodeWithText("Home").assertIsDisplayed()
+                assertEquals(AppDestination.Home, navigation.selectedDestination)
+            }
+    }
 
     @Test
     fun inactiveEntryRetainsViewModelAndSaveableStateWhilePoppedEntryClearsViewModel() {

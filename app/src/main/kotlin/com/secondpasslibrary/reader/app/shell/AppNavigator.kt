@@ -58,20 +58,14 @@ internal class AppNavigator(private val navigation: AppNavigationState) {
 
     fun handleBookDetailNavigation(intent: BookDetailNavigationIntent, source: BookDetailRoute) {
         when (intent) {
-            is BookDetailNavigationIntent.Author -> {
-                navigation.removeTop(source)
-                openLibraryAuthor(intent.id)
-            }
+            is BookDetailNavigationIntent.Author ->
+                openLibraryFromBookDetail(LibraryAuthorRoute(intent.id, source), source)
 
-            is BookDetailNavigationIntent.Series -> {
-                navigation.removeTop(source)
-                openLibrarySeries(intent.id)
-            }
+            is BookDetailNavigationIntent.Series ->
+                openLibraryFromBookDetail(LibrarySeriesRoute(intent.id, source), source)
 
-            is BookDetailNavigationIntent.Tag -> {
-                navigation.removeTop(source)
-                openLibraryTag(intent.id, intent.slug)
-            }
+            is BookDetailNavigationIntent.Tag ->
+                openLibraryFromBookDetail(LibraryTagRoute(intent.id, intent.slug, source), source)
 
             is BookDetailNavigationIntent.ReadingSessions ->
                 openBookMarginalia(intent.bookId, source)
@@ -101,6 +95,16 @@ internal class AppNavigator(private val navigation: AppNavigationState) {
     ) {
         require(sessionId.isNotBlank()) { "Reading Session ID must not be blank." }
         navigation.push(ReadingSessionDetailRoute(sessionId, returnTarget, action))
+    }
+
+    private fun openLibraryFromBookDetail(route: AppRoute, source: BookDetailRoute) {
+        check(navigation.currentRoute == source) { "Book Detail must be the current route." }
+        if (navigation.selectedDestination == AppDestination.Library) {
+            navigation.push(route)
+        } else {
+            // The source stays on its own retained stack; Library carries the typed return origin.
+            navigation.replace(AppDestination.Library, route)
+        }
     }
 
     fun handleTopLevelMarginaliaNavigation(intent: MarginaliaExternalNavigationIntent) {
@@ -147,5 +151,19 @@ internal class AppNavigator(private val navigation: AppNavigationState) {
         }
     }
 
-    fun goBack(): Boolean = navigation.pop()
+    fun goBack(): Boolean {
+        val origin = navigation.currentRoute.bookDetailLibraryOrigin
+        return if (origin != null && origin.topLevelDestination() != AppDestination.Library) {
+            navigation.pop()
+            navigation.select(origin.topLevelDestination())
+            true
+        } else if (navigation.pop()) {
+            true
+        } else if (navigation.selectedDestination == AppDestination.Home) {
+            false
+        } else {
+            navigation.select(AppDestination.Home)
+            true
+        }
+    }
 }

@@ -116,6 +116,7 @@ internal fun AccountAppShell(
             InteractiveConnectionOverlay(session.authority, connectionActions)
         }
     }
+    AppShellRootBackHandler(navigation, navigator)
     DrawerDismissBackHandler(
         enabled = drawer.gesturesEnabled,
         onDismiss = { coroutineScope.launch { drawer.state.close() } }

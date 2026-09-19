@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.app.shell
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -91,6 +92,15 @@ internal fun appNavigationStateForTest(
     initialDestination,
     onDestinationSelected = {}
 )
+
+@Composable
+internal fun AppShellRootBackHandler(navigation: AppNavigationState, navigator: AppNavigator) {
+    BackHandler(
+        enabled = navigation.selectedDestination != AppDestination.Home &&
+            navigation.activeBackStack.size == 1,
+        onBack = { navigator.goBack() }
+    )
+}
 
 /** Keeps Navigation 3's NavKey-only storage behind the app-owned closed route interface. */
 private class AppRouteBackStack(private val delegate: MutableList<NavKey>) :

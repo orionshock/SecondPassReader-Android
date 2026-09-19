@@ -120,6 +120,8 @@ class AppNavigatorTest {
 
         assertTrue(navigator.goBack())
         assertEquals(listOf(AppDestination.Library), navigation.activeBackStack)
+        assertTrue(navigator.goBack())
+        assertEquals(AppDestination.Home, navigation.selectedDestination)
         assertFalse(navigator.goBack())
     }
 
@@ -138,32 +140,89 @@ class AppNavigatorTest {
     }
 
     @Test
-    fun `Book Detail metadata navigation explicitly transfers to Library stack`() {
-        val navigation = appNavigationStateForTest(AppDestination.Shelves)
+    fun `Book Detail labels open filtered Library and Back restores exact source route`() {
+        val labels = listOf(
+            BookDetailNavigationIntent.Author("author-1") to
+                LibraryAuthorRoute("author-1", shelfBookDetail()),
+            BookDetailNavigationIntent.Series("series-1") to
+                LibrarySeriesRoute("series-1", shelfBookDetail()),
+            BookDetailNavigationIntent.Tag("tag-1", "fiction") to
+                LibraryTagRoute("tag-1", "fiction", shelfBookDetail())
+        )
+        labels.forEach { (intent, expectedRoute) ->
+            val navigation = appNavigationStateForTest(AppDestination.Shelves)
+            val navigator = AppNavigator(navigation)
+            val source = shelfBookDetail()
+            navigation.push(source)
+
+            navigator.handleBookDetailNavigation(intent, source)
+            assertEquals(AppDestination.Library, navigation.selectedDestination)
+            assertEquals(expectedRoute, navigation.currentRoute)
+            assertEquals(
+                listOf(AppDestination.Shelves, source),
+                navigation.backStack(AppDestination.Shelves)
+            )
+            assertTrue(navigator.goBack())
+            assertEquals(AppDestination.Shelves, navigation.selectedDestination)
+            assertEquals(source, navigation.currentRoute)
+            assertEquals(
+                listOf(AppDestination.Library),
+                navigation.backStack(AppDestination.Library)
+            )
+        }
+    }
+
+    @Test
+    fun `Library Book Detail label pushes filter above same detail`() {
+        val navigation = appNavigationStateForTest(AppDestination.Library)
         val navigator = AppNavigator(navigation)
-        navigation.push(shelfBookDetail())
+        val source = BookDetailRoute("book-1", BookDetailReturnTarget.Library)
+        navigation.push(source)
 
         navigator.handleBookDetailNavigation(
-            BookDetailNavigationIntent.Author("author-1"),
-            shelfBookDetail()
-        )
-        assertEquals(
-            listOf(AppDestination.Library, LibraryAuthorRoute("author-1")),
-            navigation.activeBackStack
+            BookDetailNavigationIntent.Tag("tag-1", "fiction"),
+            source
         )
 
-        navigator.openLibrarySeries("series-1")
-        assertEquals(
-            listOf(AppDestination.Library, LibrarySeriesRoute("series-1")),
-            navigation.activeBackStack
-        )
+        assertEquals(LibraryTagRoute("tag-1", "fiction", source), navigation.currentRoute)
+        assertTrue(navigator.goBack())
+        assertEquals(source, navigation.currentRoute)
+    }
 
-        navigator.openLibraryTag("tag-1", "fiction")
-        assertEquals(
-            listOf(AppDestination.Library, LibraryTagRoute("tag-1", "fiction")),
-            navigation.activeBackStack
+    @Test
+    fun `non Home roots return Home only after nested routes pop`() {
+        val routes = mapOf<AppDestination, AppRoute>(
+            AppDestination.Library to LibrarySearchRoute("query"),
+            AppDestination.Shelves to ShelfDetailRoute("shelf-1", ShelfCollectionOrigin.PERSONAL),
+            AppDestination.Marginalia to
+                BookDetailRoute("book-1", BookDetailReturnTarget.Marginalia),
+            AppDestination.Settings to BookDetailRoute("book-1", BookDetailReturnTarget.Settings)
         )
-        assertEquals(listOf(AppDestination.Shelves), navigation.backStack(AppDestination.Shelves))
+        routes.forEach { (destination, route) ->
+            val navigation = appNavigationStateForTest(destination)
+            val navigator = AppNavigator(navigation)
+            navigation.push(route)
+            assertTrue(navigator.goBack())
+            assertEquals(destination, navigation.currentRoute)
+            assertTrue(navigator.goBack())
+            assertEquals(AppDestination.Home, navigation.selectedDestination)
+            assertEquals(listOf(destination), navigation.backStack(destination))
+            assertFalse(navigator.goBack())
+        }
+    }
+
+    @Test
+    fun `Back to Home retains other destination stack for drawer return`() {
+        val navigation = appNavigationStateForTest(AppDestination.Library)
+        val navigator = AppNavigator(navigation)
+        val detail = BookDetailRoute("book-1", BookDetailReturnTarget.Library)
+        navigation.push(detail)
+        navigator.select(AppDestination.Settings)
+
+        assertTrue(navigator.goBack())
+        assertEquals(AppDestination.Home, navigation.selectedDestination)
+        navigator.select(AppDestination.Library)
+        assertEquals(detail, navigation.currentRoute)
     }
 
     @Test

@@ -20,13 +20,36 @@ enum class AppDestination(val label: String, val icon: AppIcon) : AppRoute {
 data class LibrarySearchRoute(val query: String) : AppRoute
 
 @Serializable
-data class LibraryAuthorRoute(val authorId: String) : AppRoute
+data class LibraryAuthorRoute(val authorId: String, val bookDetailOrigin: BookDetailRoute? = null) :
+    AppRoute
 
 @Serializable
-data class LibrarySeriesRoute(val seriesId: String) : AppRoute
+data class LibrarySeriesRoute(val seriesId: String, val bookDetailOrigin: BookDetailRoute? = null) :
+    AppRoute
 
 @Serializable
-data class LibraryTagRoute(val tagId: String, val tagSlug: String) : AppRoute
+data class LibraryTagRoute(
+    val tagId: String,
+    val tagSlug: String,
+    val bookDetailOrigin: BookDetailRoute? = null
+) : AppRoute
+
+internal val AppRoute.bookDetailLibraryOrigin: BookDetailRoute?
+    get() = when (this) {
+        is LibraryAuthorRoute -> bookDetailOrigin
+
+        is LibrarySeriesRoute -> bookDetailOrigin
+
+        is LibraryTagRoute -> bookDetailOrigin
+
+        is LibrarySearchRoute,
+        is ShelfDetailRoute,
+        is BookDetailRoute,
+        is ReaderRoute,
+        is BookMarginaliaRoute,
+        is ReadingSessionDetailRoute,
+        is AppDestination -> null
+    }
 
 @Serializable
 data class ShelfDetailRoute(val shelfId: String, val origin: ShelfCollectionOrigin) : AppRoute
