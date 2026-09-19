@@ -183,7 +183,7 @@ internal class ReadiumEpubCfiNavigator(
     internal suspend fun resolveDecoration(
         cfi: EpubCfi,
         activeResourceHref: String
-    ): EpubCfiOutcome<ReadiumDecorationCfiTarget> = operations.runLatestRead {
+    ): EpubCfiOutcome<ReadiumDecorationCfiTarget> = operations.runSerialRead {
         when (val target = resolvePackage(cfi)) {
             is EpubCfiOutcome.Failure -> target
 

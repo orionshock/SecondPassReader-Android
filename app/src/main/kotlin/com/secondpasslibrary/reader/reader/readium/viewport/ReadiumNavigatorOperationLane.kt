@@ -72,6 +72,12 @@ internal class ReadiumNavigatorOperationLane : AutoCloseable {
         }
     }
 
+    /** Serializes durable decoration reads without superseding them with unrelated live reads. */
+    suspend fun <T> runSerialRead(block: suspend () -> T): T = mutex.withLock {
+        check(synchronized(lock) { !closed }) { "The navigator operation lane is closed." }
+        block()
+    }
+
     override fun close() {
         val removed = synchronized(lock) {
             if (closed) return

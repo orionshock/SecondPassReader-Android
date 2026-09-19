@@ -7,12 +7,14 @@ import com.secondpasslibrary.reader.reader.annotations.selection.ReaderSelection
 import com.secondpasslibrary.reader.reader.appearance.ReaderAppearance
 import com.secondpasslibrary.reader.reader.appearance.ReaderTheme
 import com.secondpasslibrary.reader.reader.cfi.EpubCfi
+import com.secondpasslibrary.reader.reader.readium.annotations.ReadiumReaderAnnotationDecorations
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -27,6 +29,77 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 internal class ReadiumCfiDecorationIntegrationTest : ReadiumEpubCfiNavigatorTestSupport() {
+    @Test
+    fun existingCurrentAndHistoricalHighlightsApplyAfterDeferredViewportReadiness() = withFixture(
+        "annotation-decorations.epub"
+    ) { fixture ->
+        launchHost(fixture, deferViewport = true).use { scenario ->
+            val engine = scenario.awaitOpenedEngine()
+            val current = annotationDecoration("saved", EpubCfi(CROSS_MARKUP_RANGE_CFI))
+            val previousGroup = ReaderAnnotationDecorationGroupId.Previous("earlier-session")
+            val previous = annotationDecoration(
+                "historical",
+                EpubCfi(CROSS_MARKUP_RANGE_CFI),
+                sessionId = "earlier-session"
+            )
+            runBlocking {
+                engine.annotationDecorations.replace(
+                    ReaderAnnotationDecorationGroupId.Current,
+                    listOf(current)
+                )
+                engine.annotationDecorations.replace(previousGroup, listOf(previous))
+            }
+            scenario.onActivity { it.attachViewport() }
+            val host = scenario.awaitReadyHost()
+            val currentGroup = "second-pass-current-session-annotations"
+            runBlocking {
+                awaitDecoration(host.navigator)
+                awaitDecorationGroup(
+                    host.navigator,
+                    "second-pass-previous-session-earlier-session"
+                )
+                val adapter = engine.annotationDecorations as ReadiumReaderAnnotationDecorations
+                adapter.documentLoaded()
+                adapter.documentLoaded()
+                assertEquals(
+                    "1",
+                    withContext(Dispatchers.Main) {
+                        host.navigator.evaluateJavascript(
+                            "document.querySelector('div[data-group=\"$currentGroup\"]')." +
+                                "children.length"
+                        )
+                    }
+                )
+                engine.annotationDecorations.replace(
+                    ReaderAnnotationDecorationGroupId.Current,
+                    listOf(current, annotationDecoration("new", EpubCfi(CROSS_MARKUP_RANGE_CFI)))
+                )
+                withTimeout(HOST_TIMEOUT_MILLIS) {
+                    while (withContext(Dispatchers.Main) {
+                            host.navigator.evaluateJavascript(
+                                "document.querySelector('div[data-group=\"$currentGroup\"]')." +
+                                    "children.length"
+                            )
+                        } != "2"
+                    ) {
+                        delay(50)
+                    }
+                }
+            }
+
+            scenario.recreate()
+            scenario.onActivity { it.attachViewport() }
+            val recreated = scenario.awaitReadyHost()
+            runBlocking {
+                awaitDecoration(recreated.navigator)
+                awaitDecorationGroup(
+                    recreated.navigator,
+                    "second-pass-previous-session-earlier-session"
+                )
+            }
+        }
+    }
+
     @Test
     fun annotationDecorationsIsolateFailuresAndReapplyAfterNavigatorRecreation() = withFixture(
         "annotation-decorations.epub"

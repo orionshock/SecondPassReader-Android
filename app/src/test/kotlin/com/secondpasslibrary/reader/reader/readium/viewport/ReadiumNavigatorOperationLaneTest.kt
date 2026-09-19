@@ -19,6 +19,36 @@ import org.junit.Test
 
 class ReadiumNavigatorOperationLaneTest {
     @Test
+    fun `decoration read survives an unrelated newer read`() = runTest {
+        val lane = ReadiumNavigatorOperationLane()
+        val decorationStarted = CompletableDeferred<Unit>()
+        val releaseDecoration = CompletableDeferred<Unit>()
+        val positionStarted = CompletableDeferred<Unit>()
+        val decoration = async {
+            lane.runSerialRead {
+                decorationStarted.complete(Unit)
+                releaseDecoration.await()
+                "resolved"
+            }
+        }
+        decorationStarted.await()
+        val position = async {
+            lane.runLatestRead {
+                positionStarted.complete(Unit)
+                "position"
+            }
+        }
+        yield()
+
+        assertFalse(decoration.isCancelled)
+        assertFalse(positionStarted.isCompleted)
+        releaseDecoration.complete(Unit)
+        assertEquals("resolved", decoration.await())
+        assertEquals("position", position.await())
+        lane.close()
+    }
+
+    @Test
     fun `read arriving during navigation waits for navigation to complete`() = runTest {
         val lane = ReadiumNavigatorOperationLane()
         val navigationStarted = CompletableDeferred<Unit>()

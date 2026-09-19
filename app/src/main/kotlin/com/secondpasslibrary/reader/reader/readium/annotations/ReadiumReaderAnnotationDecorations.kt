@@ -9,6 +9,7 @@ import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotati
 import com.secondpasslibrary.reader.reader.annotations.decoration.ReaderAnnotationKind
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiFailure
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiOutcome
+import com.secondpasslibrary.reader.reader.cfi.EpubCfiReadiness
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiResolution
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiTargetKind
 import com.secondpasslibrary.reader.reader.cfi.normalizeEpubHref
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -82,6 +84,14 @@ internal class ReadiumReaderAnnotationDecorations(
     override val failures = mutableFailures.asStateFlow()
     override val activations = mutableActivations.asSharedFlow()
 
+    init {
+        scope.launch {
+            cfiNavigator.readiness.collectLatest { readiness ->
+                if (readiness == EpubCfiReadiness.Available) refreshCurrentResource()
+            }
+        }
+    }
+
     override suspend fun replace(
         groupId: ReaderAnnotationDecorationGroupId,
         decorations: List<ReaderAnnotationDecoration>
@@ -133,6 +143,11 @@ internal class ReadiumReaderAnnotationDecorations(
         }
     }
 
+    /** Readium may replace the page DOM after CFIs first become resolvable. */
+    fun documentLoaded() {
+        scope.launch { applyResolved() }
+    }
+
     fun unbind(value: EpubNavigatorFragment) {
         if (navigator === value) {
             value.removeDecorationListener(activationListener)
@@ -150,7 +165,11 @@ internal class ReadiumReaderAnnotationDecorations(
                 ?: return@withLock
             val snapshot = stateMutex.withLock { desired.toList() }
             snapshot.forEach { (key, decoration) -> resolveIfCurrent(key, decoration, activeHref) }
-            applyResolved()
+            if (navigator === bound &&
+                bound.currentLocator.value.href.toString().canonicalHrefOrNull() == activeHref
+            ) {
+                applyResolved()
+            }
         }
     }
 

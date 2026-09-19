@@ -79,7 +79,10 @@ private class ReadiumReaderEngine(
             movements.pageChanged()
             positionRetentionController.captureAfterViewportMovement()
         },
-        onDocumentLoaded = selections::documentLoaded
+        onDocumentLoaded = {
+            selections.documentLoaded()
+            decorations.documentLoaded()
+        }
     )
     private val visibleBookmarks = ReadiumVisiblePageBookmarks(readiumCfiNavigator, hud)
 
