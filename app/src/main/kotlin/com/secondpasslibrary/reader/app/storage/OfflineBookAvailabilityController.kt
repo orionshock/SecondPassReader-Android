@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.app.storage
 
 import com.secondpasslibrary.client.PublicBookCoverReference
 import com.secondpasslibrary.reader.app.AppAvailability
+import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import com.secondpasslibrary.reader.reader.asset.ReaderAccountScope
@@ -113,6 +114,23 @@ internal class OfflineBookAvailabilityController @Inject constructor(
         mutation.withLock {
             downloads.removeAllDownloads(account)
             mutableRevision.value++
+        }
+    }
+
+    suspend fun clearBook(
+        account: AccountLocalScope,
+        bookId: String,
+        identity: AuthenticatedConnectionIdentity
+    ) {
+        val key = OfflineBookKey(account, bookId)
+        mutation.withLock {
+            mutableBusy.value = mutableBusy.value + key
+            try {
+                downloads.clearBook(account, bookId, identity)
+                mutableRevision.value++
+            } finally {
+                mutableBusy.value = mutableBusy.value - key
+            }
         }
     }
 }

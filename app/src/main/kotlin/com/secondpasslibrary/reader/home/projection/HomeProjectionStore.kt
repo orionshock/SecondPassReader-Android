@@ -47,6 +47,9 @@ internal interface HomeProjectionStore {
 
     suspend fun purgeAccount(account: HomeAccountScopeKey)
 
+    suspend fun purgeBook(account: HomeAccountScopeKey, bookId: String): Unit =
+        error("Book cleanup is not implemented by this Home store.")
+
     suspend fun readRecentReading(
         account: HomeAccountScopeKey,
         variant: HomeRecentReadingVariant

@@ -3,6 +3,7 @@ package com.secondpasslibrary.reader.app.storage
 import com.secondpasslibrary.client.CompactBook
 import com.secondpasslibrary.client.PublicBookCoverReference
 import com.secondpasslibrary.client.PublicationDatePrecision
+import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.home.projection.HomeAccountScopeKey
 import com.secondpasslibrary.reader.home.projection.HomeProjectionStore
 import com.secondpasslibrary.reader.home.projection.HomeRecentReadingVariant
@@ -12,7 +13,9 @@ import com.secondpasslibrary.reader.reader.ReaderPendingSyncScheduler
 import com.secondpasslibrary.reader.reader.asset.ReaderAccountScope
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetStore
 import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginaliaLayerVisibilityStore
+import com.secondpasslibrary.reader.reader.marginalia.preferences.ReaderMarginaliaVisibilityScope
 import com.secondpasslibrary.reader.reader.persistence.LocalReaderStateStore
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,7 +29,17 @@ internal fun interface AccountLocalBookCatalog {
     suspend fun downloadedBooks(account: AccountLocalScope): List<CompactBook>
 }
 
-internal data class AccountLocalDownload(val bookId: String, val title: String, val sizeBytes: Long)
+internal data class AccountLocalDownload(
+    val bookId: String,
+    val title: String,
+    val sizeBytes: Long,
+    val author: String? = null,
+    val cover: File? = null,
+    val epubBytes: Long = 0L,
+    val coverBytes: Long = 0L,
+    val localSessionCount: Int = 0,
+    val pendingChangeCount: Int = 0
+)
 
 /** Bounded download management; Reader-authored state remains with its existing owner. */
 internal interface AccountLocalDownloadRepository {
@@ -35,6 +48,12 @@ internal interface AccountLocalDownloadRepository {
     suspend fun removeDownload(account: AccountLocalScope, bookId: String)
 
     suspend fun removeAllDownloads(account: AccountLocalScope)
+
+    suspend fun clearBook(
+        account: AccountLocalScope,
+        bookId: String,
+        identity: AuthenticatedConnectionIdentity
+    ): Unit = error("Book cleanup is not implemented by this download repository.")
 }
 
 /** Coordinates account-local stores without making their feature-specific APIs public. */
@@ -82,10 +101,24 @@ internal class AccountLocalDataRepository @Inject constructor(
         }.sortedBy { it.sortTitle.lowercase() }
     }
 
-    override suspend fun downloads(account: AccountLocalScope): List<AccountLocalDownload> =
-        assets.completedBooks(ReaderAccountScope.from(account))
-            .map { AccountLocalDownload(it.bookId, it.title, it.sizeBytes) }
-            .sortedBy { it.title.lowercase() }
+    override suspend fun downloads(account: AccountLocalScope): List<AccountLocalDownload> {
+        val assetScope = ReaderAccountScope.from(account)
+        val readerAccount = LocalReaderAccountKey.from(account)
+        return assets.completedBooks(assetScope).map { book ->
+            val cover = assets.findCover(assetScope, book.bookId)
+            val summary = reader.bookSummary(readerAccount, book.bookId)
+            AccountLocalDownload(
+                bookId = book.bookId,
+                title = book.title,
+                sizeBytes = book.sizeBytes,
+                cover = cover,
+                epubBytes = book.sizeBytes - (cover?.length() ?: 0L),
+                coverBytes = cover?.length() ?: 0L,
+                localSessionCount = summary.sessionCount,
+                pendingChangeCount = summary.pendingChangeCount
+            )
+        }.sortedBy { it.title.lowercase() }
+    }
 
     override suspend fun removeDownload(account: AccountLocalScope, bookId: String) {
         assets.removeCompleted(ReaderAccountScope.from(account), bookId)
@@ -93,6 +126,29 @@ internal class AccountLocalDataRepository @Inject constructor(
 
     override suspend fun removeAllDownloads(account: AccountLocalScope) {
         assets.purgeAccount(ReaderAccountScope.from(account))
+    }
+
+    override suspend fun clearBook(
+        account: AccountLocalScope,
+        bookId: String,
+        identity: AuthenticatedConnectionIdentity
+    ) {
+        require(bookId.isNotBlank()) { "Book ID must not be blank." }
+        val readerAccount = LocalReaderAccountKey.from(account)
+        readerSync.cancel(readerAccount)
+        try {
+            marginaliaVisibility.clearBookState(
+                ReaderMarginaliaVisibilityScope(identity, bookId),
+                reader.bookSessionIds(readerAccount, bookId)
+            )
+            // Room cascades Reader-owned rows. Other local owners are idempotent and retryable.
+            reader.purgeBook(readerAccount, bookId)
+            home.purgeBook(HomeAccountScopeKey.from(account), bookId)
+            assets.removeCompleted(ReaderAccountScope.from(account), bookId)
+        } finally {
+            // Remaining Books' pending changes must retain their normal sync opportunity.
+            readerSync.ensureEnqueued(readerAccount)
+        }
     }
 }
 

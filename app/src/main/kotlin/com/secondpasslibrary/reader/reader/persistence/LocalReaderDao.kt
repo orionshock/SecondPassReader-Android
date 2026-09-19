@@ -541,6 +541,26 @@ internal abstract class LocalReaderDao {
 
     @Query("DELETE FROM reader_sessions WHERE accountKey = :accountKey")
     abstract suspend fun purgeAccount(accountKey: String)
+
+    @Query(
+        "SELECT COUNT(*) FROM reader_sessions WHERE accountKey = :accountKey AND bookId = :bookId"
+    )
+    abstract suspend fun sessionCountForBook(accountKey: String, bookId: String): Int
+
+    @Query(
+        "SELECT localSessionId FROM reader_sessions " +
+            "WHERE accountKey = :accountKey AND bookId = :bookId"
+    )
+    abstract suspend fun sessionIdsForBook(accountKey: String, bookId: String): List<String>
+
+    @Query(
+        "SELECT COUNT(*) FROM reader_outbox WHERE accountKey = :accountKey AND bookId = :bookId"
+    )
+    abstract suspend fun pendingCountForBook(accountKey: String, bookId: String): Int
+
+    // Session foreign keys cascade to progress, annotations, outbox, and continuation outcomes.
+    @Query("DELETE FROM reader_sessions WHERE accountKey = :accountKey AND bookId = :bookId")
+    abstract suspend fun purgeBook(accountKey: String, bookId: String)
 }
 
 private data class ClosedSessionPendingState(

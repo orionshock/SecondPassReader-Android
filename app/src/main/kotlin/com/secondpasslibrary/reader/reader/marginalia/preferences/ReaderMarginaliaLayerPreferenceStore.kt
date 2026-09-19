@@ -54,6 +54,11 @@ internal interface ReaderMarginaliaLayerVisibilityStore {
     )
 
     suspend fun clearAccountState()
+
+    suspend fun clearBookState(
+        scope: ReaderMarginaliaVisibilityScope,
+        sessionIds: List<String>
+    ): Unit = error("Book visibility cleanup is not implemented by this store.")
 }
 
 @Singleton
@@ -106,6 +111,20 @@ constructor(
             val autoShowPrevious = preferences[AUTO_SHOW_PREVIOUS_KEY]
             preferences.clear()
             autoShowPrevious?.let { preferences[AUTO_SHOW_PREVIOUS_KEY] = it }
+        }
+    }
+
+    override suspend fun clearBookState(
+        scope: ReaderMarginaliaVisibilityScope,
+        sessionIds: List<String>
+    ) {
+        if (sessionIds.isEmpty()) return
+        context.readerMarginaliaLayerDataStore.edit { preferences ->
+            sessionIds.forEach { sessionId ->
+                val key = visibilityKey(scope, sessionId)
+                preferences.remove(key.visible)
+                preferences.remove(key.touchedAt)
+            }
         }
     }
 

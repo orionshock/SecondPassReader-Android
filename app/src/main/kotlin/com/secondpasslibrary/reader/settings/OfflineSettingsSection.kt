@@ -1,6 +1,7 @@
 package com.secondpasslibrary.reader.settings
 
 import android.text.format.Formatter
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -8,12 +9,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -30,9 +35,11 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.app.AppAvailabilityReason
 import com.secondpasslibrary.reader.app.storage.AccountLocalDownload
+import com.secondpasslibrary.reader.design.book.PublicBookCover
 import com.secondpasslibrary.reader.design.components.InformationCard
 import com.secondpasslibrary.reader.design.icons.AppIcon
 
@@ -45,23 +52,44 @@ internal fun OfflineSettingsSection(
     state: SettingsDownloadsState,
     onRefresh: () -> Unit,
     onRemove: (String) -> Unit,
-    onRemoveAll: () -> Unit
+    onRemoveAll: () -> Unit,
+    onClearBook: (String) -> Unit,
+    onBookDetails: (String) -> Unit
 ) {
-    var managing by rememberSaveable { mutableStateOf(false) }
+    var selectedBookId by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingBookId by rememberSaveable { mutableStateOf<String?>(null) }
+    var clearBookId by rememberSaveable { mutableStateOf<String?>(null) }
     var confirmAll by rememberSaveable { mutableStateOf(false) }
     OfflineAuthorityRow(availability, checkingConnection, onWorkOffline, onReconnect)
     DownloadedBooksCard(
         state = state,
-        managing = managing,
-        onManage = { managing = !managing },
         onRefresh = onRefresh,
+        onSelect = { selectedBookId = it },
         onRemove = { pendingBookId = it },
         onRemoveAll = { confirmAll = true }
     )
+    state.downloads.firstOrNull { it.bookId == selectedBookId }?.let { book ->
+        OfflineBookDetailsDialog(
+            book,
+            onDismiss = { selectedBookId = null },
+            onBookDetails = {
+                selectedBookId = null
+                onBookDetails(book.bookId)
+            },
+            onRemove = {
+                selectedBookId = null
+                pendingBookId = book.bookId
+            },
+            onClear = {
+                selectedBookId = null
+                clearBookId = book.bookId
+            }
+        )
+    }
     DownloadConfirmations(
         state.downloads,
         pendingBookId,
+        clearBookId,
         confirmAll,
         onDismissBook = { pendingBookId = null },
         onConfirmBook = {
@@ -71,8 +99,12 @@ internal fun OfflineSettingsSection(
         onDismissAll = { confirmAll = false },
         onConfirmAll = {
             confirmAll = false
-            managing = false
             onRemoveAll()
+        },
+        onDismissClear = { clearBookId = null },
+        onConfirmClear = {
+            clearBookId = null
+            onClearBook(it)
         }
     )
 }
@@ -140,9 +172,8 @@ private fun OfflineAuthorityRow(
 @Composable
 private fun DownloadedBooksCard(
     state: SettingsDownloadsState,
-    managing: Boolean,
-    onManage: () -> Unit,
     onRefresh: () -> Unit,
+    onSelect: (String) -> Unit,
     onRemove: (String) -> Unit,
     onRemoveAll: () -> Unit
 ) {
@@ -154,18 +185,18 @@ private fun DownloadedBooksCard(
         }
         if (state.busy) Text("Removing downloads…")
         if (!state.loading && state.downloads.isNotEmpty()) {
-            OutlinedButton(onClick = onManage, enabled = !state.busy) {
-                Text(if (managing) "Done" else "Manage downloads")
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            state.downloads.forEach { book ->
+                DownloadRow(
+                    book,
+                    !state.busy,
+                    onSelect = { onSelect(book.bookId) },
+                    onRemove = { onRemove(book.bookId) }
+                )
             }
-            if (managing) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                state.downloads.forEach { book ->
-                    DownloadRow(book, !state.busy) { onRemove(book.bookId) }
-                }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                TextButton(onClick = onRemoveAll, enabled = !state.busy) {
-                    Text("Remove all downloads", color = MaterialTheme.colorScheme.error)
-                }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            TextButton(onClick = onRemoveAll, enabled = !state.busy) {
+                Text("Remove all downloads", color = MaterialTheme.colorScheme.error)
             }
         }
     }
@@ -200,11 +231,14 @@ private fun DownloadSummary(state: SettingsDownloadsState) {
 private fun DownloadConfirmations(
     downloads: List<AccountLocalDownload>,
     pendingBookId: String?,
+    clearBookId: String?,
     confirmAll: Boolean,
     onDismissBook: () -> Unit,
     onConfirmBook: (String) -> Unit,
     onDismissAll: () -> Unit,
-    onConfirmAll: () -> Unit
+    onConfirmAll: () -> Unit,
+    onDismissClear: () -> Unit,
+    onConfirmClear: (String) -> Unit
 ) {
     val pendingBook = downloads.firstOrNull { it.bookId == pendingBookId }
     if (pendingBook != null) {
@@ -227,18 +261,62 @@ private fun DownloadConfirmations(
             onConfirm = onConfirmAll
         )
     }
+    downloads.firstOrNull { it.bookId == clearBookId }?.let { book ->
+        DownloadRemovalDialog(
+            title = "Clear offline data for this Book?",
+            message = "The download, local progress, Marginalia, and changes waiting to sync " +
+                "for ${book.title} will be removed from this device. Nothing is deleted " +
+                "from Second Pass Library.",
+            confirmLabel = "Clear offline data",
+            onDismiss = onDismissClear,
+            onConfirm = { onConfirmClear(book.bookId) }
+        )
+    }
 }
 
 @Composable
-private fun DownloadRow(book: AccountLocalDownload, enabled: Boolean, onRemove: () -> Unit) {
+private fun DownloadRow(
+    book: AccountLocalDownload,
+    enabled: Boolean,
+    onSelect: () -> Unit,
+    onRemove: () -> Unit
+) {
     val context = LocalContext.current
     Row(
         modifier = Modifier.fillMaxWidth().testTag("download-${book.bookId}"),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(book.title, style = MaterialTheme.typography.bodyLarge)
+        Row(
+            modifier = Modifier.weight(1f)
+                .clickable(
+                    enabled = enabled,
+                    role = Role.Button,
+                    onClickLabel = "View offline Book details",
+                    onClick = onSelect
+                )
+                .padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            PublicBookCover(
+                reference = null,
+                title = book.title,
+                localCover = book.cover,
+                contentDescription = null,
+                modifier = Modifier.size(width = 34.dp, height = 48.dp)
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(book.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                book.author?.let {
+                    Text(
+                        it,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1
+                    )
+                }
+            }
             Text(
                 Formatter.formatShortFileSize(context, book.sizeBytes),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -254,6 +332,71 @@ private fun DownloadRow(book: AccountLocalDownload, enabled: Boolean, onRemove: 
         ) {
             Text("Remove download", color = MaterialTheme.colorScheme.error)
         }
+    }
+}
+
+@Composable
+private fun OfflineBookDetailsDialog(
+    book: AccountLocalDownload,
+    onDismiss: () -> Unit,
+    onBookDetails: () -> Unit,
+    onRemove: () -> Unit,
+    onClear: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(shape = MaterialTheme.shapes.large) {
+            Column(
+                Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    PublicBookCover(
+                        null,
+                        book.title,
+                        Modifier.size(48.dp, 68.dp),
+                        contentDescription = null,
+                        localCover = book.cover
+                    )
+                    Column {
+                        Text(book.title, style = MaterialTheme.typography.titleLarge)
+                        book.author?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+                    }
+                }
+                OfflineBookLocalFacts(book)
+                HorizontalDivider()
+                TextButton(onClick = onRemove) {
+                    Text("Remove download")
+                }
+                TextButton(onClick = onClear) {
+                    Text("Clear offline data", color = MaterialTheme.colorScheme.error)
+                }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = onDismiss) { Text("Close") }
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = onBookDetails) { Text("Book details") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OfflineBookLocalFacts(book: AccountLocalDownload) {
+    val context = LocalContext.current
+    Text("Downloaded EPUB · ${Formatter.formatShortFileSize(context, book.epubBytes)}")
+    Text(if (book.cover != null) "Cover saved on this device" else "No cover saved")
+    if (book.localSessionCount > 0) Text("Reading history on this device")
+    if (book.pendingChangeCount > 0) {
+        Text(
+            if (book.pendingChangeCount == 1) {
+                "1 Reader change waiting to sync"
+            } else {
+                "${book.pendingChangeCount} Reader changes waiting to sync"
+            }
+        )
     }
 }
 

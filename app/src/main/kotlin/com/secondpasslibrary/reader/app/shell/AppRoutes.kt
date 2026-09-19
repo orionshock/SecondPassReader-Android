@@ -43,6 +43,9 @@ sealed interface BookDetailReturnTarget {
     data object Marginalia : BookDetailReturnTarget
 
     @Serializable
+    data object Settings : BookDetailReturnTarget
+
+    @Serializable
     data class ReadingSessionDetail(val route: ReadingSessionDetailRoute) :
         BookDetailReturnTarget
 
@@ -168,6 +171,7 @@ private fun BookDetailReturnTarget.topLevelDestination(): AppDestination = when 
     BookDetailReturnTarget.Home -> AppDestination.Home
     BookDetailReturnTarget.Library -> AppDestination.Library
     BookDetailReturnTarget.Marginalia -> AppDestination.Marginalia
+    BookDetailReturnTarget.Settings -> AppDestination.Settings
     is BookDetailReturnTarget.ReadingSessionDetail -> route.topLevelDestination()
     is BookDetailReturnTarget.BookMarginalia -> route.topLevelDestination()
     is BookDetailReturnTarget.ShelfDetail -> AppDestination.Shelves

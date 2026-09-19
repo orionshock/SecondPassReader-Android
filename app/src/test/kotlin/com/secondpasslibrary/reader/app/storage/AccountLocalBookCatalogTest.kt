@@ -218,6 +218,9 @@ class AccountLocalBookCatalogTest {
     }
 
     private data object UnusedReaderStore : LocalReaderStateStore {
+        override suspend fun bookSummary(account: LocalReaderAccountKey, bookId: String) =
+            com.secondpasslibrary.reader.reader.persistence.LocalReaderBookSummary(0, 0)
+
         override suspend fun selectOfflineSession(
             account: LocalReaderAccountKey,
             bookId: String

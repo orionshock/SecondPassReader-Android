@@ -14,6 +14,22 @@ internal abstract class HomeProjectionCleanupDao {
         deleteSnapshots(accountKey)
     }
 
+    @Transaction
+    open suspend fun purgeBook(accountKey: String, bookId: String) {
+        deleteBookShelfPreviews(accountKey, bookId)
+        deleteBookRecentReading(accountKey, bookId)
+    }
+
+    @Query(
+        "DELETE FROM home_shelf_preview_books WHERE accountKey = :accountKey AND bookId = :bookId"
+    )
+    protected abstract suspend fun deleteBookShelfPreviews(accountKey: String, bookId: String)
+
+    @Query(
+        "DELETE FROM home_recent_reading_items WHERE accountKey = :accountKey AND bookId = :bookId"
+    )
+    protected abstract suspend fun deleteBookRecentReading(accountKey: String, bookId: String)
+
     @Query("DELETE FROM home_shelf_preview_books WHERE accountKey = :accountKey")
     protected abstract suspend fun deleteShelfPreviews(accountKey: String)
 

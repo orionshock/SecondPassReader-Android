@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.app.storage
 
 import com.secondpasslibrary.client.RecentReadingItem
 import com.secondpasslibrary.client.ShelfSummary
+import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.home.projection.HomeAccountScopeKey
 import com.secondpasslibrary.reader.home.projection.HomeProjectionSnapshot
 import com.secondpasslibrary.reader.home.projection.HomeProjectionStore
@@ -65,6 +66,40 @@ class AccountLocalDataRepositoryCleanupTest {
         )
     }
 
+    @Test
+    fun `book recovery removes target asset and reader state without touching another book`() =
+        runTest {
+            val events = mutableListOf<String>()
+            val home = RecordingHomeStore(events)
+            val reader = RecordingReaderStore(events)
+            val scheduler = RecordingScheduler(events)
+            val assets = ReaderBookAssetStore.forTests(
+                Files.createTempDirectory("book-recovery").toFile()
+            )
+            val repository = AccountLocalDataRepository(
+                home,
+                reader,
+                scheduler,
+                assets,
+                RecordingVisibilityStore(events)
+            )
+            val account = AccountLocalScope.from("https://example.org", "profile-1")
+            val target = complete(assets, account.readerScope(), "target")
+            val kept = complete(assets, account.readerScope(), "kept")
+
+            val identity = AuthenticatedConnectionIdentity("https://example.org/api/v1/", "device")
+            repository.clearBook(account, "target", identity)
+            repository.clearBook(account, "target", identity)
+
+            assertFalse(target.exists())
+            assertTrue(kept.exists())
+            assertEquals(listOf("target", "target"), reader.purgedBooks)
+            assertEquals(listOf("target", "target"), home.purgedBooks)
+            assertEquals(0, repository.downloads(account).count { it.bookId == "target" })
+            assertEquals(1, repository.downloads(account).count { it.bookId == "kept" })
+            assertEquals(0, scheduler.canceled.count { it != LocalReaderAccountKey.from(account) })
+        }
+
     private fun AccountLocalScope.readerScope() = ReaderAccountScope.from(this)
 
     private suspend fun complete(
@@ -105,13 +140,22 @@ class AccountLocalDataRepositoryCleanupTest {
             events += "visibility"
             clearCount += 1
         }
+
+        override suspend fun clearBookState(
+            scope: ReaderMarginaliaVisibilityScope,
+            sessionIds: List<String>
+        ) {
+            events += "book-visibility"
+        }
     }
 
     private class RecordingScheduler(private val events: MutableList<String>) :
         ReaderPendingSyncScheduler {
         val canceled = mutableListOf<LocalReaderAccountKey>()
 
-        override suspend fun ensureEnqueued(account: LocalReaderAccountKey) = Unit
+        override suspend fun ensureEnqueued(account: LocalReaderAccountKey) {
+            events += "reenqueue"
+        }
 
         override fun cancel(account: LocalReaderAccountKey) {
             events += "cancel"
@@ -122,6 +166,11 @@ class AccountLocalDataRepositoryCleanupTest {
     private class RecordingHomeStore(private val events: MutableList<String>) :
         HomeProjectionStore {
         val purged = mutableListOf<HomeAccountScopeKey>()
+        val purgedBooks = mutableListOf<String>()
+
+        override suspend fun purgeBook(account: HomeAccountScopeKey, bookId: String) {
+            purgedBooks += bookId
+        }
 
         override suspend fun hasSnapshot(account: HomeAccountScopeKey) = false
 
@@ -158,6 +207,17 @@ class AccountLocalDataRepositoryCleanupTest {
     private class RecordingReaderStore(private val events: MutableList<String>) :
         LocalReaderStateStore {
         val purged = mutableListOf<LocalReaderAccountKey>()
+        val purgedBooks = mutableListOf<String>()
+
+        override suspend fun bookSummary(account: LocalReaderAccountKey, bookId: String) =
+            com.secondpasslibrary.reader.reader.persistence.LocalReaderBookSummary(0, 0)
+
+        override suspend fun purgeBook(account: LocalReaderAccountKey, bookId: String) {
+            purgedBooks += bookId
+        }
+
+        override suspend fun bookSessionIds(account: LocalReaderAccountKey, bookId: String) =
+            listOf("session-$bookId")
 
         override suspend fun selectOfflineSession(
             account: LocalReaderAccountKey,

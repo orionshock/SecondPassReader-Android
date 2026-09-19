@@ -161,7 +161,10 @@ private fun EntryProviderScope<AppRoute>.registerAuthenticatedTopLevelEntries(
             onWorkOffline = current.onWorkOffline,
             onReconnect = current.onReconnect,
             lifecycleActionState = current.lifecycleActionState,
-            lifecycleActions = current.lifecycleActions
+            lifecycleActions = current.lifecycleActions,
+            onBookDetails = {
+                current.navigator.openBookDetail(it, BookDetailReturnTarget.Settings)
+            }
         )
     }
 }

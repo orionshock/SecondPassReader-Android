@@ -4,6 +4,7 @@ import com.secondpasslibrary.reader.app.storage.AccountLocalDownload
 import com.secondpasslibrary.reader.app.storage.AccountLocalDownloadRepository
 import com.secondpasslibrary.reader.app.storage.AccountLocalScope
 import com.secondpasslibrary.reader.app.storage.OfflineBookAvailabilityController
+import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetResolver
 import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetStore
 import com.secondpasslibrary.reader.reader.session.ReaderExistingSessionsCache
@@ -86,6 +87,12 @@ class SettingsDownloadsViewModelTest {
             viewModel.remove("book-1")
             advanceUntilIdle()
             assertEquals(listOf("book-2"), viewModel.state.value.downloads.map { it.bookId })
+            viewModel.clearBook(
+                "book-2",
+                AuthenticatedConnectionIdentity("https://library.example/api/v1/", "device")
+            )
+            advanceUntilIdle()
+            assertEquals(emptyList<AccountLocalDownload>(), viewModel.state.value.downloads)
             viewModel.removeAll()
             advanceUntilIdle()
             assertFalse(viewModel.state.value.loading)
@@ -119,6 +126,14 @@ class SettingsDownloadsViewModelTest {
 
         override suspend fun removeAllDownloads(account: AccountLocalScope) {
             books[account]?.clear()
+        }
+
+        override suspend fun clearBook(
+            account: AccountLocalScope,
+            bookId: String,
+            identity: AuthenticatedConnectionIdentity
+        ) {
+            books[account]?.removeAll { it.bookId == bookId }
         }
     }
 }

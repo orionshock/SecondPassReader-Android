@@ -21,6 +21,10 @@ constructor(
         cleanupDao.purgeAccount(account.value)
     }
 
+    override suspend fun purgeBook(account: HomeAccountScopeKey, bookId: String) {
+        cleanupDao.purgeBook(account.value, bookId)
+    }
+
     override suspend fun readRecentReading(
         account: HomeAccountScopeKey,
         variant: HomeRecentReadingVariant

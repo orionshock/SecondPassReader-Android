@@ -15,6 +15,22 @@ import org.junit.Test
 
 class AppNavigatorTest {
     @Test
+    fun `offline Book details stays on Settings stack and Back returns to Settings`() {
+        val navigation = appNavigationStateForTest(AppDestination.Settings)
+        val navigator = AppNavigator(navigation)
+
+        navigator.openBookDetail("book-1", BookDetailReturnTarget.Settings)
+
+        assertEquals(AppDestination.Settings, navigation.currentRoute.topLevelDestination())
+        assertEquals(
+            BookDetailRoute("book-1", BookDetailReturnTarget.Settings),
+            navigation.currentRoute
+        )
+        assertTrue(navigation.pop())
+        assertEquals(AppDestination.Settings, navigation.currentRoute)
+    }
+
+    @Test
     fun `Home Shelf navigation targets typed Shelf Detail on Shelves stack`() {
         val navigation = appNavigationStateForTest(AppDestination.Home)
 

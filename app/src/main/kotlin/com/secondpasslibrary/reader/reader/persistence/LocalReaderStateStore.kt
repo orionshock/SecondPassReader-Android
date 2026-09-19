@@ -14,6 +14,8 @@ import javax.inject.Singleton
 
 internal enum class LocalReaderWriteProvenance { SERVER_CONFIRMED, LOCAL_PENDING }
 
+internal data class LocalReaderBookSummary(val sessionCount: Int, val pendingChangeCount: Int)
+
 internal interface LocalReaderStateStore {
     suspend fun selectOfflineSession(
         account: LocalReaderAccountKey,
@@ -59,9 +61,21 @@ internal interface LocalReaderStateStore {
     )
 
     suspend fun purgeAccount(account: LocalReaderAccountKey)
+
+    suspend fun bookSummary(
+        account: LocalReaderAccountKey,
+        bookId: String
+    ): LocalReaderBookSummary = error("Book summary is not implemented by this Reader store.")
+
+    suspend fun bookSessionIds(account: LocalReaderAccountKey, bookId: String): List<String> =
+        error("Book sessions are not implemented by this Reader store.")
+
+    suspend fun purgeBook(account: LocalReaderAccountKey, bookId: String): Unit =
+        error("Book cleanup is not implemented by this Reader store.")
 }
 
 @Singleton
+@Suppress("TooManyFunctions") // One Room owner keeps Reader state and Book-scoped cleanup together.
 internal class RoomLocalReaderStateStore @Inject constructor(
     private val dao: LocalReaderDao,
     private val syncScheduler: ReaderPendingSyncScheduler,
@@ -265,6 +279,21 @@ internal class RoomLocalReaderStateStore @Inject constructor(
 
     override suspend fun purgeAccount(account: LocalReaderAccountKey) {
         dao.purgeAccount(account.value)
+    }
+
+    override suspend fun bookSummary(account: LocalReaderAccountKey, bookId: String) =
+        LocalReaderBookSummary(
+            dao.sessionCountForBook(account.value, bookId),
+            dao.pendingCountForBook(account.value, bookId)
+        )
+
+    override suspend fun bookSessionIds(
+        account: LocalReaderAccountKey,
+        bookId: String
+    ): List<String> = dao.sessionIdsForBook(account.value, bookId)
+
+    override suspend fun purgeBook(account: LocalReaderAccountKey, bookId: String) {
+        dao.purgeBook(account.value, bookId)
     }
 
     private suspend fun schedule(account: LocalReaderAccountKey) {

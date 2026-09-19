@@ -6,6 +6,7 @@ import com.secondpasslibrary.reader.app.storage.AccountLocalDownload
 import com.secondpasslibrary.reader.app.storage.AccountLocalDownloadRepository
 import com.secondpasslibrary.reader.app.storage.AccountLocalScope
 import com.secondpasslibrary.reader.app.storage.OfflineBookAvailabilityController
+import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -54,6 +55,10 @@ internal class SettingsDownloadsViewModel @Inject constructor(
     fun remove(bookId: String) = mutate { scope -> offlineBooks.remove(scope, bookId) }
 
     fun removeAll() = mutate(offlineBooks::removeAll)
+
+    fun clearBook(bookId: String, identity: AuthenticatedConnectionIdentity) = mutate { scope ->
+        offlineBooks.clearBook(scope, bookId, identity)
+    }
 
     private fun mutate(operation: suspend (AccountLocalScope) -> Unit) {
         val scope = account ?: return

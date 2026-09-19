@@ -20,10 +20,12 @@ import com.secondpasslibrary.reader.app.storage.AccountLocalScope
 import com.secondpasslibrary.reader.connection.ConnectionLifecycleActionState
 import com.secondpasslibrary.reader.connection.ConnectionLifecycleActions
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 
 private enum class SettingsConfirmation { LOGOUT, FORGET }
 
 @Composable
+@Suppress("LongMethod") // The closed Settings section routing stays visible in one composition.
 internal fun LinkedSettings(
     profile: ConnectionProfile,
     profileId: String,
@@ -35,6 +37,7 @@ internal fun LinkedSettings(
     onReconnect: () -> Unit,
     lifecycleActionState: ConnectionLifecycleActionState,
     lifecycleActions: ConnectionLifecycleActions,
+    onBookDetails: (String) -> Unit,
     downloadsViewModel: SettingsDownloadsViewModel = viewModel()
 ) {
     val presentation = settingsPresentation(profile, context, status)
@@ -75,7 +78,11 @@ internal fun LinkedSettings(
                 state = downloads,
                 onRefresh = downloadsViewModel::refresh,
                 onRemove = downloadsViewModel::remove,
-                onRemoveAll = downloadsViewModel::removeAll
+                onRemoveAll = downloadsViewModel::removeAll,
+                onClearBook = {
+                    downloadsViewModel.clearBook(it, profile.authenticatedConnectionIdentity)
+                },
+                onBookDetails = onBookDetails
             )
 
             SettingsSection.ADVANCED -> AdvancedSettingsSection(

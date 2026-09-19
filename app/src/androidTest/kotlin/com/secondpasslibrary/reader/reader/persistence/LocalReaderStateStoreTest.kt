@@ -71,6 +71,50 @@ class LocalReaderStateStoreTest {
     }
 
     @Test
+    fun bookClearCascadesPendingReaderStateWithoutTouchingOtherBooksOrAccounts() = runBlocking {
+        val account = account("profile-1")
+        val otherAccount = account("profile-2")
+        val target = store.selectOfflineSession(account, "book-1")
+        val kept = store.selectOfflineSession(account, "book-2")
+        val other = store.selectOfflineSession(otherAccount, "book-1")
+        for (session in listOf(target, kept, other)) {
+            val owner = if (session == other) otherAccount else account
+            store.writeProgress(
+                owner,
+                session.sessionId,
+                CFI,
+                LocalReaderWriteProvenance.LOCAL_PENDING
+            )
+            store.applyAnnotationMutation(
+                owner,
+                session.sessionId,
+                ReaderAnnotationMutationRequest.UpsertBookmark(
+                    session.sessionId,
+                    "bookmark",
+                    CFI,
+                    "Chapter 1"
+                )
+            )
+        }
+        assertTrue(store.bookSummary(account, "book-1").pendingChangeCount > 0)
+
+        store.purgeBook(account, "book-1")
+        store.purgeBook(account, "book-1")
+
+        assertEquals(LocalReaderBookSummary(0, 0), store.bookSummary(account, "book-1"))
+        assertNull(database.localReaderDao().session(account.value, target.sessionId))
+        assertTrue(
+            database.localReaderDao().pendingReaderIntents(
+                account.value,
+                target.sessionId
+            ).isEmpty()
+        )
+        assertTrue(store.readAnnotations(account, target.sessionId).isEmpty())
+        assertEquals(1, store.bookSummary(account, "book-2").sessionCount)
+        assertEquals(1, store.bookSummary(otherAccount, "book-1").sessionCount)
+    }
+
+    @Test
     fun progressAndAnnotationFieldsRoundTripWithoutNormalization() = runBlocking {
         val account = account("profile-1")
         val session = store.selectOfflineSession(account, "book-1")
