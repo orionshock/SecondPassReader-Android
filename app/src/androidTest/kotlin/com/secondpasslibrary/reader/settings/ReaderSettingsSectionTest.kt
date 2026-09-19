@@ -4,7 +4,6 @@ import androidx.activity.ComponentActivity
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsSelected
@@ -42,7 +41,6 @@ class ReaderSettingsSectionTest {
             }
         }
 
-        compose.onNodeWithText("Reader").assertIsDisplayed()
         compose.onNodeWithText("Sepia").assertIsSelected()
         compose.onNodeWithText("Dark").performClick()
         compose.onNodeWithText("Two-column").performClick()

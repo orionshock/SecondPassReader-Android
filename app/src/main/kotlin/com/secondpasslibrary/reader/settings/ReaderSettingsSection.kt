@@ -1,8 +1,10 @@
 package com.secondpasslibrary.reader.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -39,15 +41,16 @@ internal fun ReaderSettingsSection(
     onAppearanceChanged: (ReaderAppearance) -> Unit,
     onAutoShowPreviousChanged: (Boolean) -> Unit
 ) {
-    InformationCard("Reader", icon = AppIcon.Book) {
-        Text("Reading appearance", style = MaterialTheme.typography.titleSmall)
-        ReaderAppearanceControls(
-            state.appearance,
-            MaterialTheme.colorScheme.onSurface,
-            MaterialTheme.colorScheme.onSurfaceVariant,
-            MaterialTheme.colorScheme.secondaryContainer,
-            onAppearanceChanged
-        )
+    InformationCard("Reading preferences", icon = AppIcon.Book) {
+        Column(modifier = Modifier.widthIn(max = 620.dp).fillMaxWidth()) {
+            ReaderAppearanceControls(
+                state.appearance,
+                MaterialTheme.colorScheme.onSurface,
+                MaterialTheme.colorScheme.onSurfaceVariant,
+                MaterialTheme.colorScheme.secondaryContainer,
+                onAppearanceChanged
+            )
+        }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Text("Marginalia", style = MaterialTheme.typography.titleSmall)
         Row(

@@ -26,6 +26,17 @@ internal fun interface AccountLocalBookCatalog {
     suspend fun downloadedBooks(account: AccountLocalScope): List<CompactBook>
 }
 
+internal data class AccountLocalDownload(val bookId: String, val title: String, val sizeBytes: Long)
+
+/** Bounded download management; Reader-authored state remains with its existing owner. */
+internal interface AccountLocalDownloadRepository {
+    suspend fun downloads(account: AccountLocalScope): List<AccountLocalDownload>
+
+    suspend fun removeDownload(account: AccountLocalScope, bookId: String)
+
+    suspend fun removeAllDownloads(account: AccountLocalScope)
+}
+
 /** Coordinates account-local stores without making their feature-specific APIs public. */
 @Singleton
 internal class AccountLocalDataRepository @Inject constructor(
@@ -35,7 +46,8 @@ internal class AccountLocalDataRepository @Inject constructor(
     private val assets: ReaderBookAssetStore,
     private val marginaliaVisibility: ReaderMarginaliaLayerVisibilityStore
 ) : AccountLocalDataLifecycle,
-    AccountLocalBookCatalog {
+    AccountLocalBookCatalog,
+    AccountLocalDownloadRepository {
     override suspend fun purge(account: AccountLocalScope) {
         val readerAccount = LocalReaderAccountKey.from(account)
         readerSync.cancel(readerAccount)
@@ -65,6 +77,19 @@ internal class AccountLocalDataRepository @Inject constructor(
         return candidates.mapNotNull { book ->
             book.takeIf { assets.findCompleted(readerAccount, it.id) != null }?.toCompactBook()
         }.sortedBy { it.sortTitle.lowercase() }
+    }
+
+    override suspend fun downloads(account: AccountLocalScope): List<AccountLocalDownload> =
+        assets.completedBooks(ReaderAccountScope.from(account))
+            .map { AccountLocalDownload(it.bookId, it.title, it.sizeBytes) }
+            .sortedBy { it.title.lowercase() }
+
+    override suspend fun removeDownload(account: AccountLocalScope, bookId: String) {
+        assets.removeCompleted(ReaderAccountScope.from(account), bookId)
+    }
+
+    override suspend fun removeAllDownloads(account: AccountLocalScope) {
+        assets.purgeAccount(ReaderAccountScope.from(account))
     }
 }
 

@@ -113,6 +113,32 @@ class AccountLocalBookCatalogTest {
         assertTrue(!assets.completedFile(scope, "book-corrupt").exists())
     }
 
+    @Test
+    fun `download management removes only current account assets and offline Library entries`() =
+        runTest {
+            val root = Files.createTempDirectory("offline-download-management").toFile()
+            val assets = ReaderBookAssetStore.forTests(root)
+            val account = projectionAccount()
+            val other = AccountLocalScope.from(account.profile.serverOrigin, "other-profile")
+            complete(assets, account.profile.serverOrigin, account.profileId, "book-one")
+            complete(assets, account.profile.serverOrigin, account.profileId, "book-two")
+            complete(assets, other.serverOrigin, other.profileId, "book-other")
+            val repository = catalog(FakeHomeProjectionStore(), assets)
+
+            assertEquals(2, repository.downloads(account.localScope()).size)
+            assertEquals(3L, repository.downloads(account.localScope()).first().sizeBytes)
+            repository.removeDownload(account.localScope(), "book-one")
+            val remainingDownloads = repository.downloads(account.localScope())
+            val offlineBooks = repository.downloadedBooks(account.localScope())
+            assertEquals(listOf("book-two"), remainingDownloads.map(AccountLocalDownload::bookId))
+            assertEquals(listOf("book-two"), offlineBooks.map { it.id })
+
+            repository.removeAllDownloads(account.localScope())
+            assertTrue(repository.downloads(account.localScope()).isEmpty())
+            val otherDownloads = repository.downloads(other)
+            assertEquals(listOf("book-other"), otherDownloads.map(AccountLocalDownload::bookId))
+        }
+
     private suspend fun complete(
         assets: ReaderBookAssetStore,
         serverOrigin: String,
@@ -149,7 +175,7 @@ class AccountLocalBookCatalogTest {
     private data object UnusedReaderScheduler : ReaderPendingSyncScheduler {
         override suspend fun ensureEnqueued(account: LocalReaderAccountKey) = Unit
 
-        override fun cancel(account: LocalReaderAccountKey) = Unit
+        override fun cancel(account: LocalReaderAccountKey): Unit = error("Sync must be preserved")
     }
 
     private data object UnusedVisibilityStore : ReaderMarginaliaLayerVisibilityStore {
@@ -213,6 +239,7 @@ class AccountLocalBookCatalogTest {
             acknowledgedMutation: ReaderAnnotationMutationRequest?
         ) = Unit
 
-        override suspend fun purgeAccount(account: LocalReaderAccountKey) = Unit
+        override suspend fun purgeAccount(account: LocalReaderAccountKey): Unit =
+            error("Reader-authored state must be preserved")
     }
 }

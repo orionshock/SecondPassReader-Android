@@ -37,7 +37,8 @@ internal data class ReaderBookAsset(val file: File, val reused: Boolean)
 internal data class ReaderCompletedBookMetadata(
     val bookId: String,
     val title: String,
-    val checksum: ReaderBookAssetChecksum
+    val checksum: ReaderBookAssetChecksum,
+    val sizeBytes: Long = 0L
 )
 
 @Singleton
@@ -118,7 +119,25 @@ internal class ReaderBookAssetStore private constructor(private val root: File) 
                             metadataFile(account, it.bookId) == file
                         }
                     }
-                    .filter { verifiedCompleted(account, it.bookId, it.checksum) != null }
+                    .mapNotNull { metadata ->
+                        verifiedCompleted(account, metadata.bookId, metadata.checksum)?.let {
+                            metadata.copy(sizeBytes = it.file.length())
+                        }
+                    }
+            }
+        }
+
+    suspend fun removeCompleted(account: ReaderAccountScope, bookId: String) =
+        withContext(Dispatchers.IO) {
+            require(bookId.isNotBlank()) { "Book ID must not be blank." }
+            writes.withLock {
+                val completed = completedFile(account, bookId)
+                val partial = File(completed.parentFile, "${completed.name}.part")
+                listOf(completed, metadataFile(account, bookId), partial).forEach { file ->
+                    if (file.exists() && !file.delete()) {
+                        throw IOException("Reader download could not be removed.")
+                    }
+                }
             }
         }
 

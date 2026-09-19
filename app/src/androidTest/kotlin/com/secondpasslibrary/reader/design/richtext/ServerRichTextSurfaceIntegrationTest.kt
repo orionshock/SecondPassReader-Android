@@ -15,7 +15,7 @@ import com.secondpasslibrary.client.ShelfVisibility
 import com.secondpasslibrary.reader.connection.ServerIdentityCard
 import com.secondpasslibrary.reader.design.SecondPassTheme
 import com.secondpasslibrary.reader.library.chrome.compactDescription
-import com.secondpasslibrary.reader.settings.ServerMetadataSection
+import com.secondpasslibrary.reader.settings.LibraryAccountSettings
 import com.secondpasslibrary.reader.settings.SettingsConnectionStatus
 import com.secondpasslibrary.reader.settings.SettingsLibraryGroupPresentation
 import com.secondpasslibrary.reader.settings.SettingsPresentation
@@ -60,7 +60,7 @@ class ServerRichTextSurfaceIntegrationTest {
             SecondPassTheme {
                 Column {
                     ServerIdentityCard(discoveredServer())
-                    ServerMetadataSection(settingsPresentation())
+                    LibraryAccountSettings(settingsPresentation())
                 }
             }
         }

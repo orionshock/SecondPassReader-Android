@@ -20,4 +20,10 @@ internal abstract class AccountLocalStorageModule {
     abstract fun bindAccountLocalBookCatalog(
         repository: AccountLocalDataRepository
     ): AccountLocalBookCatalog
+
+    @Binds
+    @Singleton
+    abstract fun bindAccountLocalDownloadRepository(
+        repository: AccountLocalDataRepository
+    ): AccountLocalDownloadRepository
 }

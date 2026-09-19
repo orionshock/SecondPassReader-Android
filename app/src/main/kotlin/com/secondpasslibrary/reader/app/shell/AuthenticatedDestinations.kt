@@ -142,6 +142,7 @@ private fun EntryProviderScope<AppRoute>.registerAuthenticatedTopLevelEntries(
         val current = environment.value
         LinkedSettings(
             profile = current.session.profile,
+            profileId = current.session.profileId,
             context = current.session.authenticatedFeatureContext,
             status = current.session.authority.toSettingsConnectionStatus(),
             lifecycleActionState = current.lifecycleActionState,

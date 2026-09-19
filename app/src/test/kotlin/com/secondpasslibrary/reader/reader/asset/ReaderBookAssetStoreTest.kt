@@ -158,6 +158,30 @@ class ReaderBookAssetStoreTest {
     }
 
     @Test
+    fun `removing one download removes epub and metadata without touching another account`() =
+        runTest {
+            val fixture = fixture()
+            val other = ReaderAccountScope("https://library.example", "profile-2")
+            complete(fixture, "book-1", EPUB_BYTES)
+            fixture.store.acquire(other, "book-1", checksum(EPUB_BYTES), {}) {
+                it.write(EPUB_BYTES)
+            }
+            fixture.store.rememberCompletedBook(other, "book-1", "Other Book", checksum(EPUB_BYTES))
+
+            val completed = fixture.store.completedBooks(fixture.account).single()
+            assertEquals(EPUB_BYTES.size.toLong(), completed.sizeBytes)
+            fixture.store.removeCompleted(fixture.account, "book-1")
+
+            assertFalse(fixture.store.completedFile(fixture.account, "book-1").exists())
+            assertTrue(fixture.store.completedBooks(fixture.account).isEmpty())
+            assertTrue(
+                requireNotNull(fixture.store.completedFile(fixture.account, "book-1").parentFile)
+                    .listFiles().orEmpty().none { it.extension == "metadata" }
+            )
+            assertEquals(1, fixture.store.completedBooks(other).size)
+        }
+
+    @Test
     fun `checksum accepts hexadecimal case but rejects malformed server values`() {
         val expected = checksum(EPUB_BYTES)
         val file = Files.createTempFile("reader-checksum", ".epub").toFile()
