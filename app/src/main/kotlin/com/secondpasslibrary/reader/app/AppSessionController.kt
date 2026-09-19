@@ -2,6 +2,7 @@ package com.secondpasslibrary.reader.app
 
 import com.secondpasslibrary.reader.app.storage.AccountLocalScope
 import com.secondpasslibrary.reader.connection.ConnectionUiState
+import com.secondpasslibrary.reader.connection.InstallationReachability
 import com.secondpasslibrary.reader.connection.LocalAccountContext
 import com.secondpasslibrary.reader.home.HomeAccountScope
 import com.secondpasslibrary.reader.home.HomeProjectionRepository
@@ -61,17 +62,19 @@ internal class AppSessionController(
 
     fun updateHomeRefreshAvailability(availability: HomeRefreshAvailability) {
         val shell = mutableState.value as? AppSessionState.AccountShell ?: return
-        if (shell.authority !is AppSessionAuthority.Verified) return
+        if (shell.authority !is AppSessionAuthority.Verified ||
+            (connectionState as? ConnectionUiState.Linked)?.reachability !=
+            InstallationReachability.REACHABLE
+        ) {
+            return
+        }
         val appAvailability =
             when (availability) {
                 HomeRefreshAvailability.REFRESHING -> AppAvailability.Syncing
-
                 HomeRefreshAvailability.REACHABLE -> AppAvailability.Online
-
-                HomeRefreshAvailability.UNREACHABLE ->
-                    AppAvailability.Offline(AppAvailabilityReason.UNREACHABLE)
+                HomeRefreshAvailability.UNREACHABLE -> null
             }
-        if (shell.availability != appAvailability) {
+        if (appAvailability != null && shell.availability != appAvailability) {
             mutableState.value = shell.copy(availability = appAvailability)
         }
     }
@@ -84,7 +87,12 @@ internal class AppSessionController(
             AppSessionState.AccountShell(
                 profile = linked.profile,
                 profileId = linked.context.currentUser.profileId,
-                authority = AppSessionAuthority.Verified(linked.context)
+                authority = AppSessionAuthority.Verified(linked.context),
+                availability = if (linked.reachability == InstallationReachability.REACHABLE) {
+                    AppAvailability.Online
+                } else {
+                    AppAvailability.Offline(AppAvailabilityReason.UNREACHABLE)
+                }
             )
     }
 

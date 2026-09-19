@@ -86,6 +86,22 @@ class AuthenticatedRequestExecutorTest {
     }
 
     @Test
+    fun `only transport loss emits authenticated reachability hint`() = runBlocking {
+        val hints = mutableListOf<String>()
+        val unreachable = executor(hints::add) { throw IOException("connection refused") }
+        assertThrows(SplClientException.ServerUnreachable::class.java) {
+            runBlocking { unreachable.getResponse("example/") }
+        }
+        assertEquals(listOf("https://library.example/api/v1/"), hints)
+
+        val serverError = executor(hints::add) {
+            respond("", HttpStatusCode.InternalServerError)
+        }
+        assertEquals(HttpStatusCode.InternalServerError, serverError.getResponse("example/").status)
+        assertEquals(1, hints.size)
+    }
+
+    @Test
     fun `authorized download rejects another origin before transport`() {
         var requestCount = 0
         val requests = executor {
@@ -117,6 +133,7 @@ class AuthenticatedRequestExecutorTest {
     }
 
     private fun executor(
+        onUnreachable: (String) -> Unit = {},
         handler: suspend io.ktor.client.engine.mock.MockRequestHandleScope.(
             io.ktor.client.request.HttpRequestData
         ) -> io.ktor.client.request.HttpResponseData
@@ -124,7 +141,8 @@ class AuthenticatedRequestExecutorTest {
         HttpClient(MockEngine(handler)) { expectSuccess = false },
         "https://library.example/api/v1/",
         BearerCredential.restore("spl_secret"),
-        splProtocolJson
+        splProtocolJson,
+        onUnreachable
     )
 
     private fun io.ktor.client.engine.mock.MockRequestHandleScope.respondJson(

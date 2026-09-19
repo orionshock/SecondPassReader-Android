@@ -26,7 +26,9 @@ internal class ConnectionCoordinator(
     private val accountLocalDataLifecycle: AccountLocalDataLifecycle,
     pollDelay: PairingPollDelay,
     private val defaultClientName: String,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val connectionTarget: AuthenticatedConnectionTarget =
+        client.asAuthenticatedConnectionTarget()
 ) {
     private val mutableState = MutableStateFlow<ConnectionUiState>(ConnectionUiState.Restoring)
     val state: StateFlow<ConnectionUiState> = mutableState.asStateFlow()
@@ -39,6 +41,7 @@ internal class ConnectionCoordinator(
         mutableLifecycleActionState.asStateFlow()
 
     private var operation: Job? = null
+    private var reachabilityCheck: Job? = null
     private val pairing = ConnectionPairingController(
         client,
         pollDelay,
@@ -263,6 +266,7 @@ internal class ConnectionCoordinator(
     fun close() {
         pairing.cancel()
         operation?.cancel()
+        reachabilityCheck?.cancel()
     }
 
     private suspend fun persistPairing(
@@ -292,7 +296,7 @@ internal class ConnectionCoordinator(
         restoring: Boolean
     ) {
         try {
-            val context = client.loadAuthenticatedContext(profile.apiBaseUrl, credential)
+            val context = connectionTarget.loadContext(profile, credential)
             currentCoroutineContext().ensureActive()
             val persistedAccount = PersistedAccountContext(
                 connectionIdentity = profile.authenticatedConnectionIdentity,
@@ -343,7 +347,7 @@ internal class ConnectionCoordinator(
         } catch (failure: SplClientException) {
             currentCoroutineContext().ensureActive()
             val message = ConnectionErrorPresenter.message(failure)
-            mutableState.value = if (restoring) {
+            mutableState.value = if (restoring && failure is SplClientException.ServerUnreachable) {
                 ConnectionUiState.RestoreProblem(profile, message)
             } else {
                 ConnectionUiState.StoredCredentialProblem(profile, message, retryable = true)
@@ -369,6 +373,7 @@ internal class ConnectionCoordinator(
     private fun replaceOperation(block: suspend () -> Unit) {
         pairing.cancel()
         operation?.cancel()
+        reachabilityCheck?.cancel()
         operation = scope.launch { block() }
     }
 
@@ -382,6 +387,7 @@ internal class ConnectionCoordinator(
     }
 
     fun authenticatedRequestRejected() {
+        reachabilityCheck?.cancel()
         val linked = mutableState.value as? ConnectionUiState.Linked ?: return
         operation?.cancel()
         mutableState.value =
@@ -393,12 +399,72 @@ internal class ConnectionCoordinator(
 
     fun authenticatedRequestUnreachable() {
         val linked = mutableState.value as? ConnectionUiState.Linked ?: return
-        operation?.cancel()
-        mutableState.value =
-            ConnectionUiState.RestoreProblem(
-                linked.profile,
-                "Couldn’t reach the Library. Check your connection and retry."
-            )
+        if (reachabilityCheck?.isActive == true ||
+            linked.reachability == InstallationReachability.UNREACHABLE
+        ) {
+            return
+        }
+        reachabilityCheck = scope.launch { verifyLinkedReachability(linked) }
+    }
+
+    fun retryReachabilityOrRestore() {
+        val linked = mutableState.value as? ConnectionUiState.Linked
+        if (linked?.reachability == InstallationReachability.UNREACHABLE) {
+            reachabilityCheck?.cancel()
+            reachabilityCheck = scope.launch { verifyLinkedReachability(linked) }
+        } else {
+            restore()
+        }
+    }
+
+    fun retryIfUnreachable() {
+        when (val current = mutableState.value) {
+            is ConnectionUiState.Linked -> {
+                if (current.reachability == InstallationReachability.UNREACHABLE) {
+                    retryReachabilityOrRestore()
+                }
+            }
+
+            is ConnectionUiState.RestoreProblem -> restore()
+
+            else -> Unit
+        }
+    }
+
+    private suspend fun verifyLinkedReachability(linked: ConnectionUiState.Linked) {
+        val credential = attempt { persistence.readCredential() }.getOrNull() ?: return
+        try {
+            val context = connectionTarget.loadContext(linked.profile, credential)
+            currentCoroutineContext().ensureActive()
+            if (mutableState.value == linked) {
+                mutableState.value = if (
+                    context.currentUser.profileId == linked.context.currentUser.profileId
+                ) {
+                    linked.copy(
+                        context = context,
+                        reachability = InstallationReachability.REACHABLE
+                    )
+                } else {
+                    ConnectionUiState.AuthenticationRequired(
+                        linked.profile,
+                        "This connection needs repair."
+                    )
+                }
+            }
+        } catch (_: SplClientException.ServerUnreachable) {
+            currentCoroutineContext().ensureActive()
+            if (mutableState.value == linked) {
+                mutableState.value = linked.copy(
+                    reachability = InstallationReachability.UNREACHABLE
+                )
+            }
+        } catch (_: SplClientException.AuthenticationRejected) {
+            currentCoroutineContext().ensureActive()
+            if (mutableState.value == linked) authenticatedRequestRejected()
+        } catch (_: SplClientException) {
+            currentCoroutineContext().ensureActive()
+            // A protocol or HTTP response failure does not prove lost reachability.
+        }
     }
 }
 

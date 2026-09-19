@@ -50,7 +50,8 @@ internal abstract class ConnectionCoordinatorTestSupport {
             FakePersistedAccountContextStore(),
         cleaner: FakeAccountLocalDataCleaner = FakeAccountLocalDataCleaner(),
         revocationClient: FakeClientSessionRevocationClient =
-            FakeClientSessionRevocationClient()
+            FakeClientSessionRevocationClient(),
+        target: AuthenticatedConnectionTarget = client.asAuthenticatedConnectionTarget()
     ) = ConnectionCoordinator(
         client = client,
         clientSessionRevocationClient = revocationClient,
@@ -58,7 +59,8 @@ internal abstract class ConnectionCoordinatorTestSupport {
         accountLocalDataLifecycle = cleaner,
         pollDelay = PairingPollDelay {},
         defaultClientName = "Second Pass Reader · Android",
-        scope = this
+        scope = this,
+        connectionTarget = target
     )
 
     protected class FakeClient(

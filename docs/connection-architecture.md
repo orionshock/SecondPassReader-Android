@@ -79,6 +79,8 @@ The encrypted credential envelope temporarily includes a recovery copy of the no
 
 On startup, matching profile and credential state is verified through `/accounts/me/` and `/server/info/`. A rejected/revoked credential preserves the known account and enters the re-link flow; a transient server/network failure preserves both stores and exposes retry. An interrupted profile commit is repaired from the encrypted transaction journal.
 
+After verification, Connection owns installation reachability separately from authentication. An authenticated transport failure from any SDK capability is a hint; Connection confirms it through the authenticated connection target before publishing offline availability. Android default-network changes only prompt a check or retry. HTTP errors, invalid protocol responses, and rejected credentials do not mean transport loss. An unreachable installation retains the verified account shell and local data; retry and network restoration use the same verification path to heal in place. Today the target uses the saved API endpoint. Its interface can later try known endpoints for the same installation without changing Home, Library, Reader, or sync availability models. URL is location, not installation identity; no endpoint-list schema is assumed here.
+
 ## Authenticated context
 
 The SDK models sparse current-user fields and preserves absence for optional true-only flags. `reading_client_base_url` remains nullable. Successful token consumption alone never establishes linked state; both authenticated context requests must succeed.

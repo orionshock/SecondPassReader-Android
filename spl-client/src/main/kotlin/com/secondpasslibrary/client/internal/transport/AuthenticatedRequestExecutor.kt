@@ -24,7 +24,8 @@ internal class AuthenticatedRequestExecutor(
     private val httpClient: HttpClient,
     apiBaseUrl: String,
     private val credential: BearerCredential,
-    @PublishedApi internal val json: Json
+    @PublishedApi internal val json: Json,
+    private val onUnreachable: (String) -> Unit = {}
 ) {
     private val apiBaseUrl = requireAbsoluteHttpUrl(apiBaseUrl, "authenticated connection")
 
@@ -61,6 +62,7 @@ internal class AuthenticatedRequestExecutor(
         try {
             response.bodyAsChannel().toInputStream().use { input -> input.copyTo(destination) }
         } catch (failure: IOException) {
+            onUnreachable(apiBaseUrl)
             throw SplClientException.ServerUnreachable(failure)
         }
     }
@@ -101,12 +103,14 @@ internal class AuthenticatedRequestExecutor(
         val response = executeRaw(block)
         AuthenticatedResponse(response.status, response.bodyAsText())
     } catch (failure: IOException) {
+        onUnreachable(apiBaseUrl)
         throw SplClientException.ServerUnreachable(failure)
     }
 
     private suspend fun executeRaw(block: suspend () -> HttpResponse): HttpResponse = try {
         block()
     } catch (failure: IOException) {
+        onUnreachable(apiBaseUrl)
         throw SplClientException.ServerUnreachable(failure)
     }
 }

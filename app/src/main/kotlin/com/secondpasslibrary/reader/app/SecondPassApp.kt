@@ -47,6 +47,7 @@ fun SecondPassApp(
     ObserveAppConnectionEvents(appSessionViewModel, connectionViewModel)
     LifecycleEventEffect(Lifecycle.Event.ON_START) {
         connectionViewModel.pairingForegrounded()
+        connectionViewModel.retryUnreachableOnForeground()
     }
     Surface(
         modifier = modifier.fillMaxSize(),

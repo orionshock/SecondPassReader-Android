@@ -43,7 +43,7 @@ internal fun HomeScreen(
         rememberUpdatedState(onRefreshAvailabilityChanged)
     LaunchedEffect(accountScope, verifiedContext) {
         viewModel.initializeCached(accountScope)
-        if (verifiedContext != null) {
+        if (verifiedContext != null && availability !is AppAvailability.Offline) {
             viewModel.provideVerifiedAuthority(profile, profileId)
         }
     }
@@ -57,7 +57,12 @@ internal fun HomeScreen(
             }
         }
     }
-    LaunchedEffect(accountScope, availability) { viewModel.updateAppAvailability(availability) }
+    LaunchedEffect(accountScope, availability) {
+        viewModel.updateAppAvailability(availability)
+        if (availability !is AppAvailability.Offline && verifiedContext != null) {
+            viewModel.provideVerifiedAuthority(profile, profileId)
+        }
+    }
     LaunchedEffect(viewModel) {
         viewModel.refreshAvailability.collectLatest(currentOnRefreshAvailabilityChanged)
     }

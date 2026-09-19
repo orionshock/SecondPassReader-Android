@@ -32,6 +32,32 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class ReaderReconnectOrchestratorTest {
     @Test
+    fun `installation reachability recovery resumes pending Reader sync`() = runTest {
+        val events = mutableListOf<String>()
+        val store = Store(provisional(), includeEstablishment = true)
+        val reconciliation = ReaderSessionReconciliation { _, _, _, local ->
+            events += "reconcile"
+            store.bind(local.sessionId, SERVER_SESSION_ID)
+            ReaderSessionReconciliationResult.Resolved(store.pending.single().session)
+        }
+        val controller = orchestrator(store, reconciliation, events)
+
+        controller.update(
+            profile(),
+            PROFILE_ID,
+            AppAvailability.Offline(AppAvailabilityReason.UNREACHABLE)
+        )
+        advanceUntilIdle()
+        assertTrue(events.isEmpty())
+        assertTrue(store.intents.isNotEmpty())
+
+        controller.update(profile(), PROFILE_ID, AppAvailability.Online)
+        advanceUntilIdle()
+        assertEquals(listOf("reconcile", "annotations", "progress"), events)
+        assertTrue(store.intents.isEmpty())
+    }
+
+    @Test
     fun `provisional Session reconciles binds then drains annotations before progress`() = runTest {
         val events = mutableListOf<String>()
         val store = Store(provisional(), includeEstablishment = true)

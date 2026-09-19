@@ -44,6 +44,8 @@ import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.serialization.SerializationException
 
 /**
@@ -64,6 +66,12 @@ class KtorSecondPassClient internal constructor(private val httpClient: HttpClie
 
     private val json = splProtocolJson
     private val closed = AtomicBoolean(false)
+    private val mutableAuthenticatedAccessFailures =
+        MutableSharedFlow<AuthenticatedAccessFailure>(extraBufferCapacity = 16)
+    val authenticatedAccessFailures = mutableAuthenticatedAccessFailures.asSharedFlow()
+    private val reportAuthenticatedUnreachable: (String) -> Unit = { apiBaseUrl ->
+        mutableAuthenticatedAccessFailures.tryEmit(AuthenticatedAccessFailure(apiBaseUrl))
+    }
 
     override fun close() {
         if (closed.compareAndSet(false, true)) httpClient.close()
@@ -181,15 +189,25 @@ class KtorSecondPassClient internal constructor(private val httpClient: HttpClie
     override fun authenticated(
         apiBaseUrl: String,
         credential: BearerCredential
-    ): AuthenticatedSecondPassClient =
-        KtorAuthenticatedSecondPassClient(httpClient, apiBaseUrl, credential)
+    ): AuthenticatedSecondPassClient = KtorAuthenticatedSecondPassClient(
+        httpClient,
+        apiBaseUrl,
+        credential,
+        reportAuthenticatedUnreachable
+    )
 
     override suspend fun revokeCurrentClientSession(
         apiBaseUrl: String,
         credential: BearerCredential,
         clientSessionId: String
     ) {
-        val requests = AuthenticatedRequestExecutor(httpClient, apiBaseUrl, credential, json)
+        val requests = AuthenticatedRequestExecutor(
+            httpClient,
+            apiBaseUrl,
+            credential,
+            json,
+            reportAuthenticatedUnreachable
+        )
         val response =
             requests.delete(
                 "accounts/me/client-sessions/${clientSessionId.encodeURLPathPart()}/"
@@ -202,7 +220,13 @@ class KtorSecondPassClient internal constructor(private val httpClient: HttpClie
         path: String,
         credential: BearerCredential
     ): T {
-        val requests = AuthenticatedRequestExecutor(httpClient, apiBaseUrl, credential, json)
+        val requests = AuthenticatedRequestExecutor(
+            httpClient,
+            apiBaseUrl,
+            credential,
+            json,
+            reportAuthenticatedUnreachable
+        )
         return requests.getDecoded(path, context = "authenticated context")
     }
 

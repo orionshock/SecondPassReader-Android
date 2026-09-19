@@ -16,6 +16,27 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class ConnectionRestorationTest : ConnectionCoordinatorTestSupport() {
     @Test
+    fun `verification uses connection target without exposing endpoint choice to features`() =
+        runTest {
+            val requestedProfiles = mutableListOf<ConnectionProfile>()
+            val coordinator = coordinator(
+                FakeClient(),
+                FakeProfileStore().apply { stored = profile() },
+                storedCredential(),
+                target = AuthenticatedConnectionTarget { selected, _ ->
+                    requestedProfiles += selected
+                    authenticatedContext()
+                }
+            )
+
+            coordinator.restore()
+            advanceUntilIdle()
+
+            assertEquals(listOf(profile()), requestedProfiles)
+            assertTrue(coordinator.state.value is ConnectionUiState.Linked)
+        }
+
+    @Test
     fun `matching persisted account is published before verification completes`() = runTest {
         val restoredProfile = profile()
         val persistedAccount =
@@ -215,24 +236,109 @@ internal class ConnectionRestorationTest : ConnectionCoordinatorTestSupport() {
         }
 
     @Test
-    fun `linked unreachable request retains local account for cache-first retry`() = runTest {
+    fun `linked unreachable request confirms loss and heals without clearing account`() = runTest {
         val profileStore = FakeProfileStore().apply { stored = profile() }
         val credentialStore = FakeCredentialStore().apply {
             stored = StoredCredential(BearerCredential.restore("spl_secret"), null)
         }
         val accountContextStore = FakePersistedAccountContextStore()
-        val coordinator =
-            coordinator(FakeClient(), profileStore, credentialStore, accountContextStore)
+        val failures = ArrayDeque<Exception>()
+        val coordinator = coordinator(
+            FakeClient(authFailures = failures),
+            profileStore,
+            credentialStore,
+            accountContextStore
+        )
         coordinator.restore()
         advanceUntilIdle()
         val resolvedLocalAccount = coordinator.localAccountContext.value
 
+        failures.add(SplClientException.ServerUnreachable())
         coordinator.authenticatedRequestUnreachable()
+        advanceUntilIdle()
 
-        assertTrue(coordinator.state.value is ConnectionUiState.RestoreProblem)
+        assertEquals(
+            InstallationReachability.UNREACHABLE,
+            (coordinator.state.value as ConnectionUiState.Linked).reachability
+        )
         assertEquals(resolvedLocalAccount, coordinator.localAccountContext.value)
         assertFalse(profileStore.cleared)
         assertFalse(credentialStore.cleared)
         assertFalse(accountContextStore.cleared)
+
+        coordinator.retryIfUnreachable()
+        advanceUntilIdle()
+        assertEquals(
+            InstallationReachability.REACHABLE,
+            (coordinator.state.value as ConnectionUiState.Linked).reachability
+        )
+        assertEquals(resolvedLocalAccount, coordinator.localAccountContext.value)
+    }
+
+    @Test
+    fun `a transient feature failure does not mark a reachable installation offline`() = runTest {
+        val coordinator = coordinator(
+            FakeClient(),
+            FakeProfileStore().apply { stored = profile() },
+            storedCredential()
+        )
+        coordinator.restore()
+        advanceUntilIdle()
+
+        coordinator.authenticatedRequestUnreachable()
+        advanceUntilIdle()
+
+        assertEquals(
+            InstallationReachability.REACHABLE,
+            (coordinator.state.value as ConnectionUiState.Linked).reachability
+        )
+    }
+
+    @Test
+    fun `malformed and server error responses do not become offline`() = runTest {
+        val failures = ArrayDeque<Exception>()
+        val coordinator = coordinator(
+            FakeClient(authFailures = failures),
+            FakeProfileStore().apply { stored = profile() },
+            storedCredential()
+        )
+        coordinator.restore()
+        advanceUntilIdle()
+
+        failures.add(SplClientException.ProtocolInvalid("account"))
+        coordinator.authenticatedRequestUnreachable()
+        advanceUntilIdle()
+        assertEquals(
+            InstallationReachability.REACHABLE,
+            (coordinator.state.value as ConnectionUiState.Linked).reachability
+        )
+
+        failures.add(SplClientException.AuthenticatedRequestFailed())
+        coordinator.authenticatedRequestUnreachable()
+        advanceUntilIdle()
+        assertEquals(
+            InstallationReachability.REACHABLE,
+            (coordinator.state.value as ConnectionUiState.Linked).reachability
+        )
+    }
+
+    @Test
+    fun `authentication rejection during reachability check requires repair`() = runTest {
+        val failures = ArrayDeque<Exception>()
+        val credentialStore = storedCredential()
+        val coordinator = coordinator(
+            FakeClient(authFailures = failures),
+            FakeProfileStore().apply { stored = profile() },
+            credentialStore
+        )
+        coordinator.restore()
+        advanceUntilIdle()
+
+        failures.add(SplClientException.AuthenticationRejected())
+        coordinator.authenticatedRequestUnreachable()
+        advanceUntilIdle()
+
+        assertTrue(coordinator.state.value is ConnectionUiState.AuthenticationRequired)
+        assertFalse(credentialStore.cleared)
     }
 }

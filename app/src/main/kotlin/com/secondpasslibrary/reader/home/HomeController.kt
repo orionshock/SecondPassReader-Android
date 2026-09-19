@@ -45,12 +45,24 @@ internal class HomeController(
     fun updateAppAvailability(availability: AppAvailability) {
         val offline = availability is AppAvailability.Offline
         if (mutableState.value.offline == offline) return
+        if (offline) {
+            recentReadingLoad?.cancel()
+            shelfLoad?.cancel()
+            account = null
+            connectionIdentity = null
+            accountProfileId = null
+            refreshAvailabilityTracker.reset()
+        }
         offlineAvailabilityLoad?.cancel()
         mutableState.value = mutableState.value.copy(
             offline = offline,
             locallyReadableBookIds = emptySet()
         )
         refreshOfflineBookAvailability()
+        if (offline) {
+            loadCachedRecentReading()
+            loadCachedShelves()
+        }
     }
 
     fun initializeCached(scope: HomeAccountScope) {

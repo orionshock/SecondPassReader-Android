@@ -3,6 +3,7 @@ package com.secondpasslibrary.reader.connection
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.secondpasslibrary.client.ClientSessionRevocationClient
+import com.secondpasslibrary.client.KtorSecondPassClient
 import com.secondpasslibrary.client.SecondPassClient
 import com.secondpasslibrary.reader.app.storage.AccountLocalDataLifecycle
 import com.secondpasslibrary.reader.connection.discovery.ConnectionLanDiscoveryController
@@ -28,7 +29,9 @@ internal constructor(
     accountLocalDataLifecycle: AccountLocalDataLifecycle,
     pollDelay: CoroutinePairingPollDelay,
     clientNameProvider: AndroidClientNameProvider,
-    lanLibraryUrlDiscovery: LanLibraryUrlDiscovery
+    lanLibraryUrlDiscovery: LanLibraryUrlDiscovery,
+    transport: KtorSecondPassClient,
+    networkChanges: AndroidNetworkChangeAdapter
 ) : ViewModel() {
     private val coordinator =
         ConnectionCoordinator(
@@ -68,18 +71,35 @@ internal constructor(
             abandonPairing = coordinator::abandonPairing,
             retryProfilePersistence = coordinator::retryProfilePersistence,
             retryStoredVerification = coordinator::retryStoredVerification,
-            retryRestore = coordinator::restore,
+            retryRestore = coordinator::retryReachabilityOrRestore,
             forgetLocalConnection = coordinator::forgetLocalConnection
         )
     internal val lifecycleActions =
         ConnectionLifecycleActions(
             reconnect = coordinator::relinkLocalAccount,
-            retryConnection = coordinator::restore,
+            retryConnection = coordinator::retryReachabilityOrRestore,
             logout = coordinator::logout,
             forget = coordinator::forgetLocalConnection
         )
 
     init {
+        viewModelScope.launch {
+            networkChanges.changes.collect { available ->
+                if (available) {
+                    coordinator.retryIfUnreachable()
+                } else {
+                    coordinator.authenticatedRequestUnreachable()
+                }
+            }
+        }
+        viewModelScope.launch {
+            transport.authenticatedAccessFailures.collect { failure ->
+                val linked = coordinator.state.value as? ConnectionUiState.Linked
+                if (linked?.profile?.apiBaseUrl == failure.apiBaseUrl) {
+                    coordinator.authenticatedRequestUnreachable()
+                }
+            }
+        }
         viewModelScope.launch {
             combine(
                 coordinator.state.map {
@@ -100,6 +120,8 @@ internal constructor(
     }
 
     fun pairingForegrounded() = coordinator.pairingForegrounded()
+
+    fun retryUnreachableOnForeground() = coordinator.retryIfUnreachable()
 
     fun retryRestore() = coordinator.restore()
 

@@ -22,6 +22,44 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeControllerTest {
     @Test
+    fun `offline transition cancels online Home work and retains cached content`() = runTest {
+        val account = projectionAccount()
+        val store = FakeHomeProjectionStore().apply {
+            seedRecent(account, ACTIVE_ONLY, listOf(recentItem("cached-reading")))
+        }
+        val entered = CompletableDeferred<Unit>()
+        val cancelled = CompletableDeferred<Unit>()
+        val remote = CompletableDeferred<Unit>()
+        val client = FakeHomeAuthenticatedClient().apply {
+            recentCall = {
+                entered.complete(Unit)
+                try {
+                    remote.await()
+                    listOf(recentItem("remote-reading"))
+                } finally {
+                    cancelled.complete(Unit)
+                }
+            }
+        }
+        val controller = controller(store, client)
+        controller.initializeCached(account.scope)
+        controller.provideVerifiedAuthority(account.profile, account.profileId)
+        entered.await()
+
+        controller.updateAppAvailability(
+            AppAvailability.Offline(AppAvailabilityReason.UNREACHABLE)
+        )
+        advanceUntilIdle()
+
+        assertTrue(cancelled.isCompleted)
+        assertTrue(controller.state.value.offline)
+        assertEquals(
+            listOf("cached-reading"),
+            controller.state.value.recentReading.content?.items?.map { it.sessionId }
+        )
+    }
+
+    @Test
     fun `offline cached reading marks only locally completed Books readable`() = runTest {
         val account = projectionAccount()
         val store = FakeHomeProjectionStore().apply {

@@ -49,8 +49,11 @@ sealed interface ConnectionUiState {
 
     data class LocalStorageProblem(val message: String) : ConnectionUiState
 
-    data class Linked(val profile: ConnectionProfile, val context: AuthenticatedContext) :
-        ConnectionUiState
+    data class Linked(
+        val profile: ConnectionProfile,
+        val context: AuthenticatedContext,
+        val reachability: InstallationReachability = InstallationReachability.REACHABLE
+    ) : ConnectionUiState
 
     data class TerminalPairingProblem(val message: String) : ConnectionUiState
 }

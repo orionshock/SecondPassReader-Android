@@ -14,7 +14,10 @@ import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -24,6 +27,30 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class KtorSecondPassClientTest {
+    @Test
+    fun `authenticated transport failure publishes endpoint hint without credential`() =
+        runBlocking {
+            val root = client { throw IOException("unreachable") }
+            val hint = async(start = CoroutineStart.UNDISPATCHED) {
+                root.authenticatedAccessFailures.first()
+            }
+
+            assertThrows(SplClientException.ServerUnreachable::class.java) {
+                runBlocking {
+                    root.loadAuthenticatedContext(
+                        "https://library.example/api/v1/",
+                        BearerCredential.restore("spl_secret")
+                    )
+                }
+            }
+
+            assertEquals(
+                AuthenticatedAccessFailure("https://library.example/api/v1/"),
+                hint.await()
+            )
+            root.close()
+        }
+
     @Test
     fun `root close releases the shared transport once and invalidates authenticated children`() {
         var requests = 0

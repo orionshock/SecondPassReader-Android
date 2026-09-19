@@ -4,6 +4,7 @@ import com.secondpasslibrary.client.AuthenticatedContext
 import com.secondpasslibrary.client.AuthenticatedServerInfo
 import com.secondpasslibrary.client.CurrentUser
 import com.secondpasslibrary.reader.connection.ConnectionUiState
+import com.secondpasslibrary.reader.connection.InstallationReachability
 import com.secondpasslibrary.reader.connection.LocalAccountContext
 import com.secondpasslibrary.reader.connection.PersistedAccountContext
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
@@ -276,7 +277,7 @@ class AppSessionControllerTest {
     }
 
     @Test
-    fun `Home refresh availability updates ambient state without replacing cached shell`() =
+    fun `Home failure cannot declare installation offline without connection confirmation`() =
         runTest {
             val account = projectionAccount()
             val store = FakeHomeProjectionStore().apply {
@@ -297,17 +298,35 @@ class AppSessionControllerTest {
             controller.updateHomeRefreshAvailability(HomeRefreshAvailability.REFRESHING)
             val syncing = controller.state.value as AppSessionState.AccountShell
             controller.updateHomeRefreshAvailability(HomeRefreshAvailability.UNREACHABLE)
+            val stillSyncing = controller.state.value as AppSessionState.AccountShell
+            controller.updateConnection(
+                ConnectionUiState.Linked(
+                    account.profile,
+                    context,
+                    InstallationReachability.UNREACHABLE
+                ),
+                account.localContext()
+            )
             val offline = controller.state.value as AppSessionState.AccountShell
             controller.updateHomeRefreshAvailability(HomeRefreshAvailability.REACHABLE)
+            val stillOffline = controller.state.value as AppSessionState.AccountShell
+            controller.updateConnection(
+                ConnectionUiState.Linked(account.profile, context),
+                account.localContext()
+            )
             val online = controller.state.value as AppSessionState.AccountShell
 
             assertSame(initial.profile, syncing.profile)
             assertEquals(AppAvailability.Syncing, syncing.availability)
+            assertEquals(AppAvailability.Syncing, stillSyncing.availability)
             assertSame(initial.profile, offline.profile)
+            assertEquals(AppSessionAuthority.Verified(context), offline.authority)
+            assertSame(context, offline.authenticatedFeatureContext)
             assertEquals(
                 AppAvailability.Offline(AppAvailabilityReason.UNREACHABLE),
                 offline.availability
             )
+            assertEquals(offline.availability, stillOffline.availability)
             assertSame(initial.profile, online.profile)
             assertEquals(AppAvailability.Online, online.availability)
         }
