@@ -4,6 +4,7 @@ import com.secondpasslibrary.client.BearerCredential
 import com.secondpasslibrary.client.SplClientException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -15,6 +16,99 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class ConnectionRestorationTest : ConnectionCoordinatorTestSupport() {
+    @Test
+    fun `user offline intent survives restart and blocks automatic recovery`() = runTest {
+        val events = mutableListOf<String>()
+        val profiles = FakeProfileStore().apply { stored = profile() }
+        val credentials = storedCredential()
+        val accounts = FakePersistedAccountContextStore()
+        val intent = FakeWorkOfflineStore()
+        val cleaner = FakeAccountLocalDataCleaner()
+        val first = coordinator(
+            FakeClient(events = events),
+            profiles,
+            credentials,
+            accounts,
+            cleaner = cleaner,
+            workOfflineStore = intent
+        )
+        first.restore()
+        advanceUntilIdle()
+        first.workOffline()
+        advanceUntilIdle()
+        assertTrue(first.state.value is ConnectionUiState.WorkingOffline)
+        val verifications = events.count { it == "verify" }
+
+        first.authenticatedRequestUnreachable()
+        first.retryIfUnreachable()
+        advanceUntilIdle()
+        assertTrue(first.state.value is ConnectionUiState.WorkingOffline)
+        assertEquals(verifications, events.count { it == "verify" })
+
+        val restarted = coordinator(
+            FakeClient(events = events),
+            profiles,
+            credentials,
+            accounts,
+            workOfflineStore = intent
+        )
+        restarted.restore()
+        advanceUntilIdle()
+        assertTrue(restarted.state.value is ConnectionUiState.WorkingOffline)
+        assertEquals(verifications, events.count { it == "verify" })
+        assertFalse(profiles.cleared)
+        assertFalse(credentials.cleared)
+        assertTrue(cleaner.purged.isEmpty())
+
+        val reconnect = async { restarted.checkConnectionNow() }
+        advanceUntilIdle()
+        assertTrue(reconnect.await())
+        assertTrue(restarted.state.value is ConnectionUiState.Linked)
+    }
+
+    @Test
+    fun `explicit reconnect leaves forced offline but unavailable Library stays offline`() =
+        runTest {
+            val failures = ArrayDeque<Exception>()
+            val coordinator = coordinator(
+                FakeClient(authFailures = failures),
+                FakeProfileStore().apply { stored = profile() },
+                storedCredential()
+            )
+            coordinator.restore()
+            advanceUntilIdle()
+            coordinator.workOffline()
+            advanceUntilIdle()
+            failures.add(SplClientException.ServerUnreachable())
+
+            val result = async { coordinator.checkConnectionNow() }
+            advanceUntilIdle()
+
+            assertFalse(result.await())
+            assertTrue(coordinator.state.value is ConnectionUiState.RestoreProblem)
+        }
+
+    @Test
+    fun `explicit reconnect keeps authentication rejection in repair category`() = runTest {
+        val failures = ArrayDeque<Exception>()
+        val coordinator = coordinator(
+            FakeClient(authFailures = failures),
+            FakeProfileStore().apply { stored = profile() },
+            storedCredential()
+        )
+        coordinator.restore()
+        advanceUntilIdle()
+        coordinator.workOffline()
+        advanceUntilIdle()
+        failures.add(SplClientException.AuthenticationRejected())
+
+        val result = async { coordinator.checkConnectionNow() }
+        advanceUntilIdle()
+
+        assertFalse(result.await())
+        assertTrue(coordinator.state.value is ConnectionUiState.AuthenticationRequired)
+    }
+
     @Test
     fun `verification uses connection target without exposing endpoint choice to features`() =
         runTest {

@@ -42,6 +42,9 @@ internal constructor(
 
     fun retryShelves() = controller.retryShelves()
 
+    internal suspend fun refreshAll(profile: ConnectionProfile?, profileId: String?) =
+        controller.refreshAll(profile, profileId)
+
     fun searchLibrary(query: String) =
         controller.navigate(HomeNavigationIntent.LibrarySearch(query))
 

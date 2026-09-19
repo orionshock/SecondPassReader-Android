@@ -51,6 +51,7 @@ import com.secondpasslibrary.reader.home.HomeRefreshAvailability
 import kotlinx.coroutines.launch
 
 @Composable
+@Suppress("LongMethod") // One shell composition wires navigation and account status.
 internal fun AccountAppShell(
     session: AppSessionState.AccountShell,
     connectionActions: ConnectionScreenActions,
@@ -58,6 +59,9 @@ internal fun AccountAppShell(
     lifecycleActions: ConnectionLifecycleActions,
     onAuthenticationRejected: () -> Unit,
     onHomeRefreshAvailabilityChanged: (HomeRefreshAvailability) -> Unit,
+    onCheckConnection: suspend () -> Boolean,
+    onWorkOffline: () -> Unit,
+    onReconnect: () -> Unit,
     syncOutcomeNotice: ReaderSyncOutcomeNotice?,
     onSyncOutcomeNoticeAcknowledged: (Long) -> Unit,
     modifier: Modifier = Modifier
@@ -102,6 +106,9 @@ internal fun AccountAppShell(
                     navigator,
                     onAuthenticationRejected,
                     onHomeRefreshAvailabilityChanged,
+                    onCheckConnection,
+                    onWorkOffline,
+                    onReconnect,
                     snackbarHostState,
                     onOpenDrawer = { coroutineScope.launch { drawer.state.open() } }
                 )
@@ -132,6 +139,9 @@ private fun AccountShellScaffold(
     navigator: AppNavigator,
     onAuthenticationRejected: () -> Unit,
     onHomeRefreshAvailabilityChanged: (HomeRefreshAvailability) -> Unit,
+    onCheckConnection: suspend () -> Boolean,
+    onWorkOffline: () -> Unit,
+    onReconnect: () -> Unit,
     snackbarHostState: SnackbarHostState,
     onOpenDrawer: () -> Unit
 ) {
@@ -157,6 +167,9 @@ private fun AccountShellScaffold(
                 navigator = navigator,
                 onAuthenticationRejected = onAuthenticationRejected,
                 onHomeRefreshAvailabilityChanged = onHomeRefreshAvailabilityChanged,
+                onCheckConnection = onCheckConnection,
+                onWorkOffline = onWorkOffline,
+                onReconnect = onReconnect,
                 onRetryConnection = connectionActions.retryRestore,
                 onRelinkAccount = connectionActions.relinkLocalAccount,
                 onForgetAccount = connectionActions.forgetLocalConnection,
@@ -182,6 +195,9 @@ private fun AppAvailability.toAppBarNetworkPresentation(
                     "Offline — retry connection",
                     actions.retryRestore
                 )
+
+            AppAvailabilityReason.USER_CHOICE ->
+                AppBarNetworkPresentation(AppBarNetworkStatus.OFFLINE, "Working offline")
 
             AppAvailabilityReason.AUTHENTICATION_REQUIRED ->
                 AppBarNetworkPresentation(

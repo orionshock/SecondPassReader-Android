@@ -44,6 +44,10 @@ sealed interface ConnectionUiState {
     data class RestoreProblem(val profile: ConnectionProfile, val message: String) :
         ConnectionUiState
 
+    data class WorkingOffline(val profile: ConnectionProfile) : ConnectionUiState
+
+    data class CheckingConnection(val profile: ConnectionProfile) : ConnectionUiState
+
     data class AuthenticationRequired(val profile: ConnectionProfile, val message: String) :
         ConnectionUiState
 

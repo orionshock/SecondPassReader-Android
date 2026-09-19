@@ -23,6 +23,10 @@ internal sealed interface AppSessionAuthority {
 
     data class TransientFailure(val message: String) : AppSessionAuthority
 
+    data object WorkingOffline : AppSessionAuthority
+
+    data object CheckingConnection : AppSessionAuthority
+
     data class AuthenticationRequired(val message: String) : AppSessionAuthority
 
     data class Healing(val connection: ConnectionUiState) : AppSessionAuthority
@@ -40,6 +44,12 @@ private fun AppSessionAuthority.toAvailability(): AppAvailability = when (this) 
     is AppSessionAuthority.Verified -> AppAvailability.Online
 
     is AppSessionAuthority.TransientFailure ->
+        AppAvailability.Offline(AppAvailabilityReason.UNREACHABLE)
+
+    AppSessionAuthority.WorkingOffline ->
+        AppAvailability.Offline(AppAvailabilityReason.USER_CHOICE)
+
+    AppSessionAuthority.CheckingConnection ->
         AppAvailability.Offline(AppAvailabilityReason.UNREACHABLE)
 
     is AppSessionAuthority.AuthenticationRequired ->

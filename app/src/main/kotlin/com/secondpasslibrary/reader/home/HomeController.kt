@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 
 @Suppress("TooManyFunctions") // Two cached sections expose independent retry and refresh intents.
 internal class HomeController(
@@ -41,6 +42,7 @@ internal class HomeController(
     private var recentReadingLoad: Job? = null
     private var shelfLoad: Job? = null
     private var offlineAvailabilityLoad: Job? = null
+    private val explicitRefresh = Mutex()
 
     fun updateAppAvailability(availability: AppAvailability) {
         val offline = availability is AppAvailability.Offline
@@ -120,6 +122,28 @@ internal class HomeController(
 
     fun retryShelves() {
         if (account == null) loadCachedShelves() else refreshShelves()
+    }
+
+    /** The one explicit Home refresh; both sections remain owned by their existing projection seam. */
+    suspend fun refreshAll(profile: ConnectionProfile?, profileId: String?) {
+        if (!explicitRefresh.tryLock()) return
+        try {
+            if (profile != null && profileId != null) {
+                val hadAuthority = account != null
+                provideVerifiedAuthority(profile, profileId)
+                if (hadAuthority) {
+                    refreshRecentReading()
+                    refreshShelves()
+                }
+            } else {
+                loadCachedRecentReading()
+                loadCachedShelves()
+            }
+            recentReadingLoad?.join()
+            shelfLoad?.join()
+        } finally {
+            explicitRefresh.unlock()
+        }
     }
 
     fun navigate(intent: HomeNavigationIntent) {

@@ -8,8 +8,11 @@ mechanisms may differ.
 
 Offline support exists for downloaded-publication reading, Reader progress, Reader-authored
 marginalia, and personal reading continuity. It is not a general offline administration layer.
-"Offline" means the verified Second Pass Library installation is currently unreachable, not
-merely that Android has no network. Home, Library, Reader, and sync consume installation
+Offline behavior can follow Library unavailability or the account's explicit **Work offline** choice;
+Android network availability alone never establishes Library reachability. The choice survives
+restart and suppresses automatic recovery until the reader explicitly reconnects. Home refresh
+may ask Connection to check the Library, but does not own that check. Home, Library, Reader, and
+sync consume installation
 availability; they do not know or select endpoint URLs. A Library may later have multiple known
 locations without changing this product rule.
 Shelf mutations, library metadata changes, group/ACL operations, and librarian actions remain

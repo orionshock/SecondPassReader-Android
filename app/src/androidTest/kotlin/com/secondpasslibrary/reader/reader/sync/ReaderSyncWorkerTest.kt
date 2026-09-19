@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.work.ListenableWorker
 import androidx.work.testing.TestListenableWorkerBuilder
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.connection.storage.WorkOfflineStore
 import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.persistence.ReaderBoundOutboxSession
@@ -26,6 +27,10 @@ class ReaderSyncWorkerTest {
             ReaderReconnectOperation { _, _ ->
                 store.pending = false
                 ReaderReconnectReport(hadPendingWork = true, remainingPendingWork = false)
+            },
+            object : WorkOfflineStore {
+                override suspend fun read(accountKey: String) = false
+                override suspend fun write(accountKey: String, enabled: Boolean) = Unit
             }
         )
         val context = ApplicationProvider.getApplicationContext<Context>()

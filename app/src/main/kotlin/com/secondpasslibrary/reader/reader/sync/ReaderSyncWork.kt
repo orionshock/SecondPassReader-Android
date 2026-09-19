@@ -16,6 +16,7 @@ import androidx.work.WorkerParameters
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.ConnectionProfileStore
 import com.secondpasslibrary.reader.connection.storage.PersistedAccountContextStore
+import com.secondpasslibrary.reader.connection.storage.WorkOfflineStore
 import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.ReaderPendingSyncScheduler
 import com.secondpasslibrary.reader.reader.persistence.ReaderOutboxStore
@@ -125,7 +126,8 @@ internal enum class ReaderSyncWorkerOutcome {
 internal class ReaderSyncWorkerExecution @Inject constructor(
     private val accountResolver: ReaderSyncAccountResolution,
     private val outbox: ReaderOutboxStore,
-    private val reconnect: ReaderReconnectOperation
+    private val reconnect: ReaderReconnectOperation,
+    private val workOfflineStore: WorkOfflineStore
 ) {
     suspend fun execute(persistedAccountKey: String): ReaderSyncWorkerOutcome = try {
         val account = runCatching {
@@ -133,6 +135,7 @@ internal class ReaderSyncWorkerExecution @Inject constructor(
         }.getOrNull() ?: return ReaderSyncWorkerOutcome.SUCCESS
         val profile = accountResolver.resolve(account) ?: return ReaderSyncWorkerOutcome.SUCCESS
         if (!outbox.hasPendingWork(account)) return ReaderSyncWorkerOutcome.SUCCESS
+        if (workOfflineStore.read(account.value)) return ReaderSyncWorkerOutcome.RETRY
         reconnect.reconnect(profile, account).toWorkerOutcome()
     } catch (cancellation: CancellationException) {
         throw cancellation

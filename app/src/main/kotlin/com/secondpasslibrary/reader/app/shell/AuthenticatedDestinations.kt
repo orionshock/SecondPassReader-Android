@@ -38,6 +38,9 @@ internal fun AccountDestinations(
     navigator: AppNavigator,
     onAuthenticationRejected: () -> Unit,
     onHomeRefreshAvailabilityChanged: (HomeRefreshAvailability) -> Unit,
+    onCheckConnection: suspend () -> Boolean,
+    onWorkOffline: () -> Unit,
+    onReconnect: () -> Unit,
     onRetryConnection: () -> Unit,
     onRelinkAccount: () -> Unit,
     onForgetAccount: () -> Unit,
@@ -53,6 +56,9 @@ internal fun AccountDestinations(
                 navigator,
                 onAuthenticationRejected,
                 onHomeRefreshAvailabilityChanged,
+                onCheckConnection,
+                onWorkOffline,
+                onReconnect,
                 onRetryConnection,
                 onRelinkAccount,
                 onForgetAccount,
@@ -85,6 +91,9 @@ internal data class AccountDestinationEnvironment(
     val navigator: AppNavigator,
     val onAuthenticationRejected: () -> Unit,
     val onHomeRefreshAvailabilityChanged: (HomeRefreshAvailability) -> Unit,
+    val onCheckConnection: suspend () -> Boolean,
+    val onWorkOffline: () -> Unit,
+    val onReconnect: () -> Unit,
     val onRetryConnection: () -> Unit,
     val onRelinkAccount: () -> Unit,
     val onForgetAccount: () -> Unit,
@@ -109,7 +118,8 @@ private fun EntryProviderScope<AppRoute>.registerHomeEntry(
             current.session,
             current.navigator,
             current.onAuthenticationRejected,
-            current.onHomeRefreshAvailabilityChanged
+            current.onHomeRefreshAvailabilityChanged,
+            current.onCheckConnection
         )
     }
 }
@@ -145,6 +155,11 @@ private fun EntryProviderScope<AppRoute>.registerAuthenticatedTopLevelEntries(
             profileId = current.session.profileId,
             context = current.session.authenticatedFeatureContext,
             status = current.session.authority.toSettingsConnectionStatus(),
+            availability = current.session.availability,
+            checkingConnection =
+                current.session.authority == AppSessionAuthority.CheckingConnection,
+            onWorkOffline = current.onWorkOffline,
+            onReconnect = current.onReconnect,
             lifecycleActionState = current.lifecycleActionState,
             lifecycleActions = current.lifecycleActions
         )
@@ -286,7 +301,8 @@ private fun HomeDestination(
     session: AppSessionState.AccountShell,
     navigator: AppNavigator,
     onAuthenticationRejected: () -> Unit,
-    onRefreshAvailabilityChanged: (HomeRefreshAvailability) -> Unit
+    onRefreshAvailabilityChanged: (HomeRefreshAvailability) -> Unit,
+    onCheckConnection: suspend () -> Boolean
 ) {
     HomeScreen(
         profile = session.profile,
@@ -295,16 +311,19 @@ private fun HomeDestination(
         availability = session.availability,
         onNavigation = navigator::handleHomeNavigation,
         onAuthenticationRejected = onAuthenticationRejected,
-        onRefreshAvailabilityChanged = onRefreshAvailabilityChanged
+        onRefreshAvailabilityChanged = onRefreshAvailabilityChanged,
+        onCheckConnection = onCheckConnection
     )
 }
 
 private fun AppSessionAuthority.toSettingsConnectionStatus(): SettingsConnectionStatus =
     when (this) {
         AppSessionAuthority.Restoring,
-        is AppSessionAuthority.Healing -> SettingsConnectionStatus.RECONNECTING
+        is AppSessionAuthority.Healing,
+        AppSessionAuthority.CheckingConnection -> SettingsConnectionStatus.RECONNECTING
 
-        is AppSessionAuthority.TransientFailure -> SettingsConnectionStatus.OFFLINE
+        is AppSessionAuthority.TransientFailure,
+        AppSessionAuthority.WorkingOffline -> SettingsConnectionStatus.OFFLINE
 
         is AppSessionAuthority.AuthenticationRequired ->
             SettingsConnectionStatus.AUTHENTICATION_REQUIRED

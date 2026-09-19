@@ -11,5 +11,6 @@ internal sealed interface AppAvailability {
 
 internal enum class AppAvailabilityReason {
     UNREACHABLE,
+    USER_CHOICE,
     AUTHENTICATION_REQUIRED
 }

@@ -9,6 +9,7 @@ import com.secondpasslibrary.reader.app.storage.AccountLocalDataLifecycle
 import com.secondpasslibrary.reader.connection.discovery.ConnectionLanDiscoveryController
 import com.secondpasslibrary.reader.connection.discovery.LanLibraryUrlDiscovery
 import com.secondpasslibrary.reader.connection.pairing.CoroutinePairingPollDelay
+import com.secondpasslibrary.reader.connection.storage.WorkOfflineStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +27,7 @@ internal constructor(
     client: SecondPassClient,
     clientSessionRevocationClient: ClientSessionRevocationClient,
     persistence: ConnectionPersistence,
+    workOfflineStore: WorkOfflineStore,
     accountLocalDataLifecycle: AccountLocalDataLifecycle,
     pollDelay: CoroutinePairingPollDelay,
     clientNameProvider: AndroidClientNameProvider,
@@ -38,6 +40,7 @@ internal constructor(
             client = client,
             clientSessionRevocationClient = clientSessionRevocationClient,
             persistence = persistence,
+            workOfflineStore = workOfflineStore,
             accountLocalDataLifecycle = accountLocalDataLifecycle,
             pollDelay = pollDelay,
             defaultClientName = clientNameProvider.defaultName(),
@@ -124,6 +127,14 @@ internal constructor(
     fun retryUnreachableOnForeground() = coordinator.retryIfUnreachable()
 
     fun retryRestore() = coordinator.restore()
+
+    fun workOffline() = coordinator.workOffline()
+
+    fun reconnect() {
+        viewModelScope.launch { coordinator.checkConnectionNow() }
+    }
+
+    internal suspend fun checkConnectionNow(): Boolean = coordinator.checkConnectionNow()
 
     override fun onCleared() {
         lanDiscovery.stop()

@@ -8,6 +8,7 @@ import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.app.storage.AccountLocalDataLifecycle
 import com.secondpasslibrary.reader.connection.pairing.ConnectionPairingController
 import com.secondpasslibrary.reader.connection.pairing.PairingPollDelay
+import com.secondpasslibrary.reader.connection.storage.WorkOfflineStore
 import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -24,6 +25,7 @@ internal class ConnectionCoordinator(
     private val clientSessionRevocationClient: ClientSessionRevocationClient,
     private val persistence: ConnectionPersistence,
     private val accountLocalDataLifecycle: AccountLocalDataLifecycle,
+    private val workOfflineStore: WorkOfflineStore,
     pollDelay: PairingPollDelay,
     private val defaultClientName: String,
     private val scope: CoroutineScope,
@@ -69,12 +71,27 @@ internal class ConnectionCoordinator(
                 is DurableConnectionRestore.RecoveryRequired ->
                     mutableState.value = persistenceRecoveryState(restored.profile)
 
-                is DurableConnectionRestore.Committed ->
-                    verifyStored(
-                        restored.connection.profile,
-                        restored.connection.credential,
-                        restoring = true
-                    )
+                is DurableConnectionRestore.Committed -> {
+                    val accountKey = mutableLocalAccountContext.value?.persistedAccount
+                        ?.localDataScope()?.storageKey
+                    val preference = attempt {
+                        accountKey?.let { workOfflineStore.read(it) } == true
+                    }
+                    if (preference.isFailure) {
+                        mutableState.value = ConnectionUiState.LocalStorageProblem(
+                            "Offline choice could not be read. Retry."
+                        )
+                    } else if (preference.getOrDefault(false)) {
+                        mutableState.value =
+                            ConnectionUiState.WorkingOffline(restored.connection.profile)
+                    } else {
+                        verifyStored(
+                            restored.connection.profile,
+                            restored.connection.credential,
+                            restoring = true
+                        )
+                    }
+                }
             }
         }.onFailure { failure ->
             if (failure is ConnectionProfileStorageException ||
@@ -290,6 +307,7 @@ internal class ConnectionCoordinator(
         }
     }
 
+    @Suppress("LongMethod") // Verification includes the account-scope replacement transaction.
     private suspend fun verifyStored(
         profile: ConnectionProfile,
         credential: BearerCredential,
@@ -311,6 +329,7 @@ internal class ConnectionCoordinator(
             ) {
                 val purgeResult = attempt {
                     accountLocalDataLifecycle.purge(previousAccount.localDataScope())
+                    workOfflineStore.write(previousAccount.localDataScope().storageKey, false)
                     persistence.clearAccountContext()
                 }
                 purgeResult.exceptionOrNull()?.let { failure ->
@@ -359,7 +378,10 @@ internal class ConnectionCoordinator(
         val localDataScope =
             mutableLocalAccountContext.value?.persistedAccount?.localDataScope()
                 ?: persistence.readLocalAccountScope()
-        localDataScope?.let { accountLocalDataLifecycle.purge(it) }
+        localDataScope?.let {
+            accountLocalDataLifecycle.purge(it)
+            workOfflineStore.write(it.storageKey, false)
+        }
         mutableLocalAccountContext.value = null
         persistence.clear()
     }
@@ -405,6 +427,61 @@ internal class ConnectionCoordinator(
             return
         }
         reachabilityCheck = scope.launch { verifyLinkedReachability(linked) }
+    }
+
+    fun workOffline() {
+        val profile = when (val current = mutableState.value) {
+            is ConnectionUiState.Linked -> current.profile
+            is ConnectionUiState.RestoreProblem -> current.profile
+            else -> return
+        }
+        val account = mutableLocalAccountContext.value?.persistedAccount?.localDataScope()
+            ?: return
+        replaceOperation {
+            if (attempt { workOfflineStore.write(account.storageKey, true) }.isSuccess) {
+                mutableState.value = ConnectionUiState.WorkingOffline(profile)
+            }
+        }
+    }
+
+    /** Explicit verification for Settings and Home through the current connection target. */
+    @Suppress("ReturnCount") // Early exits avoid starting another check without a valid profile.
+    suspend fun checkConnectionNow(): Boolean {
+        if (mutableState.value is ConnectionUiState.CheckingConnection) {
+            operation?.join()
+            return (mutableState.value as? ConnectionUiState.Linked)?.reachability ==
+                InstallationReachability.REACHABLE
+        }
+        val previous = mutableState.value
+        val profile = when (val current = previous) {
+            is ConnectionUiState.Linked -> current.profile
+            is ConnectionUiState.WorkingOffline -> current.profile
+            is ConnectionUiState.RestoreProblem -> current.profile
+            else -> return false
+        }
+        replaceOperation {
+            mutableState.value = ConnectionUiState.CheckingConnection(profile)
+            val accountKey = mutableLocalAccountContext.value?.persistedAccount
+                ?.localDataScope()?.storageKey
+            if (accountKey != null &&
+                attempt { workOfflineStore.write(accountKey, false) }.isFailure
+            ) {
+                mutableState.value = previous
+                return@replaceOperation
+            }
+            val credential = attempt { persistence.readCredential() }.getOrNull()
+            if (credential == null) {
+                mutableState.value = ConnectionUiState.AuthenticationRequired(
+                    profile,
+                    "This connection needs repair."
+                )
+            } else {
+                verifyStored(profile, credential, restoring = true)
+            }
+        }
+        operation?.join()
+        return (mutableState.value as? ConnectionUiState.Linked)?.reachability ==
+            InstallationReachability.REACHABLE
     }
 
     fun retryReachabilityOrRestore() {

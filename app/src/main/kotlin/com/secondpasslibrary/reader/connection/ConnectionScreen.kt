@@ -86,6 +86,10 @@ internal fun ConnectionScreen(
                     actions.abandonPairing
                 )
 
+            is ConnectionUiState.WorkingOffline -> BusyContent("Working offline")
+
+            is ConnectionUiState.CheckingConnection -> BusyContent("Checking connection")
+
             is ConnectionUiState.Linked -> error("ConnectionScreen cannot render linked state.")
         }
     }

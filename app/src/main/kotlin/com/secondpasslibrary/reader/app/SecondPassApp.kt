@@ -28,6 +28,7 @@ import com.secondpasslibrary.reader.connection.ConnectionViewModel
 import com.secondpasslibrary.reader.home.HomeRefreshAvailability
 
 @Composable
+@Suppress("LongMethod") // Root composition wires the existing shell and connection owner.
 fun SecondPassApp(
     modifier: Modifier = Modifier,
     connectionViewModel: ConnectionViewModel = viewModel(),
@@ -84,6 +85,9 @@ fun SecondPassApp(
                                     connectionViewModel.onAuthenticatedRequestUnreachable()
                                 }
                             },
+                        onCheckConnection = connectionViewModel::checkConnectionNow,
+                        onWorkOffline = connectionViewModel::workOffline,
+                        onReconnect = connectionViewModel::reconnect,
                         syncOutcomeNotice = syncOutcomeNotice,
                         onSyncOutcomeNoticeAcknowledged =
                             appSessionViewModel::acknowledgeSyncOutcomeNotice

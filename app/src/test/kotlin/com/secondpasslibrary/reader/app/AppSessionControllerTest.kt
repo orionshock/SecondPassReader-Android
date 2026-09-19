@@ -30,6 +30,34 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class AppSessionControllerTest {
     @Test
+    fun `user offline keeps shell and local account without requiring Home cache`() = runTest {
+        val account = projectionAccount()
+        val controller = controller(FakeHomeProjectionStore())
+        val context = authenticatedContext(account.profileId)
+        controller.updateConnection(
+            ConnectionUiState.Linked(account.profile, context),
+            account.localContext()
+        )
+
+        controller.updateConnection(
+            ConnectionUiState.WorkingOffline(account.profile),
+            account.localContext()
+        )
+
+        val shell = controller.state.value as AppSessionState.AccountShell
+        assertEquals(AppAvailability.Offline(AppAvailabilityReason.USER_CHOICE), shell.availability)
+        assertSame(context, shell.authenticatedFeatureContext)
+
+        val restarted = controller(FakeHomeProjectionStore())
+        restarted.updateConnection(
+            ConnectionUiState.WorkingOffline(account.profile),
+            account.localContext()
+        )
+        advanceUntilIdle()
+        assertTrue(restarted.state.value is AppSessionState.AccountShell)
+    }
+
+    @Test
     fun `no local account remains in resolving connection presentation`() = runTest {
         val controller = controller(FakeHomeProjectionStore())
 

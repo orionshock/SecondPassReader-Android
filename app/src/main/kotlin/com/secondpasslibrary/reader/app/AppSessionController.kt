@@ -46,6 +46,8 @@ internal class AppSessionController(
 
             ConnectionUiState.Restoring,
             is ConnectionUiState.RestoreProblem,
+            is ConnectionUiState.WorkingOffline,
+            is ConnectionUiState.CheckingConnection,
             is ConnectionUiState.AuthenticationRequired,
             is ConnectionUiState.VerifyingServer,
             is ConnectionUiState.ServerConfirmed,
@@ -107,7 +109,7 @@ internal class AppSessionController(
             return
         }
         if (account == evaluatedAccount && cachedHomeEligible != null) {
-            publishCachedShell(account, checkNotNull(cachedHomeEligible))
+            publishCachedShell(account, cachedHomeEligibleForConnection())
             return
         }
 
@@ -116,19 +118,7 @@ internal class AppSessionController(
         cachedHomeEligible = null
         mutableState.value = AppSessionState.Resolving
         eligibilityLoad = scope.launch {
-            val eligible =
-                try {
-                    homeRepository.hasCachedProjection(
-                        HomeAccountScope(
-                            account.profile.serverOrigin,
-                            account.persistedAccount.profileId
-                        )
-                    )
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (_: Exception) {
-                    false
-                }
+            val eligible = hasOfflineShellContent(account)
             if (account != localAccount ||
                 connectionState is ConnectionUiState.Linked
             ) {
@@ -157,6 +147,22 @@ internal class AppSessionController(
                         account.profile.serverOrigin to account.persistedAccount.profileId
                 }
             )
+    }
+
+    private fun cachedHomeEligibleForConnection(): Boolean =
+        checkNotNull(cachedHomeEligible) || connectionState is ConnectionUiState.WorkingOffline
+
+    private suspend fun hasOfflineShellContent(account: LocalAccountContext): Boolean {
+        if (connectionState is ConnectionUiState.WorkingOffline) return true
+        return try {
+            homeRepository.hasCachedProjection(
+                HomeAccountScope(account.profile.serverOrigin, account.persistedAccount.profileId)
+            )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            false
+        }
     }
 
     private fun retainAdmittedShell(
@@ -199,6 +205,10 @@ private fun ConnectionUiState.toShellAuthority(): AppSessionAuthority? = when (t
     ConnectionUiState.Restoring -> AppSessionAuthority.Restoring
 
     is ConnectionUiState.RestoreProblem -> AppSessionAuthority.TransientFailure(message)
+
+    is ConnectionUiState.WorkingOffline -> AppSessionAuthority.WorkingOffline
+
+    is ConnectionUiState.CheckingConnection -> AppSessionAuthority.CheckingConnection
 
     is ConnectionUiState.AuthenticationRequired ->
         AppSessionAuthority.AuthenticationRequired(message)

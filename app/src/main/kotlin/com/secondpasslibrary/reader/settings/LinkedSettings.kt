@@ -13,6 +13,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.secondpasslibrary.client.AuthenticatedContext
+import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.app.storage.AccountLocalScope
 import com.secondpasslibrary.reader.connection.ConnectionLifecycleActionState
 import com.secondpasslibrary.reader.connection.ConnectionLifecycleActions
@@ -26,6 +27,10 @@ internal fun LinkedSettings(
     profileId: String,
     context: AuthenticatedContext?,
     status: SettingsConnectionStatus,
+    availability: AppAvailability,
+    checkingConnection: Boolean,
+    onWorkOffline: () -> Unit,
+    onReconnect: () -> Unit,
     lifecycleActionState: ConnectionLifecycleActionState,
     lifecycleActions: ConnectionLifecycleActions,
     downloadsViewModel: SettingsDownloadsViewModel = viewModel()
@@ -60,7 +65,11 @@ internal fun LinkedSettings(
             SettingsSection.READER -> ReaderSettingsStateHost()
 
             SettingsSection.OFFLINE -> OfflineSettingsSection(
-                downloads,
+                availability = availability,
+                checkingConnection = checkingConnection,
+                onWorkOffline = onWorkOffline,
+                onReconnect = onReconnect,
+                state = downloads,
                 onRefresh = downloadsViewModel::refresh,
                 onRemove = downloadsViewModel::remove,
                 onRemoveAll = downloadsViewModel::removeAll

@@ -17,6 +17,7 @@ import com.secondpasslibrary.reader.app.storage.AccountLocalDataLifecycle
 import com.secondpasslibrary.reader.app.storage.AccountLocalScope
 import com.secondpasslibrary.reader.connection.pairing.PairingPollDelay
 import com.secondpasslibrary.reader.connection.storage.PersistedAccountContextStore
+import com.secondpasslibrary.reader.connection.storage.WorkOfflineStore
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
@@ -33,6 +34,15 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal abstract class ConnectionCoordinatorTestSupport {
+    protected class FakeWorkOfflineStore : WorkOfflineStore {
+        private val enabled = mutableSetOf<String>()
+
+        override suspend fun read(accountKey: String): Boolean = accountKey in enabled
+
+        override suspend fun write(accountKey: String, enabled: Boolean) {
+            if (enabled) this.enabled.add(accountKey) else this.enabled.remove(accountKey)
+        }
+    }
     protected suspend fun TestScope.startPairing(coordinator: ConnectionCoordinator) {
         coordinator.restore()
         advanceUntilIdle()
@@ -49,6 +59,7 @@ internal abstract class ConnectionCoordinatorTestSupport {
         accountContextStore: FakePersistedAccountContextStore =
             FakePersistedAccountContextStore(),
         cleaner: FakeAccountLocalDataCleaner = FakeAccountLocalDataCleaner(),
+        workOfflineStore: WorkOfflineStore = FakeWorkOfflineStore(),
         revocationClient: FakeClientSessionRevocationClient =
             FakeClientSessionRevocationClient(),
         target: AuthenticatedConnectionTarget = client.asAuthenticatedConnectionTarget()
@@ -57,6 +68,7 @@ internal abstract class ConnectionCoordinatorTestSupport {
         clientSessionRevocationClient = revocationClient,
         persistence = ConnectionPersistence(profileStore, credentialStore, accountContextStore),
         accountLocalDataLifecycle = cleaner,
+        workOfflineStore = workOfflineStore,
         pollDelay = PairingPollDelay {},
         defaultClientName = "Second Pass Reader · Android",
         scope = this,

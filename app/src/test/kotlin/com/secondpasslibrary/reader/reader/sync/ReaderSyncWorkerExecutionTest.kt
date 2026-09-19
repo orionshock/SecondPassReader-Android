@@ -5,6 +5,7 @@ import com.secondpasslibrary.reader.connection.ConnectionProfileStore
 import com.secondpasslibrary.reader.connection.PersistedAccountContext
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.storage.PersistedAccountContextStore
+import com.secondpasslibrary.reader.connection.storage.WorkOfflineStore
 import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotation
 import com.secondpasslibrary.reader.reader.persistence.ReaderBoundOutboxSession
@@ -17,6 +18,20 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ReaderSyncWorkerExecutionTest {
+    @Test
+    fun `forced offline preserves pending work without contacting Library`() = runTest {
+        val store = PendingStore(true)
+        var reconnects = 0
+        val execution = execution(store, offline = true) { _, _ ->
+            reconnects++
+            successfulReport()
+        }
+
+        assertEquals(ReaderSyncWorkerOutcome.RETRY, execution.execute(account().value))
+        assertEquals(0, reconnects)
+        assertEquals(true, store.pending)
+    }
+
     @Test
     fun `missing or stale account is a successful no-op`() = runTest {
         val store = PendingStore(true)
@@ -129,11 +144,16 @@ class ReaderSyncWorkerExecutionTest {
     private fun execution(
         store: PendingStore,
         resolver: ReaderSyncAccountResolution = ReaderSyncAccountResolution { profile() },
+        offline: Boolean = false,
         reconnect: suspend (ConnectionProfile, LocalReaderAccountKey) -> ReaderReconnectReport
     ) = ReaderSyncWorkerExecution(
         resolver,
         store,
-        ReaderReconnectOperation(reconnect)
+        ReaderReconnectOperation(reconnect),
+        object : WorkOfflineStore {
+            override suspend fun read(accountKey: String) = offline
+            override suspend fun write(accountKey: String, enabled: Boolean) = Unit
+        }
     )
 
     private class PendingStore(var pending: Boolean) : ReaderOutboxStore {

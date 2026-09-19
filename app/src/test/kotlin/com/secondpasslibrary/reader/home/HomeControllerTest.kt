@@ -22,6 +22,57 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeControllerTest {
     @Test
+    fun `explicit refresh updates both Home sections through one intent`() = runTest {
+        val account = projectionAccount()
+        var recentCalls = 0
+        var shelfCalls = 0
+        val client = FakeHomeAuthenticatedClient().apply {
+            recentCall = {
+                recentCalls++
+                listOf(recentItem("fresh-reading"))
+            }
+            shelfCall = {
+                shelfCalls++
+                listOf(shelfItem("fresh-shelf"))
+            }
+        }
+        val controller = controller(FakeHomeProjectionStore(), client)
+        controller.initializeCached(account.scope)
+
+        controller.refreshAll(account.profile, account.profileId)
+
+        assertEquals(1, recentCalls)
+        assertEquals(1, shelfCalls)
+        assertEquals(
+            "fresh-reading",
+            controller.state.value.recentReading.content?.items?.single()?.sessionId
+        )
+        assertEquals("fresh-shelf", controller.state.value.shelves.content?.items?.single()?.id)
+    }
+
+    @Test
+    fun `offline explicit refresh reads cached Home without remote access`() = runTest {
+        val account = projectionAccount()
+        val store = FakeHomeProjectionStore().apply {
+            seedRecent(account, ACTIVE_ONLY, listOf(recentItem("cached-reading")))
+            seedShelves(account, listOf(shelfItem("cached-shelf")))
+        }
+        val provider = FakeHomeAuthenticatedClientProvider(FakeHomeAuthenticatedClient())
+        val controller = HomeController(homeRepository(store, provider), this)
+        controller.initializeCached(account.scope)
+        controller.updateAppAvailability(AppAvailability.Offline(AppAvailabilityReason.USER_CHOICE))
+
+        controller.refreshAll(null, null)
+
+        assertEquals(0, provider.accessCount)
+        assertEquals(
+            "cached-reading",
+            controller.state.value.recentReading.content?.items?.single()?.sessionId
+        )
+        assertEquals("cached-shelf", controller.state.value.shelves.content?.items?.single()?.id)
+    }
+
+    @Test
     fun `offline transition cancels online Home work and retains cached content`() = runTest {
         val account = projectionAccount()
         val store = FakeHomeProjectionStore().apply {
