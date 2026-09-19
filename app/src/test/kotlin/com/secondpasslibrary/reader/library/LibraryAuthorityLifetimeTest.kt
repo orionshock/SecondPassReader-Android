@@ -139,6 +139,34 @@ class LibraryAuthorityLifetimeTest {
     }
 
     @Test
+    fun `offline Book refresh follows current downloaded catalog without reconnecting`() = runTest {
+        val downloaded = mutableListOf(axisBook("first"))
+        val controller = controller(FakeLibraryAxisClient(), offlineBooks = downloaded)
+        controller.initializeOffline(libraryProfile(), PROFILE_ID, LibraryBooksEntry.Browse)
+        advanceUntilIdle()
+        assertEquals(
+            listOf("first"),
+            (controller.state.value.result as LibraryResultState.Books).state.books.map { it.id }
+        )
+
+        downloaded += axisBook("second")
+        controller.refreshBooks()
+        advanceUntilIdle()
+        assertEquals(
+            listOf("first", "second"),
+            (controller.state.value.result as LibraryResultState.Books).state.books.map { it.id }
+        )
+
+        downloaded.removeAt(0)
+        controller.refreshBooks()
+        advanceUntilIdle()
+        assertEquals(
+            listOf("second"),
+            (controller.state.value.result as LibraryResultState.Books).state.books.map { it.id }
+        )
+    }
+
+    @Test
     fun `reconnect publishes fresh Author result and never resurrects pre-offline result`() =
         runTest {
             val staleStarted = CompletableDeferred<Unit>()

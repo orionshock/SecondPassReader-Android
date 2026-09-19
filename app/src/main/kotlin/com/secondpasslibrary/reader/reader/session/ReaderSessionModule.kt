@@ -20,4 +20,9 @@ internal abstract class ReaderSessionModule {
     abstract fun bindReaderSessionReconciliation(
         reconciler: ReaderSessionReconciler
     ): ReaderSessionReconciliation
+
+    @Binds
+    abstract fun bindReaderExistingSessionsCache(
+        cache: SplReaderExistingSessionsCache
+    ): ReaderExistingSessionsCache
 }

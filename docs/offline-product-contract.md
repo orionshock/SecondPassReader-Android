@@ -24,6 +24,12 @@ authoritative annotation collections, and confirmed progress. Reconciliation ref
 authority before delivering pending Reader intent. A closed Session never reopens or receives a
 new write.
 
+“Make available offline” downloads and checksum-verifies the immutable EPUB without opening Reader
+or creating a Reading Session. It retains any existing per-Book Sessions, progress, and annotations
+through read-only server calls; an empty Session list remains empty. Offline availability means a
+completed, checksum-valid account-local asset, not a cached flag. “Remove download” removes only
+that asset and its metadata, leaving Reader-authored state and pending sync intact.
+
 ## Reader mutation contracts
 
 - Annotation `client_id` is an opaque string of 1-255 characters; whitespace-only values are

@@ -17,6 +17,7 @@ class LibraryBookActionsTest {
 
         assertEquals(
             listOf(
+                BookCardAction.MakeAvailableOffline("book-1"),
                 BookCardAction.BookDetails("book-1"),
                 BookCardAction.ReadingSessions("book-1"),
                 BookCardAction.Author("book-1", "author-1", "Jim Butcher"),
@@ -39,9 +40,23 @@ class LibraryBookActionsTest {
                 series = null
             ).bookCardActions()
 
-        assertEquals(2, actions.size)
+        assertEquals(3, actions.size)
         assertFalse(actions.any { it is BookCardAction.Author })
         assertFalse(actions.any { it is BookCardAction.Series })
+    }
+
+    @Test
+    fun `downloaded Book offers removal and offline mode keeps only local action`() {
+        assertEquals(
+            BookCardAction.RemoveDownload("book-1"),
+            book().bookCardActions(downloaded = true).first()
+        )
+        assertEquals(
+            listOf(BookCardAction.RemoveDownload("book-1")),
+            book().bookCardActions(downloaded = true, offline = true)
+        )
+        val busyActions = book().bookCardActions(busy = true, offline = true)
+        assertEquals(emptyList<BookCardAction>(), busyActions)
     }
 
     private fun book(

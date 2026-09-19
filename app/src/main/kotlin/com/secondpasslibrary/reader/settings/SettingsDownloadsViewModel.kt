@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.secondpasslibrary.reader.app.storage.AccountLocalDownload
 import com.secondpasslibrary.reader.app.storage.AccountLocalDownloadRepository
 import com.secondpasslibrary.reader.app.storage.AccountLocalScope
+import com.secondpasslibrary.reader.app.storage.OfflineBookAvailabilityController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,12 +23,17 @@ internal data class SettingsDownloadsState(
 
 @HiltViewModel
 internal class SettingsDownloadsViewModel @Inject constructor(
-    private val downloads: AccountLocalDownloadRepository
+    private val downloads: AccountLocalDownloadRepository,
+    private val offlineBooks: OfflineBookAvailabilityController
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(SettingsDownloadsState())
     val state = mutableState.asStateFlow()
     private var account: AccountLocalScope? = null
     private var generation = 0
+
+    init {
+        viewModelScope.launch { offlineBooks.revision.collect { if (account != null) refresh() } }
+    }
 
     fun initialize(scope: AccountLocalScope) {
         if (account == scope) return
@@ -45,9 +51,9 @@ internal class SettingsDownloadsViewModel @Inject constructor(
         viewModelScope.launch { load(scope, request) }
     }
 
-    fun remove(bookId: String) = mutate { scope -> downloads.removeDownload(scope, bookId) }
+    fun remove(bookId: String) = mutate { scope -> offlineBooks.remove(scope, bookId) }
 
-    fun removeAll() = mutate(downloads::removeAllDownloads)
+    fun removeAll() = mutate(offlineBooks::removeAll)
 
     private fun mutate(operation: suspend (AccountLocalScope) -> Unit) {
         val scope = account ?: return

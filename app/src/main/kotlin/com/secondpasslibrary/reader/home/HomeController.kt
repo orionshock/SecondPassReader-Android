@@ -124,6 +124,8 @@ internal class HomeController(
         if (account == null) loadCachedShelves() else refreshShelves()
     }
 
+    fun refreshLocalBookAvailability() = refreshOfflineBookAvailability()
+
     /** The one explicit Home refresh; both sections remain owned by their existing projection seam. */
     suspend fun refreshAll(profile: ConnectionProfile?, profileId: String?) {
         if (!explicitRefresh.tryLock()) return

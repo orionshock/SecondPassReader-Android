@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -17,6 +18,7 @@ import com.secondpasslibrary.reader.app.AppAvailabilityReason
 import com.secondpasslibrary.reader.app.storage.AccountLocalDownload
 import com.secondpasslibrary.reader.design.SecondPassTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -47,12 +49,19 @@ class OfflineSettingsSectionTest {
             }
         }
         compose.onNodeWithTag("work-offline-switch").assertIsOff().performClick()
+        compose.onNodeWithText("Connection").assertDoesNotExist()
+        compose.onNodeWithText("Connected to Library").assertDoesNotExist()
+        assertTrue(
+            compose.onNodeWithTag("check-connection").getUnclippedBoundsInRoot().left <
+                compose.onNodeWithTag("work-offline-switch").getUnclippedBoundsInRoot().left
+        )
         compose.waitForIdle()
         assertEquals(1, offlineRequests)
         compose.runOnUiThread {
             availability.value = AppAvailability.Offline(AppAvailabilityReason.USER_CHOICE)
         }
         compose.onNodeWithTag("work-offline-switch").assertIsOn()
+        compose.onNodeWithText("Working offline").assertDoesNotExist()
         compose.onNodeWithTag("check-connection").performClick()
         compose.waitUntil(5_000) { reconnectRequests == 1 }
         assertEquals(1, reconnectRequests)

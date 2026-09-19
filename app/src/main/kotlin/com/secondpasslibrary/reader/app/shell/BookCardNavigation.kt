@@ -12,6 +12,10 @@ internal fun AppNavigator.handleLibraryBookAction(action: BookCardAction) {
         is BookCardAction.Author -> openLibraryAuthor(action.authorId)
 
         is BookCardAction.Series -> openLibrarySeries(action.seriesId)
+
+        is BookCardAction.MakeAvailableOffline,
+        is BookCardAction.RemoveDownload ->
+            error("Offline Book actions are handled by the Book surface.")
     }
 }
 
@@ -21,6 +25,10 @@ internal fun AppNavigator.handleHomeBookAction(action: BookCardAction) {
 
         is BookCardAction.ReadingSessions,
         is BookCardAction.Author,
-        is BookCardAction.Series -> error("Home emitted an unsupported Book action: $action")
+        is BookCardAction.Series,
+        is BookCardAction.MakeAvailableOffline,
+        is BookCardAction.RemoveDownload -> error(
+            "Home emitted an unsupported Book action: $action"
+        )
     }
 }

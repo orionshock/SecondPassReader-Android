@@ -20,17 +20,24 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.secondpasslibrary.client.AuthenticatedContext
 import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.app.AppAvailabilityReason
+import com.secondpasslibrary.reader.app.storage.BookOfflineActionsState
+import com.secondpasslibrary.reader.app.storage.BookOfflineActionsViewModel
 import com.secondpasslibrary.reader.connection.ConnectionProfile
+import com.secondpasslibrary.reader.design.book.BookCardAction
+import com.secondpasslibrary.reader.design.book.BookOfflineActionDialogs
 import com.secondpasslibrary.reader.design.components.InlineSearchField
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 @Composable
+@Suppress("LongMethod") // Home wires refresh and Book actions around existing sections.
 internal fun HomeScreen(
     profile: ConnectionProfile,
     profileId: String,
@@ -40,9 +47,12 @@ internal fun HomeScreen(
     onAuthenticationRejected: () -> Unit,
     onRefreshAvailabilityChanged: (HomeRefreshAvailability) -> Unit,
     onCheckConnection: suspend () -> Boolean,
-    viewModel: HomeViewModel = viewModel()
+    viewModel: HomeViewModel = viewModel(),
+    offlineActions: BookOfflineActionsViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val offlineActionState by offlineActions.state.collectAsStateWithLifecycle()
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { offlineActions.refresh() }
     val accountScope = HomeAccountScope(profile.serverOrigin, profileId)
     val currentOnNavigation by rememberUpdatedState(onNavigation)
     val currentOnAuthenticationRejected by rememberUpdatedState(onAuthenticationRejected)
@@ -53,6 +63,20 @@ internal fun HomeScreen(
         if (verifiedContext != null && availability !is AppAvailability.Offline) {
             viewModel.provideVerifiedAuthority(profile, profileId)
         }
+    }
+    LaunchedEffect(accountScope, availability) {
+        offlineActions.initialize(profile, profileId, availability)
+    }
+    LaunchedEffect(state.recentReading.content?.items) {
+        offlineActions.observeBooks(
+            state.recentReading.content?.items.orEmpty().mapTo(mutableSetOf()) { it.book.id }
+        )
+    }
+    LaunchedEffect(offlineActions) {
+        offlineActions.changes.collect { viewModel.refreshLocalBookAvailability() }
+    }
+    LaunchedEffect(offlineActions, onAuthenticationRejected) {
+        offlineActions.authenticationRejected.collect { onAuthenticationRejected() }
     }
     LaunchedEffect(viewModel) {
         viewModel.navigation.collectLatest { currentOnNavigation(it) }
@@ -88,12 +112,30 @@ internal fun HomeScreen(
             onRetryRecentReading = viewModel::retryRecentReading,
             onRetryShelves = viewModel::retryShelves,
             onSearch = viewModel::searchLibrary,
-            onReadingHistoryAction = viewModel::navigate,
+            onReadingHistoryAction = { action ->
+                when (val bookAction = (action as? HomeNavigationIntent.BookAction)?.action) {
+                    is BookCardAction.MakeAvailableOffline ->
+                        offlineActions.makeAvailable(bookAction.bookId)
+
+                    is BookCardAction.RemoveDownload ->
+                        offlineActions.requestRemoval(bookAction.bookId)
+
+                    else -> viewModel.navigate(action)
+                }
+            },
             onViewAllSessions = viewModel::viewAllSessions,
             onOpenShelves = viewModel::openShelves,
-            onShelfSelected = viewModel::navigate
+            onShelfSelected = viewModel::navigate,
+            offlineActions = offlineActionState
         )
     }
+    BookOfflineActionDialogs(
+        pendingRemoval = offlineActionState.pendingRemoval != null,
+        error = offlineActionState.error,
+        onDismissRemoval = offlineActions::dismissRemoval,
+        onConfirmRemoval = offlineActions::confirmRemoval,
+        onDismissError = offlineActions::dismissError
+    )
 }
 
 @Composable
@@ -131,7 +173,8 @@ private fun HomeContent(
     onReadingHistoryAction: (HomeNavigationIntent) -> Unit,
     onViewAllSessions: () -> Unit,
     onOpenShelves: () -> Unit,
-    onShelfSelected: (HomeNavigationIntent.OpenShelfDetail) -> Unit
+    onShelfSelected: (HomeNavigationIntent.OpenShelfDetail) -> Unit,
+    offlineActions: BookOfflineActionsState
 ) {
     Column(
         modifier =
@@ -151,7 +194,9 @@ private fun HomeContent(
             onRetry = onRetryRecentReading,
             onPrimaryAction = { onReadingHistoryAction(it) },
             onContextAction = onReadingHistoryAction,
-            onViewAll = onViewAllSessions
+            onViewAll = onViewAllSessions,
+            availableBookIds = offlineActions.availableBookIds,
+            busyBookIds = offlineActions.busyBookIds
         )
         ShelvesSection(
             state = state.shelves,

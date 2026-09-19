@@ -2,8 +2,10 @@ package com.secondpasslibrary.reader.settings
 
 import android.text.format.Formatter
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.toggleable
@@ -48,7 +50,7 @@ internal fun OfflineSettingsSection(
     var managing by rememberSaveable { mutableStateOf(false) }
     var pendingBookId by rememberSaveable { mutableStateOf<String?>(null) }
     var confirmAll by rememberSaveable { mutableStateOf(false) }
-    OfflineAuthorityCard(availability, checkingConnection, onWorkOffline, onReconnect)
+    OfflineAuthorityRow(availability, checkingConnection, onWorkOffline, onReconnect)
     DownloadedBooksCard(
         state = state,
         managing = managing,
@@ -76,7 +78,7 @@ internal fun OfflineSettingsSection(
 }
 
 @Composable
-private fun OfflineAuthorityCard(
+private fun OfflineAuthorityRow(
     availability: AppAvailability,
     checkingConnection: Boolean,
     onWorkOffline: () -> Unit,
@@ -85,40 +87,51 @@ private fun OfflineAuthorityCard(
     val forced = (availability as? AppAvailability.Offline)?.reason ==
         AppAvailabilityReason.USER_CHOICE
     val checking = checkingConnection
-    InformationCard("Connection") {
+    val action: @Composable () -> Unit = {
+        OutlinedButton(
+            onClick = onReconnect,
+            enabled = !checking,
+            modifier = Modifier.testTag("check-connection")
+        ) {
+            Text(
+                if (forced ||
+                    availability is AppAvailability.Offline
+                ) {
+                    "Reconnect"
+                } else {
+                    "Check connection"
+                }
+            )
+        }
+    }
+    val toggle: @Composable () -> Unit = {
         Row(
-            modifier = Modifier.fillMaxWidth().testTag("work-offline-switch")
+            modifier = Modifier.testTag("work-offline-switch")
                 .toggleable(value = forced, enabled = !checking, role = Role.Switch) { enabled ->
                     if (enabled) onWorkOffline() else onReconnect()
-                },
+                }.padding(horizontal = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(Modifier.weight(1f)) {
-                Text("Work offline", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    when {
-                        forced -> "Working offline"
-                        checking -> "Checking connection"
-                        availability is AppAvailability.Offline -> "Library unavailable"
-                        else -> "Connected to Library"
-                    },
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Switch(
-                checked = forced,
-                onCheckedChange = null,
-                enabled = !checking
-            )
+            Text("Work offline", style = MaterialTheme.typography.titleMedium)
+            Switch(checked = forced, onCheckedChange = null, enabled = !checking)
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            OutlinedButton(
-                onClick = onReconnect,
-                enabled = !checking,
-                modifier = Modifier.testTag("check-connection")
+    }
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        if (maxWidth < 480.dp) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                action()
+                toggle()
+            }
+        } else {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(if (forced) "Reconnect" else "Check connection")
+                action()
+                Spacer(Modifier.weight(1f))
+                toggle()
             }
         }
     }

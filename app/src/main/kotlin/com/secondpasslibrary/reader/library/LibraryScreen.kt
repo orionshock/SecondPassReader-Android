@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.secondpasslibrary.client.LibraryCatalogTag
 import com.secondpasslibrary.client.LibraryScope
+import com.secondpasslibrary.reader.app.storage.BookOfflineActionsState
 import com.secondpasslibrary.reader.design.book.BookCardAction
 import com.secondpasslibrary.reader.design.components.ContextualAppBar
 import com.secondpasslibrary.reader.library.axis.LibraryAuthorsResults
@@ -30,7 +31,8 @@ internal fun LibraryScreen(
     viewModel: LibraryViewModel,
     onOpenDrawer: () -> Unit,
     onBookSelected: (String) -> Unit,
-    onBookAction: (BookCardAction) -> Unit
+    onBookAction: (BookCardAction) -> Unit,
+    offlineActions: BookOfflineActionsState = BookOfflineActionsState()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     BackHandler(
@@ -59,6 +61,7 @@ internal fun LibraryScreen(
         onRetrySeriesDetail = viewModel::retrySeriesDetail,
         onBookSelected = onBookSelected,
         onBookAction = onBookAction,
+        offlineActions = offlineActions,
         onOpenDrawer = onOpenDrawer
     )
 }
@@ -84,6 +87,7 @@ private fun LibraryContent(
     onRetrySeriesDetail: () -> Unit,
     onBookSelected: (String) -> Unit,
     onBookAction: (BookCardAction) -> Unit,
+    offlineActions: BookOfflineActionsState,
     onOpenDrawer: () -> Unit
 ) {
     Column(Modifier.fillMaxSize()) {
@@ -107,7 +111,8 @@ private fun LibraryContent(
             onRetryAuthorDetail,
             onRetrySeriesDetail,
             onBookSelected,
-            onBookAction
+            onBookAction,
+            offlineActions
         )
     }
 }
@@ -136,7 +141,8 @@ private fun LibraryBrowseContent(
     onRetryAuthorDetail: () -> Unit,
     onRetrySeriesDetail: () -> Unit,
     onBookSelected: (String) -> Unit,
-    onBookAction: (BookCardAction) -> Unit
+    onBookAction: (BookCardAction) -> Unit,
+    offlineActions: BookOfflineActionsState
 ) {
     Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
         LibraryControls(
@@ -162,7 +168,9 @@ private fun LibraryBrowseContent(
                     onRetry,
                     onBookSelected,
                     onBookAction,
-                    Modifier.weight(1f)
+                    Modifier.weight(1f),
+                    offlineActions.availableBookIds,
+                    offlineActions.busyBookIds
                 )
 
             is LibraryResultState.AuthorIndex ->
@@ -188,7 +196,8 @@ private fun LibraryBrowseContent(
                     onRetry,
                     onBookSelected,
                     onBookAction,
-                    Modifier.weight(1f)
+                    Modifier.weight(1f),
+                    offlineActions
                 )
 
             is LibraryResultState.SeriesIndex ->
@@ -214,7 +223,8 @@ private fun LibraryBrowseContent(
                     onRetry,
                     onBookSelected,
                     onBookAction,
-                    Modifier.weight(1f)
+                    Modifier.weight(1f),
+                    offlineActions
                 )
         }
     }
@@ -228,7 +238,8 @@ private fun FilterableBooksResults(
     onRetry: () -> Unit,
     onBookSelected: (String) -> Unit,
     onBookAction: (BookCardAction) -> Unit,
-    modifier: Modifier
+    modifier: Modifier,
+    offlineActions: BookOfflineActionsState
 ) {
     Column(modifier) {
         header()
@@ -238,7 +249,9 @@ private fun FilterableBooksResults(
             onRetry,
             onBookSelected,
             onBookAction,
-            Modifier.weight(1f)
+            Modifier.weight(1f),
+            offlineActions.availableBookIds,
+            offlineActions.busyBookIds
         )
     }
 }

@@ -3,6 +3,10 @@ package com.secondpasslibrary.reader.settings
 import com.secondpasslibrary.reader.app.storage.AccountLocalDownload
 import com.secondpasslibrary.reader.app.storage.AccountLocalDownloadRepository
 import com.secondpasslibrary.reader.app.storage.AccountLocalScope
+import com.secondpasslibrary.reader.app.storage.OfflineBookAvailabilityController
+import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetResolver
+import com.secondpasslibrary.reader.reader.asset.ReaderBookAssetStore
+import com.secondpasslibrary.reader.reader.session.ReaderExistingSessionsCache
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -14,10 +18,14 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SettingsDownloadsViewModelTest {
+    @get:Rule val temporary = TemporaryFolder()
+
     @Test
     fun `stale load cannot replace a newer refresh`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
@@ -43,7 +51,7 @@ class SettingsDownloadsViewModelTest {
 
                 override suspend fun removeAllDownloads(account: AccountLocalScope) = Unit
             }
-            val viewModel = SettingsDownloadsViewModel(repository)
+            val viewModel = SettingsDownloadsViewModel(repository, offlineController(repository))
             viewModel.initialize(account)
             runCurrent()
             viewModel.refresh()
@@ -68,7 +76,7 @@ class SettingsDownloadsViewModelTest {
                 AccountLocalDownload("book-2", "Second", 21)
             )
             repository.books[other] = mutableListOf(AccountLocalDownload("book-3", "Other", 4))
-            val viewModel = SettingsDownloadsViewModel(repository)
+            val viewModel = SettingsDownloadsViewModel(repository, offlineController(repository))
 
             viewModel.initialize(account)
             advanceUntilIdle()
@@ -87,6 +95,14 @@ class SettingsDownloadsViewModelTest {
             Dispatchers.resetMain()
         }
     }
+
+    private fun offlineController(repository: AccountLocalDownloadRepository) =
+        OfflineBookAvailabilityController(
+            resolver = ReaderBookAssetResolver { _, _ -> error("No download in this test") },
+            assets = ReaderBookAssetStore.forTests(temporary.newFolder()),
+            downloads = repository,
+            sessions = ReaderExistingSessionsCache { _, _, _ -> }
+        )
 
     private class FakeDownloadsRepository : AccountLocalDownloadRepository {
         val books = mutableMapOf<AccountLocalScope, MutableList<AccountLocalDownload>>()

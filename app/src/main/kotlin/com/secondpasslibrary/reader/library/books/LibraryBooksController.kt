@@ -46,6 +46,7 @@ internal class LibraryBooksController(
     private var preferenceJob: Job? = null
     private var unfilteredState: LibraryBooksState? = null
     private var offlineBooks: List<CompactBook>? = null
+    private var offlineAccount: AccountLocalScope? = null
 
     fun initialize(
         profile: ConnectionProfile,
@@ -55,6 +56,7 @@ internal class LibraryBooksController(
         tagSlug: String? = null
     ) {
         offlineBooks = null
+        offlineAccount = null
         val nextConnectionIdentity = profile.authenticatedConnectionIdentity
         val nextEntryKey = LibraryBooksEntryKey(mode, query, scope, tagSlug)
         if (nextConnectionIdentity == connectionIdentity && nextEntryKey == entryKey) return
@@ -69,6 +71,7 @@ internal class LibraryBooksController(
     }
 
     fun initializeOffline(profile: ConnectionProfile, profileId: String, query: String) {
+        offlineAccount = AccountLocalScope.from(profile.serverOrigin, profileId)
         this.profile = null
         selectedScope = LibraryScope.Global
         connectionIdentity = null
@@ -84,12 +87,16 @@ internal class LibraryBooksController(
             initialLoading = true,
             layout = mutableState.value.layout
         )
-        val generation = requestGeneration
+        loadOfflineBooks(query, requestGeneration)
+    }
+
+    private fun loadOfflineBooks(query: String, generation: Long) {
+        val account = offlineAccount ?: return
         loadJob = scope.launch {
             val books = runCatching {
                 requireNotNull(offlineCatalog) {
                     "Offline Library catalog is not configured."
-                }.downloadedBooks(AccountLocalScope.from(profile.serverOrigin, profileId))
+                }.downloadedBooks(account)
             }.getOrDefault(emptyList())
             if (generation != requestGeneration) return@launch
             offlineBooks = books
@@ -219,7 +226,11 @@ internal class LibraryBooksController(
     }
 
     fun refresh() {
-        if (offlineBooks != null) return
+        if (offlineBooks != null) {
+            requestGeneration++
+            loadOfflineBooks(mutableState.value.committedQuery, requestGeneration)
+            return
+        }
         if (profile == null || loadJob?.isActive == true) return
         requestGeneration += 1
         mutableState.value =

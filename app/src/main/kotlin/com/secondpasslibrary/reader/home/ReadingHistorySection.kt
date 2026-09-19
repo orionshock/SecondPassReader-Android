@@ -42,7 +42,9 @@ internal fun ReadingHistorySection(
     onRetry: () -> Unit,
     onPrimaryAction: (OpenReaderIntent) -> Unit,
     onContextAction: (HomeNavigationIntent) -> Unit,
-    onViewAll: () -> Unit
+    onViewAll: () -> Unit,
+    availableBookIds: Set<String> = emptySet(),
+    busyBookIds: Set<String> = emptySet()
 ) {
     val emptyMessage =
         if (showClosed) "No Reading Sessions yet." else "No active Reading Sessions yet."
@@ -81,7 +83,9 @@ internal fun ReadingHistorySection(
                         HomePresenter.readingHistory(
                             item,
                             offlineReadable = !offline || item.book.id in locallyReadableBookIds,
-                            offline = offline
+                            offline = offline,
+                            availableOffline = item.book.id in availableBookIds,
+                            downloadBusy = item.book.id in busyBookIds
                         ),
                         onPrimaryAction,
                         onContextAction

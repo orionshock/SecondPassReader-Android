@@ -41,7 +41,10 @@ internal fun BookDetailScreen(
     onReadingSessions: () -> Unit,
     onAddToShelf: () -> Unit,
     readAvailable: Boolean = true,
-    serverActionsAvailable: Boolean = true
+    serverActionsAvailable: Boolean = true,
+    offlineAction: BookOfflineActionState = BookOfflineActionState(),
+    onMakeAvailable: () -> Unit = {},
+    onRemoveDownload: () -> Unit = {}
 ) {
     Column(Modifier.fillMaxSize()) {
         ContextualAppBar(state.appBarPresentation(appBarContext), onNavigation = onBack)
@@ -60,7 +63,8 @@ internal fun BookDetailScreen(
                     onReadingSessions,
                     onAddToShelf,
                     readAvailable,
-                    serverActionsAvailable
+                    serverActionsAvailable,
+                    BookOfflineActionBinding(offlineAction, onMakeAvailable, onRemoveDownload)
                 )
         }
     }
@@ -91,6 +95,7 @@ private fun DetailFailure(onRetry: () -> Unit) {
 }
 
 @Composable
+@Suppress("LongMethod") // The three adaptive layouts and one secondary asset action share one list.
 private fun BookDetailHero(
     book: com.secondpasslibrary.client.LibraryBookDetail,
     onAuthorSelected: (String) -> Unit,
@@ -100,7 +105,8 @@ private fun BookDetailHero(
     onReadingSessions: () -> Unit,
     onAddToShelf: () -> Unit,
     readAvailable: Boolean,
-    serverActionsAvailable: Boolean
+    serverActionsAvailable: Boolean,
+    offlineAction: BookOfflineActionBinding
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val layout = bookDetailLayoutForWidth(maxWidth)
@@ -120,7 +126,8 @@ private fun BookDetailHero(
                         onReadingSessions,
                         onAddToShelf,
                         readAvailable,
-                        serverActionsAvailable
+                        serverActionsAvailable,
+                        offlineAction
                     )
 
                     BookDetailLayout.MEDIUM -> BookDetailMediumHero(
@@ -131,7 +138,8 @@ private fun BookDetailHero(
                         onReadingSessions,
                         onAddToShelf,
                         readAvailable,
-                        serverActionsAvailable
+                        serverActionsAvailable,
+                        offlineAction
                     )
 
                     BookDetailLayout.NARROW -> BookDetailNarrowHero(
@@ -142,7 +150,8 @@ private fun BookDetailHero(
                         onReadingSessions,
                         onAddToShelf,
                         readAvailable,
-                        serverActionsAvailable
+                        serverActionsAvailable,
+                        offlineAction
                     )
                 }
             }
@@ -171,7 +180,8 @@ private fun BookDetailWideContent(
     onReadingSessions: () -> Unit,
     onAddToShelf: () -> Unit,
     readAvailable: Boolean,
-    serverActionsAvailable: Boolean
+    serverActionsAvailable: Boolean,
+    offlineAction: BookOfflineActionBinding
 ) {
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
         Row(
@@ -196,6 +206,13 @@ private fun BookDetailWideContent(
                     serverActionsAvailable = serverActionsAvailable,
                     BookDetailActionLayout.VERTICAL
                 )
+                if (book.hasReadableEpub) {
+                    BookOfflineAction(
+                        offlineAction.state,
+                        offlineAction.onMakeAvailable,
+                        offlineAction.onRemoveDownload
+                    )
+                }
             }
             Column(
                 Modifier.weight(1f),
@@ -217,7 +234,8 @@ private fun BookDetailMediumHero(
     onReadingSessions: () -> Unit,
     onAddToShelf: () -> Unit,
     readAvailable: Boolean,
-    serverActionsAvailable: Boolean
+    serverActionsAvailable: Boolean,
+    offlineAction: BookOfflineActionBinding
 ) {
     Column(
         Modifier.testTag(BOOK_DETAIL_MEDIUM_TAG),
@@ -243,6 +261,13 @@ private fun BookDetailMediumHero(
             serverActionsAvailable = serverActionsAvailable,
             BookDetailActionLayout.HORIZONTAL
         )
+        if (book.hasReadableEpub) {
+            BookOfflineAction(
+                offlineAction.state,
+                offlineAction.onMakeAvailable,
+                offlineAction.onRemoveDownload
+            )
+        }
     }
 }
 
@@ -255,7 +280,8 @@ private fun BookDetailNarrowHero(
     onReadingSessions: () -> Unit,
     onAddToShelf: () -> Unit,
     readAvailable: Boolean,
-    serverActionsAvailable: Boolean
+    serverActionsAvailable: Boolean,
+    offlineAction: BookOfflineActionBinding
 ) {
     Column(
         Modifier.testTag(BOOK_DETAIL_NARROW_TAG),
@@ -273,8 +299,61 @@ private fun BookDetailNarrowHero(
             serverActionsAvailable = serverActionsAvailable,
             BookDetailActionLayout.HORIZONTAL
         )
+        if (book.hasReadableEpub) {
+            BookOfflineAction(
+                offlineAction.state,
+                offlineAction.onMakeAvailable,
+                offlineAction.onRemoveDownload
+            )
+        }
     }
 }
+
+@Composable
+internal fun BookOfflineAction(
+    state: BookOfflineActionState,
+    onMakeAvailable: () -> Unit,
+    onRemoveDownload: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        when {
+            state.downloading -> Text(
+                "Downloading…",
+                modifier = Modifier.testTag("book-download-busy")
+            )
+
+            state.available -> {
+                Text("Available offline")
+                TextButton(
+                    onClick = onRemoveDownload,
+                    modifier = Modifier.testTag("remove-book-download")
+                ) {
+                    Text("Remove download")
+                }
+            }
+
+            else -> TextButton(
+                onClick = onMakeAvailable,
+                modifier = Modifier.testTag("make-book-offline")
+            ) {
+                Text("Make available offline")
+            }
+        }
+        if (state.error) {
+            Text(
+                "Couldn’t update this download. Try again.",
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+    }
+}
+
+private data class BookOfflineActionBinding(
+    val state: BookOfflineActionState,
+    val onMakeAvailable: () -> Unit,
+    val onRemoveDownload: () -> Unit
+)
 
 private val com.secondpasslibrary.client.LibraryBookDetail.hasReadableEpub: Boolean
     get() = file?.format.equals("epub", ignoreCase = true)

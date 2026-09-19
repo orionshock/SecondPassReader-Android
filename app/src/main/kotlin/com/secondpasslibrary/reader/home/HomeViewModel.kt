@@ -10,6 +10,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
 @HiltViewModel
+@Suppress("TooManyFunctions") // Screen facade keeps Home and asset-status intents narrow.
 class HomeViewModel
 @Inject
 internal constructor(
@@ -41,6 +42,8 @@ internal constructor(
     fun retryRecentReading() = controller.retryRecentReading()
 
     fun retryShelves() = controller.retryShelves()
+
+    fun refreshLocalBookAvailability() = controller.refreshLocalBookAvailability()
 
     internal suspend fun refreshAll(profile: ConnectionProfile?, profileId: String?) =
         controller.refreshAll(profile, profileId)

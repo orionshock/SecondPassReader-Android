@@ -58,7 +58,9 @@ internal object HomePresenter {
         offlineReadable: Boolean = true,
         offline: Boolean = false,
         zoneId: ZoneId = ZoneId.systemDefault(),
-        locale: Locale = Locale.getDefault()
+        locale: Locale = Locale.getDefault(),
+        availableOffline: Boolean = false,
+        downloadBusy: Boolean = false
     ): ReadingHistoryCardModel {
         val sessionIdentity = item.sessionIdentityLabel(zoneId, locale)
         val location = item.progress?.locationLabel?.trim()?.ifEmpty { null }
@@ -79,7 +81,11 @@ internal object HomePresenter {
                     OpenReaderIntent(it.id, item.sessionId, it.title)
                 },
             unavailableOffline = offline && !offlineReadable,
-            contextActions = item.contextActions(serverMutationsAvailable = !offline)
+            contextActions = item.contextActions(
+                serverMutationsAvailable = !offline,
+                availableOffline = availableOffline,
+                downloadBusy = downloadBusy
+            )
         )
     }
 
@@ -167,8 +173,18 @@ private data class ShelfOwnerPresentation(
 )
 
 private fun RecentReadingItem.contextActions(
-    serverMutationsAvailable: Boolean
+    serverMutationsAvailable: Boolean,
+    availableOffline: Boolean,
+    downloadBusy: Boolean
 ): List<HomeNavigationIntent> = buildList {
+    if ((book.canOpen || availableOffline) && !downloadBusy) {
+        val action = if (availableOffline) {
+            BookCardAction.RemoveDownload(book.id)
+        } else {
+            BookCardAction.MakeAvailableOffline(book.id)
+        }
+        add(HomeNavigationIntent.BookAction(action))
+    }
     add(HomeNavigationIntent.BookAction(BookCardAction.BookDetails(book.id)))
     add(HomeNavigationIntent.OpenReadingSessionDetail(sessionId))
     if (serverMutationsAvailable && status == ReadingSessionStatus.ACTIVE) {

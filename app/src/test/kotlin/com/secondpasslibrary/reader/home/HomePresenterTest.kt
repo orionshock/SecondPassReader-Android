@@ -114,7 +114,8 @@ class HomePresenterTest {
         val downloaded = HomePresenter.readingHistory(
             recent(ReadingSessionStatus.ACTIVE, canOpen = false),
             offlineReadable = true,
-            offline = true
+            offline = true,
+            availableOffline = true
         )
         val closedUnavailable = HomePresenter.readingHistory(
             recent(ReadingSessionStatus.CLOSED),
@@ -137,6 +138,7 @@ class HomePresenterTest {
         assertEquals("book-1", reconnected.primaryIntent?.bookId)
         assertEquals(
             listOf(
+                HomeNavigationIntent.BookAction(BookCardAction.RemoveDownload("book-1")),
                 HomeNavigationIntent.BookAction(BookCardAction.BookDetails("book-1")),
                 HomeNavigationIntent.OpenReadingSessionDetail("session-1")
             ),
@@ -150,6 +152,7 @@ class HomePresenterTest {
 
         assertEquals(
             listOf(
+                HomeNavigationIntent.BookAction(BookCardAction.MakeAvailableOffline("book-1")),
                 HomeNavigationIntent.BookAction(BookCardAction.BookDetails("book-1")),
                 HomeNavigationIntent.OpenReadingSessionDetail("session-1"),
                 HomeNavigationIntent.OpenReadingSessionDetail(
@@ -171,6 +174,7 @@ class HomePresenterTest {
 
         assertEquals(
             listOf(
+                HomeNavigationIntent.BookAction(BookCardAction.MakeAvailableOffline("book-1")),
                 HomeNavigationIntent.BookAction(BookCardAction.BookDetails("book-1")),
                 HomeNavigationIntent.OpenReadingSessionDetail("session-1")
             ),

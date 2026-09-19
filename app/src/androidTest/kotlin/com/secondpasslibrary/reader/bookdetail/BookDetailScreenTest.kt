@@ -13,7 +13,9 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondpasslibrary.client.BookAuthorSummary
@@ -23,6 +25,7 @@ import com.secondpasslibrary.client.LibraryBookDetail
 import com.secondpasslibrary.client.PublicationDatePrecision
 import com.secondpasslibrary.client.SeriesIndex
 import com.secondpasslibrary.reader.design.SecondPassTheme
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -92,9 +95,34 @@ class BookDetailScreenTest {
         val description = (1..12).joinToString("") { "<p>Paragraph $it has readable text.</p>" }
         setBookDetail(widthDp = 1000, book = richBook().copy(description = description))
 
-        compose.onNodeWithText("Show more").performClick()
+        compose.onNodeWithText("Show more").performScrollTo().performClick()
         compose.onNodeWithText("Show less").assertExists()
         compose.onNodeWithText("Paragraph 12", substring = true).assertExists()
+    }
+
+    @Test
+    fun offlineActionReflectsVerifiedAvailabilityAndDoesNotOpenReader() {
+        var downloads = 0
+        var removals = 0
+        val offline = androidx.compose.runtime.mutableStateOf(BookOfflineActionState())
+        compose.setContent {
+            SecondPassTheme {
+                BookOfflineAction(
+                    offline.value,
+                    onMakeAvailable = { downloads++ },
+                    onRemoveDownload = { removals++ }
+                )
+            }
+        }
+        compose.onNodeWithTag("make-book-offline").performClick()
+        assertEquals(1, downloads)
+        assertEquals(0, removals)
+        compose.runOnUiThread { offline.value = BookOfflineActionState(downloading = true) }
+        compose.onNodeWithTag("book-download-busy").assertExists()
+        compose.onNodeWithTag("make-book-offline").assertDoesNotExist()
+        compose.runOnUiThread { offline.value = BookOfflineActionState(available = true) }
+        compose.onNodeWithTag("remove-book-download").performClick()
+        assertEquals(1, removals)
     }
 
     private fun setBookDetail(

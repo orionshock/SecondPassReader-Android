@@ -43,7 +43,9 @@ internal fun LibraryBooksResults(
     onRetry: () -> Unit,
     onBookSelected: (String) -> Unit,
     onBookAction: (BookCardAction) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    availableBookIds: Set<String> = emptySet(),
+    busyBookIds: Set<String> = emptySet()
 ) {
     when {
         state.books.isEmpty() && state.initialLoading -> LibraryBrowseLoading(modifier)
@@ -71,7 +73,9 @@ internal fun LibraryBooksResults(
                                 onRetry,
                                 onBookSelected,
                                 onBookAction,
-                                Modifier.weight(1f)
+                                Modifier.weight(1f),
+                                availableBookIds,
+                                busyBookIds
                             )
 
                         LibraryBooksLayout.GRID ->
@@ -81,7 +85,9 @@ internal fun LibraryBooksResults(
                                 onRetry,
                                 onBookSelected,
                                 onBookAction,
-                                Modifier.weight(1f)
+                                Modifier.weight(1f),
+                                availableBookIds,
+                                busyBookIds
                             )
                     }
                 }
@@ -96,7 +102,9 @@ private fun LibraryBooksList(
     onRetry: () -> Unit,
     onBookSelected: (String) -> Unit,
     onBookAction: (BookCardAction) -> Unit,
-    modifier: Modifier
+    modifier: Modifier,
+    availableBookIds: Set<String>,
+    busyBookIds: Set<String>
 ) {
     BoxWithConstraints(modifier.fillMaxWidth()) {
         val rowLayout = libraryBookRowLayoutForWidth(maxWidth)
@@ -116,9 +124,12 @@ private fun LibraryBooksList(
                         CompactBookRow(
                             book = book.toLibraryCompactBookPresentation(),
                             onClick = { onBookSelected(book.id) },
-                            actions = book.bookCardActions().takeUnless {
-                                state.offlineDownloadedOnly
-                            }.orEmpty(),
+                            actions = book.bookCardActions(
+                                downloaded =
+                                    state.offlineDownloadedOnly || book.id in availableBookIds,
+                                offline = state.offlineDownloadedOnly,
+                                busy = book.id in busyBookIds
+                            ),
                             onAction = onBookAction,
                             layout = rowLayout
                         )
@@ -148,7 +159,9 @@ private fun LibraryBooksGrid(
     onRetry: () -> Unit,
     onBookSelected: (String) -> Unit,
     onBookAction: (BookCardAction) -> Unit,
-    modifier: Modifier
+    modifier: Modifier,
+    availableBookIds: Set<String>,
+    busyBookIds: Set<String>
 ) {
     val gridState = rememberLazyGridState()
     NextPageEffect(gridState, state, onLoadNextPage)
@@ -164,9 +177,11 @@ private fun LibraryBooksGrid(
             CompactBookGridCard(
                 book = book.toLibraryCompactBookPresentation(),
                 onClick = { onBookSelected(book.id) },
-                actions = book.bookCardActions().takeUnless {
-                    state.offlineDownloadedOnly
-                }.orEmpty(),
+                actions = book.bookCardActions(
+                    downloaded = state.offlineDownloadedOnly || book.id in availableBookIds,
+                    offline = state.offlineDownloadedOnly,
+                    busy = book.id in busyBookIds
+                ),
                 onAction = onBookAction
             )
         }

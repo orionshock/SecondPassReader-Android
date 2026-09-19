@@ -10,6 +10,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.secondpasslibrary.client.AuthenticatedContext
@@ -42,6 +44,7 @@ internal fun LinkedSettings(
     var technicalDetailsExpanded by rememberSaveable { mutableStateOf(false) }
     var confirmation by rememberSaveable { mutableStateOf<SettingsConfirmation?>(null) }
     LaunchedEffect(account) { downloadsViewModel.initialize(account) }
+    RefreshDownloadsOnResume(selected, downloadsViewModel)
 
     SettingsSectionLayout(
         selected,
@@ -95,6 +98,16 @@ internal fun LinkedSettings(
             },
             onDismiss = { confirmation = null }
         )
+    }
+}
+
+@Composable
+private fun RefreshDownloadsOnResume(
+    selected: SettingsSection,
+    downloadsViewModel: SettingsDownloadsViewModel
+) {
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        if (selected == SettingsSection.OFFLINE) downloadsViewModel.refresh()
     }
 }
 
