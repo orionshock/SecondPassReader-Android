@@ -62,11 +62,11 @@ internal class ReadiumPublicationInteractionIntegrationTest : ReadiumEpubCfiNavi
                 }
                 assertEquals(initial, host.engine.hudEvents.readingStatus.value)
 
-                view.tapAt(0.98f)
+                view.tapAt(0.85f)
                 awaitStatus(host.engine.hudEvents.readingStatus, "right edge tap") {
                     it.pagesRemaining == initial.pagesRemaining - 1
                 }
-                view.tapAt(0.02f)
+                view.tapAt(0.15f)
                 awaitStatus(host.engine.hudEvents.readingStatus, "left edge tap") {
                     it.pagesRemaining == initial.pagesRemaining
                 }
@@ -126,7 +126,13 @@ internal class ReadiumPublicationInteractionIntegrationTest : ReadiumEpubCfiNavi
                 it.pagesRemaining > 2
             }
             host.engine.hudEvents.setInteractionSuppressed(true)
-            host.navigator.publicationView.dragFrom(0.98f, dxDp = -100f, dyDp = 0f)
+            val view = host.navigator.publicationView
+            view.tapAt(0.15f)
+            assertEquals("left tap", initial, host.engine.hudEvents.readingStatus.value)
+            view.tapAt(0.85f)
+            assertEquals("right tap", initial, host.engine.hudEvents.readingStatus.value)
+            view.dragFrom(0.98f, dxDp = -100f, dyDp = 0f)
+            assertEquals("right drag", initial, host.engine.hudEvents.readingStatus.value)
             runBlocking {
                 withContext(Dispatchers.Main) {
                     host.navigator.evaluateJavascript("true")

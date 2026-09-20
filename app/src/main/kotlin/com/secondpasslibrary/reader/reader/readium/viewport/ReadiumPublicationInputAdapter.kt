@@ -48,7 +48,10 @@ internal class ReadiumPublicationInputAdapter(private val onBodyTap: () -> Unit)
             false
         } else {
             val action = ReaderPublicationInteractionPolicy.action(
-                zoneAt(bound, event.point.x),
+                ReaderPublicationInteractionPolicy.tapZone(
+                    event.point.x,
+                    bound.publicationView.width.toFloat()
+                ),
                 bound.overflow.value.readingProgression == ReadingProgression.RTL
             )
             if (action == ReaderPublicationAction.TOGGLE_CHROME) {
@@ -69,7 +72,11 @@ internal class ReadiumPublicationInputAdapter(private val onBodyTap: () -> Unit)
         } else {
             when (event.type) {
                 DragEvent.Type.Start -> {
-                    draggingEdge = zoneAt(bound, event.start.x).takeIf {
+                    draggingEdge = ReaderPublicationInteractionPolicy.swipeZone(
+                        event.start.x,
+                        bound.publicationView.width.toFloat(),
+                        bound.publicationView.resources.displayMetrics.density
+                    ).takeIf {
                         ReaderPublicationInteractionPolicy.startsEdgeSwipe(
                             it,
                             event.offset.x,
@@ -105,13 +112,6 @@ internal class ReadiumPublicationInputAdapter(private val onBodyTap: () -> Unit)
     }
 
     override fun onKey(event: KeyEvent): Boolean = keyboardNavigation?.onKey(event) ?: false
-
-    private fun zoneAt(bound: EpubNavigatorFragment, x: Float): ReaderInteractionZone =
-        ReaderPublicationInteractionPolicy.zone(
-            x,
-            bound.publicationView.width.toFloat(),
-            bound.publicationView.resources.displayMetrics.density
-        )
 
     private fun navigate(bound: EpubNavigatorFragment, action: ReaderPublicationAction) {
         when (action) {

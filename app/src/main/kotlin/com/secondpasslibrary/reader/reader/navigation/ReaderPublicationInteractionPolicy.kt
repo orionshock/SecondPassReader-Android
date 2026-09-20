@@ -9,14 +9,27 @@ internal enum class ReaderPublicationAction { PREVIOUS_PAGE, NEXT_PAGE, TOGGLE_C
 
 /** Classifies unhandled publication input without intercepting the WebView's touch surface. */
 internal object ReaderPublicationInteractionPolicy {
-    private const val EDGE_WIDTH_DP = 56f
-    private const val MAX_EDGE_FRACTION = 0.18f
+    private const val TAP_EDGE_FRACTION = 0.30
+    private const val SWIPE_EDGE_WIDTH_DP = 56f
+    private const val MAX_SWIPE_EDGE_FRACTION = 0.18f
     private const val SWIPE_DISTANCE_DP = 24f
     private const val HORIZONTAL_INTENT_RATIO = 1.5f
 
-    fun zone(x: Float, viewportWidth: Float, density: Float): ReaderInteractionZone {
+    fun tapZone(x: Float, viewportWidth: Float): ReaderInteractionZone {
         if (viewportWidth <= 0f) return ReaderInteractionZone.BODY
-        val edgeWidth = min(EDGE_WIDTH_DP * density, viewportWidth * MAX_EDGE_FRACTION)
+        val position = x.toDouble()
+        val width = viewportWidth.toDouble()
+        return when {
+            position < width * TAP_EDGE_FRACTION -> ReaderInteractionZone.LEFT
+            position > width * (1.0 - TAP_EDGE_FRACTION) -> ReaderInteractionZone.RIGHT
+            else -> ReaderInteractionZone.BODY
+        }
+    }
+
+    // Swipes stay narrower than taps so text selection and drawer drags keep more of the page.
+    fun swipeZone(x: Float, viewportWidth: Float, density: Float): ReaderInteractionZone {
+        if (viewportWidth <= 0f) return ReaderInteractionZone.BODY
+        val edgeWidth = min(SWIPE_EDGE_WIDTH_DP * density, viewportWidth * MAX_SWIPE_EDGE_FRACTION)
         return when {
             x < edgeWidth -> ReaderInteractionZone.LEFT
             x >= viewportWidth - edgeWidth -> ReaderInteractionZone.RIGHT

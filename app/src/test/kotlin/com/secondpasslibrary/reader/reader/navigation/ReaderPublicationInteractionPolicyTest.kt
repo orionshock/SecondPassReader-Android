@@ -7,18 +7,38 @@ import org.junit.Test
 
 class ReaderPublicationInteractionPolicyTest {
     @Test
-    fun `bounded edge zones leave the body available on narrow and wide viewports`() {
+    fun `tap zones use thirty forty thirty with deterministic boundaries`() {
         val policy = ReaderPublicationInteractionPolicy
-        assertEquals(ReaderInteractionZone.LEFT, policy.zone(55f, 1_000f, 1f))
-        assertEquals(ReaderInteractionZone.BODY, policy.zone(56f, 1_000f, 1f))
-        assertEquals(ReaderInteractionZone.BODY, policy.zone(943f, 1_000f, 1f))
-        assertEquals(ReaderInteractionZone.RIGHT, policy.zone(944f, 1_000f, 1f))
+        assertEquals(ReaderInteractionZone.LEFT, policy.tapZone(0f, 1_000f))
+        assertEquals(ReaderInteractionZone.LEFT, policy.tapZone(299.999f, 1_000f))
+        assertEquals(ReaderInteractionZone.BODY, policy.tapZone(300f, 1_000f))
+        assertEquals(ReaderInteractionZone.BODY, policy.tapZone(300.001f, 1_000f))
+        assertEquals(ReaderInteractionZone.BODY, policy.tapZone(700f, 1_000f))
+        assertEquals(ReaderInteractionZone.RIGHT, policy.tapZone(700.001f, 1_000f))
+        assertEquals(ReaderInteractionZone.RIGHT, policy.tapZone(1_000f, 1_000f))
 
-        // On a narrow viewport, 18% caps the 56dp edge target.
-        assertEquals(ReaderInteractionZone.LEFT, policy.zone(35f, 200f, 1f))
-        assertEquals(ReaderInteractionZone.BODY, policy.zone(36f, 200f, 1f))
-        assertEquals(ReaderInteractionZone.RIGHT, policy.zone(164f, 200f, 1f))
-        assertEquals(ReaderInteractionZone.BODY, policy.zone(0f, 0f, 1f))
+        assertEquals(ReaderInteractionZone.LEFT, policy.tapZone(59f, 200f))
+        assertEquals(ReaderInteractionZone.BODY, policy.tapZone(60f, 200f))
+        assertEquals(ReaderInteractionZone.BODY, policy.tapZone(140f, 200f))
+        assertEquals(ReaderInteractionZone.RIGHT, policy.tapZone(141f, 200f))
+        assertEquals(ReaderInteractionZone.LEFT, policy.tapZone(767f, 2_560f))
+        assertEquals(ReaderInteractionZone.BODY, policy.tapZone(768f, 2_560f))
+        assertEquals(ReaderInteractionZone.BODY, policy.tapZone(1_792f, 2_560f))
+        assertEquals(ReaderInteractionZone.RIGHT, policy.tapZone(1_793f, 2_560f))
+        assertEquals(ReaderInteractionZone.BODY, policy.tapZone(0f, 0f))
+    }
+
+    @Test
+    fun `swipe starts retain narrower bounded zones`() {
+        val policy = ReaderPublicationInteractionPolicy
+        assertEquals(ReaderInteractionZone.LEFT, policy.swipeZone(55f, 1_000f, 1f))
+        assertEquals(ReaderInteractionZone.BODY, policy.swipeZone(56f, 1_000f, 1f))
+        assertEquals(ReaderInteractionZone.BODY, policy.swipeZone(150f, 1_000f, 1f))
+        assertEquals(ReaderInteractionZone.BODY, policy.swipeZone(943f, 1_000f, 1f))
+        assertEquals(ReaderInteractionZone.RIGHT, policy.swipeZone(944f, 1_000f, 1f))
+        assertEquals(ReaderInteractionZone.LEFT, policy.swipeZone(35f, 200f, 1f))
+        assertEquals(ReaderInteractionZone.BODY, policy.swipeZone(36f, 200f, 1f))
+        assertEquals(ReaderInteractionZone.RIGHT, policy.swipeZone(164f, 200f, 1f))
     }
 
     @Test
