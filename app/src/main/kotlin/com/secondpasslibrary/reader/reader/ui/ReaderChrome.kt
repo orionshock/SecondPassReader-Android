@@ -58,7 +58,8 @@ internal fun ReaderChrome(
     onNavigateBookmark: (ReaderAnnotation.Bookmark) -> Unit,
     onRemoveBookmark: (ReaderAnnotation.Bookmark) -> Unit,
     onBookmarkMenuVisibilityChanged: (Boolean) -> Unit,
-    onAnnotationsRequested: () -> Unit
+    onAnnotationsRequested: () -> Unit,
+    onSearchRequested: (() -> Unit)? = null
 ) {
     AnimatedVisibility(visible = visible, enter = fadeIn(), exit = fadeOut()) {
         BoxWithConstraints(
@@ -106,7 +107,8 @@ internal fun ReaderChrome(
                     onNavigateBookmark = onNavigateBookmark,
                     onRemoveBookmark = onRemoveBookmark,
                     onBookmarkMenuVisibilityChanged = onBookmarkMenuVisibilityChanged,
-                    onAnnotationsRequested = onAnnotationsRequested
+                    onAnnotationsRequested = onAnnotationsRequested,
+                    onSearchRequested = onSearchRequested
                 )
             }
         }
@@ -123,7 +125,8 @@ private fun ReaderChromeActions(
     onNavigateBookmark: (ReaderAnnotation.Bookmark) -> Unit,
     onRemoveBookmark: (ReaderAnnotation.Bookmark) -> Unit,
     onBookmarkMenuVisibilityChanged: (Boolean) -> Unit,
-    onAnnotationsRequested: () -> Unit
+    onAnnotationsRequested: () -> Unit,
+    onSearchRequested: (() -> Unit)?
 ) {
     var bookmarkMenuExpanded by remember { mutableStateOf(false) }
     LaunchedEffect(bookmarks) {
@@ -133,6 +136,16 @@ private fun ReaderChromeActions(
         onBookmarkMenuVisibilityChanged(bookmarkMenuExpanded)
     }
     ReaderChromeSurface(palette, Modifier.testTag(READER_CHROME_RIGHT_CLUSTER_TAG)) {
+        if (onSearchRequested != null) {
+            IconButton(
+                modifier = Modifier.size(
+                    READER_CHROME_CONTROL_SIZE
+                ).testTag("reader_search_button"),
+                onClick = onSearchRequested
+            ) {
+                AppIconGraphic(AppIcon.Search, "Search book")
+            }
+        }
         IconButton(
             modifier = Modifier.size(READER_CHROME_CONTROL_SIZE),
             onClick = onAppearanceRequested
@@ -226,7 +239,7 @@ private val READER_CHROME_CLUSTER_GAP = 8.dp
 private val READER_CHROME_CONTROL_SIZE = 48.dp
 private val READER_CHROME_TOUCH_HEIGHT = 48.dp
 private val READER_CHROME_VISUAL_INSET = 5.dp
-private val READER_CHROME_RIGHT_CLUSTER_WIDTH = 144.dp
+private val READER_CHROME_RIGHT_CLUSTER_WIDTH = 192.dp
 private val READER_CHROME_MIN_LEFT_WIDTH = 120.dp
 private val READER_CHROME_MAX_LEFT_WIDTH = 360.dp
 private const val CHROME_SURFACE_ALPHA = 0.92f

@@ -13,6 +13,8 @@ import com.secondpasslibrary.reader.reader.appearance.ReaderAppearanceController
 import com.secondpasslibrary.reader.reader.cfi.EpubCfiNavigator
 import com.secondpasslibrary.reader.reader.lifecycle.EmptyReaderPositionRetention
 import com.secondpasslibrary.reader.reader.lifecycle.ReaderPositionRetention
+import com.secondpasslibrary.reader.reader.search.EmptyReaderBookSearch
+import com.secondpasslibrary.reader.reader.search.ReaderBookSearch
 import com.secondpasslibrary.reader.reader.toc.ReaderTableOfContents
 import java.io.File
 import kotlinx.coroutines.flow.Flow
@@ -29,6 +31,8 @@ internal interface ReaderEngine : AutoCloseable {
     val cfiNavigator: EpubCfiNavigator
     val viewportMovements: ReaderViewportMovements
     val tableOfContents: ReaderTableOfContents
+    val search: ReaderBookSearch
+        get() = EmptyReaderBookSearch
     val appearance: ReaderAppearanceController
     val annotationDecorations: ReaderAnnotationDecorations
         get() = EmptyReaderAnnotationDecorations

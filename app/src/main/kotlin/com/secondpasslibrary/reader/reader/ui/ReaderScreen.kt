@@ -15,11 +15,13 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +49,8 @@ import com.secondpasslibrary.reader.reader.marginalia.ui.ReaderMarginaliaDrawer
 import com.secondpasslibrary.reader.reader.marginalia.ui.ReaderMarginaliaDrawerState
 import com.secondpasslibrary.reader.reader.navigation.ReaderNavigationIntent
 import com.secondpasslibrary.reader.reader.presentation.ReaderMarginaliaPresentationState
+import com.secondpasslibrary.reader.reader.search.ReaderSearchController
+import com.secondpasslibrary.reader.reader.search.ReaderSearchPanel
 import com.secondpasslibrary.reader.reader.session.ReaderSessionMetadataState
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import com.secondpasslibrary.reader.reader.toc.ReaderPublicationResource
@@ -77,6 +81,17 @@ internal fun ReaderScreen(
     onDismissHighlightDetail: () -> Unit
 ) {
     val ready = state as? ReaderState.Ready
+    val searchScope = rememberCoroutineScope()
+    val searchController = remember(ready?.engine) {
+        ready?.engine?.let { ReaderSearchController(it.search, searchScope) }
+    }
+    DisposableEffect(searchController) {
+        onDispose { searchController?.close() }
+    }
+    val searchState by remember(searchController) {
+        searchController?.state
+            ?: MutableStateFlow(com.secondpasslibrary.reader.reader.search.ReaderSearchState())
+    }.collectAsState()
     val navigationFailureHost = remember { SnackbarHostState() }
     LaunchedEffect(navigationFailures, navigationFailureHost) {
         navigationFailures.collect {
@@ -106,6 +121,7 @@ internal fun ReaderScreen(
     )
     ReaderOverlayLayout(
         onExit = onBack,
+        publicationKey = ready?.engine,
         drawerScrimColor = palette.scrim,
         transientOverlayVisible = highlightSelection != null,
         onDismissTransientOverlay = onDismissSelection,
@@ -133,7 +149,19 @@ internal fun ReaderScreen(
                 { onNavigationIntent(ReaderNavigationIntent.GoToAnnotation(it)) },
                 onAnnotationMutation
             )
-        }
+        },
+        search = { dismiss ->
+            ReaderSearchPanel(
+                searchState,
+                palette,
+                onQuery = { searchController?.query(it) },
+                onSelect = { searchController?.select(it) },
+                onLoadMore = { searchController?.loadMore() },
+                onClose = dismiss
+            )
+        },
+        onSearchOpened = { searchController?.open() },
+        onSearchClosed = { searchController?.close() }
     ) {
         ReaderReadingSurface(
             state,
@@ -154,6 +182,7 @@ internal fun ReaderScreen(
             { onNavigationIntent(ReaderNavigationIntent.GoToBookmark(it)) },
             onRemoveBookmark,
             { bookmarkMenuVisible = it },
+            ready != null,
             onDismissSelection,
             onDismissHighlightDetail
         )
@@ -161,6 +190,7 @@ internal fun ReaderScreen(
 }
 
 @Composable
+@Suppress("LongMethod") // Composes Reader surface and established overlays.
 private fun ReaderReadingSurface(
     state: ReaderState,
     ready: ReaderState.Ready?,
@@ -180,6 +210,7 @@ private fun ReaderReadingSurface(
     onNavigateBookmark: (ReaderAnnotation.Bookmark) -> Unit,
     onRemoveBookmark: (ReaderAnnotation.Bookmark) -> Unit,
     onBookmarkMenuVisibilityChanged: (Boolean) -> Unit,
+    searchAvailable: Boolean,
     onDismissSelection: () -> Unit,
     onDismissHighlightDetail: () -> Unit
 ) {
@@ -224,6 +255,14 @@ private fun ReaderReadingSurface(
             onAnnotationsRequested = {
                 hud.reveal()
                 overlays.openAnnotations()
+            },
+            onSearchRequested = if (searchAvailable) {
+                {
+                    hud.reveal()
+                    overlays.openSearch()
+                }
+            } else {
+                null
             }
         )
         ReaderSelectionAnnotationOverlays(
@@ -390,7 +429,8 @@ private fun ReaderChromeLayer(
     onNavigateBookmark: (ReaderAnnotation.Bookmark) -> Unit,
     onRemoveBookmark: (ReaderAnnotation.Bookmark) -> Unit,
     onBookmarkMenuVisibilityChanged: (Boolean) -> Unit,
-    onAnnotationsRequested: () -> Unit
+    onAnnotationsRequested: () -> Unit,
+    onSearchRequested: (() -> Unit)?
 ) {
     ReaderChrome(
         title = title,
@@ -404,7 +444,8 @@ private fun ReaderChromeLayer(
         onNavigateBookmark = onNavigateBookmark,
         onRemoveBookmark = onRemoveBookmark,
         onBookmarkMenuVisibilityChanged = onBookmarkMenuVisibilityChanged,
-        onAnnotationsRequested = onAnnotationsRequested
+        onAnnotationsRequested = onAnnotationsRequested,
+        onSearchRequested = onSearchRequested
     )
 }
 

@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
@@ -25,13 +26,17 @@ import kotlinx.coroutines.launch
 internal class ReaderOverlayHost internal constructor(
     val openTableOfContents: () -> Unit,
     val openAppearance: () -> Unit,
-    val openAnnotations: () -> Unit
+    val openAnnotations: () -> Unit,
+    val openSearch: () -> Unit
 )
 
 /** Owns Reader-local overlay exclusion and Back priority; it owns no Reader business state. */
 @Composable
+// Owns mutual exclusion and Back priority for Reader panels.
+@Suppress("CognitiveComplexMethod", "LongMethod")
 internal fun ReaderOverlayLayout(
     onExit: () -> Unit,
+    publicationKey: Any? = null,
     drawerScrimColor: Color,
     transientOverlayVisible: Boolean = false,
     onDismissTransientOverlay: () -> Unit,
@@ -39,6 +44,9 @@ internal fun ReaderOverlayLayout(
     tableOfContents: @Composable (dismiss: () -> Unit) -> Unit,
     appearance: @Composable (dismiss: () -> Unit) -> Unit,
     annotations: @Composable (dismiss: () -> Unit) -> Unit,
+    search: @Composable (dismiss: () -> Unit) -> Unit = {},
+    onSearchOpened: () -> Unit = {},
+    onSearchClosed: () -> Unit = {},
     content: @Composable (ReaderOverlayHost) -> Unit
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -46,7 +54,13 @@ internal fun ReaderOverlayLayout(
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     var panel by remember { mutableStateOf(ReaderOverlayPanel.NONE) }
-    val dismissPanel = { panel = ReaderOverlayPanel.NONE }
+    val dismissPanel = {
+        if (panel == ReaderOverlayPanel.SEARCH) onSearchClosed()
+        panel = ReaderOverlayPanel.NONE
+    }
+    LaunchedEffect(publicationKey) {
+        if (panel == ReaderOverlayPanel.SEARCH) dismissPanel()
+    }
     val dismissDrawer = {
         scope.launch { drawerState.close() }
         Unit
@@ -62,7 +76,15 @@ internal fun ReaderOverlayLayout(
         scope,
         drawerState,
         dismissTransientOverlay,
-        setPanel = { panel = it }
+        setPanel = {
+            if (panel == ReaderOverlayPanel.SEARCH &&
+                it != ReaderOverlayPanel.SEARCH
+            ) {
+                onSearchClosed()
+            }
+            panel = it
+            if (it == ReaderOverlayPanel.SEARCH) onSearchOpened()
+        }
     )
     val drawerVisible = drawerState.currentValue == DrawerValue.Open ||
         drawerState.targetValue == DrawerValue.Open
@@ -89,6 +111,9 @@ internal fun ReaderOverlayLayout(
             ReaderContentBehindPanel(panel, actions, content)
             if (panel == ReaderOverlayPanel.APPEARANCE) appearance(dismissPanel)
             if (panel == ReaderOverlayPanel.ANNOTATIONS) annotations(dismissPanel)
+            if (panel == ReaderOverlayPanel.SEARCH) {
+                Box(Modifier.align(Alignment.TopEnd)) { search(dismissPanel) }
+            }
         }
     }
 }
@@ -128,6 +153,13 @@ private fun readerOverlayActions(
             drawerState.close()
             setPanel(ReaderOverlayPanel.ANNOTATIONS)
         }
+    },
+    openSearch = {
+        dismissTransient()
+        scope.launch {
+            drawerState.close()
+            setPanel(ReaderOverlayPanel.SEARCH)
+        }
     }
 )
 
@@ -156,4 +188,4 @@ private fun ReaderOverlayBackHandler(
     }
 }
 
-private enum class ReaderOverlayPanel { NONE, APPEARANCE, ANNOTATIONS }
+private enum class ReaderOverlayPanel { NONE, APPEARANCE, ANNOTATIONS, SEARCH }

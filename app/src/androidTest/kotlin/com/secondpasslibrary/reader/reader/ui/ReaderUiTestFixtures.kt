@@ -21,6 +21,8 @@ import com.secondpasslibrary.reader.reader.domain.ReaderHudEvents
 import com.secondpasslibrary.reader.reader.domain.ReaderReadingStatus
 import com.secondpasslibrary.reader.reader.domain.ReaderViewport
 import com.secondpasslibrary.reader.reader.domain.ReaderViewportMovements
+import com.secondpasslibrary.reader.reader.search.EmptyReaderBookSearch
+import com.secondpasslibrary.reader.reader.search.ReaderBookSearch
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
 import com.secondpasslibrary.reader.reader.session.ReaderSessionStatus
 import com.secondpasslibrary.reader.reader.toc.ReaderPublicationNavigationResult
@@ -45,10 +47,11 @@ internal fun readerReadyState(
     appearance: ReaderAppearanceController = RecordingReaderAppearance(),
     navigator: EpubCfiNavigator = UnusedReaderCfiNavigator,
     status: ReaderSessionStatus = ReaderSessionStatus.ACTIVE,
-    hudEvents: ReaderHudEvents = RecordingReaderHudEvents()
+    hudEvents: ReaderHudEvents = RecordingReaderHudEvents(),
+    search: ReaderBookSearch = EmptyReaderBookSearch
 ) = ReaderState.Ready(
     title = "A deliberately long Reader title that remains one line",
-    engine = FakeReaderEngine(toc, appearance, navigator, hudEvents),
+    engine = FakeReaderEngine(toc, appearance, navigator, hudEvents, search),
     session = ReaderSessionContext("session-1", status, null),
     restore = ReaderProgressRestore.NOT_NEEDED,
     authority = ReaderSessionAuthority.SERVER
@@ -122,7 +125,8 @@ private class FakeReaderEngine(
     override val tableOfContents: ReaderTableOfContents,
     override val appearance: ReaderAppearanceController,
     override val cfiNavigator: EpubCfiNavigator,
-    override val hudEvents: ReaderHudEvents
+    override val hudEvents: ReaderHudEvents,
+    override val search: ReaderBookSearch
 ) : ReaderEngine {
     override val viewport = ReaderViewport { modifier ->
         Box(modifier) {

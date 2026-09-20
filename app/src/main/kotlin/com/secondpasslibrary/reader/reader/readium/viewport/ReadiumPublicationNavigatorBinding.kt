@@ -76,6 +76,21 @@ internal class ReadiumPublicationNavigatorBinding(
         ReaderPublicationNavigationResult.UNAVAILABLE
     }
 
+    suspend fun goTo(locator: Locator): ReaderPublicationNavigationResult = try {
+        operations.runNavigation(TOC_NAVIGATION_COMMAND_TIMEOUT) {
+            val lease = synchronized(lock) {
+                if (closed) null else navigator?.let { NavigatorLease(it, generation) }
+            } ?: return@runNavigation false
+            withContext(Dispatchers.Main.immediate) {
+                isCurrent(lease) && lease.navigator.go(locator, animated = false)
+            }
+        }.toPublicationNavigationResult()
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        ReaderPublicationNavigationResult.UNAVAILABLE
+    }
+
     private suspend fun submit(link: Link): Boolean {
         val lease = synchronized(lock) {
             if (closed) null else navigator?.let { NavigatorLease(it, generation) }

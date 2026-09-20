@@ -122,6 +122,7 @@ private class ReadiumReaderEngine(
         readingOrder = publication.readingOrder,
         binding = publicationBinding
     )
+    override val search = ReadiumReaderBookSearch(publication, publicationBinding)
 
     override fun close() {
         positionRetentionController.close()

@@ -35,6 +35,13 @@ current, and focused on reusable product behavior rather than implementation his
 - IME Search and the trailing affordance perform the same action.
 - Avoid redundant headings, explanations, and external Search buttons.
 
+## Reader search
+
+- Search the loaded EPUB locally, across its reading order; do not query SPL for Book text.
+- Search results update after a short pause in typing; Reader search has no submit action.
+- Keep results in a Reader side panel with nearby text and direct navigation to each match.
+- Selecting a result keeps search open. Back closes search before leaving the Reader.
+
 ## Full Book cards
 
 - Keep cover and metadata/footer geometry consistent across a grid.
