@@ -8,9 +8,6 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
-import org.readium.r2.navigator.input.InputListener
-import org.readium.r2.navigator.input.TapEvent
-import org.readium.r2.navigator.util.DirectionalNavigationAdapter
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Locator
 
@@ -20,17 +17,20 @@ internal class ReadiumReaderHudEvents(
     private val onPageChanged: () -> Unit = {},
     private val onDocumentLoaded: () -> Unit = {}
 ) : ReaderHudEvents,
-    InputListener,
     AutoCloseable {
     private val pagination = ReadiumSectionPaginationTracker()
     private val taps = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     private val paginationChanges = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     private var navigator: EpubNavigatorFragment? = null
-    private var directionalNavigation: DirectionalNavigationAdapter? = null
+    private val input = ReadiumPublicationInputAdapter { taps.tryEmit(Unit) }
 
     override val readingStatus = pagination.status
 
     override fun publicationTaps(): Flow<Unit> = taps
+
+    override fun setInteractionSuppressed(suppressed: Boolean) {
+        input.setInteractionSuppressed(suppressed)
+    }
 
     fun paginationListener(): EpubNavigatorFragment.PaginationListener {
         val generation = pagination.newGeneration()
@@ -51,27 +51,19 @@ internal class ReadiumReaderHudEvents(
         }
     }
 
-    override fun onTap(event: TapEvent): Boolean {
-        taps.tryEmit(Unit)
-        return false
-    }
-
     fun paginationChanges(): Flow<Unit> = paginationChanges
 
     fun bind(next: EpubNavigatorFragment) {
         if (navigator === next) return
         navigator?.let(::unbind)
         navigator = next
-        directionalNavigation = DirectionalNavigationAdapter(next).also(next::addInputListener)
-        next.addInputListener(this)
+        input.bind(next)
         paginationChanges.tryEmit(Unit)
     }
 
     fun unbind(current: EpubNavigatorFragment) {
         if (navigator !== current) return
-        directionalNavigation?.let(current::removeInputListener)
-        directionalNavigation = null
-        current.removeInputListener(this)
+        input.unbind(current)
         navigator = null
         pagination.invalidate()
     }

@@ -117,6 +117,9 @@ internal class ReaderChromeUiIntegrationTest : ReaderUiIntegrationTestSupport() 
         compose.runOnIdle { hud.tap() }
         compose.mainClock.advanceTimeBy(500)
         compose.onNodeWithTag(READER_CHROME_LEFT_CLUSTER_TAG).assertIsDisplayed()
+        compose.runOnIdle { hud.tap() }
+        compose.mainClock.advanceTimeBy(500)
+        compose.onNodeWithTag(READER_CHROME_LEFT_CLUSTER_TAG).assertIsNotDisplayed()
     }
 
     @Test

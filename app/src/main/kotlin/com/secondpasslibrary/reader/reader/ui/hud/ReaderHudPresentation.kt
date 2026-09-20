@@ -3,6 +3,7 @@ package com.secondpasslibrary.reader.reader.ui.hud
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -29,6 +30,7 @@ internal fun rememberReaderHudPresentation(
     val readingStatus by remember(engine) {
         engine?.hudEvents?.readingStatus ?: EMPTY_READING_STATUS
     }.collectAsState()
+    SideEffect { engine?.hudEvents?.setInteractionSuppressed(interactionSuppressed) }
     DisposableEffect(controller) { onDispose { controller.close() } }
     LaunchedEffect(engine, interactionSuppressed) {
         engine?.hudEvents?.publicationTaps()?.collect {

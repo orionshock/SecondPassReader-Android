@@ -62,6 +62,8 @@ internal interface ReaderHudEvents {
     val readingStatus: StateFlow<ReaderReadingStatus?>
 
     fun publicationTaps(): Flow<Unit>
+
+    fun setInteractionSuppressed(suppressed: Boolean) = Unit
 }
 
 private object EmptyReaderHudEvents : ReaderHudEvents {
