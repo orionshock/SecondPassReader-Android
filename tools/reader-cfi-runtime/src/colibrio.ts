@@ -1,10 +1,14 @@
 export interface CfiAssertion {
+  readonly values: readonly string[];
   readonly parameters: readonly { readonly name: string }[];
 }
 export interface CfiOffset { readonly type: string; readonly assertion?: CfiAssertion | null; }
 export interface CfiLocalPath {
   readonly indirection: boolean;
-  readonly steps: readonly { readonly assertion?: CfiAssertion | null }[];
+  readonly steps: readonly {
+    readonly stepValue: number;
+    readonly assertion?: CfiAssertion | null;
+  }[];
 }
 export interface CfiPath {
   readonly offset?: CfiOffset | null;

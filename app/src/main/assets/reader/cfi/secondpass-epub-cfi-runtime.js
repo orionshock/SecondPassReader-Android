@@ -1,5 +1,5 @@
 // GENERATED from tools/reader-cfi-runtime; do not edit.
-// Source-SHA256: 4FD882DB9B14F5D49E0C67FD7AAD95C8AA3187A7208CCB0C35389178CAD033BD
+// Source-SHA256: DCF0CC104FF609D283512B5379B589D44B6A24B93259F9AC0690591BCA8DE58D
 // CFI-Protocol-Version: 1.12.10
 // Rebuild: cd tools/reader-cfi-runtime && npm run build
 "use strict";
@@ -99,6 +99,8 @@
     MAX_SELECTED_TEXT_LENGTH
   } = Protocol;
   var MIN_VISIBLE_EXTENT_PIXELS = 0.5;
+  var MAX_ELEMENT_ID_ASSERTION_LENGTH = 128;
+  var MAX_TOTAL_ELEMENT_ID_ASSERTION_LENGTH = 256;
   function safely(operation) {
     try {
       return { [Protocol.FIELD_OK]: true, [Protocol.FIELD_VALUE]: operation() };
@@ -158,7 +160,11 @@
     if (kind === Protocol.KIND_RANGE && (!isCharacterOffset((_a = root.rangeStartPath) == null ? void 0 : _a.offset) || !isCharacterOffset((_b = root.rangeEndPath) == null ? void 0 : _b.offset))) {
       throw new Error(Protocol.ERROR_UNSUPPORTED_CFI_FEATURE);
     }
-    if (hasSideBias(root.parentPath) || hasSideBias(root.rangeStartPath) || hasSideBias(root.rangeEndPath)) {
+    if (!hasSupportedAssertions([
+      root.parentPath,
+      root.rangeStartPath,
+      root.rangeEndPath
+    ])) {
       throw new Error(Protocol.ERROR_UNSUPPORTED_CFI_FEATURE);
     }
     return root;
@@ -166,16 +172,31 @@
   function isCharacterOffset(offset) {
     return (offset == null ? void 0 : offset.type) === "CHARACTER";
   }
-  function hasSideBias(path) {
+  function hasSupportedAssertions(paths) {
     var _a;
-    if (!path) return false;
-    if (assertionHasSideBias((_a = path.offset) == null ? void 0 : _a.assertion)) return true;
-    return path.localPaths.some(
-      (localPath) => localPath.steps.some((step) => assertionHasSideBias(step.assertion))
-    );
-  }
-  function assertionHasSideBias(assertion) {
-    return (assertion == null ? void 0 : assertion.parameters.some((parameter) => parameter.name === "s")) ?? false;
+    let totalElementIdLength = 0;
+    for (const path of paths) {
+      if (!path) continue;
+      if ((_a = path.offset) == null ? void 0 : _a.assertion) return false;
+      for (const localPath of path.localPaths) {
+        for (const step of localPath.steps) {
+          const assertion = step.assertion;
+          if (!assertion) continue;
+          if (step.stepValue % 2 !== 0 || assertion.parameters.length !== 0 || assertion.values.length !== 1) {
+            return false;
+          }
+          const elementId = assertion.values[0];
+          if (elementId.length === 0 || elementId.length > MAX_ELEMENT_ID_ASSERTION_LENGTH) {
+            return false;
+          }
+          totalElementIdLength += elementId.length;
+          if (totalElementIdLength > MAX_TOTAL_ELEMENT_ID_ASSERTION_LENGTH) {
+            return false;
+          }
+        }
+      }
+    }
+    return true;
   }
 
   // src/package-cfi.ts

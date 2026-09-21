@@ -120,6 +120,44 @@ class MarginaliaAnnotationClientTest {
     }
 
     @Test
+    fun `historical Web CFI is preserved through annotation read and write mapping`() =
+        runBlocking {
+            val historical =
+                "epubcfi(/6/34!/4[x9780451492128_EPUB-15]/2,/310/1:0,/314/1:17)"
+            var request: HttpRequestData? = null
+            val response = annotationCollection(
+                listOf(
+                    """{"id":"server-bookmark","client_id":"bookmark","kind":"bookmark",""" +
+                        """"location":{"cfi":"$historical","location_label":null},""" +
+                        """"created_at":"now","updated_at":"now"}"""
+                )
+            )
+            val client = authenticatedClient { captured ->
+                request = captured
+                jsonResponse(response)
+            }
+
+            val read = client.marginalia.sessions.listAnnotations("session-1").single()
+            assertEquals(historical, read.location.cfi)
+            client.marginalia.sessions.synchronizeAnnotations(
+                "session-1",
+                listOf(
+                    MarginaliaAnnotationOperation.Upsert(
+                        MarginaliaAnnotationDraft.Bookmark(
+                            "bookmark",
+                            MarginaliaAnnotationLocationInput(historical)
+                        )
+                    )
+                )
+            )
+
+            val annotation = requireNotNull(request).payload()
+                .array("operations")[0].objectValue()
+                .objectValue("annotation")
+            assertEquals(historical, annotation.objectValue("location").string("cfi"))
+        }
+
+    @Test
     fun `batch validation rejects empty oversized and duplicate client IDs`() {
         val delete = MarginaliaAnnotationOperation.Delete("client")
         assertThrows(IllegalArgumentException::class.java) {

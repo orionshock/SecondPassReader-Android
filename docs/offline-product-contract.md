@@ -55,10 +55,19 @@ owned. A cover-fetch failure does not discard an otherwise verified EPUB.
 
 ### Durable EPUB CFI profile
 
-The server stores EPUB CFIs opaquely; clients own their generation and resolution. Second Pass
-clients emit compact structural CFIs made from package/content paths and character offsets. Text
-location assertions are outside the supported durable interoperability profile. Highlight quote
-and repair context is carried separately as exact text, prefix, and suffix.
+The server validates the durable EPUB CFI profile and otherwise stores accepted values opaquely and
+unchanged; it does not open EPUBs, resolve, normalize, rewrite, or repair CFIs. Clients own CFI
+generation and resolution. Second Pass clients emit compact structural CFIs made from
+package/content paths and character offsets. Simple range CFIs and compact element-ID assertions on
+structural steps, such as `/4[element-id]`, are supported. Text-location assertions attached to
+text offsets, such as `/1:17[surrounding text]`, are outside the durable interoperability profile,
+as are temporal or spatial offsets and extension parameters. Highlight quote and repair context is
+carried separately as exact text, prefix, and suffix.
+
+Element-ID assertions are limited to 128 characters each and 256 assertion characters across one
+CFI. Android's Reader runtime applies the same limits when it validates a CFI for resolution; SDK
+mapping otherwise preserves accepted CFI strings byte-for-byte, and app-generated writes are sent
+without canonicalization.
 
 An imported EPUB's bytes are immutable for the lifetime of its Book identity, so mutation-repair
 assertions are unnecessary for the canonical baseline. A materially changed EPUB is a different

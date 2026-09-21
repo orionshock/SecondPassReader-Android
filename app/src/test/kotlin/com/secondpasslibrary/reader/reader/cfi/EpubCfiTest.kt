@@ -32,4 +32,12 @@ class EpubCfiTest {
         assertEquals(opaqueValue, EpubCfi(opaqueValue).value)
         assertEquals(opaqueValue, EpubCfi(opaqueValue).toString())
     }
+
+    @Test
+    fun `preserves historical Web range with structural element ID assertion`() {
+        val historical =
+            "epubcfi(/6/34!/4[x9780451492128_EPUB-15]/2,/310/1:0,/314/1:17)"
+
+        assertEquals(historical, EpubCfi(historical).value)
+    }
 }

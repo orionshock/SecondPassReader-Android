@@ -63,6 +63,27 @@ class ReadingSessionProgressClientTest {
     }
 
     @Test
+    fun `historical Web CFI is preserved through progress read and write mapping`() = runBlocking {
+        val historical =
+            "epubcfi(/6/34!/4[x9780451492128_EPUB-15]/2,/310/1:0,/314/1:17)"
+        var request: HttpRequestData? = null
+        val client = authenticatedClient { captured ->
+            request = captured
+            jsonResponse(
+                """{"progress":{"cfi":"$historical","location_label":null,"updated_at":"now"}}"""
+            )
+        }
+
+        assertEquals(historical, client.marginalia.sessions.getProgress("session-1")?.cfi)
+        client.marginalia.sessions.replaceProgress(
+            "session-1",
+            ReadingProgressInput(historical)
+        )
+
+        assertEquals(historical, requireNotNull(request).payload().string("cfi"))
+    }
+
+    @Test
     fun `progress input enforces CFI and location bounds without trimming`() {
         assertEquals(" cfi ", ReadingProgressInput(" cfi ").cfi)
         assertThrows(IllegalArgumentException::class.java) { ReadingProgressInput(" ") }

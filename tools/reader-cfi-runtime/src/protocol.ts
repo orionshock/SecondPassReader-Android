@@ -5,6 +5,8 @@ export type { RuntimeErrorCode, RuntimeResult, TargetKind } from "./protocol.gen
 export const { RUNTIME_VERSION, CONTEXT_LENGTH, SELECTION_CONTEXT_LENGTH,
   MOVEMENT_QUOTE_LENGTH, MAX_SELECTED_TEXT_LENGTH } = P;
 export const MIN_VISIBLE_EXTENT_PIXELS = 0.5;
+const MAX_ELEMENT_ID_ASSERTION_LENGTH = 128;
+const MAX_TOTAL_ELEMENT_ID_ASSERTION_LENGTH = 256;
 
 export function safely<T>(operation: () => T): RuntimeResult<T> {
   try {
@@ -62,8 +64,11 @@ export function validateSupportedFullCfi(source: unknown): CfiRoot {
        !isCharacterOffset(root.rangeEndPath?.offset))) {
     throw new Error(P.ERROR_UNSUPPORTED_CFI_FEATURE);
   }
-  if (hasSideBias(root.parentPath) || hasSideBias(root.rangeStartPath) ||
-      hasSideBias(root.rangeEndPath)) {
+  if (!hasSupportedAssertions([
+    root.parentPath,
+    root.rangeStartPath,
+    root.rangeEndPath
+  ])) {
     throw new Error(P.ERROR_UNSUPPORTED_CFI_FEATURE);
   }
   return root;
@@ -73,15 +78,31 @@ function isCharacterOffset(offset: CfiOffset | null | undefined): boolean {
   return offset?.type === "CHARACTER";
 }
 
-/* Readium text-quote navigation cannot preserve CFI side-bias assertions. */
-function hasSideBias(path: CfiPath | null | undefined): boolean {
-  if (!path) return false;
-  if (assertionHasSideBias(path.offset?.assertion)) return true;
-  return path.localPaths.some((localPath) =>
-    localPath.steps.some((step) => assertionHasSideBias(step.assertion))
-  );
-}
-
-function assertionHasSideBias(assertion: CfiAssertion | null | undefined): boolean {
-  return assertion?.parameters.some((parameter) => parameter.name === "s") ?? false;
+/* The durable profile permits only compact element-ID assertions on element steps. */
+function hasSupportedAssertions(paths: readonly (CfiPath | null | undefined)[]): boolean {
+  let totalElementIdLength = 0;
+  for (const path of paths) {
+    if (!path) continue;
+    if (path.offset?.assertion) return false;
+    for (const localPath of path.localPaths) {
+      for (const step of localPath.steps) {
+        const assertion: CfiAssertion | null | undefined = step.assertion;
+        if (!assertion) continue;
+        if (step.stepValue % 2 !== 0 || assertion.parameters.length !== 0 ||
+            assertion.values.length !== 1) {
+          return false;
+        }
+        const elementId = assertion.values[0]!;
+        if (elementId.length === 0 ||
+            elementId.length > MAX_ELEMENT_ID_ASSERTION_LENGTH) {
+          return false;
+        }
+        totalElementIdLength += elementId.length;
+        if (totalElementIdLength > MAX_TOTAL_ELEMENT_ID_ASSERTION_LENGTH) {
+          return false;
+        }
+      }
+    }
+  }
+  return true;
 }
