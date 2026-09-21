@@ -206,7 +206,7 @@ class ConnectionScreenTest {
             }
         }
         compose.onNodeWithText("My Library").assertIsDisplayed()
-        compose.onNodeWithText("$url/").assertIsDisplayed()
+        compose.onNodeWithText(url).assertIsDisplayed()
         compose.onAllNodesWithText("alpha-rc1").assertCountEquals(0)
         compose.onAllNodesWithText("$url/api/v1/").assertCountEquals(0)
         assertLeftOf("Change address", "Link device")

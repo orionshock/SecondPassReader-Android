@@ -28,6 +28,38 @@ import org.junit.Test
 
 class KtorSecondPassClientTest {
     @Test
+    fun `nearby server metadata requires only public well-known discovery`() = runBlocking {
+        val requests = mutableListOf<String>()
+        val client = client { request ->
+            requests += request.url.encodedPath
+            if (request.url.encodedPath == "/.well-known/secondpass") {
+                jsonResponse(WELL_KNOWN)
+            } else {
+                respondError(HttpStatusCode.ServiceUnavailable)
+            }
+        }
+
+        assertEquals(
+            PublicServerInfo(SERVER_ID, "Second Pass Library", "Books", "0.1.0", "2026-07-19"),
+            client.publicServerInfo("https://library.example")
+        )
+        assertEquals(listOf("/.well-known/secondpass"), requests)
+    }
+
+    @Test
+    fun `nearby server metadata rejects missing or malformed server id`() {
+        listOf(
+            WELL_KNOWN.replace("\"server_id\":\"$SERVER_ID\",", ""),
+            WELL_KNOWN.replace(SERVER_ID, "not-a-uuid")
+        ).forEach { body ->
+            val client = client { jsonResponse(body) }
+            assertThrows(SplClientException.NotSecondPassServer::class.java) {
+                runBlocking { client.publicServerInfo("https://library.example") }
+            }
+        }
+    }
+
+    @Test
     fun `server identity check reads only public well-known endpoint`() = runBlocking {
         val requests = mutableListOf<HttpRequestData>()
         val client = client { request ->

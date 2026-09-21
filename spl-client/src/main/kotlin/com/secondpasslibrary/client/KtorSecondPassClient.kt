@@ -82,9 +82,7 @@ class KtorSecondPassClient internal constructor(private val httpClient: HttpClie
 
     override suspend fun discoverServer(userInput: String): DiscoveredServer {
         val origin = ServerOrigin.fromUserInput(userInput)
-        val wellKnown = loadWellKnown(origin)
-        val serverId = requireServerId(wellKnown.serverId)
-        val name = discoveryValue { wellKnown.serverName.required("Second Pass discovery") }
+        val publicInfo = loadPublicServerInfo(origin)
         val libraryBaseUrl = origin.value
         val pairingDiscoveryUrl = resolveApiUrl(
             apiRootFromLibraryBaseUrl(libraryBaseUrl),
@@ -107,15 +105,29 @@ class KtorSecondPassClient internal constructor(private val httpClient: HttpClie
 
         return DiscoveredServer(
             serverOrigin = origin,
-            serverId = serverId,
+            serverId = publicInfo.serverId,
             libraryBaseUrl = libraryBaseUrl,
-            name = name,
-            description = wellKnown.serverDescription.orEmpty(),
-            version = wellKnown.serverVersion.orEmpty(),
-            releaseDate = wellKnown.serverReleaseDate.orEmpty(),
+            name = publicInfo.name,
+            description = publicInfo.description,
+            version = publicInfo.version,
+            releaseDate = publicInfo.releaseDate,
             discoveryVersion = pairing.discoveryVersion.orEmpty(),
             loginRequestUrl = loginRequestUrl,
             tokenType = "Bearer"
+        )
+    }
+
+    override suspend fun publicServerInfo(libraryBaseUrl: String): PublicServerInfo =
+        loadPublicServerInfo(ServerOrigin.fromUserInput(libraryBaseUrl))
+
+    private suspend fun loadPublicServerInfo(origin: ServerOrigin): PublicServerInfo {
+        val wellKnown = loadWellKnown(origin)
+        return PublicServerInfo(
+            serverId = requireServerId(wellKnown.serverId),
+            name = discoveryValue { wellKnown.serverName.required("Second Pass discovery") },
+            description = wellKnown.serverDescription.orEmpty(),
+            version = wellKnown.serverVersion.orEmpty(),
+            releaseDate = wellKnown.serverReleaseDate.orEmpty()
         )
     }
 

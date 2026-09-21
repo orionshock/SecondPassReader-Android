@@ -6,6 +6,7 @@ import com.secondpasslibrary.client.DiscoveredServer
 import com.secondpasslibrary.client.PairingConsumption
 import com.secondpasslibrary.client.PairingRequest
 import com.secondpasslibrary.client.PairingStatus
+import com.secondpasslibrary.client.PublicServerInfo
 import com.secondpasslibrary.client.SecondPassClient
 import com.secondpasslibrary.client.ServerOrigin
 import com.secondpasslibrary.client.SplClientException
@@ -132,11 +133,21 @@ private class FakeDiscoveryClient(private val gate: CompletableDeferred<Unit>? =
     val responses = mutableMapOf<String, DiscoveredServer>()
     val failures = mutableMapOf<String, Exception>()
 
-    override suspend fun discoverServer(userInput: String): DiscoveredServer {
+    override suspend fun publicServerInfo(libraryBaseUrl: String): PublicServerInfo {
         gate?.let { withContext(NonCancellable) { it.await() } }
-        failures[userInput]?.let { throw it }
-        return checkNotNull(responses[userInput])
+        failures[libraryBaseUrl]?.let { throw it }
+        val server = checkNotNull(responses[libraryBaseUrl])
+        return PublicServerInfo(
+            server.serverId,
+            server.name,
+            server.description,
+            server.version,
+            server.releaseDate
+        )
     }
+
+    override suspend fun discoverServer(userInput: String): DiscoveredServer =
+        error("Pairing discovery must not run for nearby suggestions")
 
     override suspend fun beginPairing(
         server: DiscoveredServer,

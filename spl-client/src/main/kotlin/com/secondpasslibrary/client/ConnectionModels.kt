@@ -1,5 +1,13 @@
 package com.secondpasslibrary.client
 
+data class PublicServerInfo(
+    val serverId: String,
+    val name: String,
+    val description: String,
+    val version: String,
+    val releaseDate: String
+)
+
 data class DiscoveredServer(
     val serverOrigin: ServerOrigin,
     val serverId: String,

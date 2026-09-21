@@ -3,6 +3,12 @@ package com.secondpasslibrary.client
 interface SecondPassClient {
     suspend fun discoverServer(userInput: String): DiscoveredServer
 
+    /** Reads public server identity and presentation metadata before pairing. */
+    suspend fun publicServerInfo(libraryBaseUrl: String): PublicServerInfo =
+        discoverServer(libraryBaseUrl).let {
+            PublicServerInfo(it.serverId, it.name, it.description, it.version, it.releaseDate)
+        }
+
     /** Reads public well-known identity without contacting an authenticated endpoint. */
     suspend fun identifyServer(libraryBaseUrl: String): String =
         discoverServer(libraryBaseUrl).serverId

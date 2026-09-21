@@ -1,6 +1,6 @@
 package com.secondpasslibrary.reader.connection.discovery
 
-import com.secondpasslibrary.client.DiscoveredServer
+import com.secondpasslibrary.client.PublicServerInfo
 import com.secondpasslibrary.client.SecondPassClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -61,7 +61,7 @@ internal class ConnectionLanDiscoveryController(
     }
 
     private suspend fun validate(url: String): ConnectionLibrarySuggestion? = try {
-        client.discoverServer(url).toSuggestion(url)
+        client.publicServerInfo(url).toSuggestion(url)
     } catch (failure: CancellationException) {
         throw failure
     } catch (_: Exception) {
@@ -69,7 +69,7 @@ internal class ConnectionLanDiscoveryController(
     }
 }
 
-private fun DiscoveredServer.toSuggestion(url: String) = ConnectionLibrarySuggestion(
+private fun PublicServerInfo.toSuggestion(url: String) = ConnectionLibrarySuggestion(
     serverId = serverId,
     name = name,
     description = description,
