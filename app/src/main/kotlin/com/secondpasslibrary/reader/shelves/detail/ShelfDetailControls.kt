@@ -134,21 +134,23 @@ private fun ShelfContextDescription(
     modifier: Modifier
 ) {
     val icon = when (model.ownerKind) {
-        com.secondpasslibrary.reader.shelves.ShelfOwnerKind.PERSONAL -> AppIcon.User
+        com.secondpasslibrary.reader.shelves.ShelfOwnerKind.PERSONAL -> AppIcon.Shelf
         com.secondpasslibrary.reader.shelves.ShelfOwnerKind.SHARED_USER -> AppIcon.SharedShelf
         com.secondpasslibrary.reader.shelves.ShelfOwnerKind.GROUP -> AppIcon.GroupShelf
     }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            AppIconGraphic(icon, null, Modifier.size(18.dp))
-            Text(
-                model.ownerContextLabel,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium
-            )
+        model.ownerContextLabel?.let { label ->
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AppIconGraphic(icon, null, Modifier.size(18.dp))
+                Text(
+                    label,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
         }
         ServerRichText(
             value = rawDescription,

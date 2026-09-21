@@ -6,6 +6,7 @@ import com.secondpasslibrary.client.ShelfPreviewBook
 import com.secondpasslibrary.client.ShelfVisibility
 import com.secondpasslibrary.reader.design.components.AppBarNavigation
 import com.secondpasslibrary.reader.shelves.collection.ShelfCollectionState
+import com.secondpasslibrary.reader.shelves.collection.previewSlots
 import com.secondpasslibrary.reader.shelves.detail.ShelfDetailResourceState
 import com.secondpasslibrary.reader.shelves.detail.ShelfDetailState
 import org.junit.Assert.assertEquals
@@ -54,14 +55,14 @@ class ShelvesPresentationTest {
         val group = shelf(ShelfOwner.Group("group", "Common Room", true))
 
         assertEquals(ShelfOwnerKind.PERSONAL, personal.toCardPresentation().ownerKind)
-        assertEquals("My shelf", personal.toCardPresentation().ownerLabel)
-        assertEquals("My shelf \u00b7 Private", personal.toCardPresentation().ownerContextLabel)
+        assertEquals(null, personal.toCardPresentation().ownerLabel)
+        assertEquals("Private", personal.toCardPresentation().ownerContextLabel)
         assertEquals(ShelfOwnerKind.SHARED_USER, shared.toCardPresentation().ownerKind)
         assertEquals("Shared by @alex", shared.toCardPresentation().ownerLabel)
         assertEquals("Shared by @alex", shared.toCardPresentation().ownerContextLabel)
         assertEquals(ShelfOwnerKind.GROUP, group.toCardPresentation().ownerKind)
-        assertEquals("Common Room", group.toCardPresentation().ownerLabel)
-        assertEquals("Common Room", group.toCardPresentation().ownerContextLabel)
+        assertEquals("Group \u00b7 Common Room", group.toCardPresentation().ownerLabel)
+        assertEquals("Group \u00b7 Common Room", group.toCardPresentation().ownerContextLabel)
     }
 
     @Test
@@ -95,6 +96,22 @@ class ShelvesPresentationTest {
         assertTrue(absent is ShelfPreviewPresentation.Absent)
         assertTrue(empty is ShelfPreviewPresentation.Empty)
         assertEquals(4, (populated as ShelfPreviewPresentation.Books).books.size)
+    }
+
+    @Test
+    fun `adaptive preview slots preserve order and reserve accurate overflow`() {
+        val books = List(6) { index -> ShelfPreviewBook("book-$index", "Book $index", null) }
+
+        val wide = previewSlots(books, total = 10, capacity = 4)
+        val narrow = previewSlots(books, total = 10, capacity = 2)
+        val single = previewSlots(books, total = 10, capacity = 1)
+
+        assertEquals(listOf("book-0", "book-1", "book-2"), wide.books.map { it.id })
+        assertEquals(7, wide.overflowCount)
+        assertEquals(listOf("book-0"), narrow.books.map { it.id })
+        assertEquals(9, narrow.overflowCount)
+        assertEquals(listOf("book-0"), single.books.map { it.id })
+        assertEquals(null, single.overflowCount)
     }
 
     @Test

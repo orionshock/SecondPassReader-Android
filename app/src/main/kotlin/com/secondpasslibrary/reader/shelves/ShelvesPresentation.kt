@@ -26,9 +26,10 @@ internal sealed interface ShelfPreviewPresentation {
 internal data class ShelfCardPresentation(
     val id: String,
     val name: String,
-    val ownerLabel: String,
+    val ownerLabel: String?,
     val ownerKind: ShelfOwnerKind,
     val visibilityLabel: String?,
+    val itemCount: Int,
     val itemCountLabel: String,
     val canEdit: Boolean,
     val previews: ShelfPreviewPresentation
@@ -74,6 +75,7 @@ internal fun Shelf.toCardPresentation() = ShelfCardPresentation(
     ownerLabel = owner.displayLabel(canEdit),
     ownerKind = owner.kind(canEdit),
     visibilityLabel = visibility.label.takeIf { canEdit },
+    itemCount = itemCount,
     itemCountLabel = itemCount.bookCountLabel,
     canEdit = canEdit,
     previews = previewBooks.toPreviewPresentation()
@@ -114,11 +116,11 @@ internal fun shouldRequestShelfNextPage(
     prefetchDistance: Int = 6
 ): Boolean = itemCount > 0 && lastVisibleIndex >= (itemCount - prefetchDistance).coerceAtLeast(0)
 
-private fun ShelfOwner.displayLabel(canEdit: Boolean): String = when (this) {
-    is ShelfOwner.Group -> name
+private fun ShelfOwner.displayLabel(canEdit: Boolean): String? = when (this) {
+    is ShelfOwner.Group -> "Group \u00b7 $name"
 
     is ShelfOwner.User -> when {
-        canEdit -> "My shelf"
+        canEdit -> null
         username.isNullOrBlank() -> "Shared by another reader"
         else -> "Shared by @$username"
     }
@@ -141,5 +143,8 @@ internal val Int.bookCountLabel: String
 internal val Int.shelfCountLabel: String
     get() = "$this ${if (this == 1) "shelf" else "shelves"}"
 
-internal val ShelfCardPresentation.ownerContextLabel: String
-    get() = listOfNotNull(ownerLabel, visibilityLabel).joinToString(" \u00b7 ")
+internal val ShelfCardPresentation.ownerContextLabel: String?
+    get() = when (ownerKind) {
+        ShelfOwnerKind.PERSONAL -> visibilityLabel
+        ShelfOwnerKind.SHARED_USER, ShelfOwnerKind.GROUP -> ownerLabel
+    }
