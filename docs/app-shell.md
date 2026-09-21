@@ -121,3 +121,7 @@ Readium stays behind the app-owned Reader engine contracts. The Reader domain ex
 `app.storage.AccountLocalDataRepository` is the common boundary for the single retained account footprint. It normalizes the account scope, supplies Library with the checksum-valid downloaded-Book catalog, and coordinates destructive cleanup across Home projections, Reader Room state and outbox, continuation outcomes, downloaded EPUBs and checksum metadata, Marginalia visibility preferences, and account-scoped Reader sync work. Feature stores stay private behind that boundary.
 
 Repair for the same verified identity preserves this footprint. Logout, Forget, and verified replacement with a different account route through the same purge operation; device-global preferences remain. The app does not retain dormant per-account caches.
+
+## Settings About follow-up
+
+The focused About page can read app version name, version code, and package ID from Android `PackageManager`; connected Library version and `serverId` already belong to Connection's verified context. A repository or support URL needs an explicit distribution decision before it is shown. Open source notices should be generated from the shipped dependency and asset inventory, with the existing Colibrio, jsoup, Readium, Material Symbols, and font notices accounted for. Do not infer app build identity from the server version.

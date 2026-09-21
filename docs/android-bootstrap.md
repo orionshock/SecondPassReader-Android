@@ -47,3 +47,5 @@ The exact checks, focused commands, instrumentation split, and generated-asset w
 The application icon reuses the Second Pass web favicon inside an Android adaptive-icon wrapper. Android's resource grammar requires the wrapper in a `v26` directory, so the version-qualifier lint rule is ignored only there.
 
 Local alpha release signing is documented in [Repository tooling](repository-tooling.md). Distribution policy and a light theme remain outside this baseline.
+
+The alpha release keeps R8 minification and resource shrinking disabled. Readium's renderer and JavaScript bridge, generated serializers, and dependency reflection have not been exercised as an optimized release artifact. Enabling these requires a separate artifact and device validation pass; broad keep rules would hide missing contracts rather than establish safety.
