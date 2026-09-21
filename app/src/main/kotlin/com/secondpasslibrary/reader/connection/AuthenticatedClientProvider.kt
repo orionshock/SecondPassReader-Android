@@ -8,16 +8,19 @@ interface AuthenticatedClientProvider {
     suspend fun forProfile(profile: ConnectionProfile): AuthenticatedSecondPassClient
 }
 
-class StoredAuthenticatedClientProvider
+internal class StoredAuthenticatedClientProvider
 @Inject
 constructor(
     private val clientFactory: AuthenticatedSecondPassClientFactory,
-    private val credentialStore: BearerCredentialStore
+    private val credentialStore: BearerCredentialStore,
+    private val routesStore: KnownServerRoutesStore
 ) : AuthenticatedClientProvider {
     override suspend fun forProfile(profile: ConnectionProfile): AuthenticatedSecondPassClient {
         val stored =
             credentialStore.read()
                 ?: throw CredentialStorageException("The stored credential is missing.")
-        return clientFactory.authenticated(profile.libraryBaseUrl, stored.credential)
+        val route = routesStore.read(profile.serverId)?.activeLibraryBaseUrl
+            ?: profile.libraryBaseUrl
+        return clientFactory.authenticated(route, stored.credential)
     }
 }

@@ -75,7 +75,8 @@ internal sealed interface DurableConnectionCommit {
 internal class ConnectionPersistence @Inject constructor(
     private val profileStore: ConnectionProfileStore,
     private val credentialStore: BearerCredentialStore,
-    private val accountContextStore: PersistedAccountContextStore
+    private val accountContextStore: PersistedAccountContextStore,
+    private val routesStore: KnownServerRoutesStore
 ) {
     suspend fun commit(
         profile: ConnectionProfile,
@@ -133,6 +134,11 @@ internal class ConnectionPersistence @Inject constructor(
 
     suspend fun readCredential(): BearerCredential? = credentialStore.read()?.credential
 
+    suspend fun routesFor(profile: ConnectionProfile): KnownServerRoutes =
+        routesStore.read(profile.serverId) ?: KnownServerRoutes.initial(profile)
+
+    suspend fun saveRoutes(routes: KnownServerRoutes) = routesStore.write(routes)
+
     suspend fun readAccountContext(): PersistedAccountContext? = accountContextStore.read()
 
     suspend fun readLocalAccountScope(): AccountLocalScope? {
@@ -154,7 +160,8 @@ internal class ConnectionPersistence @Inject constructor(
         val profileResult = attempt { profileStore.clear() }
         val credentialResult = attempt { credentialStore.clear() }
         val accountContextResult = attempt { accountContextStore.clear() }
-        listOf(credentialResult, profileResult, accountContextResult)
+        val routesResult = attempt { routesStore.clear() }
+        listOf(credentialResult, profileResult, accountContextResult, routesResult)
             .firstNotNullOfOrNull { it.exceptionOrNull() }
             ?.let { throw ConnectionPersistenceClearException(it) }
     }

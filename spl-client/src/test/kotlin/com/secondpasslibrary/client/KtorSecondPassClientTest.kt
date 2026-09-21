@@ -28,6 +28,23 @@ import org.junit.Test
 
 class KtorSecondPassClientTest {
     @Test
+    fun `server identity check reads only public well-known endpoint`() = runBlocking {
+        val requests = mutableListOf<HttpRequestData>()
+        val client = client { request ->
+            requests += request
+            if (request.url.encodedPath == "/.well-known/secondpass") {
+                jsonResponse(WELL_KNOWN)
+            } else {
+                respondError(HttpStatusCode.NotFound)
+            }
+        }
+
+        assertEquals(SERVER_ID, client.identifyServer("https://library.example"))
+        assertEquals(listOf("/.well-known/secondpass"), requests.map { it.url.encodedPath })
+        assertTrue(requests.single().headers[HttpHeaders.Authorization].isNullOrEmpty())
+    }
+
+    @Test
     fun `authenticated transport failure publishes endpoint hint without credential`() =
         runBlocking {
             val root = client { throw IOException("unreachable") }

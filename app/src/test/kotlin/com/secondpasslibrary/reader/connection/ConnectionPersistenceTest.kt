@@ -194,7 +194,7 @@ internal class ConnectionPersistenceTest : ConnectionCoordinatorTestSupport() {
             profileStore,
             credentialStore,
             accountStore,
-            ConnectionPersistence(profileStore, credentialStore, accountStore),
+            ConnectionPersistence(profileStore, credentialStore, accountStore, FakeRoutesStore()),
             BearerCredential.restore("spl_secret")
         )
     }

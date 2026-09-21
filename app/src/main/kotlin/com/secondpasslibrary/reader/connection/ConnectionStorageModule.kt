@@ -1,6 +1,7 @@
 package com.secondpasslibrary.reader.connection
 
 import com.secondpasslibrary.reader.connection.storage.DataStoreConnectionProfileStore
+import com.secondpasslibrary.reader.connection.storage.DataStoreKnownServerRoutesStore
 import com.secondpasslibrary.reader.connection.storage.DataStorePersistedAccountContextStore
 import com.secondpasslibrary.reader.connection.storage.DataStoreWorkOfflineStore
 import com.secondpasslibrary.reader.connection.storage.KeystoreBearerCredentialStore
@@ -23,6 +24,12 @@ abstract class ConnectionStorageModule {
 
     @Binds
     @Singleton
+    internal abstract fun bindKnownServerRoutesStore(
+        store: DataStoreKnownServerRoutesStore
+    ): KnownServerRoutesStore
+
+    @Binds
+    @Singleton
     abstract fun bindBearerCredentialStore(
         store: KeystoreBearerCredentialStore
     ): BearerCredentialStore
@@ -39,7 +46,7 @@ abstract class ConnectionStorageModule {
 
     @Binds
     @Singleton
-    abstract fun bindAuthenticatedClientProvider(
+    internal abstract fun bindAuthenticatedClientProvider(
         provider: StoredAuthenticatedClientProvider
     ): AuthenticatedClientProvider
 }

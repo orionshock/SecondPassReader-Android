@@ -53,7 +53,7 @@ internal abstract class ConnectionCoordinatorTestSupport {
     }
 
     protected fun kotlinx.coroutines.test.TestScope.coordinator(
-        client: FakeClient,
+        client: SecondPassClient,
         profileStore: FakeProfileStore,
         credentialStore: FakeCredentialStore,
         accountContextStore: FakePersistedAccountContextStore =
@@ -62,11 +62,17 @@ internal abstract class ConnectionCoordinatorTestSupport {
         workOfflineStore: WorkOfflineStore = FakeWorkOfflineStore(),
         revocationClient: FakeClientSessionRevocationClient =
             FakeClientSessionRevocationClient(),
-        target: AuthenticatedConnectionTarget = client.asAuthenticatedConnectionTarget()
+        target: AuthenticatedConnectionTarget = client.asAuthenticatedConnectionTarget(),
+        routesStore: FakeRoutesStore = FakeRoutesStore()
     ) = ConnectionCoordinator(
         client = client,
         clientSessionRevocationClient = revocationClient,
-        persistence = ConnectionPersistence(profileStore, credentialStore, accountContextStore),
+        persistence = ConnectionPersistence(
+            profileStore,
+            credentialStore,
+            accountContextStore,
+            routesStore
+        ),
         accountLocalDataLifecycle = cleaner,
         workOfflineStore = workOfflineStore,
         pollDelay = PairingPollDelay {},
@@ -201,6 +207,24 @@ internal abstract class ConnectionCoordinatorTestSupport {
 
         override suspend fun clear() {
             cleared = true
+            stored = null
+        }
+    }
+
+    protected class FakeRoutesStore : KnownServerRoutesStore {
+        var stored: KnownServerRoutes? = null
+        var reads = 0
+
+        override suspend fun read(serverId: String): KnownServerRoutes? {
+            reads += 1
+            return stored?.takeIf { it.serverId == serverId }
+        }
+
+        override suspend fun write(routes: KnownServerRoutes) {
+            stored = routes
+        }
+
+        override suspend fun clear() {
             stored = null
         }
     }

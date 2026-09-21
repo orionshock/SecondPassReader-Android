@@ -62,7 +62,7 @@ internal constructor(
     internal val lifecycleActionState = coordinator.lifecycleActionState
     val onAuthenticatedRequestRejected: () -> Unit = coordinator::authenticatedRequestRejected
     val onAuthenticatedRequestUnreachable: () -> Unit =
-        coordinator::authenticatedRequestUnreachable
+        { coordinator.authenticatedRequestUnreachable() }
     internal val screenActions =
         ConnectionScreenActions(
             updateServerUrl = coordinator::updateServerUrl,
@@ -97,10 +97,7 @@ internal constructor(
         }
         viewModelScope.launch {
             transport.authenticatedAccessFailures.collect { failure ->
-                val linked = coordinator.state.value as? ConnectionUiState.Linked
-                if (linked?.profile?.libraryBaseUrl == failure.libraryBaseUrl) {
-                    coordinator.authenticatedRequestUnreachable()
-                }
+                coordinator.authenticatedRequestUnreachable(failure.libraryBaseUrl)
             }
         }
         viewModelScope.launch {

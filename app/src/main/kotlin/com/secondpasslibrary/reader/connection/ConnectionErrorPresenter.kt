@@ -15,6 +15,9 @@ internal object ConnectionErrorPresenter {
         is ConnectionProfileStorageException ->
             "Couldn’t save the connection on this device. Retry or remove its local data."
 
+        is KnownServerRoutesStorageException ->
+            "Could not save the known Library routes on this device. Retry."
+
         else -> null
     }
 

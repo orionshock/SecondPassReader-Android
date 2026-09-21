@@ -117,9 +117,9 @@ internal class ConnectionRestorationTest : ConnectionCoordinatorTestSupport() {
                 FakeClient(),
                 FakeProfileStore().apply { stored = profile() },
                 storedCredential(),
-                target = AuthenticatedConnectionTarget { selected, _ ->
+                target = AuthenticatedConnectionTarget { selected, _, routes ->
                     requestedProfiles += selected
-                    authenticatedContext()
+                    VerifiedConnection(authenticatedContext(), routes.activeLibraryBaseUrl)
                 }
             )
 

@@ -44,6 +44,7 @@ internal class ConnectionCoordinator(
 
     private var operation: Job? = null
     private var reachabilityCheck: Job? = null
+    private var activeLibraryBaseUrl: String? = null
     private val pairing = ConnectionPairingController(
         client,
         pollDelay,
@@ -256,7 +257,7 @@ internal class ConnectionCoordinator(
 
                 else -> attempt {
                     clientSessionRevocationClient.revokeCurrentClientSession(
-                        linked.profile.libraryBaseUrl,
+                        activeLibraryBaseUrl ?: linked.profile.libraryBaseUrl,
                         credential,
                         linked.profile.clientSessionId
                     )
@@ -314,8 +315,18 @@ internal class ConnectionCoordinator(
         restoring: Boolean
     ) {
         try {
-            val context = connectionTarget.loadContext(profile, credential)
+            val routes = persistence.routesFor(profile)
+            val verified = connectionTarget.loadContext(profile, credential, routes)
             currentCoroutineContext().ensureActive()
+            val context = verified.context
+            persistence.saveRoutes(
+                KnownServerRoutes(
+                    profile.serverId,
+                    context.serverInfo.serverUrls,
+                    verified.activeLibraryBaseUrl
+                )
+            )
+            activeLibraryBaseUrl = verified.activeLibraryBaseUrl
             val persistedAccount = PersistedAccountContext(
                 connectionIdentity = profile.authenticatedConnectionIdentity,
                 profileId = context.currentUser.profileId,
@@ -371,6 +382,10 @@ internal class ConnectionCoordinator(
             } else {
                 ConnectionUiState.StoredCredentialProblem(profile, message, retryable = true)
             }
+        } catch (failure: KnownServerRoutesStorageException) {
+            currentCoroutineContext().ensureActive()
+            mutableState.value =
+                ConnectionUiState.LocalStorageProblem(ConnectionErrorPresenter.message(failure))
         }
     }
 
@@ -383,6 +398,7 @@ internal class ConnectionCoordinator(
             workOfflineStore.write(it.storageKey, false)
         }
         mutableLocalAccountContext.value = null
+        activeLibraryBaseUrl = null
         persistence.clear()
     }
 
@@ -419,8 +435,10 @@ internal class ConnectionCoordinator(
             )
     }
 
-    fun authenticatedRequestUnreachable() {
+    @Suppress("ReturnCount") // Ignore stale route hints and duplicate checks.
+    fun authenticatedRequestUnreachable(route: String? = null) {
         val linked = mutableState.value as? ConnectionUiState.Linked ?: return
+        if (route != null && route != activeLibraryBaseUrl) return
         if (reachabilityCheck?.isActive == true ||
             linked.reachability == ServerReachability.UNREACHABLE
         ) {
@@ -511,18 +529,29 @@ internal class ConnectionCoordinator(
     private suspend fun verifyLinkedReachability(linked: ConnectionUiState.Linked) {
         val credential = attempt { persistence.readCredential() }.getOrNull() ?: return
         try {
-            val context = connectionTarget.loadContext(linked.profile, credential)
+            val routes = persistence.routesFor(linked.profile)
+            val verified = connectionTarget.loadContext(linked.profile, credential, routes)
             currentCoroutineContext().ensureActive()
+            val context = verified.context
             if (mutableState.value == linked) {
-                mutableState.value = if (
-                    context.currentUser.profileId == linked.context.currentUser.profileId
-                ) {
-                    linked.copy(
-                        context = context,
-                        reachability = ServerReachability.REACHABLE
+                if (context.currentUser.profileId == linked.context.currentUser.profileId) {
+                    persistence.saveRoutes(
+                        KnownServerRoutes(
+                            linked.profile.serverId,
+                            context.serverInfo.serverUrls,
+                            verified.activeLibraryBaseUrl
+                        )
                     )
+                    currentCoroutineContext().ensureActive()
+                    activeLibraryBaseUrl = verified.activeLibraryBaseUrl
+                    if (mutableState.value == linked) {
+                        mutableState.value = linked.copy(
+                            context = context,
+                            reachability = ServerReachability.REACHABLE
+                        )
+                    }
                 } else {
-                    ConnectionUiState.AuthenticationRequired(
+                    mutableState.value = ConnectionUiState.AuthenticationRequired(
                         linked.profile,
                         "This connection needs repair."
                     )
@@ -541,6 +570,10 @@ internal class ConnectionCoordinator(
         } catch (_: SplClientException) {
             currentCoroutineContext().ensureActive()
             // A protocol or HTTP response failure does not prove lost reachability.
+        } catch (failure: KnownServerRoutesStorageException) {
+            currentCoroutineContext().ensureActive()
+            mutableState.value =
+                ConnectionUiState.LocalStorageProblem(ConnectionErrorPresenter.message(failure))
         }
     }
 }

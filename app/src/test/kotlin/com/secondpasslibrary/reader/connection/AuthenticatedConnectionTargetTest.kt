@@ -61,7 +61,8 @@ internal class AuthenticatedConnectionTargetTest {
             runBlocking {
                 client.asAuthenticatedConnectionTarget().loadContext(
                     profile,
-                    BearerCredential.restore("secret")
+                    BearerCredential.restore("secret"),
+                    KnownServerRoutes.initial(profile)
                 )
             }
         }

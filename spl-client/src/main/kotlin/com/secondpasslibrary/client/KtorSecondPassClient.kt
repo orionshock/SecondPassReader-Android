@@ -59,6 +59,7 @@ import kotlinx.serialization.SerializationException
  *
  * The internal constructor transfers ownership of its [HttpClient] to this client.
  */
+@Suppress("TooManyFunctions") // The root transport also verifies public server identity.
 class KtorSecondPassClient internal constructor(private val httpClient: HttpClient) :
     SecondPassClient,
     ClientSessionRevocationClient,
@@ -81,10 +82,7 @@ class KtorSecondPassClient internal constructor(private val httpClient: HttpClie
 
     override suspend fun discoverServer(userInput: String): DiscoveredServer {
         val origin = ServerOrigin.fromUserInput(userInput)
-        val wellKnownResponse =
-            safeRequest { httpClient.get(origin.endpoint("/.well-known/secondpass")) }
-        requireDiscoverySuccess(wellKnownResponse)
-        val wellKnown = decode<WellKnownWire>(wellKnownResponse, "Second Pass discovery", true)
+        val wellKnown = loadWellKnown(origin)
         val serverId = requireServerId(wellKnown.serverId)
         val name = discoveryValue { wellKnown.serverName.required("Second Pass discovery") }
         val libraryBaseUrl = origin.value
@@ -119,6 +117,17 @@ class KtorSecondPassClient internal constructor(private val httpClient: HttpClie
             loginRequestUrl = loginRequestUrl,
             tokenType = "Bearer"
         )
+    }
+
+    override suspend fun identifyServer(libraryBaseUrl: String): String {
+        val origin = ServerOrigin.fromUserInput(libraryBaseUrl)
+        return requireServerId(loadWellKnown(origin).serverId)
+    }
+
+    private suspend fun loadWellKnown(origin: ServerOrigin): WellKnownWire {
+        val response = safeRequest { httpClient.get(origin.endpoint("/.well-known/secondpass")) }
+        requireDiscoverySuccess(response)
+        return decode(response, "Second Pass discovery", true)
     }
 
     override suspend fun beginPairing(
