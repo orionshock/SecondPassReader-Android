@@ -359,9 +359,9 @@ private fun accountShell(authority: AppSessionAuthority) =
     AppSessionState.AccountShell(connectionProfile(), "profile-1", authority)
 
 private fun connectionProfile() = ConnectionProfile(
+    serverId = "a6722b5a-7982-4778-8c74-39be4241a654",
     serverOrigin = "https://library.example",
-    serverBaseUrl = "https://library.example/",
-    apiBaseUrl = "https://library.example/api/v1/",
+    libraryBaseUrl = "https://library.example",
     serverName = "Library",
     serverDescription = "",
     serverVersion = "1.0",
@@ -373,7 +373,11 @@ private fun connectionProfile() = ConnectionProfile(
 
 private fun authenticatedContext() = AuthenticatedContext(
     CurrentUser("reader", "", "", "", "profile-1", "reader", emptyList(), null, null, null),
-    AuthenticatedServerInfo("Library", "", "", false, null, "", null, "1.0", "")
+    AuthenticatedServerInfo(
+        "a6722b5a-7982-4778-8c74-39be4241a654",
+        listOf("https://library.example"),
+        "Library", "", "", false, null, "", null, "1.0", ""
+    )
 )
 
 private class TrackingViewModel : ViewModel() {

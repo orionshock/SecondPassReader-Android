@@ -26,11 +26,11 @@ features and ViewModels do not perform transport shutdown.
 
 `ServerOrigin` trims user input, adds HTTPS when a scheme is omitted, accepts only HTTP or HTTPS, rejects embedded credentials, and discards path/query/fragment data. Discovery always probes `/.well-known/secondpass` at that origin.
 
-Public well-known discovery verifies SPL identity. Its public, non-secret `installationId` identifies the SPL installation and is distinct from the requested endpoint URL, which identifies its location. Client-API discovery then provides the authoritative API base, server base, login-request URL, token type, and endpoint templates. Pairing uses the concrete absolute URLs returned by the server; Android does not synthesize authorization, poll, or consume routes.
+Public well-known discovery verifies SPL identity. Its public, non-secret `server_id` is a stable UUID for one server/database and is distinct from the Library base URL used to reach it. The response contains `server_id`, name, description, version, and release date; it contains no URL. The SDK derives the API root as `<Library base URL>/api/v1/`, preserving scheme, host, and explicit port. Client-API discovery supplies the concrete login-request URL, token type, and endpoint templates. Pairing uses the concrete absolute URLs returned by the server; Android does not synthesize authorization, poll, or consume routes.
 
-Public discovery and authenticated `/server/info/` are deliberately different models. The former establishes where and what the server is before trust; the latter describes account-visible server configuration after bearer verification.
+Public discovery and authenticated `/server/info/` are deliberately different models. The former establishes server identity and presentation before trust; the latter describes account-visible configuration and returns `server_id` plus `server_urls`. The SDK preserves the server's URL order, including a single URL or repeated URLs. Connection verifies the authenticated ID against the saved ID before accepting the context.
 
-Android may browse `_secondpass._tcp` over native DNS-SD while the server-entry surface is active. The only Second Pass-specific TXT attribute is `url`, whose value is an externally reachable Library URL. mDNS supplies location only: Android never reconstructs a URL from the service name, SRV host or port, `.local` hostname, or IP address. Each candidate still passes through the normal SDK well-known discovery, which supplies installation identity and presentation metadata. Validated installations appear as compact suggestions that only prefill the existing address field; manual entry remains available and the user must still run the normal confirmation and pairing flow.
+Android may browse `_secondpass._tcp` over native DNS-SD while the server-entry surface is active. The only Second Pass-specific TXT attribute is `url`, whose value is a candidate Library base URL. mDNS supplies location only: Android never reconstructs a URL from the service name, SRV host or port, `.local` hostname, or IP address. Each candidate still passes through the normal SDK well-known discovery, which supplies server identity and presentation metadata. Validated servers appear as compact suggestions that only prefill the existing address field; manual entry remains available and the user must still run the normal confirmation and pairing flow.
 
 ## Pairing lifecycle
 
@@ -77,13 +77,15 @@ If secure storage fails, the UI reports that a one-time credential was issued bu
 
 The encrypted credential envelope temporarily includes a recovery copy of the non-secret profile. `ConnectionPersistence` coordinates this transaction journal: it writes the secure credential first, commits the Preferences DataStore profile second, then rewrites the envelope without the recovery profile. Restart recovery repairs a missing profile from the journal. Clear attempts the profile, credential, and account descriptor stores even when one removal fails, allowing a later retry to converge. DataStore separately owns the normal non-secret server/client-session connection record.
 
+The saved profile now carries `serverId` and the selected Library base URL. Its `serverOrigin` field and the account-local scope still retain URL-based identity for existing local data; migrating that scope belongs to the next multi-home slice. This pre-release cutover does not migrate the previous connection-profile or credential-envelope schema, so a device with old saved connection state must be linked again.
+
 On startup, matching profile and credential state is verified through `/accounts/me/` and `/server/info/`. A rejected/revoked credential preserves the known account and enters the re-link flow; a transient server/network failure preserves both stores and exposes retry. An interrupted profile commit is repaired from the encrypted transaction journal.
 
-After verification, Connection owns installation reachability separately from authentication. An authenticated transport failure from any SDK capability is a hint; Connection confirms it through the authenticated connection target before publishing offline availability. Android default-network changes only prompt a check or retry. HTTP errors, invalid protocol responses, and rejected credentials do not mean transport loss. An unreachable installation retains the verified account shell and local data; retry and network restoration use the same verification path to heal in place. Today the target uses the saved API endpoint. Its interface can later try known endpoints for the same installation without changing Home, Library, Reader, or sync availability models. URL is location, not installation identity; no endpoint-list schema is assumed here.
+After verification, Connection owns server reachability separately from authentication. An authenticated transport failure from any SDK capability is a hint; Connection confirms it through the authenticated connection target before publishing offline availability. Android default-network changes only prompt a check or retry. HTTP errors, invalid protocol responses, and rejected credentials do not mean transport loss. An unreachable server retains the verified account shell and local data; retry and network restoration use the same verification path to heal in place. Today the target uses the saved Library base URL and verifies the server ID. A later multi-home slice can consume the ordered `server_urls` list there without changing Home, Library, Reader, or sync availability models. Reconnect iteration is not implemented here.
 
 Connection also owns account-scoped, persistent **Work offline** intent. It withholds online
 authority even if the Library is reachable and ignores automatic recovery hints while that choice
-is active. Settings reconnect and Home refresh request the same installation-level check; an
+is active. Settings reconnect and Home refresh request the same server-level check; an
 explicit reconnect clears the choice, then verifies before restoring online authority. Reader
 sync work remains pending without contacting the Library while the choice is active.
 
@@ -99,7 +101,7 @@ The authenticated shell receives verified Library, account, group, and client-se
 
 ## Authenticated read surface
 
-`KtorSecondPassClient` creates a credential-bound `AuthenticatedSecondPassClient`. The scope retains the validated API base and opaque bearer credential so feature callers do not repeatedly handle either value. Library, Shelves, and Marginalia use cohesive capability families rather than duplicate flat methods:
+`KtorSecondPassClient` creates a credential-bound `AuthenticatedSecondPassClient`. The scope retains the validated Library base URL, derived API root, and opaque bearer credential so feature callers do not repeatedly handle these values. Library, Shelves, and Marginalia use cohesive capability families rather than duplicate flat methods:
 
 ```text
 AuthenticatedSecondPassClient.library

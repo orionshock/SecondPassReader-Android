@@ -18,6 +18,6 @@ constructor(
         val stored =
             credentialStore.read()
                 ?: throw CredentialStorageException("The stored credential is missing.")
-        return clientFactory.authenticated(profile.apiBaseUrl, stored.credential)
+        return clientFactory.authenticated(profile.libraryBaseUrl, stored.credential)
     }
 }

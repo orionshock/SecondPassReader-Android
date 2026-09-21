@@ -72,20 +72,20 @@ internal class PersistedAccountContextStorageException(message: String, cause: T
     Exception(message, cause)
 
 internal fun Preferences.toAccountContext(): PersistedAccountContext? {
-    val apiBaseUrl = this[PersistedAccountContextKeys.API_BASE_URL]
+    val libraryBaseUrl = this[PersistedAccountContextKeys.LIBRARY_BASE_URL]
     val clientSessionId = this[PersistedAccountContextKeys.CLIENT_SESSION_ID]
     val profileId = this[PersistedAccountContextKeys.PROFILE_ID]
-    if (apiBaseUrl == null || clientSessionId == null || profileId == null) return null
+    if (libraryBaseUrl == null || clientSessionId == null || profileId == null) return null
     return PersistedAccountContext(
-        connectionIdentity = AuthenticatedConnectionIdentity(apiBaseUrl, clientSessionId),
+        connectionIdentity = AuthenticatedConnectionIdentity(libraryBaseUrl, clientSessionId),
         profileId = profileId,
         accountServerOrigin = this[PersistedAccountContextKeys.ACCOUNT_SERVER_ORIGIN]
-            ?: AuthenticatedConnectionIdentity(apiBaseUrl, clientSessionId).serverOrigin
+            ?: AuthenticatedConnectionIdentity(libraryBaseUrl, clientSessionId).serverOrigin
     )
 }
 
 internal fun MutablePreferences.putAccountContext(context: PersistedAccountContext) {
-    this[PersistedAccountContextKeys.API_BASE_URL] = context.connectionIdentity.apiBaseUrl
+    this[PersistedAccountContextKeys.LIBRARY_BASE_URL] = context.connectionIdentity.libraryBaseUrl
     this[PersistedAccountContextKeys.CLIENT_SESSION_ID] =
         context.connectionIdentity.clientSessionId
     this[PersistedAccountContextKeys.PROFILE_ID] = context.profileId
@@ -93,14 +93,14 @@ internal fun MutablePreferences.putAccountContext(context: PersistedAccountConte
 }
 
 internal fun MutablePreferences.clearAccountContext() {
-    remove(PersistedAccountContextKeys.API_BASE_URL)
+    remove(PersistedAccountContextKeys.LIBRARY_BASE_URL)
     remove(PersistedAccountContextKeys.CLIENT_SESSION_ID)
     remove(PersistedAccountContextKeys.PROFILE_ID)
     remove(PersistedAccountContextKeys.ACCOUNT_SERVER_ORIGIN)
 }
 
 private object PersistedAccountContextKeys {
-    val API_BASE_URL = stringPreferencesKey("api_base_url")
+    val LIBRARY_BASE_URL = stringPreferencesKey("library_base_url")
     val CLIENT_SESSION_ID = stringPreferencesKey("client_session_id")
     val PROFILE_ID = stringPreferencesKey("profile_id")
     val ACCOUNT_SERVER_ORIGIN = stringPreferencesKey("account_server_origin")

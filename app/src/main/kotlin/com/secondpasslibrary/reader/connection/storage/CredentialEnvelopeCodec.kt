@@ -7,7 +7,7 @@ import java.nio.charset.StandardCharsets
 import java.util.Base64
 
 internal object CredentialEnvelopeCodec {
-    private const val VERSION = "1"
+    private const val VERSION = "2"
     private const val BASE_FIELD_COUNT = 4
 
     fun encode(credential: BearerCredential, recoveryProfile: ConnectionProfile?): ByteArray {
@@ -18,9 +18,9 @@ internal object CredentialEnvelopeCodec {
                 add(credential.tokenType)
                 add(if (recoveryProfile == null) "0" else "1")
                 recoveryProfile?.let { profile ->
+                    add(profile.serverId)
                     add(profile.serverOrigin)
-                    add(profile.serverBaseUrl)
-                    add(profile.apiBaseUrl)
+                    add(profile.libraryBaseUrl)
                     add(profile.serverName)
                     add(profile.serverDescription)
                     add(profile.serverVersion)
@@ -53,9 +53,9 @@ internal object CredentialEnvelopeCodec {
                         "Incomplete credential recovery profile."
                     }
                     ConnectionProfile(
-                        serverOrigin = fields[4],
-                        serverBaseUrl = fields[5],
-                        apiBaseUrl = fields[6],
+                        serverId = fields[4],
+                        serverOrigin = fields[5],
+                        libraryBaseUrl = fields[6],
                         serverName = fields[7],
                         serverDescription = fields[8],
                         serverVersion = fields[9],

@@ -250,7 +250,7 @@ class MarginaliaAnnotationClientTest {
         handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData
     ): AuthenticatedSecondPassClient = KtorSecondPassClient(
         HttpClient(MockEngine(handler)) { expectSuccess = false }
-    ).authenticated("https://library.example/api/v1/", BearerCredential.restore("spl_secret"))
+    ).authenticated("https://library.example", BearerCredential.restore("spl_secret"))
 
     private fun MockRequestHandleScope.jsonResponse(
         body: String,

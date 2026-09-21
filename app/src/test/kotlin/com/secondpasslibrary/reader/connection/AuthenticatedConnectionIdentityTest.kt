@@ -17,12 +17,12 @@ class AuthenticatedConnectionIdentityTest {
     }
 
     @Test
-    fun `API base change produces different identity`() {
+    fun `Library URL change produces different saved connection identity`() {
         val profile = profile()
 
         assertNotEquals(
             profile.authenticatedConnectionIdentity,
-            profile.copy(apiBaseUrl = "https://other.example/api/v1/")
+            profile.copy(libraryBaseUrl = "https://other.example")
                 .authenticatedConnectionIdentity
         )
     }
@@ -39,9 +39,9 @@ class AuthenticatedConnectionIdentityTest {
     }
 
     private fun profile() = ConnectionProfile(
+        serverId = "a6722b5a-7982-4778-8c74-39be4241a654",
         serverOrigin = "https://library.example",
-        serverBaseUrl = "https://library.example/",
-        apiBaseUrl = "https://library.example/api/v1/",
+        libraryBaseUrl = "https://library.example",
         serverName = "Library",
         serverDescription = "",
         serverVersion = "1",

@@ -179,9 +179,9 @@ class ReaderAnnotationsControllerTest {
     )
 
     private fun profile(clientSessionId: String = "client-session") = ConnectionProfile(
+        serverId = "a6722b5a-7982-4778-8c74-39be4241a654",
         serverOrigin = "https://library.example",
-        serverBaseUrl = "https://library.example/",
-        apiBaseUrl = "https://library.example/api/v1/",
+        libraryBaseUrl = "https://library.example",
         serverName = "Library",
         serverDescription = "",
         serverVersion = "1",

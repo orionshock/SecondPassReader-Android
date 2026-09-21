@@ -74,9 +74,9 @@ class SettingsPresentationTest {
     }
 
     private fun profile() = ConnectionProfile(
+        serverId = "a6722b5a-7982-4778-8c74-39be4241a654",
         serverOrigin = "https://library.example:443",
-        serverBaseUrl = "https://library.example/",
-        apiBaseUrl = "https://library.example/api/v1/",
+        libraryBaseUrl = "https://library.example",
         serverName = "Library",
         serverDescription = "Description",
         serverVersion = "1.0",
@@ -102,6 +102,8 @@ class SettingsPresentationTest {
             ),
         serverInfo =
             AuthenticatedServerInfo(
+                serverId = "a6722b5a-7982-4778-8c74-39be4241a654",
+                serverUrls = listOf("https://library.example"),
                 name = "Second Pass Library",
                 description = "<p>Server &amp; description.</p>",
                 bannerMessage = "<strong>Maintenance</strong><br>Tonight",

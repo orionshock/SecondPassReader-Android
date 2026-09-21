@@ -2,9 +2,8 @@ package com.secondpasslibrary.client
 
 data class DiscoveredServer(
     val serverOrigin: ServerOrigin,
-    val installationId: String,
-    val serverBaseUrl: String,
-    val apiBaseUrl: String,
+    val serverId: String,
+    val libraryBaseUrl: String,
     val name: String,
     val description: String,
     val version: String,
@@ -87,6 +86,8 @@ data class CurrentUserGroup(
 )
 
 data class AuthenticatedServerInfo(
+    val serverId: String,
+    val serverUrls: List<String>,
     val name: String,
     val description: String,
     val bannerMessage: String,

@@ -222,7 +222,7 @@ class LibraryAxesClientTest {
             HttpClient(MockEngine { request -> handler(request) }) { expectSuccess = false }
         )
         return root.authenticated(
-            "https://library.example/api/v1/",
+            "https://library.example",
             BearerCredential.restore("spl_secret")
         )
     }

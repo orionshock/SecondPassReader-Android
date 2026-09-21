@@ -60,7 +60,7 @@ class PersistedAccountContextStoreTest {
 
     private fun accountContext(sessionId: String, profileId: String) = PersistedAccountContext(
         AuthenticatedConnectionIdentity(
-            apiBaseUrl = "https://library.example/api/v1/",
+            libraryBaseUrl = "https://library.example",
             clientSessionId = sessionId
         ),
         profileId

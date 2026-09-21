@@ -10,6 +10,7 @@ import com.secondpasslibrary.client.internal.transport.PairingRequestWire
 import com.secondpasslibrary.client.internal.transport.PairingStatusWire
 import com.secondpasslibrary.client.internal.transport.ServerInfoWire
 import com.secondpasslibrary.client.internal.transport.WellKnownWire
+import com.secondpasslibrary.client.internal.transport.apiRootFromLibraryBaseUrl
 import com.secondpasslibrary.client.internal.transport.discoveryValue
 import com.secondpasslibrary.client.internal.transport.invalidResponse
 import com.secondpasslibrary.client.internal.transport.requireAbsoluteHttpUrl
@@ -17,9 +18,10 @@ import com.secondpasslibrary.client.internal.transport.requireClientSessionRevoc
 import com.secondpasslibrary.client.internal.transport.requireConsumeSuccess
 import com.secondpasslibrary.client.internal.transport.requireDiscoveryBearer
 import com.secondpasslibrary.client.internal.transport.requireDiscoverySuccess
-import com.secondpasslibrary.client.internal.transport.requireInstallationId
+import com.secondpasslibrary.client.internal.transport.requireLibraryBaseUrl
 import com.secondpasslibrary.client.internal.transport.requirePairingCreateSuccess
 import com.secondpasslibrary.client.internal.transport.requirePairingStatusSuccess
+import com.secondpasslibrary.client.internal.transport.requireServerId
 import com.secondpasslibrary.client.internal.transport.required
 import com.secondpasslibrary.client.internal.transport.resolveApiUrl
 import com.secondpasslibrary.client.internal.transport.splProtocolJson
@@ -69,8 +71,8 @@ class KtorSecondPassClient internal constructor(private val httpClient: HttpClie
     private val mutableAuthenticatedAccessFailures =
         MutableSharedFlow<AuthenticatedAccessFailure>(extraBufferCapacity = 16)
     val authenticatedAccessFailures = mutableAuthenticatedAccessFailures.asSharedFlow()
-    private val reportAuthenticatedUnreachable: (String) -> Unit = { apiBaseUrl ->
-        mutableAuthenticatedAccessFailures.tryEmit(AuthenticatedAccessFailure(apiBaseUrl))
+    private val reportAuthenticatedUnreachable: (String) -> Unit = { libraryBaseUrl ->
+        mutableAuthenticatedAccessFailures.tryEmit(AuthenticatedAccessFailure(libraryBaseUrl))
     }
 
     override fun close() {
@@ -83,22 +85,16 @@ class KtorSecondPassClient internal constructor(private val httpClient: HttpClie
             safeRequest { httpClient.get(origin.endpoint("/.well-known/secondpass")) }
         requireDiscoverySuccess(wellKnownResponse)
         val wellKnown = decode<WellKnownWire>(wellKnownResponse, "Second Pass discovery", true)
-        val installationId = requireInstallationId(wellKnown.installationId)
+        val serverId = requireServerId(wellKnown.serverId)
         val name = discoveryValue { wellKnown.serverName.required("Second Pass discovery") }
-        val advertisedApiBase = discoveryValue {
-            requireAbsoluteHttpUrl(wellKnown.apiBaseUrl, "Second Pass discovery")
-        }
-
-        val pairingDiscoveryUrl = resolveApiUrl(advertisedApiBase, "client-api/discovery/")
+        val libraryBaseUrl = origin.value
+        val pairingDiscoveryUrl = resolveApiUrl(
+            apiRootFromLibraryBaseUrl(libraryBaseUrl),
+            "client-api/discovery/"
+        )
         val pairingResponse = safeRequest { httpClient.get(pairingDiscoveryUrl) }
         requireDiscoverySuccess(pairingResponse)
         val pairing = decode<PairingDiscoveryWire>(pairingResponse, "client API discovery", true)
-        val apiBaseUrl = discoveryValue {
-            requireAbsoluteHttpUrl(pairing.apiBaseUrl, "client API discovery")
-        }
-        val serverBaseUrl = discoveryValue {
-            requireAbsoluteHttpUrl(pairing.serverBaseUrl, "client API discovery")
-        }
         val loginRequestUrl = discoveryValue {
             requireAbsoluteHttpUrl(pairing.loginRequestEndpoint, "client API discovery")
         }
@@ -113,9 +109,8 @@ class KtorSecondPassClient internal constructor(private val httpClient: HttpClie
 
         return DiscoveredServer(
             serverOrigin = origin,
-            installationId = installationId,
-            serverBaseUrl = serverBaseUrl,
-            apiBaseUrl = apiBaseUrl,
+            serverId = serverId,
+            libraryBaseUrl = libraryBaseUrl,
             name = name,
             description = wellKnown.serverDescription.orEmpty(),
             version = wellKnown.serverVersion.orEmpty(),
@@ -173,37 +168,43 @@ class KtorSecondPassClient internal constructor(private val httpClient: HttpClie
     }
 
     override suspend fun loadAuthenticatedContext(
-        apiBaseUrl: String,
+        libraryBaseUrl: String,
         credential: BearerCredential
     ): AuthenticatedContext = coroutineScope {
-        val validatedApiBase = requireAbsoluteHttpUrl(apiBaseUrl, "authenticated connection")
+        val validatedLibraryBase = requireLibraryBaseUrl(libraryBaseUrl, "authenticated connection")
         val user =
             async {
-                authenticatedGet<CurrentUserWire>(validatedApiBase, "accounts/me/", credential)
+                authenticatedGet<CurrentUserWire>(validatedLibraryBase, "accounts/me/", credential)
             }
         val server =
-            async { authenticatedGet<ServerInfoWire>(validatedApiBase, "server/info/", credential) }
+            async {
+                authenticatedGet<ServerInfoWire>(
+                    validatedLibraryBase,
+                    "server/info/",
+                    credential
+                )
+            }
         AuthenticatedContext(user.await().toModel(), server.await().toModel())
     }
 
     override fun authenticated(
-        apiBaseUrl: String,
+        libraryBaseUrl: String,
         credential: BearerCredential
     ): AuthenticatedSecondPassClient = KtorAuthenticatedSecondPassClient(
         httpClient,
-        apiBaseUrl,
+        libraryBaseUrl,
         credential,
         reportAuthenticatedUnreachable
     )
 
     override suspend fun revokeCurrentClientSession(
-        apiBaseUrl: String,
+        libraryBaseUrl: String,
         credential: BearerCredential,
         clientSessionId: String
     ) {
         val requests = AuthenticatedRequestExecutor(
             httpClient,
-            apiBaseUrl,
+            libraryBaseUrl,
             credential,
             json,
             reportAuthenticatedUnreachable
@@ -216,13 +217,13 @@ class KtorSecondPassClient internal constructor(private val httpClient: HttpClie
     }
 
     private suspend inline fun <reified T> authenticatedGet(
-        apiBaseUrl: String,
+        libraryBaseUrl: String,
         path: String,
         credential: BearerCredential
     ): T {
         val requests = AuthenticatedRequestExecutor(
             httpClient,
-            apiBaseUrl,
+            libraryBaseUrl,
             credential,
             json,
             reportAuthenticatedUnreachable

@@ -40,7 +40,7 @@ class RealSplConnectionLifecycleTest {
 
         val missing = runCatching {
             owners.clientSessionRevocationClient().revokeCurrentClientSession(
-                profile.apiBaseUrl,
+                profile.libraryBaseUrl,
                 credential.credential,
                 UUID.randomUUID().toString()
             )
@@ -48,7 +48,7 @@ class RealSplConnectionLifecycleTest {
         assertTrue(missing.exceptionOrNull() is SplClientException.ClientSessionNotFound)
 
         owners.clientSessionRevocationClient().revokeCurrentClientSession(
-            profile.apiBaseUrl,
+            profile.libraryBaseUrl,
             credential.credential,
             profile.clientSessionId
         )

@@ -98,7 +98,7 @@ internal constructor(
         viewModelScope.launch {
             transport.authenticatedAccessFailures.collect { failure ->
                 val linked = coordinator.state.value as? ConnectionUiState.Linked
-                if (linked?.profile?.apiBaseUrl == failure.apiBaseUrl) {
+                if (linked?.profile?.libraryBaseUrl == failure.libraryBaseUrl) {
                     coordinator.authenticatedRequestUnreachable()
                 }
             }

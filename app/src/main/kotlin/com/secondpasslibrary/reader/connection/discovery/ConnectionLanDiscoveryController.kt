@@ -55,7 +55,7 @@ internal class ConnectionLanDiscoveryController(
                 urls.sorted().map { url -> async { validate(url) } }.awaitAll().filterNotNull()
             }
             if (generation == activeGeneration && validationRevision == activeRevision) {
-                mutableSuggestions.value = validated.deduplicateInstallations()
+                mutableSuggestions.value = validated.deduplicateServers()
             }
         }
     }
@@ -70,14 +70,14 @@ internal class ConnectionLanDiscoveryController(
 }
 
 private fun DiscoveredServer.toSuggestion(url: String) = ConnectionLibrarySuggestion(
-    installationId = installationId,
+    serverId = serverId,
     name = name,
     description = description,
     url = url
 )
 
-private fun List<ConnectionLibrarySuggestion>.deduplicateInstallations() =
-    groupBy(ConnectionLibrarySuggestion::installationId)
+private fun List<ConnectionLibrarySuggestion>.deduplicateServers() =
+    groupBy(ConnectionLibrarySuggestion::serverId)
         .values
         .map { suggestions -> suggestions.minBy(ConnectionLibrarySuggestion::url) }
         .sortedWith(compareBy(ConnectionLibrarySuggestion::name, ConnectionLibrarySuggestion::url))

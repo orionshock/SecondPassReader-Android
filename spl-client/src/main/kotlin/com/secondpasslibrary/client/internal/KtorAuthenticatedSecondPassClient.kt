@@ -14,14 +14,14 @@ import io.ktor.client.HttpClient
 
 internal class KtorAuthenticatedSecondPassClient(
     httpClient: HttpClient,
-    apiBaseUrl: String,
+    libraryBaseUrl: String,
     credential: BearerCredential,
     onUnreachable: (String) -> Unit = {}
 ) : AuthenticatedSecondPassClient {
     private val json = splProtocolJson
     private val requests = AuthenticatedRequestExecutor(
         httpClient,
-        apiBaseUrl,
+        libraryBaseUrl,
         credential,
         json,
         onUnreachable

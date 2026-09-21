@@ -224,7 +224,8 @@ class OfflineBookAvailabilityControllerTest {
     )
 
     private fun profile() = ConnectionProfile(
-        ORIGIN, ORIGIN, "$ORIGIN/api/v1/", "Library", "", "test", "2026-09-19",
+        "a6722b5a-7982-4778-8c74-39be4241a654",
+        ORIGIN, ORIGIN, "Library", "", "test", "2026-09-19",
         "session", "Tablet", "android"
     )
 

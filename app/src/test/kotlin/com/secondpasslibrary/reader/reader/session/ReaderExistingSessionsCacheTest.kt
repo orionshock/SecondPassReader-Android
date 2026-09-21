@@ -212,7 +212,8 @@ class ReaderExistingSessionsCacheTest {
     )
 
     private fun profile() = ConnectionProfile(
-        "https://library.example", "https://library.example", "https://library.example/api/v1/",
+        "a6722b5a-7982-4778-8c74-39be4241a654",
+        "https://library.example", "https://library.example",
         "Library", "", "test", "2026-09-19", "client", "Tablet", "android"
     )
 

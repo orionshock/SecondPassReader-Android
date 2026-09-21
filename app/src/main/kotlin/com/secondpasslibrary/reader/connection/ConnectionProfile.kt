@@ -4,9 +4,9 @@ import com.secondpasslibrary.client.ClientSession
 import com.secondpasslibrary.client.DiscoveredServer
 
 data class ConnectionProfile(
+    val serverId: String,
     val serverOrigin: String,
-    val serverBaseUrl: String,
-    val apiBaseUrl: String,
+    val libraryBaseUrl: String,
     val serverName: String,
     val serverDescription: String,
     val serverVersion: String,
@@ -18,9 +18,9 @@ data class ConnectionProfile(
     companion object {
         fun linked(server: DiscoveredServer, session: ClientSession): ConnectionProfile =
             ConnectionProfile(
+                serverId = server.serverId,
                 serverOrigin = server.serverOrigin.value,
-                serverBaseUrl = server.serverBaseUrl,
-                apiBaseUrl = server.apiBaseUrl,
+                libraryBaseUrl = server.libraryBaseUrl,
                 serverName = server.name,
                 serverDescription = server.description,
                 serverVersion = server.version,

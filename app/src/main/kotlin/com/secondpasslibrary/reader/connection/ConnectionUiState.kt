@@ -56,7 +56,7 @@ sealed interface ConnectionUiState {
     data class Linked(
         val profile: ConnectionProfile,
         val context: AuthenticatedContext,
-        val reachability: InstallationReachability = InstallationReachability.REACHABLE
+        val reachability: ServerReachability = ServerReachability.REACHABLE
     ) : ConnectionUiState
 
     data class TerminalPairingProblem(val message: String) : ConnectionUiState

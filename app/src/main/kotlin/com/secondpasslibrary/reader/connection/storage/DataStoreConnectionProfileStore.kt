@@ -55,11 +55,13 @@ constructor(
     }
 
     private fun Preferences.toProfile(): ConnectionProfile? {
-        val apiBaseUrl = this[Keys.API_BASE_URL] ?: return null
+        val serverId = this[Keys.SERVER_ID]
+        val libraryBaseUrl = this[Keys.LIBRARY_BASE_URL]
+        if (serverId == null || libraryBaseUrl == null) return null
         return ConnectionProfile(
+            serverId = serverId,
             serverOrigin = this[Keys.SERVER_ORIGIN].orEmpty(),
-            serverBaseUrl = this[Keys.SERVER_BASE_URL].orEmpty(),
-            apiBaseUrl = apiBaseUrl,
+            libraryBaseUrl = libraryBaseUrl,
             serverName = this[Keys.SERVER_NAME].orEmpty(),
             serverDescription = this[Keys.SERVER_DESCRIPTION].orEmpty(),
             serverVersion = this[Keys.SERVER_VERSION].orEmpty(),
@@ -71,9 +73,9 @@ constructor(
     }
 
     private fun MutablePreferences.putProfile(profile: ConnectionProfile) {
+        this[Keys.SERVER_ID] = profile.serverId
         this[Keys.SERVER_ORIGIN] = profile.serverOrigin
-        this[Keys.SERVER_BASE_URL] = profile.serverBaseUrl
-        this[Keys.API_BASE_URL] = profile.apiBaseUrl
+        this[Keys.LIBRARY_BASE_URL] = profile.libraryBaseUrl
         this[Keys.SERVER_NAME] = profile.serverName
         this[Keys.SERVER_DESCRIPTION] = profile.serverDescription
         this[Keys.SERVER_VERSION] = profile.serverVersion
@@ -84,9 +86,9 @@ constructor(
     }
 
     private object Keys {
+        val SERVER_ID = stringPreferencesKey("server_id")
         val SERVER_ORIGIN = stringPreferencesKey("server_origin")
-        val SERVER_BASE_URL = stringPreferencesKey("server_base_url")
-        val API_BASE_URL = stringPreferencesKey("api_base_url")
+        val LIBRARY_BASE_URL = stringPreferencesKey("library_base_url")
         val SERVER_NAME = stringPreferencesKey("server_name")
         val SERVER_DESCRIPTION = stringPreferencesKey("server_description")
         val SERVER_VERSION = stringPreferencesKey("server_version")

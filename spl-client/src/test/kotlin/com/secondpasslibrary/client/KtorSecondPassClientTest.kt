@@ -38,14 +38,14 @@ class KtorSecondPassClientTest {
             assertThrows(SplClientException.ServerUnreachable::class.java) {
                 runBlocking {
                     root.loadAuthenticatedContext(
-                        "https://library.example/api/v1/",
+                        "https://library.example",
                         BearerCredential.restore("spl_secret")
                     )
                 }
             }
 
             assertEquals(
-                AuthenticatedAccessFailure("https://library.example/api/v1/"),
+                AuthenticatedAccessFailure("https://library.example"),
                 hint.await()
             )
             root.close()
@@ -62,7 +62,7 @@ class KtorSecondPassClientTest {
         ) { expectSuccess = false }
         val root = KtorSecondPassClient(transport)
         val authenticated = root.authenticated(
-            "https://library.example/api/v1/",
+            "https://library.example",
             BearerCredential.restore("spl_secret")
         )
         val transportJob = checkNotNull(transport.coroutineContext[Job])
@@ -107,13 +107,12 @@ class KtorSecondPassClientTest {
         val server = client.discoverServer("https://library.example/some/random/path")
 
         assertEquals("https://library.example", server.serverOrigin.value)
-        assertEquals(INSTALLATION_ID, server.installationId)
-        assertEquals("https://library.example/", server.serverBaseUrl)
+        assertEquals(SERVER_ID, server.serverId)
         assertEquals("Second Pass Library", server.name)
         assertEquals("Books", server.description)
         assertEquals("0.1.0", server.version)
         assertEquals("2026-07-19", server.releaseDate)
-        assertEquals("https://library.example/api/v1/", server.apiBaseUrl)
+        assertEquals("https://library.example", server.libraryBaseUrl)
         assertEquals("0.1", server.discoveryVersion)
         assertEquals(
             "https://library.example/api/v1/client-api/login-requests/",
@@ -126,6 +125,34 @@ class KtorSecondPassClientTest {
                 it.url.encodedPath
             }
         )
+    }
+
+    @Test
+    fun `discovery derives the API root from the Library URL`() = runBlocking {
+        listOf(
+            "https://example.com" to "https://example.com",
+            "https://example.com:8443" to "https://example.com:8443",
+            "http://192.168.1.10:8080" to "http://192.168.1.10:8080"
+        ).forEach { (input, baseUrl) ->
+            val requests = mutableListOf<String>()
+            val client = client { request ->
+                requests += request.url.toString()
+                when (request.url.encodedPath) {
+                    "/.well-known/secondpass" -> jsonResponse(WELL_KNOWN)
+                    "/api/v1/client-api/discovery/" -> jsonResponse(PAIRING_DISCOVERY)
+                    else -> respondError(HttpStatusCode.NotFound)
+                }
+            }
+
+            assertEquals(baseUrl, client.discoverServer(input).libraryBaseUrl)
+            assertEquals(
+                listOf(
+                    "$baseUrl/.well-known/secondpass",
+                    "$baseUrl/api/v1/client-api/discovery/"
+                ),
+                requests
+            )
+        }
     }
 
     @Test
@@ -197,20 +224,20 @@ class KtorSecondPassClientTest {
     }
 
     @Test
-    fun `missing installation identity fails discovery without URL fallback`() {
-        val withoutInstallationId =
-            WELL_KNOWN.replace("\"installation_id\":\"$INSTALLATION_ID\",", "")
-        val client = client { jsonResponse(withoutInstallationId) }
+    fun `missing server identity fails discovery without URL fallback`() {
+        val withoutServerId =
+            WELL_KNOWN.replace("\"server_id\":\"$SERVER_ID\",", "")
+        val client = client { jsonResponse(withoutServerId) }
 
         assertThrows(SplClientException.NotSecondPassServer::class.java) {
-            runBlocking { client.discoverServer("https://$INSTALLATION_ID.example") }
+            runBlocking { client.discoverServer("https://$SERVER_ID.example") }
         }
     }
 
     @Test
-    fun `malformed installation identity fails discovery`() {
-        val malformedInstallationId = WELL_KNOWN.replace(INSTALLATION_ID, "library.example")
-        val client = client { jsonResponse(malformedInstallationId) }
+    fun `malformed server identity fails discovery`() {
+        val malformedServerId = WELL_KNOWN.replace(SERVER_ID, "library.example")
+        val client = client { jsonResponse(malformedServerId) }
 
         assertThrows(SplClientException.NotSecondPassServer::class.java) {
             runBlocking { client.discoverServer("https://library.example") }
@@ -237,7 +264,14 @@ class KtorSecondPassClientTest {
                 )
 
                 "/api/v1/server/info/" -> jsonResponse(
-                    """{"server_name":"Library","reading_client_base_url":null}"""
+                    """
+                    {
+                      "server_id":"$SERVER_ID",
+                      "server_urls":["https://library.example"],
+                      "server_name":"Library",
+                      "reading_client_base_url":null
+                    }
+                    """.trimIndent()
                 )
 
                 else -> respondError(HttpStatusCode.NotFound)
@@ -246,18 +280,47 @@ class KtorSecondPassClientTest {
 
         val context =
             client.loadAuthenticatedContext(
-                "https://library.example/api/v1/",
+                "https://library.example",
                 BearerCredential.restore("spl_secret")
             )
 
         assertEquals("reader", context.currentUser.displayName)
         assertEquals("Common Room", context.currentUser.groups.single().name)
         assertNull(context.serverInfo.readingClientBaseUrl)
+        assertEquals(SERVER_ID, context.serverInfo.serverId)
+        assertEquals(listOf("https://library.example"), context.serverInfo.serverUrls)
         assertEquals(listOf("Bearer spl_secret", "Bearer spl_secret"), authorizationValues)
         assertEquals(
             "BearerCredential([redacted])",
             BearerCredential.restore("spl_secret").toString()
         )
+    }
+
+    @Test
+    fun `authenticated server URLs retain server order and duplicates`() = runBlocking {
+        val urls = listOf(
+            "https://library.example:8443",
+            "http://192.168.1.10:8080",
+            "https://library.example:8443"
+        )
+        val client = client { request ->
+            when (request.url.encodedPath) {
+                "/api/v1/accounts/me/" -> jsonResponse("""{"username":"reader"}""")
+
+                "/api/v1/server/info/" -> jsonResponse(
+                    """{"server_id":"$SERVER_ID","server_urls":["${urls[0]}","${urls[1]}","${urls[2]}"]}"""
+                )
+
+                else -> respondError(HttpStatusCode.NotFound)
+            }
+        }
+
+        val context = client.loadAuthenticatedContext(
+            "https://library.example",
+            BearerCredential.restore("spl_secret")
+        )
+
+        assertEquals(urls, context.serverInfo.serverUrls)
     }
 
     @Test
@@ -267,7 +330,7 @@ class KtorSecondPassClientTest {
         assertThrows(SplClientException.AuthenticationRejected::class.java) {
             runBlocking {
                 client.loadAuthenticatedContext(
-                    "https://library.example/api/v1/",
+                    "https://library.example",
                     BearerCredential.restore("spl_secret")
                 )
             }
@@ -283,7 +346,7 @@ class KtorSecondPassClientTest {
         }
 
         client.revokeCurrentClientSession(
-            "https://library.example/api/v1/",
+            "https://library.example",
             BearerCredential.restore("spl_secret"),
             "session-1"
         )
@@ -304,7 +367,7 @@ class KtorSecondPassClientTest {
         assertThrows(SplClientException.ClientSessionNotFound::class.java) {
             runBlocking {
                 client.revokeCurrentClientSession(
-                    "https://library.example/api/v1/",
+                    "https://library.example",
                     BearerCredential.restore("spl_secret"),
                     "another-session"
                 )
@@ -319,7 +382,7 @@ class KtorSecondPassClientTest {
             assertThrows(SplClientException.AuthenticationRejected::class.java) {
                 runBlocking {
                     client.revokeCurrentClientSession(
-                        "https://library.example/api/v1/",
+                        "https://library.example",
                         BearerCredential.restore("spl_secret"),
                         "session-1"
                     )
@@ -339,7 +402,7 @@ class KtorSecondPassClientTest {
             assertThrows(SplClientException.ClientSessionRevocationFailed::class.java) {
                 runBlocking {
                     client.revokeCurrentClientSession(
-                        "https://library.example/api/v1/",
+                        "https://library.example",
                         BearerCredential.restore("spl_secret"),
                         "session-1"
                     )
@@ -368,9 +431,8 @@ class KtorSecondPassClientTest {
 
     private fun discoveredServer() = DiscoveredServer(
         serverOrigin = ServerOrigin.fromUserInput("https://library.example"),
-        installationId = INSTALLATION_ID,
-        serverBaseUrl = "https://library.example/",
-        apiBaseUrl = "https://library.example/api/v1/",
+        serverId = SERVER_ID,
+        libraryBaseUrl = "https://library.example",
         name = "Library",
         description = "",
         version = "1",
@@ -390,11 +452,11 @@ class KtorSecondPassClientTest {
     )
 
     private companion object {
-        const val INSTALLATION_ID = "a6722b5a-7982-4778-8c74-39be4241a654"
+        const val SERVER_ID = "a6722b5a-7982-4778-8c74-39be4241a654"
         const val WELL_KNOWN =
-            """{"installation_id":"$INSTALLATION_ID","server_name":"Second Pass Library","server_description":"Books","server_version":"0.1.0","server_release_date":"2026-07-19","api_base_url":"https://library.example/api/v1/"}"""
+            """{"server_id":"$SERVER_ID","server_name":"Second Pass Library","server_description":"Books","server_version":"0.1.0","server_release_date":"2026-07-19"}"""
         const val PAIRING_DISCOVERY =
-            """{"discovery_version":"0.1","server_name":"Second Pass Library","server_description":"Books","api_base_url":"https://library.example/api/v1/","login_request_endpoint":"https://library.example/api/v1/client-api/login-requests/","poll_endpoint_template":"https://library.example/api/v1/client-api/login-requests/%7Bid%7D/poll/","consume_endpoint_template":"https://library.example/api/v1/client-api/login-requests/%7Bid%7D/poll/","token_type":"Bearer","server_base_url":"https://library.example/"}"""
+            """{"discovery_version":"0.1","server_name":"Second Pass Library","server_description":"Books","login_request_endpoint":"https://library.example/api/v1/client-api/login-requests/","poll_endpoint_template":"https://library.example/api/v1/client-api/login-requests/%7Bid%7D/poll/","consume_endpoint_template":"https://library.example/api/v1/client-api/login-requests/%7Bid%7D/poll/","token_type":"Bearer"}"""
         const val LOGIN_REQUEST =
             """{"id":"request-1","code":"ABCD-EFGH","authorize_url":"https://library.example/authorize","poll_url":"https://library.example/api/v1/poll/","consume_url":"https://library.example/api/v1/consume/","expires_at":"2026-08-16T20:00:00Z","interval":3}"""
         const val CONSUMED_WITH_TOKEN =

@@ -114,7 +114,7 @@ internal abstract class ConnectionCoordinatorTestSupport {
         }
 
         override suspend fun loadAuthenticatedContext(
-            apiBaseUrl: String,
+            libraryBaseUrl: String,
             credential: BearerCredential
         ): AuthenticatedContext {
             events += "verify"
@@ -223,7 +223,7 @@ internal abstract class ConnectionCoordinatorTestSupport {
         val sessionIds = mutableListOf<String>()
 
         override suspend fun revokeCurrentClientSession(
-            apiBaseUrl: String,
+            libraryBaseUrl: String,
             credential: BearerCredential,
             clientSessionId: String
         ) {
@@ -237,8 +237,7 @@ internal abstract class ConnectionCoordinatorTestSupport {
         fun server() = DiscoveredServer(
             ServerOrigin.fromUserInput("https://library.example"),
             "a6722b5a-7982-4778-8c74-39be4241a654",
-            "https://library.example/",
-            "https://library.example/api/v1/",
+            "https://library.example",
             "Library",
             "Books",
             "1.0",
@@ -258,9 +257,9 @@ internal abstract class ConnectionCoordinatorTestSupport {
         )
 
         fun profile(clientSessionId: String = "session-1") = ConnectionProfile(
+            "a6722b5a-7982-4778-8c74-39be4241a654",
             "https://library.example",
-            "https://library.example/",
-            "https://library.example/api/v1/",
+            "https://library.example",
             "Library",
             "Books",
             "1.0",
@@ -272,7 +271,11 @@ internal abstract class ConnectionCoordinatorTestSupport {
 
         fun authenticatedContext(profileId: String = "profile-1") = AuthenticatedContext(
             CurrentUser("reader", "", "", "", profileId, "reader", emptyList(), null, null, null),
-            AuthenticatedServerInfo("Library", "", "", false, null, "", null, "1.0", "")
+            AuthenticatedServerInfo(
+                "a6722b5a-7982-4778-8c74-39be4241a654",
+                listOf("https://library.example"),
+                "Library", "", "", false, null, "", null, "1.0", ""
+            )
         )
     }
 }

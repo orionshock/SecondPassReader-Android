@@ -4,9 +4,9 @@ import com.secondpasslibrary.client.AuthenticatedContext
 import com.secondpasslibrary.client.AuthenticatedServerInfo
 import com.secondpasslibrary.client.CurrentUser
 import com.secondpasslibrary.reader.connection.ConnectionUiState
-import com.secondpasslibrary.reader.connection.InstallationReachability
 import com.secondpasslibrary.reader.connection.LocalAccountContext
 import com.secondpasslibrary.reader.connection.PersistedAccountContext
+import com.secondpasslibrary.reader.connection.ServerReachability
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import com.secondpasslibrary.reader.home.FakeHomeAuthenticatedClient
 import com.secondpasslibrary.reader.home.FakeHomeAuthenticatedClientProvider
@@ -331,7 +331,7 @@ class AppSessionControllerTest {
                 ConnectionUiState.Linked(
                     account.profile,
                     context,
-                    InstallationReachability.UNREACHABLE
+                    ServerReachability.UNREACHABLE
                 ),
                 account.localContext()
             )
@@ -442,6 +442,10 @@ class AppSessionControllerTest {
 
     private fun authenticatedContext(profileId: String) = AuthenticatedContext(
         CurrentUser("reader", "", "", "", profileId, "reader", emptyList(), null, null, null),
-        AuthenticatedServerInfo("Library", "", "", false, null, "", null, "1.0", "")
+        AuthenticatedServerInfo(
+            "a6722b5a-7982-4778-8c74-39be4241a654",
+            listOf("https://library.example"),
+            "Library", "", "", false, null, "", null, "1.0", ""
+        )
     )
 }

@@ -2,8 +2,8 @@ package com.secondpasslibrary.reader.app
 
 import com.secondpasslibrary.reader.app.storage.AccountLocalScope
 import com.secondpasslibrary.reader.connection.ConnectionUiState
-import com.secondpasslibrary.reader.connection.InstallationReachability
 import com.secondpasslibrary.reader.connection.LocalAccountContext
+import com.secondpasslibrary.reader.connection.ServerReachability
 import com.secondpasslibrary.reader.home.HomeAccountScope
 import com.secondpasslibrary.reader.home.HomeProjectionRepository
 import com.secondpasslibrary.reader.home.HomeRefreshAvailability
@@ -66,7 +66,7 @@ internal class AppSessionController(
         val shell = mutableState.value as? AppSessionState.AccountShell ?: return
         if (shell.authority !is AppSessionAuthority.Verified ||
             (connectionState as? ConnectionUiState.Linked)?.reachability !=
-            InstallationReachability.REACHABLE
+            ServerReachability.REACHABLE
         ) {
             return
         }
@@ -90,7 +90,7 @@ internal class AppSessionController(
                 profile = linked.profile,
                 profileId = linked.context.currentUser.profileId,
                 authority = AppSessionAuthority.Verified(linked.context),
-                availability = if (linked.reachability == InstallationReachability.REACHABLE) {
+                availability = if (linked.reachability == ServerReachability.REACHABLE) {
                     AppAvailability.Online
                 } else {
                     AppAvailability.Offline(AppAvailabilityReason.UNREACHABLE)

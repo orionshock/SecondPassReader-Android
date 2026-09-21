@@ -87,6 +87,8 @@ internal fun CurrentUserWire.toModel(): CurrentUser = CurrentUser(
 )
 
 internal fun ServerInfoWire.toModel(): AuthenticatedServerInfo = AuthenticatedServerInfo(
+    serverId = requireAuthenticatedServerId(serverId),
+    serverUrls = requireServerUrls(serverUrls),
     name = serverName.orEmpty(),
     description = serverDescription.orEmpty(),
     bannerMessage = serverBannerMessage.orEmpty(),
@@ -100,3 +102,8 @@ internal fun ServerInfoWire.toModel(): AuthenticatedServerInfo = AuthenticatedSe
     version = serverVersion.orEmpty(),
     releaseDate = serverReleaseDate.orEmpty()
 )
+
+private fun requireServerUrls(urls: List<String>?): List<String> =
+    urls?.takeIf(List<String>::isNotEmpty)?.map { url ->
+        requireLibraryBaseUrl(url, "server info")
+    } ?: invalidProtocol("server info")

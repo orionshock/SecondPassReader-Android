@@ -92,7 +92,7 @@ class ConnectionScreenTest {
                     suggestions =
                         listOf(
                             ConnectionLibrarySuggestion(
-                                installationId = "a6722b5a-7982-4778-8c74-39be4241a654",
+                                serverId = "a6722b5a-7982-4778-8c74-39be4241a654",
                                 name = "Second Pass Library",
                                 description =
                                     "<p>Test <strong>Deploy</strong>, this is the description line</p>",
@@ -183,9 +183,8 @@ class ConnectionScreenTest {
         var deviceName = ""
         val server = DiscoveredServer(
             serverOrigin = ServerOrigin.fromUserInput(url),
-            installationId = "a6722b5a-7982-4778-8c74-39be4241a654",
-            serverBaseUrl = "$url/",
-            apiBaseUrl = "$url/api/v1/",
+            serverId = "a6722b5a-7982-4778-8c74-39be4241a654",
+            libraryBaseUrl = "$url",
             name = "My Library",
             description = "<p>A <strong>quiet</strong> library</p>",
             version = "alpha-rc1",

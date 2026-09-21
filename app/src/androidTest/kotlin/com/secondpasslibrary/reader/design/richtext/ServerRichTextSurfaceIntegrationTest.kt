@@ -102,9 +102,8 @@ class ServerRichTextSurfaceIntegrationTest {
 
     private fun discoveredServer() = DiscoveredServer(
         serverOrigin = ServerOrigin.fromUserInput("https://library.example"),
-        installationId = "a6722b5a-7982-4778-8c74-39be4241a654",
-        serverBaseUrl = "https://library.example/",
-        apiBaseUrl = "https://library.example/api/v1/",
+        serverId = "a6722b5a-7982-4778-8c74-39be4241a654",
+        libraryBaseUrl = "https://library.example",
         name = "Library",
         description = "<p>Discovery &amp; pairing description.</p>",
         version = "1",

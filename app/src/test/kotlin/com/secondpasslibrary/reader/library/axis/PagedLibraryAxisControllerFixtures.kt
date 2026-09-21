@@ -260,9 +260,9 @@ internal fun <T> libraryPage(page: Int, items: List<T>) =
     LibraryPage(items.size, items, false, page > 1, page, DEFAULT_LIBRARY_PAGE_SIZE)
 
 internal fun libraryProfile() = ConnectionProfile(
+    serverId = "a6722b5a-7982-4778-8c74-39be4241a654",
     serverOrigin = "https://library.example",
-    serverBaseUrl = "https://library.example/",
-    apiBaseUrl = "https://library.example/api/v1/",
+    libraryBaseUrl = "https://library.example",
     serverName = "Library",
     serverDescription = "",
     serverVersion = "1",

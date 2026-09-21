@@ -26,7 +26,7 @@ internal class ConnectionLanDiscoveryControllerTest {
     fun `valid candidates expose HTTP metadata and invalid candidates stay hidden`() = runTest {
         val discovery = FakeLanLibraryUrlDiscovery()
         val client = FakeDiscoveryClient().apply {
-            responses[VALID_URL] = server(VALID_URL, INSTALLATION_ONE, "Library One", "Books")
+            responses[VALID_URL] = server(VALID_URL, SERVER_ID_ONE, "Library One", "Books")
             failures[INVALID_URL] = SplClientException.NotSecondPassServer()
             failures[MISSING_ID_URL] = SplClientException.NotSecondPassServer()
         }
@@ -39,7 +39,7 @@ internal class ConnectionLanDiscoveryControllerTest {
         assertEquals(
             listOf(
                 ConnectionLibrarySuggestion(
-                    INSTALLATION_ONE,
+                    SERVER_ID_ONE,
                     "Library One",
                     "Books",
                     VALID_URL
@@ -51,34 +51,33 @@ internal class ConnectionLanDiscoveryControllerTest {
     }
 
     @Test
-    fun `multiple installations remain and duplicate identity chooses deterministic URL`() =
-        runTest {
-            val discovery = FakeLanLibraryUrlDiscovery()
-            val alternate = "https://alternate.example"
-            val second = "https://second.example"
-            val client = FakeDiscoveryClient().apply {
-                responses[VALID_URL] = server(VALID_URL, INSTALLATION_ONE, "Library One", "Books")
-                responses[alternate] = server(alternate, INSTALLATION_ONE, "Library One", "Books")
-                responses[second] = server(second, INSTALLATION_TWO, "Library Two", "More books")
-            }
-            val controller = ConnectionLanDiscoveryController(discovery, client, this)
-            controller.start()
-
-            discovery.urls.value = setOf(VALID_URL, alternate, second)
-            advanceUntilIdle()
-
-            assertEquals(2, controller.suggestions.value.size)
-            assertEquals(alternate, controller.suggestions.value.first().url)
-            assertEquals(INSTALLATION_TWO, controller.suggestions.value.last().installationId)
-            controller.stop()
+    fun `multiple servers remain and duplicate identity chooses deterministic URL`() = runTest {
+        val discovery = FakeLanLibraryUrlDiscovery()
+        val alternate = "https://alternate.example"
+        val second = "https://second.example"
+        val client = FakeDiscoveryClient().apply {
+            responses[VALID_URL] = server(VALID_URL, SERVER_ID_ONE, "Library One", "Books")
+            responses[alternate] = server(alternate, SERVER_ID_ONE, "Library One", "Books")
+            responses[second] = server(second, SERVER_ID_TWO, "Library Two", "More books")
         }
+        val controller = ConnectionLanDiscoveryController(discovery, client, this)
+        controller.start()
+
+        discovery.urls.value = setOf(VALID_URL, alternate, second)
+        advanceUntilIdle()
+
+        assertEquals(2, controller.suggestions.value.size)
+        assertEquals(alternate, controller.suggestions.value.first().url)
+        assertEquals(SERVER_ID_TWO, controller.suggestions.value.last().serverId)
+        controller.stop()
+    }
 
     @Test
     fun `disappearance prevents stale validation from publishing`() = runTest {
         val discovery = FakeLanLibraryUrlDiscovery()
         val gate = CompletableDeferred<Unit>()
         val client = FakeDiscoveryClient(gate).apply {
-            responses[VALID_URL] = server(VALID_URL, INSTALLATION_ONE, "Library One", "Books")
+            responses[VALID_URL] = server(VALID_URL, SERVER_ID_ONE, "Library One", "Books")
         }
         val controller = ConnectionLanDiscoveryController(discovery, client, this)
         controller.start()
@@ -99,7 +98,7 @@ internal class ConnectionLanDiscoveryControllerTest {
         val discovery = FakeLanLibraryUrlDiscovery()
         val gate = CompletableDeferred<Unit>()
         val client = FakeDiscoveryClient(gate).apply {
-            responses[VALID_URL] = server(VALID_URL, INSTALLATION_ONE, "Library One", "Books")
+            responses[VALID_URL] = server(VALID_URL, SERVER_ID_ONE, "Library One", "Books")
         }
         val controller = ConnectionLanDiscoveryController(discovery, client, this)
         controller.start()
@@ -117,8 +116,8 @@ internal class ConnectionLanDiscoveryControllerTest {
         const val VALID_URL = "https://library.example"
         const val INVALID_URL = "https://invalid.example"
         const val MISSING_ID_URL = "https://missing-id.example"
-        const val INSTALLATION_ONE = "a6722b5a-7982-4778-8c74-39be4241a654"
-        const val INSTALLATION_TWO = "5222fe20-919b-4d2e-a6e9-9be21c508801"
+        const val SERVER_ID_ONE = "a6722b5a-7982-4778-8c74-39be4241a654"
+        const val SERVER_ID_TWO = "5222fe20-919b-4d2e-a6e9-9be21c508801"
     }
 }
 
@@ -152,21 +151,20 @@ private class FakeDiscoveryClient(private val gate: CompletableDeferred<Unit>? =
         error("Pairing is outside LAN discovery")
 
     override suspend fun loadAuthenticatedContext(
-        apiBaseUrl: String,
+        libraryBaseUrl: String,
         credential: BearerCredential
     ): AuthenticatedContext = error("Authentication is outside LAN discovery")
 }
 
 private fun server(
     url: String,
-    installationId: String,
+    serverId: String,
     name: String,
     description: String
 ): DiscoveredServer = DiscoveredServer(
     serverOrigin = ServerOrigin.fromUserInput(url),
-    installationId = installationId,
-    serverBaseUrl = "$url/",
-    apiBaseUrl = "$url/api/v1/",
+    serverId = serverId,
+    libraryBaseUrl = "$url",
     name = name,
     description = description,
     version = "1",

@@ -240,9 +240,9 @@ internal fun projectionAccount(
 ) = HomeProjectionAccount(
     profile =
         ConnectionProfile(
+            serverId = "a6722b5a-7982-4778-8c74-39be4241a654",
             serverOrigin = serverOrigin,
-            serverBaseUrl = "$serverOrigin/",
-            apiBaseUrl = "$serverOrigin/api/v1/",
+            libraryBaseUrl = "$serverOrigin",
             serverName = "Library",
             serverDescription = "",
             serverVersion = "1",

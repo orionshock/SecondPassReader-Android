@@ -36,7 +36,7 @@ internal fun ServerIdentityCard(server: DiscoveredServer) {
                 fontWeight = FontWeight.SemiBold
             )
             Text(
-                server.serverBaseUrl,
+                server.libraryBaseUrl,
                 style = MaterialTheme.typography.bodyMedium,
                 fontFamily = FontFamily.Monospace,
                 color = MaterialTheme.colorScheme.onSurfaceVariant

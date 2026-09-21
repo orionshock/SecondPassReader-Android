@@ -92,7 +92,7 @@ class AuthenticatedRequestExecutorTest {
         assertThrows(SplClientException.ServerUnreachable::class.java) {
             runBlocking { unreachable.getResponse("example/") }
         }
-        assertEquals(listOf("https://library.example/api/v1/"), hints)
+        assertEquals(listOf("https://library.example"), hints)
 
         val serverError = executor(hints::add) {
             respond("", HttpStatusCode.InternalServerError)
@@ -139,7 +139,7 @@ class AuthenticatedRequestExecutorTest {
         ) -> io.ktor.client.request.HttpResponseData
     ): AuthenticatedRequestExecutor = AuthenticatedRequestExecutor(
         HttpClient(MockEngine(handler)) { expectSuccess = false },
-        "https://library.example/api/v1/",
+        "https://library.example",
         BearerCredential.restore("spl_secret"),
         splProtocolJson,
         onUnreachable

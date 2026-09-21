@@ -256,7 +256,7 @@ internal class ConnectionCoordinator(
 
                 else -> attempt {
                     clientSessionRevocationClient.revokeCurrentClientSession(
-                        linked.profile.apiBaseUrl,
+                        linked.profile.libraryBaseUrl,
                         credential,
                         linked.profile.clientSessionId
                     )
@@ -422,7 +422,7 @@ internal class ConnectionCoordinator(
     fun authenticatedRequestUnreachable() {
         val linked = mutableState.value as? ConnectionUiState.Linked ?: return
         if (reachabilityCheck?.isActive == true ||
-            linked.reachability == InstallationReachability.UNREACHABLE
+            linked.reachability == ServerReachability.UNREACHABLE
         ) {
             return
         }
@@ -450,7 +450,7 @@ internal class ConnectionCoordinator(
         if (mutableState.value is ConnectionUiState.CheckingConnection) {
             operation?.join()
             return (mutableState.value as? ConnectionUiState.Linked)?.reachability ==
-                InstallationReachability.REACHABLE
+                ServerReachability.REACHABLE
         }
         val previous = mutableState.value
         val profile = when (val current = previous) {
@@ -481,12 +481,12 @@ internal class ConnectionCoordinator(
         }
         operation?.join()
         return (mutableState.value as? ConnectionUiState.Linked)?.reachability ==
-            InstallationReachability.REACHABLE
+            ServerReachability.REACHABLE
     }
 
     fun retryReachabilityOrRestore() {
         val linked = mutableState.value as? ConnectionUiState.Linked
-        if (linked?.reachability == InstallationReachability.UNREACHABLE) {
+        if (linked?.reachability == ServerReachability.UNREACHABLE) {
             reachabilityCheck?.cancel()
             reachabilityCheck = scope.launch { verifyLinkedReachability(linked) }
         } else {
@@ -497,7 +497,7 @@ internal class ConnectionCoordinator(
     fun retryIfUnreachable() {
         when (val current = mutableState.value) {
             is ConnectionUiState.Linked -> {
-                if (current.reachability == InstallationReachability.UNREACHABLE) {
+                if (current.reachability == ServerReachability.UNREACHABLE) {
                     retryReachabilityOrRestore()
                 }
             }
@@ -519,7 +519,7 @@ internal class ConnectionCoordinator(
                 ) {
                     linked.copy(
                         context = context,
-                        reachability = InstallationReachability.REACHABLE
+                        reachability = ServerReachability.REACHABLE
                     )
                 } else {
                     ConnectionUiState.AuthenticationRequired(
@@ -532,7 +532,7 @@ internal class ConnectionCoordinator(
             currentCoroutineContext().ensureActive()
             if (mutableState.value == linked) {
                 mutableState.value = linked.copy(
-                    reachability = InstallationReachability.UNREACHABLE
+                    reachability = ServerReachability.UNREACHABLE
                 )
             }
         } catch (_: SplClientException.AuthenticationRejected) {

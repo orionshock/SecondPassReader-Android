@@ -59,8 +59,7 @@ internal class ConnectionVerificationHandoffTest : ConnectionCoordinatorTestSupp
             val oldProfile = profile()
             val replacement = oldProfile.copy(
                 serverOrigin = "https://other-library.example",
-                serverBaseUrl = "https://other-library.example/",
-                apiBaseUrl = "https://other-library.example/api/v1/",
+                libraryBaseUrl = "https://other-library.example",
                 clientSessionId = "other-session"
             )
             val accountStore = FakePersistedAccountContextStore(events).apply {

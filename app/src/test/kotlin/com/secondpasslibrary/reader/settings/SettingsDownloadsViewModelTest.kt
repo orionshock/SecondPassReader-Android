@@ -89,7 +89,7 @@ class SettingsDownloadsViewModelTest {
             assertEquals(listOf("book-2"), viewModel.state.value.downloads.map { it.bookId })
             viewModel.clearBook(
                 "book-2",
-                AuthenticatedConnectionIdentity("https://library.example/api/v1/", "device")
+                AuthenticatedConnectionIdentity("https://library.example", "device")
             )
             advanceUntilIdle()
             assertEquals(emptyList<AccountLocalDownload>(), viewModel.state.value.downloads)

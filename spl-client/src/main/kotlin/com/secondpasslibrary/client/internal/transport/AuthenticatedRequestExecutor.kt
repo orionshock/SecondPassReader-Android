@@ -22,12 +22,13 @@ import kotlinx.serialization.json.Json
 
 internal class AuthenticatedRequestExecutor(
     private val httpClient: HttpClient,
-    apiBaseUrl: String,
+    libraryBaseUrl: String,
     private val credential: BearerCredential,
     @PublishedApi internal val json: Json,
     private val onUnreachable: (String) -> Unit = {}
 ) {
-    private val apiBaseUrl = requireAbsoluteHttpUrl(apiBaseUrl, "authenticated connection")
+    private val libraryBaseUrl = requireLibraryBaseUrl(libraryBaseUrl, "authenticated connection")
+    private val apiRoot = apiRootFromLibraryBaseUrl(libraryBaseUrl)
 
     internal suspend inline fun <reified T> getDecoded(
         path: String,
@@ -46,7 +47,7 @@ internal class AuthenticatedRequestExecutor(
         path: String,
         parameters: List<Pair<String, String>> = emptyList()
     ): AuthenticatedResponse = execute {
-        httpClient.get(resolveApiUrl(apiBaseUrl, path)) {
+        httpClient.get(resolveApiUrl(apiRoot, path)) {
             parameters.forEach { (name, value) -> parameter(name, value) }
             credential.useSecret { token -> header(HttpHeaders.Authorization, "Bearer $token") }
         }
@@ -54,7 +55,7 @@ internal class AuthenticatedRequestExecutor(
 
     suspend fun downloadAuthorizedReference(url: String, destination: OutputStream) {
         val response = executeRaw {
-            httpClient.get(requireSameOriginHttpUrl(url, apiBaseUrl, "book download")) {
+            httpClient.get(requireSameOriginHttpUrl(url, libraryBaseUrl, "book download")) {
                 credential.useSecret { token -> header(HttpHeaders.Authorization, "Bearer $token") }
             }
         }
@@ -62,7 +63,7 @@ internal class AuthenticatedRequestExecutor(
         try {
             response.bodyAsChannel().toInputStream().use { input -> input.copyTo(destination) }
         } catch (failure: IOException) {
-            onUnreachable(apiBaseUrl)
+            onUnreachable(libraryBaseUrl)
             throw SplClientException.ServerUnreachable(failure)
         }
     }
@@ -88,7 +89,7 @@ internal class AuthenticatedRequestExecutor(
         body: String? = null,
         idempotencyKey: String? = null
     ): AuthenticatedResponse = execute {
-        httpClient.request(resolveApiUrl(apiBaseUrl, path)) {
+        httpClient.request(resolveApiUrl(apiRoot, path)) {
             this.method = method
             idempotencyKey?.let { header("Idempotency-Key", it) }
             credential.useSecret { token -> header(HttpHeaders.Authorization, "Bearer $token") }
@@ -103,14 +104,14 @@ internal class AuthenticatedRequestExecutor(
         val response = executeRaw(block)
         AuthenticatedResponse(response.status, response.bodyAsText())
     } catch (failure: IOException) {
-        onUnreachable(apiBaseUrl)
+        onUnreachable(libraryBaseUrl)
         throw SplClientException.ServerUnreachable(failure)
     }
 
     private suspend fun executeRaw(block: suspend () -> HttpResponse): HttpResponse = try {
         block()
     } catch (failure: IOException) {
-        onUnreachable(apiBaseUrl)
+        onUnreachable(libraryBaseUrl)
         throw SplClientException.ServerUnreachable(failure)
     }
 }

@@ -167,7 +167,7 @@ interface AuthenticatedLibraryTagsClient {
 
 interface AuthenticatedSecondPassClientFactory {
     fun authenticated(
-        apiBaseUrl: String,
+        libraryBaseUrl: String,
         credential: BearerCredential
     ): AuthenticatedSecondPassClient
 }

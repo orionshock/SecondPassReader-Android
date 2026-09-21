@@ -5,12 +5,11 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 internal data class WellKnownWire(
-    @SerialName("installation_id") val installationId: String? = null,
+    @SerialName("server_id") val serverId: String? = null,
     @SerialName("server_name") val serverName: String? = null,
     @SerialName("server_description") val serverDescription: String? = null,
     @SerialName("server_version") val serverVersion: String? = null,
-    @SerialName("server_release_date") val serverReleaseDate: String? = null,
-    @SerialName("api_base_url") val apiBaseUrl: String? = null
+    @SerialName("server_release_date") val serverReleaseDate: String? = null
 )
 
 @Serializable
@@ -18,12 +17,10 @@ internal data class PairingDiscoveryWire(
     @SerialName("discovery_version") val discoveryVersion: String? = null,
     @SerialName("server_name") val serverName: String? = null,
     @SerialName("server_description") val serverDescription: String? = null,
-    @SerialName("api_base_url") val apiBaseUrl: String? = null,
     @SerialName("login_request_endpoint") val loginRequestEndpoint: String? = null,
     @SerialName("poll_endpoint_template") val pollEndpointTemplate: String? = null,
     @SerialName("consume_endpoint_template") val consumeEndpointTemplate: String? = null,
-    @SerialName("token_type") val tokenType: String? = null,
-    @SerialName("server_base_url") val serverBaseUrl: String? = null
+    @SerialName("token_type") val tokenType: String? = null
 )
 
 @Serializable
@@ -88,6 +85,8 @@ internal data class CurrentUserGroupWire(
 
 @Serializable
 internal data class ServerInfoWire(
+    @SerialName("server_id") val serverId: String? = null,
+    @SerialName("server_urls") val serverUrls: List<String>? = null,
     @SerialName("server_name") val serverName: String? = null,
     @SerialName("server_description") val serverDescription: String? = null,
     @SerialName("server_banner_message") val serverBannerMessage: String? = null,

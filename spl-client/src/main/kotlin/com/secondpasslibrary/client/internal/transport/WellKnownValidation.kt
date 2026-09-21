@@ -8,5 +8,8 @@ private val UUID_PATTERN =
         RegexOption.IGNORE_CASE
     )
 
-internal fun requireInstallationId(value: String?): String =
+internal fun requireServerId(value: String?): String =
     value?.takeIf(UUID_PATTERN::matches) ?: throw SplClientException.NotSecondPassServer()
+
+internal fun requireAuthenticatedServerId(value: String?): String =
+    value?.takeIf(UUID_PATTERN::matches) ?: invalidProtocol("server info")

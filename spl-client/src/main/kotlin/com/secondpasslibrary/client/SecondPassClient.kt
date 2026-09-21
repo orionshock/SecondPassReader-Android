@@ -14,7 +14,7 @@ interface SecondPassClient {
     suspend fun consumeApprovedPairing(request: PairingRequest): PairingConsumption
 
     suspend fun loadAuthenticatedContext(
-        apiBaseUrl: String,
+        libraryBaseUrl: String,
         credential: BearerCredential
     ): AuthenticatedContext
 }

@@ -352,7 +352,7 @@ internal class ConnectionRestorationTest : ConnectionCoordinatorTestSupport() {
         advanceUntilIdle()
 
         assertEquals(
-            InstallationReachability.UNREACHABLE,
+            ServerReachability.UNREACHABLE,
             (coordinator.state.value as ConnectionUiState.Linked).reachability
         )
         assertEquals(resolvedLocalAccount, coordinator.localAccountContext.value)
@@ -363,7 +363,7 @@ internal class ConnectionRestorationTest : ConnectionCoordinatorTestSupport() {
         coordinator.retryIfUnreachable()
         advanceUntilIdle()
         assertEquals(
-            InstallationReachability.REACHABLE,
+            ServerReachability.REACHABLE,
             (coordinator.state.value as ConnectionUiState.Linked).reachability
         )
         assertEquals(resolvedLocalAccount, coordinator.localAccountContext.value)
@@ -383,7 +383,7 @@ internal class ConnectionRestorationTest : ConnectionCoordinatorTestSupport() {
         advanceUntilIdle()
 
         assertEquals(
-            InstallationReachability.REACHABLE,
+            ServerReachability.REACHABLE,
             (coordinator.state.value as ConnectionUiState.Linked).reachability
         )
     }
@@ -403,7 +403,7 @@ internal class ConnectionRestorationTest : ConnectionCoordinatorTestSupport() {
         coordinator.authenticatedRequestUnreachable()
         advanceUntilIdle()
         assertEquals(
-            InstallationReachability.REACHABLE,
+            ServerReachability.REACHABLE,
             (coordinator.state.value as ConnectionUiState.Linked).reachability
         )
 
@@ -411,7 +411,7 @@ internal class ConnectionRestorationTest : ConnectionCoordinatorTestSupport() {
         coordinator.authenticatedRequestUnreachable()
         advanceUntilIdle()
         assertEquals(
-            InstallationReachability.REACHABLE,
+            ServerReachability.REACHABLE,
             (coordinator.state.value as ConnectionUiState.Linked).reachability
         )
     }

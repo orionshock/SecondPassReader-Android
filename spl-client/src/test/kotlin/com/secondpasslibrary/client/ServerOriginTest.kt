@@ -9,9 +9,9 @@ class ServerOriginTest {
     fun `normalizes an arbitrary path to its https origin`() {
         val origin = ServerOrigin.fromUserInput(" HTTPS://Example.COM:443/api/v1/foo?x=1#part ")
 
-        assertEquals("https://example.com", origin.value)
+        assertEquals("https://example.com:443", origin.value)
         assertEquals(
-            "https://example.com/.well-known/secondpass",
+            "https://example.com:443/.well-known/secondpass",
             origin.endpoint("/.well-known/secondpass")
         )
     }

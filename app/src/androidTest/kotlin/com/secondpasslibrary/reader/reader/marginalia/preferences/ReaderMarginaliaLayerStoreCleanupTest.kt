@@ -18,7 +18,7 @@ class ReaderMarginaliaLayerStoreCleanupTest {
         val context = isolatedTestContext()
         val store = DataStoreReaderMarginaliaLayerStore(context)
         val identity = AuthenticatedConnectionIdentity(
-            "https://library.example/api/v1/",
+            "https://library.example",
             "client-session"
         )
         val target = ReaderMarginaliaVisibilityScope(identity, "book-target")
@@ -42,7 +42,7 @@ class ReaderMarginaliaLayerStoreCleanupTest {
         val store = DataStoreReaderMarginaliaLayerStore(context)
         val scope = ReaderMarginaliaVisibilityScope(
             AuthenticatedConnectionIdentity(
-                "https://library.example/api/v1/",
+                "https://library.example",
                 "client-session"
             ),
             "book-1"

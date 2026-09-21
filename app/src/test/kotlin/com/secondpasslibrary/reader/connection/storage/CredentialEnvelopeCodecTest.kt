@@ -34,9 +34,9 @@ class CredentialEnvelopeCodecTest {
     }
 
     private fun profile() = ConnectionProfile(
+        "a6722b5a-7982-4778-8c74-39be4241a654",
         "https://library.example",
-        "https://library.example/",
-        "https://library.example/api/v1/",
+        "https://library.example",
         "Library",
         "Books",
         "1.0",
