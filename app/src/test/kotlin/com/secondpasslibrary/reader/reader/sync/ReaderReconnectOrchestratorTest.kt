@@ -374,8 +374,7 @@ class ReaderReconnectOrchestratorTest {
         const val OTHER_PROFILE_ID = "profile-2"
         const val SERVER_SESSION_ID = "server-session"
 
-        fun account(profileId: String) =
-            LocalReaderAccountKey.from("https://library.example", profileId)
+        fun account(profileId: String) = LocalReaderAccountKey.from(profile().serverId, profileId)
 
         fun profile(clientName: String = PROFILE_ID) = ConnectionProfile(
             serverId = "a6722b5a-7982-4778-8c74-39be4241a654",

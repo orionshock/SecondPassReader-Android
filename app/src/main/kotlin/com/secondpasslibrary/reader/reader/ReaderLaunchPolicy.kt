@@ -31,7 +31,7 @@ internal class ReaderLaunchPolicy @Inject constructor(private val assets: Reader
         bookId: String
     ): ReaderLaunchDecision {
         if (availability !is AppAvailability.Offline) return ReaderLaunchDecision.ONLINE
-        val account = ReaderAccountScope(profile.serverOrigin, profileId)
+        val account = ReaderAccountScope(profile.serverId, profileId)
         return if (assets.findCompleted(account, bookId) != null) {
             ReaderLaunchDecision.LOCAL_AVAILABLE
         } else {

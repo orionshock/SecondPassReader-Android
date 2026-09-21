@@ -197,7 +197,7 @@ class ReaderMarginaliaLayerPolicyControllerTest {
             )
         }
         layers.select(PROFILE, BOOK_ID, CURRENT_SESSION)
-        policy.select(PROFILE.authenticatedConnectionIdentity, BOOK_ID)
+        policy.select(PROFILE.authenticatedConnectionIdentity("profile-1"), BOOK_ID)
     }
 
     private fun assertLayer(

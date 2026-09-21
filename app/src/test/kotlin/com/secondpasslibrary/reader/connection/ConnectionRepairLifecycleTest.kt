@@ -23,7 +23,7 @@ internal class ConnectionRepairLifecycleTest : ConnectionCoordinatorTestSupport(
             stored = StoredCredential(BearerCredential.restore("spl_secret"), null)
         }
         val accountContextStore = FakePersistedAccountContextStore().apply {
-            stored = PersistedAccountContext(profile.authenticatedConnectionIdentity, "profile-1")
+            stored = PersistedAccountContext(profile, "profile-1")
         }
         val coordinator =
             coordinator(
@@ -53,7 +53,7 @@ internal class ConnectionRepairLifecycleTest : ConnectionCoordinatorTestSupport(
         val credentialStore = storedCredential()
         val accountStore = FakePersistedAccountContextStore().apply {
             stored =
-                PersistedAccountContext(oldProfile.authenticatedConnectionIdentity, "profile-1")
+                PersistedAccountContext(oldProfile, "profile-1")
         }
         val cleaner = FakeAccountLocalDataCleaner()
         val coordinator =
@@ -79,7 +79,7 @@ internal class ConnectionRepairLifecycleTest : ConnectionCoordinatorTestSupport(
         assertTrue(coordinator.state.value is ConnectionUiState.Linked)
         assertTrue(cleaner.purged.isEmpty())
         assertEquals("new-session", profileStore.stored?.clientSessionId)
-        assertEquals("new-session", accountStore.stored?.connectionIdentity?.clientSessionId)
+        assertEquals("new-session", accountStore.stored?.clientSessionId)
         assertEquals(
             "profile-1",
             coordinator.localAccountContext.value?.persistedAccount?.profileId
@@ -92,7 +92,7 @@ internal class ConnectionRepairLifecycleTest : ConnectionCoordinatorTestSupport(
         val oldProfile = profile(clientSessionId = "old-session")
         val accountStore = FakePersistedAccountContextStore(events).apply {
             stored =
-                PersistedAccountContext(oldProfile.authenticatedConnectionIdentity, "profile-1")
+                PersistedAccountContext(oldProfile, "profile-1")
         }
         val cleaner = FakeAccountLocalDataCleaner(events)
         val coordinator =
@@ -119,7 +119,7 @@ internal class ConnectionRepairLifecycleTest : ConnectionCoordinatorTestSupport(
 
         assertTrue(coordinator.state.value is ConnectionUiState.Linked)
         assertEquals(
-            listOf(AccountLocalScope.from(oldProfile.serverOrigin, "profile-1")),
+            listOf(AccountLocalScope.from(oldProfile.serverId, "profile-1")),
             cleaner.purged
         )
         assertTrue(events.indexOf("purge") < events.lastIndexOf("account"))
@@ -134,7 +134,7 @@ internal class ConnectionRepairLifecycleTest : ConnectionCoordinatorTestSupport(
     fun `failed relink retains prior account and never purges before verification`() = runTest {
         val oldProfile = profile()
         val oldAccount =
-            PersistedAccountContext(oldProfile.authenticatedConnectionIdentity, "profile-1")
+            PersistedAccountContext(oldProfile, "profile-1")
         val cleaner = FakeAccountLocalDataCleaner()
         val coordinator =
             coordinator(

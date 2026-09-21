@@ -19,11 +19,11 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 internal data class ReaderAccountScope(val account: AccountLocalScope) {
-    constructor(serverOrigin: String, profileId: String) :
-        this(AccountLocalScope.from(serverOrigin, profileId))
+    constructor(serverId: String, profileId: String) :
+        this(AccountLocalScope.from(serverId, profileId))
 
-    val serverOrigin: String
-        get() = account.serverOrigin
+    val serverId: String
+        get() = account.serverId
     val profileId: String
         get() = account.profileId
 
@@ -187,6 +187,14 @@ internal class ReaderBookAssetStore private constructor(private val root: File) 
         writes.withLock {
             val directory = accountDirectory(account)
             if (directory.exists() && !directory.deleteRecursively()) {
+                throw IOException("Reader assets could not be removed.")
+            }
+        }
+    }
+
+    suspend fun purgeAll() = withContext(Dispatchers.IO) {
+        writes.withLock {
+            if (root.exists() && !root.deleteRecursively()) {
                 throw IOException("Reader assets could not be removed.")
             }
         }

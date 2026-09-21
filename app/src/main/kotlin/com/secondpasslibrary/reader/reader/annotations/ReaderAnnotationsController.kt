@@ -1,9 +1,9 @@
 package com.secondpasslibrary.reader.reader.annotations
 
 import com.secondpasslibrary.client.SplClientException
-import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.AuthenticatedSessionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.authenticatedSessionIdentity
 import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.ReaderSessionAuthority
@@ -42,7 +42,7 @@ internal class ReaderAnnotationsController(
     private val authenticationRequired = Channel<Unit>(Channel.BUFFERED)
     val authenticationRequiredEvents = authenticationRequired.receiveAsFlow()
 
-    private var connectionIdentity: AuthenticatedConnectionIdentity? = null
+    private var connectionIdentity: AuthenticatedSessionIdentity? = null
     private var profile: ConnectionProfile? = null
     private var profileId: String? = null
     private var session: ReaderSessionContext? = null
@@ -58,7 +58,7 @@ internal class ReaderAnnotationsController(
     ) {
         val sessionId = session.sessionId
         require(sessionId.isNotBlank()) { "Reading Session ID must not be blank." }
-        val nextIdentity = profile.authenticatedConnectionIdentity
+        val nextIdentity = profile.authenticatedSessionIdentity
         if (state.value.sessionId == sessionId && connectionIdentity == nextIdentity &&
             this.authority == authority
         ) {
@@ -121,7 +121,7 @@ internal class ReaderAnnotationsController(
         mutableState.value = state.value.copy(loading = true, failure = null)
         loadJob = scope.launch {
             val account = LocalReaderAccountKey.from(
-                context.profile.serverOrigin,
+                context.profile.serverId,
                 context.profileId
             )
             val result = runSuspendCatching {

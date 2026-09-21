@@ -19,27 +19,27 @@ class ReaderMarginaliaLayerPreferenceStoreTest {
 
     @Test
     fun `cache identity includes server account Book and Session`() {
-        val base = scope("https://one.example/api/", "account-a", "book-a")
+        val base = scope("server-a", "account-a", "book-a")
         val key = readerMarginaliaVisibilityCacheKey(base, "session-a")
 
         assertNotEquals(
             key,
             readerMarginaliaVisibilityCacheKey(
-                scope("https://two.example/api/", "account-a", "book-a"),
+                scope("server-b", "account-a", "book-a"),
                 "session-a"
             )
         )
         assertNotEquals(
             key,
             readerMarginaliaVisibilityCacheKey(
-                scope("https://one.example/api/", "account-b", "book-a"),
+                scope("server-a", "account-b", "book-a"),
                 "session-a"
             )
         )
         assertNotEquals(
             key,
             readerMarginaliaVisibilityCacheKey(
-                scope("https://one.example/api/", "account-a", "book-b"),
+                scope("server-a", "account-a", "book-b"),
                 "session-a"
             )
         )

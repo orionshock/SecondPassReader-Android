@@ -6,9 +6,9 @@ import com.secondpasslibrary.client.ShelfVisibility
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.client.UpdatePersonalShelfInput
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
-import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.AuthenticatedSessionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.authenticatedSessionIdentity
 import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import com.secondpasslibrary.reader.shelves.ShelvesConnectionEvent
 import kotlinx.coroutines.CoroutineScope
@@ -30,11 +30,11 @@ internal class EditPersonalShelfController(
     val connectionEvents = connectionEventChannel.receiveAsFlow()
 
     private var profile: ConnectionProfile? = null
-    private var connectionIdentity: AuthenticatedConnectionIdentity? = null
+    private var connectionIdentity: AuthenticatedSessionIdentity? = null
     private var submitJob: Job? = null
 
     fun prepare(profile: ConnectionProfile) {
-        val nextConnectionIdentity = profile.authenticatedConnectionIdentity
+        val nextConnectionIdentity = profile.authenticatedSessionIdentity
         this.profile = profile
         if (nextConnectionIdentity == connectionIdentity) return
         connectionIdentity = nextConnectionIdentity

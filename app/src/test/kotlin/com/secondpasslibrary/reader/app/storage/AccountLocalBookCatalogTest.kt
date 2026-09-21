@@ -38,9 +38,9 @@ class AccountLocalBookCatalogTest {
             HomeRecentReadingVariant.ActiveOnly,
             listOf(recentItem("downloaded"), recentItem("missing"), recentItem("partial"))
         )
-        complete(assets, account.profile.serverOrigin, account.profileId, "book-downloaded")
+        complete(assets, account.profile.serverId, account.profileId, "book-downloaded")
         val partial = assets.completedFile(
-            ReaderAccountScope(account.profile.serverOrigin, account.profileId),
+            ReaderAccountScope(account.profile.serverId, account.profileId),
             "book-partial"
         )
         requireNotNull(partial.parentFile).mkdirs()
@@ -63,7 +63,7 @@ class AccountLocalBookCatalogTest {
             HomeRecentReadingVariant.ActiveOnly,
             listOf(recentItem("shared"))
         )
-        complete(assets, account.profile.serverOrigin, "another-profile", "book-shared")
+        complete(assets, account.profile.serverId, "another-profile", "book-shared")
 
         assertTrue(
             catalog(store, assets).downloadedBooks(account.localScope())
@@ -79,7 +79,7 @@ class AccountLocalBookCatalogTest {
             val account = projectionAccount()
             complete(
                 assets,
-                account.profile.serverOrigin,
+                account.profile.serverId,
                 account.profileId,
                 "book-local",
                 "Local Book"
@@ -105,7 +105,7 @@ class AccountLocalBookCatalogTest {
             HomeRecentReadingVariant.ActiveOnly,
             listOf(recent.copy(book = recent.book.copy(cover = cover)))
         )
-        complete(assets, account.profile.serverOrigin, account.profileId, "book-covered")
+        complete(assets, account.profile.serverId, account.profileId, "book-covered")
 
         assertEquals(
             cover,
@@ -119,13 +119,13 @@ class AccountLocalBookCatalogTest {
         val assets = ReaderBookAssetStore.forTests(root)
         val store = FakeHomeProjectionStore()
         val account = projectionAccount()
-        val scope = ReaderAccountScope(account.profile.serverOrigin, account.profileId)
+        val scope = ReaderAccountScope(account.profile.serverId, account.profileId)
         store.seedRecent(
             account,
             HomeRecentReadingVariant.ActiveOnly,
             listOf(recentItem("corrupt"))
         )
-        complete(assets, account.profile.serverOrigin, account.profileId, "book-corrupt")
+        complete(assets, account.profile.serverId, account.profileId, "book-corrupt")
         assets.completedFile(scope, "book-corrupt").writeBytes("damaged".toByteArray())
 
         assertTrue(
@@ -141,10 +141,10 @@ class AccountLocalBookCatalogTest {
             val root = Files.createTempDirectory("offline-download-management").toFile()
             val assets = ReaderBookAssetStore.forTests(root)
             val account = projectionAccount()
-            val other = AccountLocalScope.from(account.profile.serverOrigin, "other-profile")
-            complete(assets, account.profile.serverOrigin, account.profileId, "book-one")
-            complete(assets, account.profile.serverOrigin, account.profileId, "book-two")
-            complete(assets, other.serverOrigin, other.profileId, "book-other")
+            val other = AccountLocalScope.from(account.profile.serverId, "other-profile")
+            complete(assets, account.profile.serverId, account.profileId, "book-one")
+            complete(assets, account.profile.serverId, account.profileId, "book-two")
+            complete(assets, other.serverId, other.profileId, "book-other")
             val repository = catalog(FakeHomeProjectionStore(), assets)
 
             assertEquals(2, repository.downloads(account.localScope()).size)
@@ -183,7 +183,7 @@ class AccountLocalBookCatalogTest {
     }
 
     private fun com.secondpasslibrary.reader.home.HomeProjectionAccount.localScope() =
-        AccountLocalScope.from(profile.serverOrigin, profileId)
+        AccountLocalScope.from(profile.serverId, profileId)
 
     private fun catalog(home: HomeProjectionStore, assets: ReaderBookAssetStore) =
         AccountLocalDataRepository(

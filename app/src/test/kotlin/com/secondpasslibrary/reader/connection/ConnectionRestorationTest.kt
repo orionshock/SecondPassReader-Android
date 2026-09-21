@@ -17,6 +17,32 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class ConnectionRestorationTest : ConnectionCoordinatorTestSupport() {
     @Test
+    fun `pre-release local reset discards old state before verification`() = runTest {
+        val events = mutableListOf<String>()
+        val accountStore = FakePersistedAccountContextStore(events).apply {
+            identityResetRequired = true
+        }
+        val cleaner = FakeAccountLocalDataCleaner(events)
+        val connection = coordinator(
+            FakeClient(events = events),
+            FakeProfileStore().apply { stored = profile() },
+            storedCredential(),
+            accountStore,
+            cleaner
+        )
+
+        connection.restore()
+        advanceUntilIdle()
+
+        assertTrue(connection.state.value is ConnectionUiState.Linked)
+        assertEquals(1, cleaner.legacyDiscards)
+        assertEquals(1, accountStore.identityResetMarks)
+        assertTrue(events.indexOf("discard-legacy") < events.indexOf("scope-reset"))
+        assertTrue(events.indexOf("scope-reset") < events.indexOf("verify"))
+        assertEquals(profile().serverId, accountStore.stored?.connectionIdentity?.serverId)
+    }
+
+    @Test
     fun `user offline intent survives restart and blocks automatic recovery`() = runTest {
         val events = mutableListOf<String>()
         val profiles = FakeProfileStore().apply { stored = profile() }
@@ -134,7 +160,7 @@ internal class ConnectionRestorationTest : ConnectionCoordinatorTestSupport() {
     fun `matching persisted account is published before verification completes`() = runTest {
         val restoredProfile = profile()
         val persistedAccount =
-            PersistedAccountContext(restoredProfile.authenticatedConnectionIdentity, "profile-1")
+            PersistedAccountContext(restoredProfile, "profile-1")
         val verificationGate = CompletableDeferred<Unit>()
         val coordinator =
             coordinator(
@@ -165,7 +191,7 @@ internal class ConnectionRestorationTest : ConnectionCoordinatorTestSupport() {
             val restoredProfile = profile()
             val persistedAccount =
                 PersistedAccountContext(
-                    restoredProfile.authenticatedConnectionIdentity,
+                    restoredProfile,
                     "profile-1"
                 )
             val credentialGate = CompletableDeferred<Unit>()
@@ -217,7 +243,7 @@ internal class ConnectionRestorationTest : ConnectionCoordinatorTestSupport() {
 
             val repaired =
                 PersistedAccountContext(
-                    restoredProfile.authenticatedConnectionIdentity,
+                    restoredProfile,
                     "profile-1"
                 )
             assertEquals(repaired, accountStore.stored)
@@ -248,7 +274,7 @@ internal class ConnectionRestorationTest : ConnectionCoordinatorTestSupport() {
         assertTrue(coordinator.state.value is ConnectionUiState.Linked)
         assertEquals(
             PersistedAccountContext(
-                restoredProfile.authenticatedConnectionIdentity,
+                restoredProfile,
                 "profile-1"
             ),
             accountContextStore.stored
@@ -284,7 +310,7 @@ internal class ConnectionRestorationTest : ConnectionCoordinatorTestSupport() {
             stored = StoredCredential(BearerCredential.restore("spl_secret"), null)
         }
         val persistedAccount =
-            PersistedAccountContext(restoredProfile.authenticatedConnectionIdentity, "profile-1")
+            PersistedAccountContext(restoredProfile, "profile-1")
         val coordinator =
             coordinator(
                 FakeClient(authFailure = SplClientException.ServerUnreachable()),

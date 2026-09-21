@@ -52,7 +52,7 @@ internal constructor(
                 reconnect.update(shell?.profile, shell?.profileId, shell?.availability)
                 syncOutcomeNotices.update(
                     shell?.let {
-                        LocalReaderAccountKey.from(it.profile.serverOrigin, it.profileId)
+                        LocalReaderAccountKey.from(it.profile.serverId, it.profileId)
                     }
                 )
             }

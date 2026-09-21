@@ -2,9 +2,9 @@ package com.secondpasslibrary.reader.library.chrome
 
 import com.secondpasslibrary.client.LibraryScope
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
-import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.AuthenticatedSessionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.authenticatedSessionIdentity
 import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import com.secondpasslibrary.reader.library.LibraryConnectionEvent
 import com.secondpasslibrary.reader.library.LibraryFailure
@@ -29,7 +29,7 @@ internal class LibraryFilterVocabularyController(
     val connectionEvents = connectionEventChannel.receiveAsFlow()
 
     private var profile: ConnectionProfile? = null
-    private var connectionIdentity: AuthenticatedConnectionIdentity? = null
+    private var connectionIdentity: AuthenticatedSessionIdentity? = null
     private var advancedGroupsEnabled: Boolean? = null
     private var tagScope: LibraryScope = LibraryScope.Global
     private var authorityGeneration = 0L
@@ -37,7 +37,7 @@ internal class LibraryFilterVocabularyController(
     private var tagsJob: Job? = null
 
     fun prepare(profile: ConnectionProfile, advancedGroupsEnabled: Boolean, scope: LibraryScope) {
-        val nextIdentity = profile.authenticatedConnectionIdentity
+        val nextIdentity = profile.authenticatedSessionIdentity
         val connectionChanged =
             nextIdentity != connectionIdentity ||
                 advancedGroupsEnabled != this.advancedGroupsEnabled
@@ -204,6 +204,6 @@ internal class LibraryFilterVocabularyController(
 
 private data class VocabularyRequestContext(
     val profile: ConnectionProfile,
-    val identity: AuthenticatedConnectionIdentity,
+    val identity: AuthenticatedSessionIdentity,
     val generation: Long
 )

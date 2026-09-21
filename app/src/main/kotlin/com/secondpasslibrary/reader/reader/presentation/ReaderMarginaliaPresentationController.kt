@@ -2,8 +2,10 @@ package com.secondpasslibrary.reader.reader.presentation
 
 import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.AuthenticatedSessionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.authenticatedSessionIdentity
 import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
 import com.secondpasslibrary.reader.reader.ReaderSessionAuthority
 import com.secondpasslibrary.reader.reader.ReaderState
@@ -143,7 +145,7 @@ internal class ReaderMarginaliaPresentationController(
                         } else {
                             marginaliaLayersController.select(profile, entry.bookId, session)
                             marginaliaLayerPolicy.select(
-                                profile.authenticatedConnectionIdentity,
+                                profile.authenticatedConnectionIdentity(entry.profileId),
                                 entry.bookId
                             )
                         }
@@ -242,7 +244,7 @@ internal class ReaderMarginaliaPresentationController(
     ) {
         if (closed) return
         val next =
-            Entry(profile.authenticatedConnectionIdentity, profileId, bookId, existingSessionId)
+            Entry(profile.authenticatedSessionIdentity, profileId, bookId, existingSessionId)
         if (entryIdentity != next) {
             annotationsController.clear()
             marginaliaLayersController.clear()
@@ -258,7 +260,7 @@ internal class ReaderMarginaliaPresentationController(
         val entry = entryIdentity
         if (sessionId == null || profile == null || entry == null) return
         scope.launch {
-            val account = LocalReaderAccountKey.from(profile.serverOrigin, entry.profileId)
+            val account = LocalReaderAccountKey.from(profile.serverId, entry.profileId)
             val annotations = localReaderStateStore.readAnnotations(account, sessionId)
             annotationsController.replaceProjection(sessionId, annotations)
         }
@@ -375,7 +377,7 @@ internal class ReaderMarginaliaPresentationController(
     }
 
     private data class Entry(
-        val connectionIdentity: AuthenticatedConnectionIdentity,
+        val connectionIdentity: AuthenticatedSessionIdentity,
         val profileId: String,
         val bookId: String,
         val existingSessionId: String?

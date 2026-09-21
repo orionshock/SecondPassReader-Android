@@ -81,6 +81,19 @@ class HomeProjectionCacheTest {
     }
 
     @Test
+    fun `route change keeps the same Home projection`() = runTest {
+        val original = projectionAccount()
+        val alternate = projectionAccount(serverOrigin = "https://alternate.example")
+        val store = FakeHomeProjectionStore().apply {
+            seedRecent(original, ACTIVE_ONLY, listOf(recentItem("cached")))
+        }
+        val repository = homeRepository(store, FakeHomeAuthenticatedClient())
+
+        assertEquals(original.scope, alternate.scope)
+        assertTrue(repository.hasCachedProjection(alternate.scope))
+    }
+
+    @Test
     fun `cached-only reads do not acquire authenticated client`() = runTest {
         val account = projectionAccount()
         val store = FakeHomeProjectionStore().apply {

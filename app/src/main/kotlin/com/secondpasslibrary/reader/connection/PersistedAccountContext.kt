@@ -4,11 +4,19 @@ import com.secondpasslibrary.reader.app.storage.AccountLocalScope
 
 internal data class PersistedAccountContext(
     val connectionIdentity: AuthenticatedConnectionIdentity,
-    val profileId: String,
-    val accountServerOrigin: String = connectionIdentity.serverOrigin
+    val clientSessionId: String
 ) {
-    fun matches(profile: ConnectionProfile): Boolean =
-        connectionIdentity == profile.authenticatedConnectionIdentity
+    constructor(profile: ConnectionProfile, profileId: String) : this(
+        profile.authenticatedConnectionIdentity(profileId),
+        profile.clientSessionId
+    )
 
-    fun localDataScope(): AccountLocalScope = AccountLocalScope.from(accountServerOrigin, profileId)
+    val profileId: String get() = connectionIdentity.profileId
+
+    fun matches(profile: ConnectionProfile): Boolean =
+        connectionIdentity.serverId == profile.serverId &&
+            clientSessionId == profile.clientSessionId
+
+    fun localDataScope(): AccountLocalScope =
+        AccountLocalScope.from(connectionIdentity.serverId, profileId)
 }

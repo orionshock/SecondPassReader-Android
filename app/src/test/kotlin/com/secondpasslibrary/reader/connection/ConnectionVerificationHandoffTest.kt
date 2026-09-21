@@ -22,8 +22,11 @@ internal class ConnectionVerificationHandoffTest : ConnectionCoordinatorTestSupp
         val restoredProfile = profile()
         val stale =
             PersistedAccountContext(
-                AuthenticatedConnectionIdentity("https://old.example/api/v1/", "old-session"),
-                "old-profile"
+                AuthenticatedConnectionIdentity(
+                    "b6722b5a-7982-4778-8c74-39be4241a654",
+                    "old-profile"
+                ),
+                "old-session"
             )
         val verificationGate = CompletableDeferred<Unit>()
         val accountStore = FakePersistedAccountContextStore().apply { stored = stale }
@@ -44,7 +47,7 @@ internal class ConnectionVerificationHandoffTest : ConnectionCoordinatorTestSupp
         advanceUntilIdle()
 
         val repaired =
-            PersistedAccountContext(restoredProfile.authenticatedConnectionIdentity, "profile-1")
+            PersistedAccountContext(restoredProfile, "profile-1")
         assertEquals(repaired, accountStore.stored)
         assertEquals(
             LocalAccountContext(restoredProfile, repaired),
@@ -58,20 +61,20 @@ internal class ConnectionVerificationHandoffTest : ConnectionCoordinatorTestSupp
             val events = mutableListOf<String>()
             val oldProfile = profile()
             val replacement = oldProfile.copy(
+                serverId = "b6722b5a-7982-4778-8c74-39be4241a654",
                 serverOrigin = "https://other-library.example",
                 libraryBaseUrl = "https://other-library.example",
                 clientSessionId = "other-session"
             )
             val accountStore = FakePersistedAccountContextStore(events).apply {
                 stored = PersistedAccountContext(
-                    oldProfile.authenticatedConnectionIdentity,
-                    "profile-1",
-                    oldProfile.serverOrigin
+                    oldProfile,
+                    "profile-1"
                 )
             }
             val cleaner = FakeAccountLocalDataCleaner(events)
             val coordinator = coordinator(
-                FakeClient(events = events),
+                FakeClient(events = events, authenticatedServerId = replacement.serverId),
                 FakeProfileStore(events).apply { stored = replacement },
                 storedCredential(),
                 accountStore,
@@ -82,13 +85,13 @@ internal class ConnectionVerificationHandoffTest : ConnectionCoordinatorTestSupp
             advanceUntilIdle()
 
             assertEquals(
-                listOf(AccountLocalScope.from(oldProfile.serverOrigin, "profile-1")),
+                listOf(AccountLocalScope.from(oldProfile.serverId, "profile-1")),
                 cleaner.purged
             )
             assertTrue(events.indexOf("purge") < events.lastIndexOf("account"))
-            assertEquals(replacement.serverOrigin, accountStore.stored?.accountServerOrigin)
+            assertEquals(replacement.serverId, accountStore.stored?.connectionIdentity?.serverId)
             assertEquals(
-                AccountLocalScope.from(replacement.serverOrigin, "profile-1"),
+                AccountLocalScope.from(replacement.serverId, "profile-1"),
                 coordinator.localAccountContext.value?.persistedAccount?.localDataScope()
             )
         }
@@ -112,7 +115,7 @@ internal class ConnectionVerificationHandoffTest : ConnectionCoordinatorTestSupp
         assertEquals(profile(), profileStore.stored)
         assertNull(credentialStore.stored?.recoveryProfile)
         assertEquals(
-            PersistedAccountContext(profile().authenticatedConnectionIdentity, "profile-1"),
+            PersistedAccountContext(profile(), "profile-1"),
             accountContextStore.stored
         )
         assertEquals(1, client.consumeCalls)
@@ -122,8 +125,11 @@ internal class ConnectionVerificationHandoffTest : ConnectionCoordinatorTestSupp
     fun `failed verification does not replace persisted account context`() = runTest {
         val original =
             PersistedAccountContext(
-                AuthenticatedConnectionIdentity("https://old.example/api/v1/", "old-session"),
-                "old-profile"
+                AuthenticatedConnectionIdentity(
+                    "b6722b5a-7982-4778-8c74-39be4241a654",
+                    "old-profile"
+                ),
+                "old-session"
             )
         val accountContextStore = FakePersistedAccountContextStore().apply { stored = original }
         val coordinator =

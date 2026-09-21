@@ -1,9 +1,9 @@
 package com.secondpasslibrary.reader.marginalia
 
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
-import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.AuthenticatedSessionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.authenticatedSessionIdentity
 import com.secondpasslibrary.reader.marginalia.books.MarginaliaBooksController
 import com.secondpasslibrary.reader.marginalia.detail.ReadingSessionAuthoritativeUpdateSink
 import com.secondpasslibrary.reader.marginalia.detail.ReadingSessionDetailController
@@ -55,7 +55,7 @@ internal class MarginaliaController(
     val connectionEvents =
         merge(sessions.connectionEvents, books.connectionEvents, detail.connectionEvents)
 
-    private var connectionIdentity: AuthenticatedConnectionIdentity? = null
+    private var connectionIdentity: AuthenticatedSessionIdentity? = null
     private var detailEntryJob: Job? = null
 
     fun initialize(
@@ -63,7 +63,7 @@ internal class MarginaliaController(
         initialContext: MarginaliaHistoryContext = MarginaliaHistoryContext.Global,
         detailEntry: ReadingSessionDetailEntry? = null
     ) {
-        val nextConnectionIdentity = profile.authenticatedConnectionIdentity
+        val nextConnectionIdentity = profile.authenticatedSessionIdentity
         val identityChanged = nextConnectionIdentity != connectionIdentity
         val activeContext = when (val destination = navigationState.value.destination) {
             is MarginaliaDestination.History -> destination.context

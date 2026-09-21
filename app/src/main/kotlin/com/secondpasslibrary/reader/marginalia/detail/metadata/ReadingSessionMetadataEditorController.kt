@@ -5,9 +5,9 @@ import com.secondpasslibrary.client.ReadingSessionMetadataInput
 import com.secondpasslibrary.client.ReadingSessionMutationField
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
-import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.AuthenticatedSessionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.authenticatedSessionIdentity
 import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import com.secondpasslibrary.reader.marginalia.MarginaliaConnectionEvent
 import com.secondpasslibrary.reader.marginalia.detail.MAX_READING_SESSION_NAME_LENGTH
@@ -31,11 +31,11 @@ internal class ReadingSessionMetadataEditorController(
     private val connectionChannel = Channel<MarginaliaConnectionEvent>(Channel.BUFFERED)
     val connectionEvents = connectionChannel.receiveAsFlow()
     private var profile: ConnectionProfile? = null
-    private var connectionIdentity: AuthenticatedConnectionIdentity? = null
+    private var connectionIdentity: AuthenticatedSessionIdentity? = null
     private var job: Job? = null
 
     fun prepare(profile: ConnectionProfile) {
-        val nextConnectionIdentity = profile.authenticatedConnectionIdentity
+        val nextConnectionIdentity = profile.authenticatedSessionIdentity
         this.profile = profile
         if (nextConnectionIdentity == connectionIdentity) return
         connectionIdentity = nextConnectionIdentity

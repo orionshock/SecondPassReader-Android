@@ -1,9 +1,9 @@
 package com.secondpasslibrary.reader.reader.marginalia
 
 import com.secondpasslibrary.client.SplClientException
-import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.AuthenticatedSessionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.authenticatedSessionIdentity
 import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsLoader
 import com.secondpasslibrary.reader.reader.session.ReaderSessionContext
@@ -51,7 +51,7 @@ internal class ReaderMarginaliaLayersController(
     val authenticationRequiredEvents = authenticationRequired.receiveAsFlow()
 
     private var profile: ConnectionProfile? = null
-    private var connectionIdentity: AuthenticatedConnectionIdentity? = null
+    private var connectionIdentity: AuthenticatedSessionIdentity? = null
     private var bookId: String? = null
     private var generation = 0L
     private var loadJob: Job? = null
@@ -59,7 +59,7 @@ internal class ReaderMarginaliaLayersController(
 
     fun select(profile: ConnectionProfile, bookId: String, currentSession: ReaderSessionContext) {
         require(bookId.isNotBlank()) { "Book ID must not be blank." }
-        val identity = profile.authenticatedConnectionIdentity
+        val identity = profile.authenticatedSessionIdentity
         val unchanged = this.bookId == bookId &&
             state.value.currentLayer?.sessionId == currentSession.sessionId &&
             connectionIdentity == identity

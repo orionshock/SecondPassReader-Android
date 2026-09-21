@@ -27,7 +27,7 @@ class ReaderLaunchPolicyTest {
     fun `offline launch allows only exact account completed EPUB`() = runTest {
         val root = Files.createTempDirectory("reader-launch").toFile()
         val store = ReaderBookAssetStore.forTests(root)
-        val account = ReaderAccountScope("https://library.example", "profile-1")
+        val account = ReaderAccountScope(profile().serverId, "profile-1")
         val checksum = checksum(EPUB_BYTES)
         store.acquire(
             account,
@@ -53,7 +53,7 @@ class ReaderLaunchPolicyTest {
     fun `offline launch rejects corrupt completed EPUB`() = runTest {
         val root = Files.createTempDirectory("reader-launch-corrupt").toFile()
         val store = ReaderBookAssetStore.forTests(root)
-        val account = ReaderAccountScope("https://library.example", "profile-1")
+        val account = ReaderAccountScope(profile().serverId, "profile-1")
         val checksum = checksum(EPUB_BYTES)
         store.acquire(account, "book-1", checksum, {}) { it.write(EPUB_BYTES) }
         store.rememberCompletedBook(account, "book-1", "Book", checksum)

@@ -10,8 +10,8 @@ private const val HOME_RECENT_READING_LIMIT = 10
 @JvmInline
 internal value class HomeAccountScopeKey private constructor(val value: String) {
     companion object {
-        fun from(serverOrigin: String, profileId: String): HomeAccountScopeKey =
-            from(AccountLocalScope.from(serverOrigin, profileId))
+        fun from(serverId: String, profileId: String): HomeAccountScopeKey =
+            from(AccountLocalScope.from(serverId, profileId))
 
         fun from(account: AccountLocalScope) = HomeAccountScopeKey(account.storageKey)
     }

@@ -17,7 +17,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.bookdetail.shelfpicker.BookShelfPickerDialog
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.authenticatedSessionIdentity
 
 @Composable
 @Suppress("LongMethod") // Selection, navigation, shelf picker, and bounded removal share one host.
@@ -40,7 +40,7 @@ internal fun BookDetailStateHost(
     val offlineDetail by viewModel.offlineDetail.collectAsStateWithLifecycle()
     val offlineDetailLoaded by viewModel.offlineDetailLoaded.collectAsStateWithLifecycle()
     var confirmRemoval by remember(bookId) { mutableStateOf(false) }
-    val connectionIdentity = profile.authenticatedConnectionIdentity
+    val connectionIdentity = profile.authenticatedSessionIdentity
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshOfflineAvailability() }
     BackHandler(onBack = onBack)
     LaunchedEffect(connectionIdentity, profileId, availability, bookId) {

@@ -47,22 +47,23 @@ class PersistedAccountContextStoreTest {
     }
 
     @Test
-    fun `legacy descriptor derives stable server origin from API base URL`() {
+    fun `old URL-derived descriptor is not read or migrated`() {
         val preferences = mutablePreferencesOf()
-        val context = accountContext("session-1", "profile-1")
-        preferences.putAccountContext(context)
-        preferences.remove(
-            androidx.datastore.preferences.core.stringPreferencesKey("account_server_origin")
-        )
+        preferences[androidx.datastore.preferences.core.stringPreferencesKey("library_base_url")] =
+            "https://library.example"
+        preferences[androidx.datastore.preferences.core.stringPreferencesKey("client_session_id")] =
+            "session-1"
+        preferences[androidx.datastore.preferences.core.stringPreferencesKey("profile_id")] =
+            "profile-1"
 
-        assertEquals("https://library.example", preferences.toAccountContext()?.accountServerOrigin)
+        assertNull(preferences.toAccountContext())
     }
 
     private fun accountContext(sessionId: String, profileId: String) = PersistedAccountContext(
         AuthenticatedConnectionIdentity(
-            libraryBaseUrl = "https://library.example",
-            clientSessionId = sessionId
+            serverId = "a6722b5a-7982-4778-8c74-39be4241a654",
+            profileId = profileId
         ),
-        profileId
+        sessionId
     )
 }

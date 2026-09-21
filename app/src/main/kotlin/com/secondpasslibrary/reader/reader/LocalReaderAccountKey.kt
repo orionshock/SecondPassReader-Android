@@ -13,8 +13,8 @@ internal value class LocalReaderAccountKey private constructor(val value: String
             return LocalReaderAccountKey(value)
         }
 
-        fun from(serverOrigin: String, profileId: String): LocalReaderAccountKey =
-            from(AccountLocalScope.from(serverOrigin, profileId))
+        fun from(serverId: String, profileId: String): LocalReaderAccountKey =
+            from(AccountLocalScope.from(serverId, profileId))
 
         fun from(account: AccountLocalScope) = LocalReaderAccountKey(account.storageKey)
 

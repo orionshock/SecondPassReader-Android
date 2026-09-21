@@ -50,7 +50,7 @@ internal class OfflineBookAvailabilityController @Inject constructor(
         bookId: String,
         availability: AppAvailability
     ) {
-        val account = AccountLocalScope.from(profile.serverOrigin, profileId)
+        val account = AccountLocalScope.from(profile.serverId, profileId)
         val key = OfflineBookKey(account, bookId)
         mutation.withLock {
             if (isAvailable(account, bookId)) return@withLock

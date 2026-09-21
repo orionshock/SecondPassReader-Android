@@ -58,6 +58,7 @@ internal class ConnectionCoordinator(
     fun restore() = replaceOperation {
         mutableState.value = ConnectionUiState.Restoring
         attempt {
+            resetLegacyAccountIdentityIfNeeded()
             persistence.restore { profile, persistedAccount ->
                 mutableLocalAccountContext.value =
                     persistedAccount?.let { LocalAccountContext(profile, it) }
@@ -327,11 +328,7 @@ internal class ConnectionCoordinator(
                 )
             )
             activeLibraryBaseUrl = verified.activeLibraryBaseUrl
-            val persistedAccount = PersistedAccountContext(
-                connectionIdentity = profile.authenticatedConnectionIdentity,
-                profileId = context.currentUser.profileId,
-                accountServerOrigin = profile.serverOrigin
-            )
+            val persistedAccount = PersistedAccountContext(profile, context.currentUser.profileId)
             val previousAccount = mutableLocalAccountContext.value?.persistedAccount
                 ?: persistence.readAccountContext()
             currentCoroutineContext().ensureActive()
@@ -400,6 +397,12 @@ internal class ConnectionCoordinator(
         mutableLocalAccountContext.value = null
         activeLibraryBaseUrl = null
         persistence.clear()
+    }
+
+    private suspend fun resetLegacyAccountIdentityIfNeeded() {
+        if (!persistence.requiresAccountIdentityReset()) return
+        accountLocalDataLifecycle.discardLegacyState()
+        persistence.markAccountIdentityReset()
     }
 
     private fun persistenceRecoveryState(profile: ConnectionProfile) =

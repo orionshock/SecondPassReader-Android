@@ -179,7 +179,7 @@ class ReaderProgressPersistenceControllerTest {
         ReaderSessionContext(SESSION_ID, status, null)
 
     private fun account() = LocalReaderAccountKey.from(
-        "https://library.example",
+        "a6722b5a-7982-4778-8c74-39be4241a654",
         "profile-1"
     )
 

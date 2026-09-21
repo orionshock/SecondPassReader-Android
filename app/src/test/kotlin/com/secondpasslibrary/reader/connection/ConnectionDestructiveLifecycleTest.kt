@@ -18,7 +18,7 @@ internal class ConnectionDestructiveLifecycleTest : ConnectionCoordinatorTestSup
         val accountContextStore = FakePersistedAccountContextStore().apply {
             stored =
                 PersistedAccountContext(
-                    profile().authenticatedConnectionIdentity,
+                    profile(),
                     "profile-1"
                 )
         }
@@ -43,7 +43,7 @@ internal class ConnectionDestructiveLifecycleTest : ConnectionCoordinatorTestSup
         assertTrue(accountContextStore.cleared)
         assertEquals(null, accountContextStore.stored)
         assertEquals(
-            listOf(AccountLocalScope.from(profile().serverOrigin, "profile-1")),
+            listOf(AccountLocalScope.from(profile().serverId, "profile-1")),
             cleaner.purged
         )
         assertTrue(revocation.sessionIds.isEmpty())
@@ -56,7 +56,7 @@ internal class ConnectionDestructiveLifecycleTest : ConnectionCoordinatorTestSup
         val profileStore = FakeProfileStore(events).apply { stored = profile() }
         val credentialStore = storedCredential()
         val accountStore = FakePersistedAccountContextStore(events).apply {
-            stored = PersistedAccountContext(profile().authenticatedConnectionIdentity, "profile-1")
+            stored = PersistedAccountContext(profile(), "profile-1")
         }
         val cleaner = FakeAccountLocalDataCleaner(events)
         val coordinator =
@@ -91,7 +91,7 @@ internal class ConnectionDestructiveLifecycleTest : ConnectionCoordinatorTestSup
         val profileStore = FakeProfileStore().apply { stored = profile() }
         val credentialStore = storedCredential()
         val accountStore = FakePersistedAccountContextStore().apply {
-            stored = PersistedAccountContext(profile().authenticatedConnectionIdentity, "profile-1")
+            stored = PersistedAccountContext(profile(), "profile-1")
         }
         val cleaner = FakeAccountLocalDataCleaner()
         val coordinator =
@@ -126,7 +126,7 @@ internal class ConnectionDestructiveLifecycleTest : ConnectionCoordinatorTestSup
         val profileStore = FakeProfileStore().apply { stored = profile() }
         val credentialStore = storedCredential()
         val accountStore = FakePersistedAccountContextStore().apply {
-            stored = PersistedAccountContext(profile().authenticatedConnectionIdentity, "profile-1")
+            stored = PersistedAccountContext(profile(), "profile-1")
         }
         val cleaner = FakeAccountLocalDataCleaner()
         val coordinator =
@@ -160,7 +160,7 @@ internal class ConnectionDestructiveLifecycleTest : ConnectionCoordinatorTestSup
         val profileStore = FakeProfileStore().apply { stored = profile() }
         val credentialStore = storedCredential()
         val accountStore = FakePersistedAccountContextStore().apply {
-            stored = PersistedAccountContext(profile().authenticatedConnectionIdentity, "profile-1")
+            stored = PersistedAccountContext(profile(), "profile-1")
         }
         val cleaner = FakeAccountLocalDataCleaner()
         val coordinator = coordinator(

@@ -6,7 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.authenticatedSessionIdentity
 
 @Composable
 internal fun ShelvesStateHost(
@@ -19,7 +19,7 @@ internal fun ShelvesStateHost(
     onExitInitialDetail: (() -> Unit)? = null,
     viewModel: ShelvesViewModel = viewModel()
 ) {
-    val connectionIdentity = profile.authenticatedConnectionIdentity
+    val connectionIdentity = profile.authenticatedSessionIdentity
     LaunchedEffect(connectionIdentity, initialDetail) {
         viewModel.initialize(profile)
         initialDetail?.let { viewModel.accept(ShelvesIntent.OpenShelf(it)) }

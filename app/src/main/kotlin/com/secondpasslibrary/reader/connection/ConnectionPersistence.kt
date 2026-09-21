@@ -134,6 +134,11 @@ internal class ConnectionPersistence @Inject constructor(
 
     suspend fun readCredential(): BearerCredential? = credentialStore.read()?.credential
 
+    suspend fun requiresAccountIdentityReset(): Boolean =
+        accountContextStore.requiresAccountIdentityReset()
+
+    suspend fun markAccountIdentityReset() = accountContextStore.markAccountIdentityReset()
+
     suspend fun routesFor(profile: ConnectionProfile): KnownServerRoutes =
         routesStore.read(profile.serverId) ?: KnownServerRoutes.initial(profile)
 
@@ -145,7 +150,7 @@ internal class ConnectionPersistence @Inject constructor(
         val profile = profileStore.read() ?: return null
         return accountContextStore.read()
             ?.takeIf { it.matches(profile) }
-            ?.let { AccountLocalScope.from(profile.serverOrigin, it.profileId) }
+            ?.let { AccountLocalScope.from(profile.serverId, it.profileId) }
     }
 
     suspend fun writeAccountContext(context: PersistedAccountContext) {

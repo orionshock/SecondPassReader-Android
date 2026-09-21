@@ -3,9 +3,9 @@ package com.secondpasslibrary.reader.reader
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.secondpasslibrary.reader.app.AppAvailability
-import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.AuthenticatedSessionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.authenticatedSessionIdentity
 import com.secondpasslibrary.reader.reader.annotations.ReaderAnnotationsLoader
 import com.secondpasslibrary.reader.reader.annotations.bookmark.ReaderBookmarkHudIntent
 import com.secondpasslibrary.reader.reader.annotations.mutation.ReaderAnnotationMutationIntent
@@ -148,7 +148,7 @@ internal class ReaderViewModel @Inject constructor(
         availability: AppAvailability
     ) {
         val nextIdentity = ReaderEntryIdentity(
-            profile.authenticatedConnectionIdentity,
+            profile.authenticatedSessionIdentity,
             profileId,
             bookId,
             existingSessionId
@@ -219,7 +219,7 @@ internal class ReaderViewModel @Inject constructor(
 }
 
 private data class ReaderEntryIdentity(
-    val connectionIdentity: AuthenticatedConnectionIdentity,
+    val connectionIdentity: AuthenticatedSessionIdentity,
     val profileId: String,
     val bookId: String,
     val existingSessionId: String?

@@ -10,9 +10,9 @@ import com.secondpasslibrary.reader.app.storage.AccountLocalScope
 import com.secondpasslibrary.reader.app.storage.OfflineBookAvailabilityController
 import com.secondpasslibrary.reader.bookdetail.shelfpicker.BookShelfPickerController
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
-import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.AuthenticatedSessionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.authenticatedSessionIdentity
 import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.File
@@ -36,7 +36,7 @@ constructor(
 ) : ViewModel() {
     private val controller = BookDetailController(clientProvider, viewModelScope)
     private val shelfPicker = BookShelfPickerController(clientProvider, viewModelScope)
-    private var connectionIdentity: AuthenticatedConnectionIdentity? = null
+    private var connectionIdentity: AuthenticatedSessionIdentity? = null
     private val mutableOfflineReadable = MutableStateFlow(false)
     val offlineReadable = mutableOfflineReadable.asStateFlow()
     private val mutableOfflineAction = MutableStateFlow(BookOfflineActionState())
@@ -74,7 +74,7 @@ constructor(
                 }
                 detail.cover?.let { cover ->
                     offlineBooks.backfillCover(
-                        AccountLocalScope.from(profile.serverOrigin, profileId),
+                        AccountLocalScope.from(profile.serverId, profileId),
                         detail.id,
                         cover
                     )
@@ -89,7 +89,7 @@ constructor(
                 val profileId = selectedProfileId ?: return@collect
                 val bookId = selectedBookId ?: return@collect
                 val key = com.secondpasslibrary.reader.app.storage.OfflineBookKey(
-                    AccountLocalScope.from(profile.serverOrigin, profileId),
+                    AccountLocalScope.from(profile.serverId, profileId),
                     bookId
                 )
                 mutableOfflineAction.value = mutableOfflineAction.value.copy(
@@ -105,7 +105,7 @@ constructor(
         availability: AppAvailability,
         bookId: String
     ) {
-        val nextConnectionIdentity = profile.authenticatedConnectionIdentity
+        val nextConnectionIdentity = profile.authenticatedSessionIdentity
         if (nextConnectionIdentity != connectionIdentity) {
             connectionIdentity = nextConnectionIdentity
             controller.clear()
@@ -124,7 +124,7 @@ constructor(
             controller.clear()
             val generation = offlineGeneration
             viewModelScope.launch {
-                val account = AccountLocalScope.from(profile.serverOrigin, profileId)
+                val account = AccountLocalScope.from(profile.serverId, profileId)
                 val book = runSuspendCatching {
                     catalog.downloadedBooks(account).firstOrNull { it.id == bookId }
                 }.getOrNull()
@@ -167,7 +167,7 @@ constructor(
     }
 
     fun removeDownload() = mutateOfflineBook { profile, profileId, bookId ->
-        offlineBooks.remove(AccountLocalScope.from(profile.serverOrigin, profileId), bookId)
+        offlineBooks.remove(AccountLocalScope.from(profile.serverId, profileId), bookId)
     }
 
     private fun mutateOfflineBook(operation: suspend (ConnectionProfile, String, String) -> Unit) {
@@ -206,11 +206,11 @@ constructor(
         offlineAvailabilityJob?.cancel()
         offlineAvailabilityJob = viewModelScope.launch {
             val available = offlineBooks.isAvailable(
-                AccountLocalScope.from(profile.serverOrigin, profileId),
+                AccountLocalScope.from(profile.serverId, profileId),
                 bookId
             )
             val cover = offlineBooks.localCover(
-                AccountLocalScope.from(profile.serverOrigin, profileId),
+                AccountLocalScope.from(profile.serverId, profileId),
                 bookId
             )
             if (generation != offlineGeneration) return@launch

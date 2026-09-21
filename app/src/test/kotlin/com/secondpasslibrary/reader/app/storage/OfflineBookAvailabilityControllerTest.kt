@@ -60,6 +60,25 @@ class OfflineBookAvailabilityControllerTest {
     }
 
     @Test
+    fun `download and retained cover survive a route change`() = runTest {
+        val fixture = fixture(withCover = true)
+        fixture.controller.makeAvailable(profile(), PROFILE_ID, BOOK_ID, AppAvailability.Online)
+        val alternate = profile().copy(
+            serverOrigin = "https://alternate.example",
+            libraryBaseUrl = "https://alternate.example"
+        )
+        val sameAccount = AccountLocalScope.from(alternate.serverId, PROFILE_ID)
+
+        assertTrue(fixture.controller.isAvailable(sameAccount, BOOK_ID))
+        assertEquals(
+            fixture.controller.localCover(fixture.account, BOOK_ID),
+            fixture.controller.localCover(sameAccount, BOOK_ID)
+        )
+        fixture.controller.makeAvailable(alternate, PROFILE_ID, BOOK_ID, AppAvailability.Online)
+        assertEquals(1, fixture.downloads)
+    }
+
+    @Test
     fun `bad checksum never becomes an offline asset`() = runTest {
         val fixture = fixture(corrupt = true)
         val failure = runCatching {
@@ -135,7 +154,7 @@ class OfflineBookAvailabilityControllerTest {
         failCover: Boolean = false
     ): Fixture {
         val store = ReaderBookAssetStore.forTests(temporary.newFolder())
-        val account = AccountLocalScope.from(ORIGIN, PROFILE_ID)
+        val account = AccountLocalScope.from(profile().serverId, PROFILE_ID)
         val repository = object : AccountLocalDownloadRepository {
             override suspend fun downloads(account: AccountLocalScope) =
                 store.completedBooks(ReaderAccountScope.from(account)).map {
@@ -156,7 +175,7 @@ class OfflineBookAvailabilityControllerTest {
             resolves++
             val checksum = checksum(if (corrupt) "other".toByteArray() else EPUB)
             val asset = store.acquire(
-                ReaderAccountScope(request.profile.serverOrigin, request.profileId),
+                ReaderAccountScope(request.profile.serverId, request.profileId),
                 request.bookId,
                 checksum,
                 onDownloadStarted = { downloads++ }
@@ -165,7 +184,7 @@ class OfflineBookAvailabilityControllerTest {
                 output.write(EPUB)
             }
             store.rememberCompletedBook(
-                ReaderAccountScope(request.profile.serverOrigin, request.profileId),
+                ReaderAccountScope(request.profile.serverId, request.profileId),
                 request.bookId,
                 "Book",
                 checksum

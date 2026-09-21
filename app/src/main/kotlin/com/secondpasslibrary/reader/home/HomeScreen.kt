@@ -53,7 +53,7 @@ internal fun HomeScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val offlineActionState by offlineActions.state.collectAsStateWithLifecycle()
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { offlineActions.refresh() }
-    val accountScope = HomeAccountScope(profile.serverOrigin, profileId)
+    val accountScope = HomeAccountScope(profile.serverId, profileId)
     val currentOnNavigation by rememberUpdatedState(onNavigation)
     val currentOnAuthenticationRejected by rememberUpdatedState(onAuthenticationRejected)
     val currentOnRefreshAvailabilityChanged by

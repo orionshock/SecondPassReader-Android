@@ -19,7 +19,7 @@ internal constructor(
 ) : ViewModel() {
     private val controller = HomeController(repository, viewModelScope) { scope, bookId ->
         assetStore.findCompleted(
-            ReaderAccountScope(scope.serverOrigin, scope.profileId),
+            ReaderAccountScope(scope.serverId, scope.profileId),
             bookId
         ) != null
     }

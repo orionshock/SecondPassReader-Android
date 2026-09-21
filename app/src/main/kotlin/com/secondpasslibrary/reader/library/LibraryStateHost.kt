@@ -10,7 +10,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.secondpasslibrary.reader.app.AppAvailability
 import com.secondpasslibrary.reader.app.storage.BookOfflineActionsViewModel
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.authenticatedSessionIdentity
 import com.secondpasslibrary.reader.design.book.BookCardAction
 import com.secondpasslibrary.reader.design.book.BookOfflineActionDialogs
 import com.secondpasslibrary.reader.library.books.LibraryBooksEntry
@@ -33,7 +33,7 @@ internal fun LibraryStateHost(
     val libraryState by viewModel.state.collectAsStateWithLifecycle()
     val offlineState by offlineActions.state.collectAsStateWithLifecycle()
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { offlineActions.refresh() }
-    val connectionIdentity = profile.authenticatedConnectionIdentity
+    val connectionIdentity = profile.authenticatedSessionIdentity
     LaunchedEffect(connectionIdentity, profileId, availability) {
         offlineActions.initialize(profile, profileId, availability)
     }

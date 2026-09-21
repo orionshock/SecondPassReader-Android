@@ -7,54 +7,31 @@ import org.junit.Test
 
 class PersistedAccountContextTest {
     @Test
-    fun `matching connection identity is accepted`() {
+    fun `descriptor matches saved server and client session`() {
         val profile = profile()
-        val context = PersistedAccountContext(profile.authenticatedConnectionIdentity, "profile-1")
+        val context = PersistedAccountContext(profile, "profile-1")
 
         assertTrue(context.matches(profile))
-    }
-
-    @Test
-    fun `different connection identity is rejected`() {
-        val profile = profile()
-        val context = PersistedAccountContext(profile.authenticatedConnectionIdentity, "profile-1")
-
         assertFalse(context.matches(profile.copy(clientSessionId = "new-session")))
+        assertFalse(
+            context.matches(profile.copy(serverId = "b6722b5a-7982-4778-8c74-39be4241a654"))
+        )
     }
 
     @Test
-    fun `account-local identity ignores client Session rotation`() {
+    fun `local scope ignores route and client session changes`() {
         val profile = profile()
-        val original = PersistedAccountContext(
-            profile.authenticatedConnectionIdentity,
-            "profile-1",
-            profile.serverOrigin
-        )
-        val relinked = PersistedAccountContext(
-            profile.copy(clientSessionId = "new-session").authenticatedConnectionIdentity,
-            "profile-1",
-            profile.serverOrigin
-        )
-
-        assertEquals(original.localDataScope(), relinked.localDataScope())
-    }
-
-    @Test
-    fun `account-local identity distinguishes server and profile`() {
-        val profile = profile()
-        val current = PersistedAccountContext(
-            profile.authenticatedConnectionIdentity,
-            "profile-1",
-            profile.serverOrigin
+        val original = PersistedAccountContext(profile, "profile-1")
+        val changed = PersistedAccountContext(
+            profile.copy(
+                serverOrigin = "https://alternate.example",
+                libraryBaseUrl = "https://alternate.example",
+                clientSessionId = "new-session"
+            ),
+            "profile-1"
         )
 
-        assertFalse(
-            current.localDataScope() ==
-                current.copy(accountServerOrigin = "https://other.example").localDataScope()
-        )
-        assertFalse(
-            current.localDataScope() == current.copy(profileId = "profile-2").localDataScope()
-        )
+        assertEquals(original.localDataScope(), changed.localDataScope())
     }
 
     private fun profile() = ConnectionProfile(

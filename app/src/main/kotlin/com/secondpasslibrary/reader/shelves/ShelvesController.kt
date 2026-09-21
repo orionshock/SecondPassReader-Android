@@ -3,9 +3,9 @@ package com.secondpasslibrary.reader.shelves
 import com.secondpasslibrary.client.Shelf
 import com.secondpasslibrary.client.ShelfOrdering
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
-import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.AuthenticatedSessionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.authenticatedSessionIdentity
 import com.secondpasslibrary.reader.shelves.collection.GroupShelvesController
 import com.secondpasslibrary.reader.shelves.collection.PersonalShelvesController
 import com.secondpasslibrary.reader.shelves.collection.SharedShelvesController
@@ -71,10 +71,10 @@ internal class ShelvesController(
             editor.connectionEvents
         )
 
-    private var connectionIdentity: AuthenticatedConnectionIdentity? = null
+    private var connectionIdentity: AuthenticatedSessionIdentity? = null
 
     fun initialize(profile: ConnectionProfile) {
-        val nextConnectionIdentity = profile.authenticatedConnectionIdentity
+        val nextConnectionIdentity = profile.authenticatedSessionIdentity
         personal.prepare(profile)
         shared.prepare(profile)
         group.prepare(profile)

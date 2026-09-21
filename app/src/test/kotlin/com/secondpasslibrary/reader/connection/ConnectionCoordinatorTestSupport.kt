@@ -91,6 +91,7 @@ internal abstract class ConnectionCoordinatorTestSupport {
         private val ignoreVerificationCancellation: Boolean = false,
         private val verificationGate: CompletableDeferred<Unit>? = null,
         private val authenticatedProfileId: String = "profile-1",
+        private val authenticatedServerId: String = server().serverId,
         private val issuedSessionId: String = "session-1"
     ) : SecondPassClient {
         var consumeCalls = 0
@@ -131,7 +132,10 @@ internal abstract class ConnectionCoordinatorTestSupport {
             }
             authFailures.removeFirstOrNull()?.let { throw it }
             authFailure?.let { throw it }
-            return authenticatedContext(authenticatedProfileId)
+            val context = authenticatedContext(authenticatedProfileId)
+            return context.copy(
+                serverInfo = context.serverInfo.copy(serverId = authenticatedServerId)
+            )
         }
     }
 
@@ -195,6 +199,8 @@ internal abstract class ConnectionCoordinatorTestSupport {
         var writeCalls = 0
         var cleared = false
         var failWrites = false
+        var identityResetRequired = false
+        var identityResetMarks = 0
 
         override suspend fun read(): PersistedAccountContext? = stored
 
@@ -207,6 +213,15 @@ internal abstract class ConnectionCoordinatorTestSupport {
 
         override suspend fun clear() {
             cleared = true
+            stored = null
+        }
+
+        override suspend fun requiresAccountIdentityReset(): Boolean = identityResetRequired
+
+        override suspend fun markAccountIdentityReset() {
+            events += "scope-reset"
+            identityResetMarks += 1
+            identityResetRequired = false
             stored = null
         }
     }
@@ -233,10 +248,16 @@ internal abstract class ConnectionCoordinatorTestSupport {
         private val events: MutableList<String> = mutableListOf()
     ) : AccountLocalDataLifecycle {
         val purged = mutableListOf<AccountLocalScope>()
+        var legacyDiscards = 0
 
         override suspend fun purge(account: AccountLocalScope) {
             events += "purge"
             purged += account
+        }
+
+        override suspend fun discardLegacyState() {
+            events += "discard-legacy"
+            legacyDiscards += 1
         }
     }
 

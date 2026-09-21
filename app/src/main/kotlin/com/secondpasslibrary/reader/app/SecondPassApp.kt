@@ -70,7 +70,7 @@ fun SecondPassApp(
                 )
 
             is AppSessionState.AccountShell ->
-                key(currentState.profile.serverOrigin, currentState.profileId) {
+                key(currentState.profile.serverId, currentState.profileId) {
                     AccountAppShell(
                         session = currentState,
                         connectionActions = connectionViewModel.screenActions,

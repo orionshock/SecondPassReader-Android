@@ -10,9 +10,9 @@ import com.secondpasslibrary.client.ReadingSessionListOptions
 import com.secondpasslibrary.client.ReadingSessionStatus
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
-import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.AuthenticatedSessionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.authenticatedSessionIdentity
 import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import com.secondpasslibrary.reader.marginalia.MarginaliaConnectionEvent
 import com.secondpasslibrary.reader.marginalia.MarginaliaFailure
@@ -42,12 +42,12 @@ internal class ReadingSessionsController(
     val connectionEvents = connectionEventChannel.receiveAsFlow()
 
     private var profile: ConnectionProfile? = null
-    private var connectionIdentity: AuthenticatedConnectionIdentity? = null
+    private var connectionIdentity: AuthenticatedSessionIdentity? = null
     private var generation = 0L
     private var loadJob: Job? = null
 
     fun prepare(profile: ConnectionProfile) {
-        val nextConnectionIdentity = profile.authenticatedConnectionIdentity
+        val nextConnectionIdentity = profile.authenticatedSessionIdentity
         this.profile = profile
         if (nextConnectionIdentity == connectionIdentity) return
         connectionIdentity = nextConnectionIdentity

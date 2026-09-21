@@ -10,6 +10,9 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 internal abstract class AccountLocalStorageModule {
     @Binds
+    abstract fun bindLegacyReset(reset: LegacyAccountStateResetImpl): LegacyAccountStateReset
+
+    @Binds
     abstract fun bindOfflineBookCoverSource(
         adapter: CoilOfflineBookCoverAdapter
     ): OfflineBookCoverSource

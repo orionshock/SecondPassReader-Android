@@ -265,7 +265,7 @@ internal class ReaderController(
         progressController.enableAfterStartupRestore()
         val current = requireNotNull(request)
         progressPersistence.start(
-            LocalReaderAccountKey.from(current.profile.serverOrigin, current.profileId),
+            LocalReaderAccountKey.from(current.profile.serverId, current.profileId),
             session,
             progressController.state
         )
@@ -310,7 +310,7 @@ internal class ReaderController(
             connectionEventChannel.trySend(ReaderConnectionEvent.AuthenticationRejected)
         }
         val retained = localStateStore.retainServerSession(
-            LocalReaderAccountKey.from(request.profile.serverOrigin, request.profileId),
+            LocalReaderAccountKey.from(request.profile.serverId, request.profileId),
             request.bookId,
             session
         )
@@ -333,7 +333,7 @@ internal class ReaderController(
         engine: ReaderEngine
     ): ReaderState.Ready {
         val session = localStateStore.selectOfflineSession(
-            LocalReaderAccountKey.from(request.profile.serverOrigin, request.profileId),
+            LocalReaderAccountKey.from(request.profile.serverId, request.profileId),
             request.bookId
         )
         return ReaderState.Ready(

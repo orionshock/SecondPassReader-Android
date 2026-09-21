@@ -93,6 +93,6 @@ class ReaderSyncSchedulerTest {
 
     private companion object {
         fun account(profileId: String) =
-            LocalReaderAccountKey.from("https://library.example", profileId)
+            LocalReaderAccountKey.from("a6722b5a-7982-4778-8c74-39be4241a654", profileId)
     }
 }

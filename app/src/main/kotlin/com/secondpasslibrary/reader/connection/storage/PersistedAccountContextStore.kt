@@ -8,7 +8,6 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.PersistedAccountContext
-import com.secondpasslibrary.reader.connection.serverOrigin
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.IOException
 import javax.inject.Inject
@@ -24,6 +23,10 @@ internal interface PersistedAccountContextStore {
     suspend fun write(context: PersistedAccountContext)
 
     suspend fun clear()
+
+    suspend fun requiresAccountIdentityReset(): Boolean = false
+
+    suspend fun markAccountIdentityReset() = Unit
 }
 
 @Singleton
@@ -66,33 +69,45 @@ constructor(
             )
         }
     }
+
+    override suspend fun requiresAccountIdentityReset(): Boolean =
+        applicationContext.persistedAccountContextDataStore.data.first()[
+            PersistedAccountContextKeys.ACCOUNT_SCOPE_VERSION
+        ] != CURRENT_ACCOUNT_SCOPE_VERSION
+
+    override suspend fun markAccountIdentityReset() {
+        applicationContext.persistedAccountContextDataStore.edit { preferences ->
+            preferences.clearAccountContext()
+            preferences[PersistedAccountContextKeys.ACCOUNT_SCOPE_VERSION] =
+                CURRENT_ACCOUNT_SCOPE_VERSION
+        }
+    }
 }
 
 internal class PersistedAccountContextStorageException(message: String, cause: Throwable? = null) :
     Exception(message, cause)
 
 internal fun Preferences.toAccountContext(): PersistedAccountContext? {
-    val libraryBaseUrl = this[PersistedAccountContextKeys.LIBRARY_BASE_URL]
+    val serverId = this[PersistedAccountContextKeys.SERVER_ID]
     val clientSessionId = this[PersistedAccountContextKeys.CLIENT_SESSION_ID]
     val profileId = this[PersistedAccountContextKeys.PROFILE_ID]
-    if (libraryBaseUrl == null || clientSessionId == null || profileId == null) return null
+    if (serverId == null || clientSessionId == null || profileId == null) return null
     return PersistedAccountContext(
-        connectionIdentity = AuthenticatedConnectionIdentity(libraryBaseUrl, clientSessionId),
-        profileId = profileId,
-        accountServerOrigin = this[PersistedAccountContextKeys.ACCOUNT_SERVER_ORIGIN]
-            ?: AuthenticatedConnectionIdentity(libraryBaseUrl, clientSessionId).serverOrigin
+        connectionIdentity = AuthenticatedConnectionIdentity(serverId, profileId),
+        clientSessionId = clientSessionId
     )
 }
 
 internal fun MutablePreferences.putAccountContext(context: PersistedAccountContext) {
-    this[PersistedAccountContextKeys.LIBRARY_BASE_URL] = context.connectionIdentity.libraryBaseUrl
+    clearAccountContext()
+    this[PersistedAccountContextKeys.SERVER_ID] = context.connectionIdentity.serverId
     this[PersistedAccountContextKeys.CLIENT_SESSION_ID] =
-        context.connectionIdentity.clientSessionId
+        context.clientSessionId
     this[PersistedAccountContextKeys.PROFILE_ID] = context.profileId
-    this[PersistedAccountContextKeys.ACCOUNT_SERVER_ORIGIN] = context.accountServerOrigin
 }
 
 internal fun MutablePreferences.clearAccountContext() {
+    remove(PersistedAccountContextKeys.SERVER_ID)
     remove(PersistedAccountContextKeys.LIBRARY_BASE_URL)
     remove(PersistedAccountContextKeys.CLIENT_SESSION_ID)
     remove(PersistedAccountContextKeys.PROFILE_ID)
@@ -100,8 +115,12 @@ internal fun MutablePreferences.clearAccountContext() {
 }
 
 private object PersistedAccountContextKeys {
+    val ACCOUNT_SCOPE_VERSION = stringPreferencesKey("account_scope_version")
+    val SERVER_ID = stringPreferencesKey("server_id")
     val LIBRARY_BASE_URL = stringPreferencesKey("library_base_url")
     val CLIENT_SESSION_ID = stringPreferencesKey("client_session_id")
     val PROFILE_ID = stringPreferencesKey("profile_id")
     val ACCOUNT_SERVER_ORIGIN = stringPreferencesKey("account_server_origin")
 }
+
+private const val CURRENT_ACCOUNT_SCOPE_VERSION = "server-id-profile-id-v1"

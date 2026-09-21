@@ -41,6 +41,25 @@ class ReaderSyncWakeupControllerTest {
         )
     }
 
+    @Test
+    fun `route change does not schedule another account worker`() = runTest {
+        val scheduler = RecordingScheduler()
+        val controller = ReaderSyncWakeupController(scheduler, this)
+
+        controller.update(profile(), "profile-1")
+        testScheduler.advanceUntilIdle()
+        controller.update(
+            profile().copy(
+                serverOrigin = "https://alternate.example",
+                libraryBaseUrl = "https://alternate.example"
+            ),
+            "profile-1"
+        )
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf(account("profile-1")), scheduler.scheduled)
+    }
+
     private class RecordingScheduler : ReaderPendingSyncScheduler {
         val scheduled = mutableListOf<LocalReaderAccountKey>()
 
@@ -52,8 +71,7 @@ class ReaderSyncWakeupControllerTest {
     }
 
     private companion object {
-        fun account(profileId: String) =
-            LocalReaderAccountKey.from("https://library.example", profileId)
+        fun account(profileId: String) = LocalReaderAccountKey.from(profile().serverId, profileId)
 
         fun profile() = ConnectionProfile(
             serverId = "a6722b5a-7982-4778-8c74-39be4241a654",

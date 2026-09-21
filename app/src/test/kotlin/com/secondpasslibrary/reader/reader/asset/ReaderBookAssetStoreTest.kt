@@ -150,7 +150,7 @@ class ReaderBookAssetStoreTest {
     @Test
     fun `completed lookup is account scoped`() = runTest {
         val fixture = fixture()
-        val other = ReaderAccountScope("https://library.example", "profile-2")
+        val other = ReaderAccountScope("a6722b5a-7982-4778-8c74-39be4241a654", "profile-2")
         complete(fixture, "book-1", EPUB_BYTES)
 
         assertTrue(fixture.store.findCompleted(fixture.account, "book-1") != null)
@@ -160,7 +160,7 @@ class ReaderBookAssetStoreTest {
     @Test
     fun `retained cover survives store recreation and is account scoped`() = runTest {
         val fixture = fixture()
-        val other = ReaderAccountScope("https://library.example", "profile-2")
+        val other = ReaderAccountScope("a6722b5a-7982-4778-8c74-39be4241a654", "profile-2")
         complete(fixture, "book-1", EPUB_BYTES)
         fixture.store.retainCover(fixture.account, "book-1", COVER_BYTES)
 
@@ -195,7 +195,7 @@ class ReaderBookAssetStoreTest {
     fun `removing one download removes epub and metadata without touching another account`() =
         runTest {
             val fixture = fixture()
-            val other = ReaderAccountScope("https://library.example", "profile-2")
+            val other = ReaderAccountScope("a6722b5a-7982-4778-8c74-39be4241a654", "profile-2")
             complete(fixture, "book-1", EPUB_BYTES)
             fixture.store.acquire(other, "book-1", checksum(EPUB_BYTES), {}) {
                 it.write(EPUB_BYTES)
@@ -234,7 +234,7 @@ class ReaderBookAssetStoreTest {
     @Test
     fun `account and Book scopes resolve to isolated opaque paths`() {
         val fixture = fixture()
-        val secondAccount = ReaderAccountScope("https://library.example", "profile-2")
+        val secondAccount = ReaderAccountScope("a6722b5a-7982-4778-8c74-39be4241a654", "profile-2")
 
         val first = fixture.store.completedFile(fixture.account, "book-1")
         val anotherBook = fixture.store.completedFile(fixture.account, "book-2")
@@ -257,7 +257,7 @@ class ReaderBookAssetStoreTest {
         return Fixture(
             root,
             ReaderBookAssetStore.forTests(root),
-            ReaderAccountScope("https://library.example", "profile-1")
+            ReaderAccountScope("a6722b5a-7982-4778-8c74-39be4241a654", "profile-1")
         )
     }
 

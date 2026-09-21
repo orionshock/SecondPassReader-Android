@@ -7,9 +7,9 @@ import com.secondpasslibrary.client.ShelfEditorListOptions
 import com.secondpasslibrary.client.ShelfEditorPage
 import com.secondpasslibrary.client.ShelfItemMove
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
-import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.AuthenticatedSessionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.authenticatedSessionIdentity
 import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import com.secondpasslibrary.reader.shelves.SHELF_CARD_PREVIEW_LIMIT
 import com.secondpasslibrary.reader.shelves.ShelvesConnectionEvent
@@ -36,13 +36,13 @@ internal class ShelfContentsEditorController(
     private val connectionEventChannel = Channel<ShelvesConnectionEvent>(Channel.BUFFERED)
     val connectionEvents = connectionEventChannel.receiveAsFlow()
     private var profile: ConnectionProfile? = null
-    private var connectionIdentity: AuthenticatedConnectionIdentity? = null
+    private var connectionIdentity: AuthenticatedSessionIdentity? = null
     private var generation = 0L
     private var loadJob: Job? = null
     private var mutationJob: Job? = null
 
     fun prepare(profile: ConnectionProfile) {
-        val nextConnectionIdentity = profile.authenticatedConnectionIdentity
+        val nextConnectionIdentity = profile.authenticatedSessionIdentity
         this.profile = profile
         if (nextConnectionIdentity == connectionIdentity) return
         connectionIdentity = nextConnectionIdentity

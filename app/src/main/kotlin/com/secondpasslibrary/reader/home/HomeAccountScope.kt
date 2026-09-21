@@ -4,11 +4,11 @@ import com.secondpasslibrary.reader.app.storage.AccountLocalScope
 import com.secondpasslibrary.reader.home.projection.HomeAccountScopeKey
 
 internal data class HomeAccountScope(val account: AccountLocalScope) {
-    constructor(serverOrigin: String, profileId: String) :
-        this(AccountLocalScope.from(serverOrigin, profileId))
+    constructor(serverId: String, profileId: String) :
+        this(AccountLocalScope.from(serverId, profileId))
 
-    val serverOrigin: String
-        get() = account.serverOrigin
+    val serverId: String
+        get() = account.serverId
     val profileId: String
         get() = account.profileId
     internal val storageKey = HomeAccountScopeKey.from(account)

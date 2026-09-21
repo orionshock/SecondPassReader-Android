@@ -168,7 +168,7 @@ internal class BookOfflineActionsViewModel @Inject constructor(
 
     private fun account(): AccountLocalScope? = profile?.let { currentProfile ->
         profileId?.let { currentProfileId ->
-            AccountLocalScope.from(currentProfile.serverOrigin, currentProfileId)
+            AccountLocalScope.from(currentProfile.serverId, currentProfileId)
         }
     }
 }

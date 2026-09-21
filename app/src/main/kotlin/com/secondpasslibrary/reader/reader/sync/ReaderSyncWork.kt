@@ -26,8 +26,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** Repairs the durable WorkManager wakeup whenever a persisted account shell is restored. */
 internal class ReaderSyncWakeupController(
@@ -39,7 +41,7 @@ internal class ReaderSyncWakeupController(
 
     fun update(profile: ConnectionProfile?, profileId: String?) {
         val next = if (profile != null && profileId != null) {
-            LocalReaderAccountKey.from(profile.serverOrigin, profileId)
+            LocalReaderAccountKey.from(profile.serverId, profileId)
         } else {
             null
         }
@@ -77,6 +79,8 @@ internal interface ReaderSyncWorkQueue {
     fun ensureEnqueued(account: LocalReaderAccountKey)
 
     fun cancel(account: LocalReaderAccountKey)
+
+    suspend fun cancelAll() = Unit
 }
 
 @Singleton
@@ -96,6 +100,12 @@ internal class WorkManagerReaderSyncWorkQueue @Inject constructor(
 
     override fun cancel(account: LocalReaderAccountKey) {
         workManager().cancelUniqueWork(workName(account))
+    }
+
+    override suspend fun cancelAll() {
+        withContext(Dispatchers.IO) {
+            workManager().cancelAllWork().result.get()
+        }
     }
 
     private fun workManager() = WorkManager.getInstance(appContext)
@@ -157,7 +167,7 @@ internal class ReaderSyncAccountResolver @Inject constructor(
         val profile = profileStore.read()
         val persisted = accountStore.read()
         val valid = profile != null && persisted?.matches(profile) == true &&
-            LocalReaderAccountKey.from(profile.serverOrigin, persisted.profileId) == expected
+            LocalReaderAccountKey.from(profile.serverId, persisted.profileId) == expected
         return profile.takeIf { valid }
     }
 }

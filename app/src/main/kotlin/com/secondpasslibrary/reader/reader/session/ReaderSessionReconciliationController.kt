@@ -30,7 +30,7 @@ internal class ReaderSessionReconciliationController(
     ) {
         val next = Owner(
             profile,
-            LocalReaderAccountKey.from(profile.serverOrigin, profileId),
+            LocalReaderAccountKey.from(profile.serverId, profileId),
             bookId,
             session,
             authority

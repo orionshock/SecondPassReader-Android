@@ -7,7 +7,6 @@ import com.secondpasslibrary.reader.connection.ConnectionUiState
 import com.secondpasslibrary.reader.connection.LocalAccountContext
 import com.secondpasslibrary.reader.connection.PersistedAccountContext
 import com.secondpasslibrary.reader.connection.ServerReachability
-import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import com.secondpasslibrary.reader.home.FakeHomeAuthenticatedClient
 import com.secondpasslibrary.reader.home.FakeHomeAuthenticatedClientProvider
 import com.secondpasslibrary.reader.home.FakeHomeProjectionStore
@@ -437,7 +436,7 @@ class AppSessionControllerTest {
     private fun com.secondpasslibrary.reader.home.HomeProjectionAccount.localContext() =
         LocalAccountContext(
             profile,
-            PersistedAccountContext(profile.authenticatedConnectionIdentity, profileId)
+            PersistedAccountContext(profile, profileId)
         )
 
     private fun authenticatedContext(profileId: String) = AuthenticatedContext(

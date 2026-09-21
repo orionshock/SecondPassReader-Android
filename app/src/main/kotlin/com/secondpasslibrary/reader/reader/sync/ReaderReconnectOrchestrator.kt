@@ -138,7 +138,7 @@ internal class ReaderReconnectController(
         nextAvailability: AppAvailability?
     ) {
         val nextOwner = if (profile != null && profileId != null) {
-            Owner(profile, LocalReaderAccountKey.from(profile.serverOrigin, profileId))
+            Owner(profile, LocalReaderAccountKey.from(profile.serverId, profileId))
         } else {
             null
         }

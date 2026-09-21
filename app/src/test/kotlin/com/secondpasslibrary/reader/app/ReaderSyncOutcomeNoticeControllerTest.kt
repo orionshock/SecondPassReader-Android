@@ -126,7 +126,7 @@ class ReaderSyncOutcomeNoticeControllerTest {
         )
 
     private fun account(profile: String) =
-        LocalReaderAccountKey.from("https://library.example", profile)
+        LocalReaderAccountKey.from("a6722b5a-7982-4778-8c74-39be4241a654", profile)
 
     private fun outcome(source: String, edits: Int = 0, deletes: Int = 0) =
         PendingReaderContinuationOutcome(source, edits, deletes)

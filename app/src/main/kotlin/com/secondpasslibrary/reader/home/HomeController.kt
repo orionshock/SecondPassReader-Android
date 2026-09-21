@@ -1,9 +1,9 @@
 package com.secondpasslibrary.reader.home
 
 import com.secondpasslibrary.reader.app.AppAvailability
-import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.AuthenticatedSessionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.authenticatedSessionIdentity
 import com.secondpasslibrary.reader.home.projection.HomeRecentReadingVariant
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -34,7 +34,7 @@ internal class HomeController(
     private val refreshAvailabilityTracker = HomeRefreshAvailabilityTracker()
     val refreshAvailability = refreshAvailabilityTracker.changes
 
-    private var connectionIdentity: AuthenticatedConnectionIdentity? = null
+    private var connectionIdentity: AuthenticatedSessionIdentity? = null
     private var accountProfileId: String? = null
     private var cacheScope: HomeAccountScope? = null
     private var account: HomeProjectionAccount? = null
@@ -98,9 +98,9 @@ internal class HomeController(
     }
 
     fun provideVerifiedAuthority(profile: ConnectionProfile, profileId: String) {
-        val nextScope = HomeAccountScope(profile.serverOrigin, profileId)
+        val nextScope = HomeAccountScope(profile.serverId, profileId)
         if (nextScope != cacheScope) initializeCached(nextScope)
-        val nextConnectionIdentity = profile.authenticatedConnectionIdentity
+        val nextConnectionIdentity = profile.authenticatedSessionIdentity
         if (nextConnectionIdentity == connectionIdentity && profileId == accountProfileId) return
         connectionIdentity = nextConnectionIdentity
         accountProfileId = profileId

@@ -11,9 +11,9 @@ import com.secondpasslibrary.client.LibrarySeries
 import com.secondpasslibrary.client.SeriesListOptions
 import com.secondpasslibrary.client.SeriesOrdering
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
-import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.AuthenticatedSessionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.authenticatedSessionIdentity
 import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import com.secondpasslibrary.reader.library.LibraryConnectionEvent
 import com.secondpasslibrary.reader.library.LibraryFailure
@@ -48,14 +48,14 @@ internal class PagedLibraryAxisController<T, O>(
     private var profile: ConnectionProfile? = null
     private var selectedScope: LibraryScope = LibraryScope.Global
     private var selectedTagSlug: String? = null
-    private var connectionIdentity: AuthenticatedConnectionIdentity? = null
+    private var connectionIdentity: AuthenticatedSessionIdentity? = null
     private var generation = 0L
     private var detailGeneration = 0L
     private var loadJob: Job? = null
     private var detailJob: Job? = null
 
     fun prepare(profile: ConnectionProfile, scope: LibraryScope, tagSlug: String? = null) {
-        val nextConnectionIdentity = profile.authenticatedConnectionIdentity
+        val nextConnectionIdentity = profile.authenticatedSessionIdentity
         val changed =
             nextConnectionIdentity != connectionIdentity ||
                 scope != selectedScope ||

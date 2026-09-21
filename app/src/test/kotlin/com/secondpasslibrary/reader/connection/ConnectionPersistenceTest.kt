@@ -199,11 +199,7 @@ internal class ConnectionPersistenceTest : ConnectionCoordinatorTestSupport() {
         )
     }
 
-    private fun persistedAccount() = PersistedAccountContext(
-        connectionIdentity = profile().authenticatedConnectionIdentity,
-        profileId = "profile-1",
-        accountServerOrigin = profile().serverOrigin
-    )
+    private fun persistedAccount() = PersistedAccountContext(profile(), "profile-1")
 
     private data class Fixture(
         val events: MutableList<String>,

@@ -31,7 +31,10 @@ class SettingsDownloadsViewModelTest {
     fun `stale load cannot replace a newer refresh`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         try {
-            val account = AccountLocalScope.from("https://library.example", "profile-1")
+            val account = AccountLocalScope.from(
+                "a6722b5a-7982-4778-8c74-39be4241a654",
+                "profile-1"
+            )
             val firstLoad = CompletableDeferred<List<AccountLocalDownload>>()
             var calls = 0
             val repository = object : AccountLocalDownloadRepository {
@@ -69,8 +72,11 @@ class SettingsDownloadsViewModelTest {
     fun `loads account-scoped downloads and refreshes after bounded removal`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         try {
-            val account = AccountLocalScope.from("https://library.example", "profile-1")
-            val other = AccountLocalScope.from("https://library.example", "profile-2")
+            val account = AccountLocalScope.from(
+                "a6722b5a-7982-4778-8c74-39be4241a654",
+                "profile-1"
+            )
+            val other = AccountLocalScope.from("a6722b5a-7982-4778-8c74-39be4241a654", "profile-2")
             val repository = FakeDownloadsRepository()
             repository.books[account] = mutableListOf(
                 AccountLocalDownload("book-1", "First", 12),
@@ -89,7 +95,7 @@ class SettingsDownloadsViewModelTest {
             assertEquals(listOf("book-2"), viewModel.state.value.downloads.map { it.bookId })
             viewModel.clearBook(
                 "book-2",
-                AuthenticatedConnectionIdentity("https://library.example", "device")
+                AuthenticatedConnectionIdentity("a6722b5a-7982-4778-8c74-39be4241a654", "profile-1")
             )
             advanceUntilIdle()
             assertEquals(emptyList<AccountLocalDownload>(), viewModel.state.value.downloads)

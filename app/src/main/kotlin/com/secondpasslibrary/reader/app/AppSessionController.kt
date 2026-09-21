@@ -84,7 +84,7 @@ internal class AppSessionController(
     private fun publishVerifiedShell(linked: ConnectionUiState.Linked) {
         eligibilityLoad?.cancel()
         lastVerifiedContext = linked.context
-        lastVerifiedAccount = linked.profile.serverOrigin to linked.context.currentUser.profileId
+        lastVerifiedAccount = linked.profile.serverId to linked.context.currentUser.profileId
         mutableState.value =
             AppSessionState.AccountShell(
                 profile = linked.profile,
@@ -144,7 +144,7 @@ internal class AppSessionController(
                 authority = authority,
                 retainedContext = lastVerifiedContext.takeIf {
                     lastVerifiedAccount ==
-                        account.profile.serverOrigin to account.persistedAccount.profileId
+                        account.profile.serverId to account.persistedAccount.profileId
                 }
             )
     }
@@ -156,7 +156,7 @@ internal class AppSessionController(
         if (connectionState is ConnectionUiState.WorkingOffline) return true
         return try {
             homeRepository.hasCachedProjection(
-                HomeAccountScope(account.profile.serverOrigin, account.persistedAccount.profileId)
+                HomeAccountScope(account.profile.serverId, account.persistedAccount.profileId)
             )
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -174,7 +174,7 @@ internal class AppSessionController(
             account == null ||
                 account.persistedAccount.localDataScope() ==
                 AccountLocalScope.from(
-                    it.profile.serverOrigin,
+                    it.profile.serverId,
                     it.profileId
                 )
         } == true

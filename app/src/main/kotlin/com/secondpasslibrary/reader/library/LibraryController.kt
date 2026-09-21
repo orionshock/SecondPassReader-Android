@@ -9,9 +9,9 @@ import com.secondpasslibrary.client.LibrarySearchOrdering
 import com.secondpasslibrary.client.LibrarySeries
 import com.secondpasslibrary.client.SeriesOrdering
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
-import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.AuthenticatedSessionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.authenticatedSessionIdentity
 import com.secondpasslibrary.reader.library.axis.PagedLibraryAxisController
 import com.secondpasslibrary.reader.library.axis.PagedLibraryAxisDetailState
 import com.secondpasslibrary.reader.library.axis.libraryAuthorsAxisController
@@ -67,7 +67,7 @@ internal class LibraryController(
         ).filter { authorityMode == LibraryAuthorityMode.ONLINE }
 
     private var entryKey: LibraryBooksEntry? = null
-    private var connectionIdentity: AuthenticatedConnectionIdentity? = null
+    private var connectionIdentity: AuthenticatedSessionIdentity? = null
     private var advancedGroupsCapability: Boolean? = null
     private var pendingTagNavigation: LibraryExternalNavigation.Tag? = null
     private var pendingTagResolutionJob: Job? = null
@@ -78,7 +78,7 @@ internal class LibraryController(
         advancedGroupsEnabled: Boolean
     ) {
         authorityMode = LibraryAuthorityMode.ONLINE
-        val nextConnectionIdentity = profile.authenticatedConnectionIdentity
+        val nextConnectionIdentity = profile.authenticatedSessionIdentity
         val sameConnection = hasSameConnection(nextConnectionIdentity, advancedGroupsEnabled)
         if (sameConnection && entry == entryKey) return
         if (!sameConnection) {
@@ -140,7 +140,7 @@ internal class LibraryController(
     }
 
     private fun hasSameConnection(
-        identity: AuthenticatedConnectionIdentity,
+        identity: AuthenticatedSessionIdentity,
         advancedGroupsEnabled: Boolean
     ): Boolean = identity == connectionIdentity && advancedGroupsEnabled == advancedGroupsCapability
 

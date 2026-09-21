@@ -22,6 +22,8 @@ import javax.inject.Singleton
 /** Destructive lifecycle boundary for the app's single retained account-local footprint. */
 internal fun interface AccountLocalDataLifecycle {
     suspend fun purge(account: AccountLocalScope)
+
+    suspend fun discardLegacyState() = Unit
 }
 
 /** Cross-feature read boundary for Books that remain readable without server authority. */
@@ -63,7 +65,8 @@ internal class AccountLocalDataRepository @Inject constructor(
     private val reader: LocalReaderStateStore,
     private val readerSync: ReaderPendingSyncScheduler,
     private val assets: ReaderBookAssetStore,
-    private val marginaliaVisibility: ReaderMarginaliaLayerVisibilityStore
+    private val marginaliaVisibility: ReaderMarginaliaLayerVisibilityStore,
+    private val legacyReset: LegacyAccountStateReset = LegacyAccountStateReset {}
 ) : AccountLocalDataLifecycle,
     AccountLocalBookCatalog,
     AccountLocalDownloadRepository {
@@ -74,6 +77,10 @@ internal class AccountLocalDataRepository @Inject constructor(
         reader.purgeAccount(readerAccount)
         assets.purgeAccount(ReaderAccountScope.from(account))
         marginaliaVisibility.clearAccountState()
+    }
+
+    override suspend fun discardLegacyState() {
+        legacyReset.discard()
     }
 
     override suspend fun downloadedBooks(account: AccountLocalScope): List<CompactBook> {

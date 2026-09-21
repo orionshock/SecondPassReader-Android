@@ -2,9 +2,9 @@ package com.secondpasslibrary.reader.marginalia.detail
 
 import com.secondpasslibrary.client.ReadingSessionDetailResult
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
-import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.AuthenticatedSessionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.authenticatedSessionIdentity
 import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import com.secondpasslibrary.reader.marginalia.MarginaliaConnectionEvent
 import com.secondpasslibrary.reader.marginalia.MarginaliaFailure
@@ -43,12 +43,12 @@ internal class ReadingSessionDetailController(
         closeFlow.connectionEvents
     )
     private var profile: ConnectionProfile? = null
-    private var connectionIdentity: AuthenticatedConnectionIdentity? = null
+    private var connectionIdentity: AuthenticatedSessionIdentity? = null
     private var generation = 0L
     private var loadJob: Job? = null
 
     fun prepare(profile: ConnectionProfile) {
-        val nextConnectionIdentity = profile.authenticatedConnectionIdentity
+        val nextConnectionIdentity = profile.authenticatedSessionIdentity
         this.profile = profile
         annotations.prepare(profile)
         metadataEditor.prepare(profile)

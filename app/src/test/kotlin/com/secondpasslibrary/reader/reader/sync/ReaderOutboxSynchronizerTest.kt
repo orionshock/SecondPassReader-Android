@@ -345,12 +345,13 @@ class ReaderOutboxSynchronizerTest {
         is ReaderAnnotationMutationRequest.UpsertHighlight -> clientId
     }
 
-    private fun account() = LocalReaderAccountKey.from("https://library.example", "profile-1")
+    private fun account() =
+        LocalReaderAccountKey.from("a6722b5a-7982-4778-8c74-39be4241a654", "profile-1")
 
     private fun profile() = ConnectionProfile(
         serverId = "a6722b5a-7982-4778-8c74-39be4241a654",
-        serverOrigin = "https://library.example",
-        libraryBaseUrl = "https://library.example",
+        serverOrigin = "a6722b5a-7982-4778-8c74-39be4241a654",
+        libraryBaseUrl = "a6722b5a-7982-4778-8c74-39be4241a654",
         serverName = "Library",
         serverDescription = "",
         serverVersion = "1",

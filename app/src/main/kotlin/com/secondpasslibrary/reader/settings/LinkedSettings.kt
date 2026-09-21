@@ -41,7 +41,7 @@ internal fun LinkedSettings(
     downloadsViewModel: SettingsDownloadsViewModel = viewModel()
 ) {
     val presentation = settingsPresentation(profile, context, status)
-    val account = AccountLocalScope.from(profile.serverOrigin, profileId)
+    val account = AccountLocalScope.from(profile.serverId, profileId)
     val downloads by downloadsViewModel.state.collectAsStateWithLifecycle()
     var selected by rememberSaveable { mutableStateOf(SettingsSection.LIBRARY_ACCOUNT) }
     var technicalDetailsExpanded by rememberSaveable { mutableStateOf(false) }
@@ -80,7 +80,10 @@ internal fun LinkedSettings(
                 onRemove = downloadsViewModel::remove,
                 onRemoveAll = downloadsViewModel::removeAll,
                 onClearBook = {
-                    downloadsViewModel.clearBook(it, profile.authenticatedConnectionIdentity)
+                    downloadsViewModel.clearBook(
+                        it,
+                        profile.authenticatedConnectionIdentity(profileId)
+                    )
                 },
                 onBookDetails = onBookDetails
             )

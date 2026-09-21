@@ -25,7 +25,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 internal data class HomeProjectionAccount(val profile: ConnectionProfile, val profileId: String) {
-    internal val scope = HomeAccountScope(profile.serverOrigin, profileId)
+    internal val scope = HomeAccountScope(profile.serverId, profileId)
 }
 
 @Singleton

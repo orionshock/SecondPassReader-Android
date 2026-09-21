@@ -243,7 +243,7 @@ internal class ReaderAnnotationMutationController(
         submitJob = scope.launch {
             val result = runSuspendCatching {
                 val account = LocalReaderAccountKey.from(
-                    owner.profile.serverOrigin,
+                    owner.profile.serverId,
                     owner.profileId
                 )
                 localStore.applyAnnotationMutation(

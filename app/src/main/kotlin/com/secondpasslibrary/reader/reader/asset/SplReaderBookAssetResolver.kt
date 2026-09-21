@@ -41,7 +41,7 @@ internal class SplReaderBookAssetResolver @Inject constructor(
         request: ReaderBookAssetRequest,
         onDownloadStarted: () -> Unit
     ): ResolvedReaderBook {
-        val account = ReaderAccountScope(request.profile.serverOrigin, request.profileId)
+        val account = ReaderAccountScope(request.profile.serverId, request.profileId)
         if (request.localOnly) {
             val local = assetStore.findCompleted(account, request.bookId)
                 ?: throw ReaderEpubUnavailableException()

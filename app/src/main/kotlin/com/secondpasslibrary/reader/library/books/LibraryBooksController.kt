@@ -8,9 +8,9 @@ import com.secondpasslibrary.client.LibrarySearchOrdering
 import com.secondpasslibrary.reader.app.storage.AccountLocalBookCatalog
 import com.secondpasslibrary.reader.app.storage.AccountLocalScope
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
-import com.secondpasslibrary.reader.connection.AuthenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.AuthenticatedSessionIdentity
 import com.secondpasslibrary.reader.connection.ConnectionProfile
-import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
+import com.secondpasslibrary.reader.connection.authenticatedSessionIdentity
 import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import com.secondpasslibrary.reader.library.LibraryConnectionEvent
 import com.secondpasslibrary.reader.library.LibraryFailure
@@ -39,7 +39,7 @@ internal class LibraryBooksController(
 
     private var profile: ConnectionProfile? = null
     private var selectedScope: LibraryScope = LibraryScope.Global
-    private var connectionIdentity: AuthenticatedConnectionIdentity? = null
+    private var connectionIdentity: AuthenticatedSessionIdentity? = null
     private var entryKey: LibraryBooksEntryKey? = null
     private var requestGeneration = 0L
     private var loadJob: Job? = null
@@ -57,7 +57,7 @@ internal class LibraryBooksController(
     ) {
         offlineBooks = null
         offlineAccount = null
-        val nextConnectionIdentity = profile.authenticatedConnectionIdentity
+        val nextConnectionIdentity = profile.authenticatedSessionIdentity
         val nextEntryKey = LibraryBooksEntryKey(mode, query, scope, tagSlug)
         if (nextConnectionIdentity == connectionIdentity && nextEntryKey == entryKey) return
         connectionIdentity = nextConnectionIdentity
@@ -71,7 +71,7 @@ internal class LibraryBooksController(
     }
 
     fun initializeOffline(profile: ConnectionProfile, profileId: String, query: String) {
-        offlineAccount = AccountLocalScope.from(profile.serverOrigin, profileId)
+        offlineAccount = AccountLocalScope.from(profile.serverId, profileId)
         this.profile = null
         selectedScope = LibraryScope.Global
         connectionIdentity = null

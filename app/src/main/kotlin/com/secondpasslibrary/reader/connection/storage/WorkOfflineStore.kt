@@ -16,6 +16,8 @@ internal interface WorkOfflineStore {
     suspend fun read(accountKey: String): Boolean
 
     suspend fun write(accountKey: String, enabled: Boolean)
+
+    suspend fun clearAll() = Unit
 }
 
 @Singleton
@@ -33,6 +35,10 @@ internal class DataStoreWorkOfflineStore @Inject constructor(
                 preferences.remove(key(accountKey))
             }
         }
+    }
+
+    override suspend fun clearAll() {
+        context.workOfflineDataStore.edit { it.clear() }
     }
 
     private fun key(accountKey: String) = booleanPreferencesKey(accountKey)

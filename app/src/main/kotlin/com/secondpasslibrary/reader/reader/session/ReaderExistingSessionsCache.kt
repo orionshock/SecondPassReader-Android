@@ -22,7 +22,7 @@ internal class SplReaderExistingSessionsCache @Inject constructor(
 ) : ReaderExistingSessionsCache {
     override suspend fun cache(profile: ConnectionProfile, profileId: String, bookId: String) {
         val client = clients.forProfile(profile)
-        val account = LocalReaderAccountKey.from(profile.serverOrigin, profileId)
+        val account = LocalReaderAccountKey.from(profile.serverId, profileId)
         var pageNumber = 1
         do {
             val page = client.marginalia.books.listSessions(

@@ -162,7 +162,7 @@ internal fun readerMarginaliaVisibilityCacheKey(
 ): String {
     val identity = scope.connectionIdentity
     return sha256(
-        listOf(identity.libraryBaseUrl, identity.clientSessionId, scope.bookId, sessionId)
+        listOf(identity.serverId, identity.profileId, scope.bookId, sessionId)
             .joinToString("\u0000")
     )
 }

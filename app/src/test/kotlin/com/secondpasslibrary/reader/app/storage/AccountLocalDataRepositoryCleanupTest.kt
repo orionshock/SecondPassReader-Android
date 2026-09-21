@@ -41,18 +41,24 @@ class AccountLocalDataRepositoryCleanupTest {
         )
         val visibility = RecordingVisibilityStore(events)
         val repository = AccountLocalDataRepository(home, reader, scheduler, assets, visibility)
-        val old = AccountLocalScope.from("https://old.example", "profile-1")
-        val replacement = AccountLocalScope.from("https://new.example", "profile-1")
+        val old = AccountLocalScope.from(
+            "a6722b5a-7982-4778-8c74-39be4241a654",
+            "profile-1"
+        )
+        val replacement = AccountLocalScope.from(
+            "b6722b5a-7982-4778-8c74-39be4241a654",
+            "profile-1"
+        )
         val oldAsset = complete(assets, old.readerScope(), "old-book")
         val replacementAsset = complete(assets, replacement.readerScope(), "new-book")
 
         repository.purge(old)
 
-        val oldReader = LocalReaderAccountKey.from(old.serverOrigin, old.profileId)
+        val oldReader = LocalReaderAccountKey.from(old.serverId, old.profileId)
         assertEquals(listOf("cancel", "home", "reader", "visibility"), events)
         assertEquals(listOf(oldReader), scheduler.canceled)
         assertEquals(
-            listOf(HomeAccountScopeKey.from(old.serverOrigin, old.profileId)),
+            listOf(HomeAccountScopeKey.from(old.serverId, old.profileId)),
             home.purged
         )
         assertEquals(listOf(oldReader), reader.purged)
@@ -61,7 +67,7 @@ class AccountLocalDataRepositoryCleanupTest {
         assertEquals(1, visibility.clearCount)
         assertFalse(
             reader.purged.contains(
-                LocalReaderAccountKey.from(replacement.serverOrigin, replacement.profileId)
+                LocalReaderAccountKey.from(replacement.serverId, replacement.profileId)
             )
         )
     }
@@ -83,11 +89,14 @@ class AccountLocalDataRepositoryCleanupTest {
                 assets,
                 RecordingVisibilityStore(events)
             )
-            val account = AccountLocalScope.from("https://example.org", "profile-1")
+            val account = AccountLocalScope.from(
+                "a6722b5a-7982-4778-8c74-39be4241a654",
+                "profile-1"
+            )
             val target = complete(assets, account.readerScope(), "target")
             val kept = complete(assets, account.readerScope(), "kept")
 
-            val identity = AuthenticatedConnectionIdentity("https://example.org/api/v1/", "device")
+            val identity = AuthenticatedConnectionIdentity(account.serverId, account.profileId)
             repository.clearBook(account, "target", identity)
             repository.clearBook(account, "target", identity)
 

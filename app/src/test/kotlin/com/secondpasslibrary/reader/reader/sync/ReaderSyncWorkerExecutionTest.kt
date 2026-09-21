@@ -3,7 +3,6 @@ package com.secondpasslibrary.reader.reader.sync
 import com.secondpasslibrary.reader.connection.ConnectionProfile
 import com.secondpasslibrary.reader.connection.ConnectionProfileStore
 import com.secondpasslibrary.reader.connection.PersistedAccountContext
-import com.secondpasslibrary.reader.connection.authenticatedConnectionIdentity
 import com.secondpasslibrary.reader.connection.storage.PersistedAccountContextStore
 import com.secondpasslibrary.reader.connection.storage.WorkOfflineStore
 import com.secondpasslibrary.reader.reader.LocalReaderAccountKey
@@ -118,20 +117,20 @@ class ReaderSyncWorkerExecutionTest {
     @Test
     fun `stale Worker account cannot resolve replacement account credentials`() = runTest {
         val replacementProfile = profile().copy(
+            serverId = "b6722b5a-7982-4778-8c74-39be4241a654",
             serverOrigin = "https://other-library.example",
             libraryBaseUrl = "https://other-library.example"
         )
         val replacementAccount = LocalReaderAccountKey.from(
-            replacementProfile.serverOrigin,
+            replacementProfile.serverId,
             "profile-1"
         )
         val resolver = ReaderSyncAccountResolver(
             FixedProfileStore(replacementProfile),
             FixedAccountStore(
                 PersistedAccountContext(
-                    replacementProfile.authenticatedConnectionIdentity,
-                    "profile-1",
-                    replacementProfile.serverOrigin
+                    replacementProfile,
+                    "profile-1"
                 )
             )
         )
@@ -204,7 +203,7 @@ class ReaderSyncWorkerExecutionTest {
     private companion object {
         fun successfulReport() = ReaderReconnectReport(true, false)
 
-        fun account() = LocalReaderAccountKey.from("https://library.example", "profile-1")
+        fun account() = LocalReaderAccountKey.from(profile().serverId, "profile-1")
 
         fun profile() = ConnectionProfile(
             serverId = "a6722b5a-7982-4778-8c74-39be4241a654",
