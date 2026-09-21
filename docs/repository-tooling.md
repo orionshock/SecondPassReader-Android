@@ -12,7 +12,28 @@ Run before handing back a normal code change:
 
 `check` runs both modules' JVM tests, detekt, ktlint, Android Lint, text hygiene, architecture-boundary enforcement, deterministic buildSrc checker tests, the pinned Colibrio hash/license check, and both Node-free CFI protocol/runtime checks. `assembleDebug` proves debug packaging and runs the packaged CFI and Colibrio checks through `preBuild`; Gradle reuses those task results when `check` and assembly run together.
 
-This gate does not run instrumentation, a device or emulator, Node, the development server, or release signing. Run `assembleRelease` when release asset selection or release resources change; signing and distribution are not configured repository tooling.
+This gate does not run instrumentation, a device or emulator, Node, the development server, or release signing. Run `assembleRelease` when release asset selection or release resources change, with local signing credentials configured as below.
+
+## Local alpha release signing
+
+The permanent application ID is `com.secondpasslibrary.reader`. Set `versionCode` and `versionName` together in `app/build.gradle.kts` for each distributed APK. The first alpha is code `1`, name `0.1.0-alpha.1`; increase `versionCode` for every later APK, and advance the alpha suffix in `versionName`. The release build is non-debuggable, with minification and resource shrinking disabled.
+
+Generate a release key on a trusted machine using `keytool` from the JDK (choose a strong password when prompted):
+
+```powershell
+keytool -genkeypair -v -storetype PKCS12 -keystore SecondPassReader-release.p12 -alias secondpassreader -keyalg RSA -keysize 4096 -validity 10000
+```
+
+Store the keystore securely outside the repository. Configure these names as environment variables or in the local user Gradle properties file (`$HOME/.gradle/gradle.properties`), without committing their values:
+
+| Name | Value |
+| --- | --- |
+| `SECOND_PASS_RELEASE_STORE_FILE` | Absolute path to the release keystore; a relative path resolves from the repository root. In `gradle.properties` on Windows, use forward slashes (for example, `C:/secrets/SecondPassReader-release.p12`) because single backslashes are property escapes. |
+| `SECOND_PASS_RELEASE_STORE_PASSWORD` | Keystore password |
+| `SECOND_PASS_RELEASE_KEY_ALIAS` | Key alias, `secondpassreader` for the command above |
+| `SECOND_PASS_RELEASE_KEY_PASSWORD` | Key password |
+
+Build with `.\gradlew.bat :app:assembleRelease`. Missing signing settings fail the release build. The APK uses AGP's standard `app-release.apk` name under `app/build/outputs/apk/release/`. Preserve the keystore and passwords: future APK upgrades for this application ID require the same signing key.
 
 Use focused JVM tests while developing:
 

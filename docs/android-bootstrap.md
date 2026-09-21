@@ -46,4 +46,4 @@ The exact checks, focused commands, instrumentation split, and generated-asset w
 
 The application icon reuses the Second Pass web favicon inside an Android adaptive-icon wrapper. Android's resource grammar requires the wrapper in a `v26` directory, so the version-qualifier lint rule is ignored only there.
 
-Release signing, distribution policy, and a light theme remain outside this baseline.
+Local alpha release signing is documented in [Repository tooling](repository-tooling.md). Distribution policy and a light theme remain outside this baseline.

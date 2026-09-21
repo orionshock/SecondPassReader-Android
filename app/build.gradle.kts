@@ -1,3 +1,5 @@
+import java.io.File
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
@@ -7,6 +9,42 @@ plugins {
     alias(libs.plugins.detekt)
     alias(libs.plugins.ktlint)
 }
+
+val releaseSigningPropertyNames =
+    listOf(
+        "SECOND_PASS_RELEASE_STORE_FILE",
+        "SECOND_PASS_RELEASE_STORE_PASSWORD",
+        "SECOND_PASS_RELEASE_KEY_ALIAS",
+        "SECOND_PASS_RELEASE_KEY_PASSWORD"
+    )
+val releaseSigningValues =
+    releaseSigningPropertyNames.associateWith { name ->
+        providers.gradleProperty(name).orElse(providers.environmentVariable(name)).orNull
+            ?.takeIf(String::isNotBlank)
+    }
+val releaseStoreFile =
+    releaseSigningValues["SECOND_PASS_RELEASE_STORE_FILE"]?.let(rootProject::file)
+
+val verifyReleaseSigning =
+    tasks.register("verifyReleaseSigning") {
+        group = "verification"
+        description = "Checks that local release signing credentials are configured."
+        val missing = releaseSigningValues.filterValues { it == null }.keys.toList()
+        val storePath = releaseStoreFile?.path
+        doLast {
+            if (missing.isNotEmpty()) {
+                throw GradleException(
+                    "Release signing is missing: ${missing.joinToString()}. " +
+                        "Set these Gradle properties or environment variables before assembling release."
+                )
+            }
+            if (storePath == null || !File(storePath).isFile) {
+                throw GradleException(
+                    "Release signing keystore does not exist: $storePath"
+                )
+            }
+        }
+    }
 
 android {
     namespace = "com.secondpasslibrary.reader"
@@ -18,8 +56,26 @@ android {
         minSdk = 31
         targetSdk = 37
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "0.1.0-alpha.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = releaseStoreFile
+            storePassword = releaseSigningValues["SECOND_PASS_RELEASE_STORE_PASSWORD"]
+            keyAlias = releaseSigningValues["SECOND_PASS_RELEASE_KEY_ALIAS"]
+            keyPassword = releaseSigningValues["SECOND_PASS_RELEASE_KEY_PASSWORD"]
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            isDebuggable = false
+            isMinifyEnabled = false
+            isShrinkResources = false
+            signingConfig = signingConfigs.getByName("release")
+        }
     }
 
     buildFeatures {
@@ -37,6 +93,10 @@ android {
         lintConfig = file("lint.xml")
         warningsAsErrors = true
     }
+}
+
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    dependsOn(verifyReleaseSigning)
 }
 
 kotlin {
