@@ -16,6 +16,7 @@ import com.secondpasslibrary.client.ShelfItemPage
 import com.secondpasslibrary.client.ShelfListOptions
 import com.secondpasslibrary.client.ShelfOwner
 import com.secondpasslibrary.client.ShelfPage
+import com.secondpasslibrary.client.ShelfScope
 import com.secondpasslibrary.client.ShelfVisibility
 import com.secondpasslibrary.client.UpdatePersonalShelfInput
 import com.secondpasslibrary.reader.FakeAuthenticatedLibraryClient
@@ -179,7 +180,7 @@ internal fun shelfPage(
     shelves: List<Shelf>,
     total: Int = shelves.size,
     hasNext: Boolean = false
-) = ShelfPage(total, hasNext, page > 1, shelves, page, SHELVES_PAGE_SIZE)
+) = ShelfPage(ShelfScope.PERSONAL, total, hasNext, page > 1, shelves, page, SHELVES_PAGE_SIZE)
 
 internal fun shelfItemPage(
     page: Int,

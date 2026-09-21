@@ -80,7 +80,7 @@ class KtorAuthenticatedSecondPassClientTest {
     }
 
     @Test
-    fun `shelf list sends home query and distinguishes omitted previews`() = runBlocking {
+    fun `shelf list sends typed scope and embedded preview query`() = runBlocking {
         var request: HttpRequestData? = null
         val client = authenticatedClient { captured ->
             request = captured
@@ -90,10 +90,10 @@ class KtorAuthenticatedSecondPassClientTest {
         val page =
             client.shelves.list(
                 ShelfListOptions(
+                    scope = ShelfScope.PERSONAL,
                     page = 2,
                     pageSize = 6,
-                    ordering = ShelfOrdering.ITEM_COUNT_DESCENDING,
-                    previewLimit = 3
+                    ordering = ShelfOrdering.ITEM_COUNT_DESCENDING
                 )
             )
 
@@ -112,7 +112,8 @@ class KtorAuthenticatedSecondPassClientTest {
         assertEquals("6", request?.url?.parameters?.get("page_size"))
         assertEquals("-item_count", request?.url?.parameters?.get("ordering"))
         assertEquals("true", request?.url?.parameters?.get("include_preview_books"))
-        assertEquals("3", request?.url?.parameters?.get("preview_limit"))
+        assertEquals("personal", request?.url?.parameters?.get("scope"))
+        assertEquals("24", request?.url?.parameters?.get("preview_limit"))
         assertEquals("Bearer spl_secret", request?.headers?.get(HttpHeaders.Authorization))
     }
 
@@ -125,7 +126,9 @@ class KtorAuthenticatedSecondPassClientTest {
         }
 
         ShelfOrdering.entries.forEach { ordering ->
-            client.shelves.list(ShelfListOptions(ordering = ordering))
+            client.shelves.list(
+                ShelfListOptions(scope = ShelfScope.PERSONAL, ordering = ordering)
+            )
         }
 
         assertEquals(listOf("name", "-name", "item_count", "-item_count"), values)
@@ -150,7 +153,7 @@ class KtorAuthenticatedSecondPassClientTest {
         }
 
         assertThrows(SplClientException.ProtocolInvalid::class.java) {
-            runBlocking { client.shelves.list() }
+            runBlocking { client.shelves.list(ShelfListOptions(ShelfScope.PERSONAL)) }
         }
     }
 

@@ -34,20 +34,24 @@ internal const val SHELF_PAGE =
         "results":[
             $SHELF_DETAIL,
             {
-                "id":"shelf-public","name":"Common Room","description":"Public picks",
-                "owner_type":"group","owner_user":null,
-                "owner_group":{"id":"group-1","name":"Common Room","is_public_group":true},
-                "visibility":"listed","item_count":0,"can_edit":false,"created_by":null,
+                "id":"shelf-shared","name":"Another Reader","description":"Shared picks",
+                "owner_type":"user",
+                "owner_user":{"profile_id":"profile-2","username":"other-reader"},
+                "owner_group":null,"visibility":"listed","item_count":0,"can_edit":false,
+                "created_by":null,
                 "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-02T00:00:00Z",
                 "matched_item_id":null,"preview_books":[]
             },
             {
-                "id":"shelf-private-group","name":"Private Group","description":null,
+                "id":"shelf-group","name":"Common Room","description":null,
                 "owner_type":"group","owner_user":null,
-                "owner_group":{"id":"group-2","name":"Private Group","is_public_group":false},
-                "visibility":"listed","item_count":1,"can_edit":false,"created_by":null,
+                "owner_group":{"id":"group-1","name":"Common Room","is_public_group":true},
+                "visibility":"listed","item_count":2,"can_edit":false,"created_by":null,
                 "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-02T00:00:00Z",
-                "preview_books":[{"id":"book-1","title":"Book","cover_url":"https://cdn.example/cover.webp"}]
+                "preview_books":[
+                    {"id":"book-2","title":"Second","cover_url":null},
+                    {"id":"book-1","title":"First","cover_url":"https://cdn.example/cover.webp"}
+                ]
             }
         ]
     }"""

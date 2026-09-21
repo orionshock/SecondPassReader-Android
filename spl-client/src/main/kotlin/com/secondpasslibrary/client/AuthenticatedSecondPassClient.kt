@@ -69,7 +69,7 @@ interface AuthenticatedReadingSessionsClient {
 }
 
 interface AuthenticatedShelvesClient {
-    suspend fun list(options: ShelfListOptions = ShelfListOptions()): ShelfPage
+    suspend fun list(options: ShelfListOptions): ShelfPage
 
     suspend fun get(shelfId: String, options: ShelfDetailOptions = ShelfDetailOptions()): Shelf
 

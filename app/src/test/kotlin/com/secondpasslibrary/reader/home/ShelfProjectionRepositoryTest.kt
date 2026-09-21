@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.home
 
+import com.secondpasslibrary.client.ShelfScope
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.home.projection.HomeRecentReadingVariant
 import kotlinx.coroutines.flow.toList
@@ -32,7 +33,9 @@ class ShelfProjectionRepositoryTest {
         assertEquals(1, store.shelfReplacements)
         assertEquals(1, client.shelfRequests.single().page)
         assertEquals(6, client.shelfRequests.single().pageSize)
-        assertEquals(3, client.shelfRequests.single().previewLimit)
+        assertEquals(ShelfScope.PERSONAL, client.shelfRequests.single().scope)
+        assertEquals(true, client.shelfRequests.single().includePreviewBooks)
+        assertEquals(24, client.shelfRequests.single().previewLimit)
         assertEquals(null, client.shelfRequests.single().ordering)
     }
 

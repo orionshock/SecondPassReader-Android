@@ -19,48 +19,49 @@ import org.junit.Test
 
 class ShelvesClientTest {
     @Test
-    fun `list maps all scopes filters pagination ordering and bearer internally`() = runBlocking {
-        val requests = mutableListOf<HttpRequestData>()
-        val client = authenticatedClient { request ->
-            requests += request
-            jsonResponse(EMPTY_PAGE)
-        }
+    fun `list maps exactly three scopes with pagination previews and bearer internally`() =
+        runBlocking {
+            val requests = mutableListOf<HttpRequestData>()
+            val client = authenticatedClient { request ->
+                requests += request
+                jsonResponse(EMPTY_PAGE)
+            }
 
-        ShelfScope.entries.forEach { scope ->
-            client.shelves.list(
-                ShelfListOptions(
-                    scope = scope,
-                    ownerGroupId = "group 1",
-                    bookId = "book-1",
-                    ordering = ShelfOrdering.ITEM_COUNT_DESCENDING,
-                    page = 2,
-                    pageSize = 50
+            ShelfScope.entries.forEach { scope ->
+                client.shelves.list(
+                    ShelfListOptions(
+                        scope = scope,
+                        bookId = "book-1",
+                        ordering = ShelfOrdering.ITEM_COUNT_DESCENDING,
+                        page = 2,
+                        pageSize = 50
+                    )
                 )
-            )
-        }
+            }
 
-        assertEquals(
-            ShelfScope.entries.map {
-                it.queryValue
-            },
-            requests.map { it.parameter("scope") }
-        )
-        requests.forEach { request ->
-            assertEquals("group 1", request.parameter("owner_group"))
-            assertEquals("book-1", request.parameter("book"))
-            assertEquals("-item_count", request.parameter("ordering"))
-            assertEquals("2", request.parameter("page"))
-            assertEquals("50", request.parameter("page_size"))
-            assertEquals("Bearer spl_secret", request.headers[HttpHeaders.Authorization])
+            assertEquals(
+                listOf("personal", "shared", "group"),
+                requests.map { it.parameter("scope") }
+            )
+            requests.forEach { request ->
+                assertEquals("book-1", request.parameter("book"))
+                assertNull(request.parameter("owner_group"))
+                assertEquals("-item_count", request.parameter("ordering"))
+                assertEquals("2", request.parameter("page"))
+                assertEquals("50", request.parameter("page_size"))
+                assertEquals("true", request.parameter("include_preview_books"))
+                assertEquals("24", request.parameter("preview_limit"))
+                assertEquals("Bearer spl_secret", request.headers[HttpHeaders.Authorization])
+            }
         }
-    }
 
     @Test
     fun `list maps ownership visibility matching and preview presence`() = runBlocking {
         val page = authenticatedClient { jsonResponse(SHELF_PAGE) }.shelves.list(
-            ShelfListOptions(page = 3, pageSize = 10)
+            ShelfListOptions(scope = ShelfScope.SHARED, page = 3, pageSize = 10)
         )
 
+        assertEquals(ShelfScope.SHARED, page.scope)
         assertEquals(3, page.totalCount)
         assertEquals(3, page.page)
         assertEquals(10, page.pageSize)
@@ -73,17 +74,23 @@ class ShelvesClientTest {
         assertTrue(personal.canEdit)
         assertEquals(ShelfUser("profile-1", "reader"), personal.createdBy)
         assertNull(personal.previewBooks)
-        val publicGroup = page.shelves[1]
-        assertEquals(ShelfOwner.Group("group-1", "Common Room", true), publicGroup.owner)
-        assertEquals(ShelfVisibility.LISTED, publicGroup.visibility)
-        assertEquals(emptyList<ShelfPreviewBook>(), publicGroup.previewBooks)
-        val preview = page.shelves[2].previewBooks?.single()
-        assertEquals("book-1", preview?.id)
-        assertEquals("https://cdn.example/cover.webp", preview?.cover?.url)
+        val shared = page.shelves[1]
+        assertEquals(ShelfOwner.User("profile-2", "other-reader"), shared.owner)
+        assertNull(shared.createdBy)
+        assertEquals(emptyList<ShelfPreviewBook>(), shared.previewBooks)
+        val group = page.shelves[2]
+        assertEquals(ShelfOwner.Group("group-1", "Common Room", true), group.owner)
+        assertNull(group.createdBy)
+        assertEquals(listOf("book-2", "book-1"), group.previewBooks?.map { it.id })
+        assertNull(group.previewBooks?.first()?.cover)
+        assertEquals(
+            "https://cdn.example/cover.webp",
+            group.previewBooks?.last()?.cover?.url
+        )
     }
 
     @Test
-    fun `preview limit zero disables previews and positive requests bounded previews`() =
+    fun `list preview request is explicit and detail previews remain independently bounded`() =
         runBlocking {
             val requests = mutableListOf<HttpRequestData>()
             val client = authenticatedClient { request ->
@@ -93,11 +100,17 @@ class ShelvesClientTest {
                 )
             }
 
-            client.shelves.list(ShelfListOptions(previewLimit = 0))
-            client.shelves.list(ShelfListOptions(previewLimit = 24))
+            client.shelves.list(
+                ShelfListOptions(
+                    scope = ShelfScope.PERSONAL,
+                    includePreviewBooks = false
+                )
+            )
+            client.shelves.list(ShelfListOptions(scope = ShelfScope.GROUP))
             client.shelves.get("shelf 1", ShelfDetailOptions(previewLimit = 3))
 
-            assertNull(requests[0].parameter("include_preview_books"))
+            assertEquals("false", requests[0].parameter("include_preview_books"))
+            assertEquals("24", requests[0].parameter("preview_limit"))
             assertEquals("true", requests[1].parameter("include_preview_books"))
             assertEquals("24", requests[1].parameter("preview_limit"))
             assertEquals("/api/v1/shelves/shelf%201/", requests[2].url.encodedPath)
@@ -168,9 +181,15 @@ class ShelvesClientTest {
 
     @Test
     fun `shelf inputs enforce page and preview bounds before transport`() {
-        assertThrows(IllegalArgumentException::class.java) { ShelfListOptions(pageSize = 0) }
-        assertThrows(IllegalArgumentException::class.java) { ShelfListOptions(pageSize = 201) }
-        assertThrows(IllegalArgumentException::class.java) { ShelfListOptions(previewLimit = -1) }
+        assertThrows(IllegalArgumentException::class.java) {
+            ShelfListOptions(ShelfScope.PERSONAL, pageSize = 0)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            ShelfListOptions(ShelfScope.PERSONAL, pageSize = 201)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            ShelfListOptions(ShelfScope.PERSONAL, previewLimit = 0)
+        }
         assertThrows(IllegalArgumentException::class.java) { ShelfDetailOptions(previewLimit = 25) }
         assertThrows(IllegalArgumentException::class.java) { ShelfItemListOptions(page = 0) }
         assertThrows(IllegalArgumentException::class.java) {

@@ -3,6 +3,7 @@ package com.secondpasslibrary.reader.home
 import com.secondpasslibrary.client.RecentReadingItem
 import com.secondpasslibrary.client.RecentReadingOptions
 import com.secondpasslibrary.client.ShelfListOptions
+import com.secondpasslibrary.client.ShelfScope
 import com.secondpasslibrary.client.ShelfSummary
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.client.toSummary
@@ -97,6 +98,7 @@ internal class HomeProjectionRepository internal constructor(
                     val items =
                         client.shelves.list(
                             ShelfListOptions(
+                                scope = ShelfScope.PERSONAL,
                                 page = variant.page,
                                 pageSize = variant.pageSize,
                                 previewLimit = variant.previewLimit

@@ -8,6 +8,7 @@ import com.secondpasslibrary.client.ShelfItem
 import com.secondpasslibrary.client.ShelfItemPage
 import com.secondpasslibrary.client.ShelfPage
 import com.secondpasslibrary.client.ShelfPreviewBook
+import com.secondpasslibrary.client.ShelfScope
 import com.secondpasslibrary.client.internal.library.toModel
 import com.secondpasslibrary.client.internal.transport.invalidProtocol
 import com.secondpasslibrary.client.internal.transport.required
@@ -17,14 +18,16 @@ private const val SHELF_PAGE_CONTEXT = "shelf page"
 private const val SHELF_ITEM_CONTEXT = "shelf item"
 private const val SHELF_EDITOR_CONTEXT = "shelf editor page"
 
-internal fun ShelfPageWire.toModel(page: Int, pageSize: Int): ShelfPage = ShelfPage(
-    totalCount = validCount(count, SHELF_PAGE_CONTEXT),
-    hasNextPage = next != null,
-    hasPreviousPage = previous != null,
-    shelves = results?.map(ShelfWire::toModel) ?: invalidProtocol(SHELF_PAGE_CONTEXT),
-    page = page,
-    pageSize = pageSize
-)
+internal fun ShelfPageWire.toModel(scope: ShelfScope, page: Int, pageSize: Int): ShelfPage =
+    ShelfPage(
+        scope = scope,
+        totalCount = validCount(count, SHELF_PAGE_CONTEXT),
+        hasNextPage = next != null,
+        hasPreviousPage = previous != null,
+        shelves = results?.map(ShelfWire::toModel) ?: invalidProtocol(SHELF_PAGE_CONTEXT),
+        page = page,
+        pageSize = pageSize
+    )
 
 internal fun ShelfWire.toModel(): Shelf = Shelf(
     id = id.required(SHELF_CONTEXT),

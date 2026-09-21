@@ -39,6 +39,7 @@ class ShelfCollectionControllerTest {
         assertEquals(ShelfScope.PERSONAL, request.scope)
         assertEquals(ShelfOrdering.NAME, request.ordering)
         assertEquals(SHELVES_PAGE_SIZE, request.pageSize)
+        assertTrue(request.includePreviewBooks)
         assertEquals(SHELF_CARD_PREVIEW_LIMIT, request.previewLimit)
         assertTrue(controller.state.value.shelves.single().canEdit)
     }

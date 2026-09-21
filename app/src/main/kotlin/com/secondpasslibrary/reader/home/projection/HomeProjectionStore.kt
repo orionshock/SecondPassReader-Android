@@ -33,10 +33,10 @@ internal enum class HomeShelfVariant(
     val previewLimit: Int
 ) {
     FirstPageWithPreviews(
-        storageKey = "page=1;pageSize=6;ordering=server;previewLimit=3",
+        storageKey = "scope=personal;page=1;pageSize=6;ordering=server;previewLimit=24",
         page = 1,
         pageSize = 6,
-        previewLimit = 3
+        previewLimit = 24
     )
 }
 

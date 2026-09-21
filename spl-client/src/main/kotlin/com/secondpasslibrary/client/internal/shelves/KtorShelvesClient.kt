@@ -29,15 +29,15 @@ internal class KtorShelvesClient(
     override suspend fun list(options: ShelfListOptions): ShelfPage {
         val parameters = buildList {
             add("scope" to options.scope.queryValue)
-            options.ownerGroupId?.let { add("owner_group" to it) }
             options.bookId?.let { add("book" to it) }
             options.ordering?.let { add("ordering" to it.queryValue) }
             add("page" to options.page.toString())
             add("page_size" to options.pageSize.toString())
-            addAll(previewParameters(options.previewLimit))
+            add("include_preview_books" to options.includePreviewBooks.toString())
+            add("preview_limit" to options.previewLimit.toString())
         }
         return requests.getDecoded<ShelfPageWire>("shelves/", parameters, "shelf page")
-            .toModel(options.page, options.pageSize)
+            .toModel(options.scope, options.page, options.pageSize)
     }
 
     override suspend fun get(shelfId: String, options: ShelfDetailOptions): Shelf {

@@ -164,7 +164,15 @@ internal class FakeHomeAuthenticatedClient : AuthenticatedSecondPassClient {
         override suspend fun list(options: ShelfListOptions): ShelfPage {
             shelfRequests += options
             val items = shelfCall(options).map(ShelfSummary::toFixtureShelf)
-            return ShelfPage(items.size, false, false, items, options.page, options.pageSize)
+            return ShelfPage(
+                options.scope,
+                items.size,
+                false,
+                false,
+                items,
+                options.page,
+                options.pageSize
+            )
         }
 
         override suspend fun get(shelfId: String, options: ShelfDetailOptions): Shelf =

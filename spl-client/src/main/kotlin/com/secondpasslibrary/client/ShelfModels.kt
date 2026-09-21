@@ -1,27 +1,24 @@
 package com.secondpasslibrary.client
 
 data class ShelfListOptions(
-    val scope: ShelfScope = ShelfScope.ALL,
-    val ownerGroupId: String? = null,
+    val scope: ShelfScope,
     val bookId: String? = null,
     val ordering: ShelfOrdering? = null,
     val page: Int = DEFAULT_SHELF_PAGE,
     val pageSize: Int = DEFAULT_SHELF_PAGE_SIZE,
-    val previewLimit: Int = 0
+    val includePreviewBooks: Boolean = true,
+    val previewLimit: Int = DEFAULT_SHELF_PREVIEW_LIMIT
 ) {
     init {
         validateShelfPage(page, pageSize)
-        validateShelfPreviewLimit(previewLimit)
-        require(ownerGroupId == null || ownerGroupId.isNotBlank()) {
-            "Shelf owner-group ID must not be blank."
-        }
+        validateShelfPreviewLimit(previewLimit, allowDisabled = false)
         require(bookId == null || bookId.isNotBlank()) { "Shelf book ID must not be blank." }
     }
 }
 
 data class ShelfDetailOptions(val previewLimit: Int = 0) {
     init {
-        validateShelfPreviewLimit(previewLimit)
+        validateShelfPreviewLimit(previewLimit, allowDisabled = true)
     }
 }
 
@@ -80,7 +77,6 @@ enum class ShelfItemMove(internal val queryValue: String) {
 }
 
 enum class ShelfScope(internal val queryValue: String) {
-    ALL("all"),
     PERSONAL("personal"),
     SHARED("shared"),
     GROUP("group")
@@ -108,6 +104,7 @@ enum class ShelfVisibility {
 }
 
 data class ShelfPage(
+    val scope: ShelfScope,
     val totalCount: Int,
     val hasNextPage: Boolean,
     val hasPreviousPage: Boolean,
@@ -220,6 +217,7 @@ private const val DEFAULT_SHELF_PAGE = 1
 private const val DEFAULT_SHELF_PAGE_SIZE = 20
 private const val MAX_SHELF_PAGE_SIZE = 200
 private const val MAX_SHELF_PREVIEW_LIMIT = 24
+private const val DEFAULT_SHELF_PREVIEW_LIMIT = 24
 private const val MAX_SHELF_NAME_LENGTH = 255
 
 private fun validateShelfPage(page: Int, pageSize: Int) {
@@ -229,9 +227,10 @@ private fun validateShelfPage(page: Int, pageSize: Int) {
     }
 }
 
-private fun validateShelfPreviewLimit(previewLimit: Int) {
-    require(previewLimit in 0..MAX_SHELF_PREVIEW_LIMIT) {
-        "Shelf preview limit must be between 0 and $MAX_SHELF_PREVIEW_LIMIT."
+private fun validateShelfPreviewLimit(previewLimit: Int, allowDisabled: Boolean) {
+    val minimum = if (allowDisabled) 0 else 1
+    require(previewLimit in minimum..MAX_SHELF_PREVIEW_LIMIT) {
+        "Shelf preview limit must be between $minimum and $MAX_SHELF_PREVIEW_LIMIT."
     }
 }
 
