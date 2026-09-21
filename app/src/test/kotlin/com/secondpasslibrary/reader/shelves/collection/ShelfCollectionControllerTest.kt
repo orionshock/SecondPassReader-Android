@@ -41,6 +41,8 @@ class ShelfCollectionControllerTest {
         assertEquals(SHELVES_PAGE_SIZE, request.pageSize)
         assertTrue(request.includePreviewBooks)
         assertEquals(SHELF_CARD_PREVIEW_LIMIT, request.previewLimit)
+        assertTrue(controller.state.value.hasLoaded)
+        assertFalse(controller.state.value.initialLoading)
         assertTrue(controller.state.value.shelves.single().canEdit)
     }
 
@@ -134,6 +136,42 @@ class ShelfCollectionControllerTest {
         controller.retry()
         advanceUntilIdle()
         assertEquals(listOf("first", "second"), controller.state.value.shelves.map { it.id })
+    }
+
+    @Test
+    fun `replacement load keeps populated content visible and reports refresh failure`() = runTest {
+        val replacementStarted = CompletableDeferred<Unit>()
+        val releaseReplacement = CompletableDeferred<Unit>()
+        var requests = 0
+        val capability = RecordingShelvesCapability().apply {
+            listCall = {
+                requests += 1
+                if (requests == 1) {
+                    shelfPage(1, listOf(shelf("retained")))
+                } else {
+                    replacementStarted.complete(Unit)
+                    releaseReplacement.await()
+                    throw SplClientException.ServerUnreachable()
+                }
+            }
+        }
+        val controller = PersonalShelvesController(provider(capability), this)
+        controller.prepare(shelvesProfile())
+        controller.activate()
+        advanceUntilIdle()
+
+        controller.changeOrdering(ShelfOrdering.ITEM_COUNT_DESCENDING)
+        replacementStarted.await()
+        assertEquals(listOf("retained"), controller.state.value.shelves.map { it.id })
+        assertTrue(controller.state.value.refreshing)
+        assertFalse(controller.state.value.initialLoading)
+
+        releaseReplacement.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(listOf("retained"), controller.state.value.shelves.map { it.id })
+        assertTrue(controller.state.value.hasLoaded)
+        assertFalse(controller.state.value.refreshing)
+        assertEquals(ShelvesLoadPhase.INITIAL, controller.state.value.error?.phase)
     }
 
     private fun provider(capability: RecordingShelvesCapability) =

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
@@ -28,12 +29,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -47,6 +48,7 @@ import com.secondpasslibrary.reader.shelves.ShelvesEmpty
 import com.secondpasslibrary.reader.shelves.ShelvesFailure
 import com.secondpasslibrary.reader.shelves.ShelvesLoading
 import com.secondpasslibrary.reader.shelves.ShelvesNextPageFooter
+import com.secondpasslibrary.reader.shelves.ShelvesReplacementFeedback
 import com.secondpasslibrary.reader.shelves.ShelvesState
 import com.secondpasslibrary.reader.shelves.shouldRequestShelfNextPage
 import com.secondpasslibrary.reader.shelves.toCardPresentation
@@ -68,6 +70,7 @@ internal fun ShelvesRoot(
     onShelfSelected: (String) -> Unit,
     onCreateShelf: () -> Unit,
     createShelfAvailable: Boolean,
+    scrollStates: ShelfCollectionScrollStates,
     modifier: Modifier = Modifier
 ) {
     val selected =
@@ -88,7 +91,7 @@ internal fun ShelvesRoot(
         ShelvesCollection.SHARED -> onRetryShared
         ShelvesCollection.GROUP -> onRetryGroup
     }
-    val stateHolder = rememberSaveableStateHolder()
+    val listState = scrollStates[selected]
 
     Column(modifier.padding(horizontal = 20.dp)) {
         ShelvesRootControls(
@@ -100,28 +103,32 @@ internal fun ShelvesRoot(
             createShelfAvailable,
             Modifier.padding(top = 14.dp, bottom = 8.dp)
         )
-        stateHolder.SaveableStateProvider(selected) {
-            ShelfCollectionResults(
-                collectionState,
-                loadNext,
-                retry,
-                onShelfSelected,
-                Modifier.weight(1f)
-            )
-        }
+        ShelvesReplacementFeedback(collectionState, retry)
+        ShelfCollectionResults(
+            selected,
+            collectionState,
+            listState,
+            loadNext,
+            retry,
+            onShelfSelected,
+            Modifier.weight(1f)
+        )
     }
 }
 
 @Composable
 private fun ShelfCollectionResults(
+    collection: ShelvesCollection,
     state: ShelfCollectionState,
+    listState: LazyListState,
     onLoadNextPage: () -> Unit,
     onRetry: () -> Unit,
     onShelfSelected: (String) -> Unit,
     modifier: Modifier
 ) {
     when {
-        state.shelves.isEmpty() && state.initialLoading -> ShelvesLoading(modifier)
+        state.shelves.isEmpty() && !state.hasLoaded && state.error == null ->
+            ShelvesLoading(modifier)
 
         state.shelves.isEmpty() && state.error != null -> ShelvesFailure(
             state.error,
@@ -129,21 +136,31 @@ private fun ShelfCollectionResults(
             modifier
         )
 
-        state.shelves.isEmpty() && state.currentPage > 0 -> ShelvesEmpty(modifier)
+        state.shelves.isEmpty() && state.hasLoaded -> ShelvesEmpty(collection, modifier)
 
-        else -> ShelfCardList(state, onLoadNextPage, onRetry, onShelfSelected, modifier)
+        else ->
+            ShelfCardList(
+                collection,
+                state,
+                listState,
+                onLoadNextPage,
+                onRetry,
+                onShelfSelected,
+                modifier
+            )
     }
 }
 
 @Composable
 private fun ShelfCardList(
+    collection: ShelvesCollection,
     state: ShelfCollectionState,
+    listState: LazyListState,
     onLoadNextPage: () -> Unit,
     onRetry: () -> Unit,
     onShelfSelected: (String) -> Unit,
     modifier: Modifier
 ) {
-    val listState = rememberLazyListState()
     LaunchedEffect(listState, state.shelves.size, state.hasNext) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
             .map { shouldRequestShelfNextPage(it, state.shelves.size) && state.hasNext }
@@ -152,7 +169,7 @@ private fun ShelfCardList(
             .collect { onLoadNextPage() }
     }
     LazyColumn(
-        modifier = modifier,
+        modifier = modifier.testTag(collection.listTestTag),
         state = listState,
         contentPadding = PaddingValues(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -163,3 +180,25 @@ private fun ShelfCardList(
         item { ShelvesNextPageFooter(state.nextPageLoading, state.error, onRetry) }
     }
 }
+
+internal class ShelfCollectionScrollStates(
+    private val personal: LazyListState,
+    private val shared: LazyListState,
+    private val group: LazyListState
+) {
+    operator fun get(collection: ShelvesCollection): LazyListState = when (collection) {
+        ShelvesCollection.PERSONAL -> personal
+        ShelvesCollection.SHARED -> shared
+        ShelvesCollection.GROUP -> group
+    }
+}
+
+@Composable
+internal fun rememberShelfCollectionScrollStates() = ShelfCollectionScrollStates(
+    personal = rememberLazyListState(),
+    shared = rememberLazyListState(),
+    group = rememberLazyListState()
+)
+
+internal val ShelvesCollection.listTestTag: String
+    get() = "shelves-${name.lowercase()}-list"

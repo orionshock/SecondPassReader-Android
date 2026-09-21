@@ -87,7 +87,7 @@ private fun CollectionSelectors(
     onCollectionSelected: (ShelvesCollection) -> Unit
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        CollectionChip("My Shelves", AppIcon.Shelf, selected == ShelvesCollection.PERSONAL) {
+        CollectionChip("Personal", AppIcon.Shelf, selected == ShelvesCollection.PERSONAL) {
             onCollectionSelected(ShelvesCollection.PERSONAL)
         }
         CollectionChip(

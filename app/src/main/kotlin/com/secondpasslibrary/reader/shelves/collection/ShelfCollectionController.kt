@@ -51,7 +51,7 @@ internal abstract class ShelfCollectionController(
     }
 
     fun activate() {
-        if (profile == null || loadJob?.isActive == true || state.value.currentPage > 0) return
+        if (profile == null || loadJob?.isActive == true || state.value.hasLoaded) return
         resetAndLoad(state.value.ordering)
     }
 
@@ -93,12 +93,12 @@ internal abstract class ShelfCollectionController(
         generation += 1
         val current = state.value
         mutableState.value =
-            ShelfCollectionState(
+            current.copy(
                 ordering = ordering,
-                pageSize = current.pageSize,
-                shelves = current.shelves,
-                totalCount = current.totalCount,
-                initialLoading = true
+                initialLoading = !current.hasLoaded,
+                refreshing = current.hasLoaded,
+                nextPageLoading = false,
+                error = null
             )
         launchPage(1, ShelvesLoadPhase.INITIAL, generation)
     }
@@ -120,7 +120,8 @@ internal abstract class ShelfCollectionController(
             )
         mutableState.value =
             current.copy(
-                initialLoading = phase == ShelvesLoadPhase.INITIAL,
+                initialLoading = phase == ShelvesLoadPhase.INITIAL && !current.hasLoaded,
+                refreshing = phase == ShelvesLoadPhase.INITIAL && current.hasLoaded,
                 nextPageLoading = phase == ShelvesLoadPhase.NEXT_PAGE,
                 error = null
             )
@@ -148,7 +149,9 @@ internal abstract class ShelfCollectionController(
             current.copy(
                 shelves = shelves,
                 totalCount = page.totalCount,
+                hasLoaded = true,
                 initialLoading = false,
+                refreshing = false,
                 nextPageLoading = false,
                 error = null,
                 hasNext = page.hasNextPage,
@@ -161,6 +164,7 @@ internal abstract class ShelfCollectionController(
         mutableState.value =
             state.value.copy(
                 initialLoading = false,
+                refreshing = false,
                 nextPageLoading = false,
                 error = ShelvesLoadError(classified, phase)
             )

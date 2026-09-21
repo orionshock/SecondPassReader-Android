@@ -185,8 +185,8 @@ internal class ShelvesController(
             edit.reset()
             delete.reset()
         }
-        navigation.value = ShelvesNavigationState(ShelvesDestination.Collection(collection))
         collection.controller().activate()
+        navigation.value = ShelvesNavigationState(ShelvesDestination.Collection(collection))
     }
 
     private fun selectShelf(shelfId: String) {

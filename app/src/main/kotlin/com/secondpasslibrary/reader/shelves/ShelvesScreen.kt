@@ -10,7 +10,9 @@ import androidx.compose.ui.Modifier
 import com.secondpasslibrary.client.ShelfItemMove
 import com.secondpasslibrary.reader.design.components.AppBarPresentation
 import com.secondpasslibrary.reader.design.components.ContextualAppBar
+import com.secondpasslibrary.reader.shelves.collection.ShelfCollectionScrollStates
 import com.secondpasslibrary.reader.shelves.collection.ShelvesRoot
+import com.secondpasslibrary.reader.shelves.collection.rememberShelfCollectionScrollStates
 import com.secondpasslibrary.reader.shelves.detail.ShelfDetailContent
 import com.secondpasslibrary.reader.shelves.editor.RemoveShelfItemDialog
 import com.secondpasslibrary.reader.shelves.editor.ShelfContentsEditorContent
@@ -30,6 +32,7 @@ internal fun ShelvesScreen(
     onBookSelected: (ShelfBookNavigationRequest) -> Unit,
     onExitInitialDetail: (() -> Unit)? = null
 ) {
+    val collectionScrollStates = rememberShelfCollectionScrollStates()
     val detail = state.destination as? ShelvesDestination.Detail
     val editor = state.destination as? ShelvesDestination.ContentsEditor
     val back = when {
@@ -45,6 +48,7 @@ internal fun ShelvesScreen(
             onIntent,
             serverMutationsAvailable,
             onBookSelected,
+            collectionScrollStates,
             modifier
         )
     }
@@ -57,6 +61,7 @@ private fun ShelvesDestinationContent(
     onIntent: (ShelvesIntent) -> Unit,
     serverMutationsAvailable: Boolean,
     onBookSelected: (ShelfBookNavigationRequest) -> Unit,
+    collectionScrollStates: ShelfCollectionScrollStates,
     modifier: Modifier
 ) {
     when (val destination = state.destination) {
@@ -74,7 +79,13 @@ private fun ShelvesDestinationContent(
             )
 
         is ShelvesDestination.Collection ->
-            ShelfCollectionDestination(state, onIntent, serverMutationsAvailable, modifier)
+            ShelfCollectionDestination(
+                state,
+                onIntent,
+                serverMutationsAvailable,
+                collectionScrollStates,
+                modifier
+            )
     }
 }
 
@@ -126,6 +137,7 @@ private fun ShelfCollectionDestination(
     state: ShelvesState,
     onIntent: (ShelvesIntent) -> Unit,
     serverMutationsAvailable: Boolean,
+    scrollStates: ShelfCollectionScrollStates,
     modifier: Modifier
 ) = ShelvesRoot(
     state = state,
@@ -146,6 +158,7 @@ private fun ShelfCollectionDestination(
     onShelfSelected = { onIntent(ShelvesIntent.SelectShelf(it)) },
     onCreateShelf = { onIntent(ShelvesIntent.OpenCreate) },
     createShelfAvailable = serverMutationsAvailable,
+    scrollStates = scrollStates,
     modifier = modifier
 )
 

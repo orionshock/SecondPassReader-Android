@@ -1,5 +1,7 @@
 package com.secondpasslibrary.reader.shelves
 
+import com.secondpasslibrary.client.ShelfScope
+import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.shelves.management.CreatePersonalShelfState
 import com.secondpasslibrary.reader.shelves.management.ShelfManagementFailure
 import com.secondpasslibrary.reader.shelves.management.canManageShelf
@@ -115,14 +117,41 @@ class ShelvesControllerTest {
         advanceUntilIdle()
         controller.accept(ShelvesIntent.ShowCollection(ShelvesCollection.GROUP))
         advanceUntilIdle()
+        controller.accept(ShelvesIntent.ShowCollection(ShelvesCollection.PERSONAL))
+        controller.accept(ShelvesIntent.ShowCollection(ShelvesCollection.SHARED))
+        advanceUntilIdle()
 
         assertEquals(listOf("PERSONAL"), controller.state.value.personal.shelves.map { it.id })
         assertEquals(listOf("SHARED"), controller.state.value.shared.shelves.map { it.id })
         assertEquals(listOf("GROUP"), controller.state.value.group.shelves.map { it.id })
         assertEquals(
-            ShelvesDestination.Collection(ShelvesCollection.GROUP),
+            ShelvesDestination.Collection(ShelvesCollection.SHARED),
             controller.state.value.destination
         )
+        assertEquals(3, capability.listRequests.size)
+    }
+
+    @Test
+    fun `Shared failure does not clear Personal or Group`() = runTest {
+        val capability = RecordingShelvesCapability().apply {
+            listCall = { options ->
+                if (options.scope == ShelfScope.SHARED) {
+                    throw SplClientException.ServerUnreachable()
+                }
+                shelfPage(options.page, listOf(shelf(options.scope.name)))
+            }
+        }
+        val controller = controller(capability, this)
+        controller.initialize(shelvesProfile())
+        advanceUntilIdle()
+        controller.accept(ShelvesIntent.ShowCollection(ShelvesCollection.SHARED))
+        advanceUntilIdle()
+        controller.accept(ShelvesIntent.ShowCollection(ShelvesCollection.GROUP))
+        advanceUntilIdle()
+
+        assertEquals(listOf("PERSONAL"), controller.state.value.personal.shelves.map { it.id })
+        assertEquals(ShelvesFailure.UNREACHABLE, controller.state.value.shared.error?.failure)
+        assertEquals(listOf("GROUP"), controller.state.value.group.shelves.map { it.id })
     }
 
     @Test
