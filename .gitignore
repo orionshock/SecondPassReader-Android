@@ -19,5 +19,5 @@ Thumbs.db
 gitlog.txt
 /debug.log
 node_modules/
-artifacts/*
+artifacts/
 test-results/
