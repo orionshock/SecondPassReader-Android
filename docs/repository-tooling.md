@@ -41,11 +41,20 @@ The release APK includes `app/src/main/assets/licenses/open_source_licenses.txt`
 
 ## Gitea signed build
 
-Manually dispatch `.github/workflows/android-release-build.yml` in Gitea Actions. The job uses the `ubuntu-latest` runner label, sets up JDK 25, Node 24, Android SDK platform `android-37.0`, and build-tools `37.0.0`, then runs the same CFI, Gradle, signature, and artifact checks as the local helper. It caches only downloaded Gradle dependencies and the wrapper distribution. The runner needs network access to fetch build dependencies and setup actions.
+Manually dispatch `.github/workflows/android-release-build.yml` in Gitea Actions for a release-candidate build. It runs the full gate, signs and verifies the APK, and retains workflow artifacts without creating a Gitea Release. The job uses the `ubuntu-latest` runner label, JDK 25, Node 24, Android SDK platform `android-37.0`, and build-tools `37.0.0`. It caches only downloaded Gradle dependencies and the wrapper distribution. The runner needs network access to fetch build dependencies and setup actions.
 
-Configure these Gitea repository secrets: `ANDROID_RELEASE_KEYSTORE_B64`, `SECOND_PASS_RELEASE_STORE_PASSWORD`, `SECOND_PASS_RELEASE_KEY_ALIAS`, and `SECOND_PASS_RELEASE_KEY_PASSWORD`. The base64 secret contains the existing permanent PKCS12 keystore. The job decodes it to a private temporary file outside the repository, passes that path as `SECOND_PASS_RELEASE_STORE_FILE`, and removes the file after packaging. Do not create a `SECOND_PASS_RELEASE_STORE_FILE` repository secret. Only the versioned APK and SHA-256 file are uploaded as workflow artifacts; no Gitea Release is created.
+Configure these Gitea repository secrets: `ANDROID_RELEASE_KEYSTORE_B64`, `SECOND_PASS_RELEASE_STORE_PASSWORD`, `SECOND_PASS_RELEASE_KEY_ALIAS`, and `SECOND_PASS_RELEASE_KEY_PASSWORD`. The base64 secret contains the existing permanent PKCS12 keystore. The job decodes it to a private temporary file outside the repository, passes that path as `SECOND_PASS_RELEASE_STORE_FILE`, and removes the file after packaging. Do not create a `SECOND_PASS_RELEASE_STORE_FILE` repository secret. Release publication uses Gitea's built-in job token with code read and releases write permission; no additional API token is configured.
 
 Both paths reject an APK unless `apksigner` verifies it and the signer SHA-256 certificate fingerprint equals `56:E8:DE:B6:C1:C9:F2:3E:00:71:F9:91:7C:21:D0:C8:8E:28:EC:D0:AA:CF:6C:FF:8A:97:B5:C3:7D:B1:58:A8`. The packaging check reads the application ID, version code, and version name from the built APK and uses the version name for artifact naming.
+
+To publish an alpha, first set the intended `versionName` and `versionCode` in `app/build.gradle.kts` (increase the code for each later APK), run the local helper or a manual workflow build, and commit/push the release-ready changes. Then create and push a tag matching the APK versionName exactly:
+
+```powershell
+git tag v<versionName>
+git push origin v<versionName>
+```
+
+The tag-triggered workflow builds and verifies the same signed APK, rejects a tag/versionName mismatch, retains the two workflow artifacts, and publishes a Gitea prerelease titled `Second Pass Reader <versionName>` with the APK and its `.apk.sha256` file attached. Release notes contain the APK version/code, minimum Android API level, install/update guidance, checksum filename, and SPL server requirement. A run for a tag with an existing release fails instead of replacing it. Do not move or reuse a published release tag for a different APK.
 
 Use focused JVM tests while developing:
 

@@ -44,8 +44,9 @@ const badging = toolOutput('aapt2', ['dump', 'badging', apk]);
 const identity = badging.match(/^package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'/m);
 if (!identity) fail('Could not read package identity from APK.');
 const [, packageId, versionCode, versionName] = identity;
+const minSdk = badging.match(/^minSdkVersion:'(\d+)'\s*$/m)?.[1];
 if (packageId !== expectedPackage) fail(`Unexpected application ID: ${packageId}`);
-if (!/^\d+$/.test(versionCode) || !/^[0-9A-Za-z][0-9A-Za-z.+-]*$/.test(versionName)) {
+if (!/^\d+$/.test(versionCode) || !minSdk || !/^[0-9A-Za-z][0-9A-Za-z.+-]*$/.test(versionName)) {
   fail('APK version is invalid for release artifact naming.');
 }
 
@@ -64,8 +65,13 @@ writeFileSync(`${artifact}.sha256`, `${checksum}  ${artifactName}\n`);
 console.log(`APK verified: ${packageId} ${versionName} (${versionCode})`);
 console.log(`Release signer SHA-256: ${fingerprint}`);
 console.log(`APK size: ${statSync(artifact).size} bytes`);
+console.log(`APK SHA-256: ${checksum}`);
 console.log(`Artifacts: ${artifactName}, ${artifactName}.sha256`);
 
 if (process.env.GITHUB_OUTPUT) {
-  writeFileSync(process.env.GITHUB_OUTPUT, `version_name=${versionName}\n`, { flag: 'a' });
+  writeFileSync(
+    process.env.GITHUB_OUTPUT,
+    `version_name=${versionName}\nversion_code=${versionCode}\nmin_sdk=${minSdk}\napk_sha256=${checksum}\n`,
+    { flag: 'a' },
+  );
 }
