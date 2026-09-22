@@ -159,12 +159,12 @@ val buildLogicTest =
         group = LifecycleBasePlugin.VERIFICATION_GROUP
         description = "Runs deterministic tests for repository build logic."
         workingDir(rootDir)
-        commandLine(
-            rootDir.resolve("gradlew.bat").absolutePath,
-            "-p",
-            rootDir.resolve("buildSrc").absolutePath,
-            "test"
-        )
+        val buildSrcPath = rootDir.resolve("buildSrc").absolutePath
+        if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) {
+            commandLine(rootDir.resolve("gradlew.bat").absolutePath, "-p", buildSrcPath, "test")
+        } else {
+            commandLine("bash", rootDir.resolve("gradlew").absolutePath, "-p", buildSrcPath, "test")
+        }
     }
 
 project(":app") {
