@@ -35,7 +35,17 @@ Store the keystore securely outside the repository. Configure these names as env
 
 Build with `.\gradlew.bat :app:assembleRelease`. Missing signing settings fail the release build. The APK uses AGP's standard `app-release.apk` name under `app/build/outputs/apk/release/`. Preserve the keystore and passwords: future APK upgrades for this application ID require the same signing key.
 
+For a distribution-ready local artifact, run `powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\release\build-release.ps1` from the repository root. It runs the CFI Node check and Gradle `check assembleRelease`, verifies the APK against the permanent release certificate, and writes `build/release-artifacts/SecondPassReader-<versionName>.apk` plus its `.apk.sha256` file. It reads the same user-local Gradle signing properties; no base64 step is needed locally. The permanent release key currently uses alias `secondpass-reader-release`, which differs from the example key-generation command above.
+
 The release APK includes `app/src/main/assets/licenses/open_source_licenses.txt`, exposed from the main About destination. It covers the resolved runtime families and bundled assets, including Readium Toolkit/CSS BSD 3-Clause, Colibrio/jsoup/SLF4J MIT, the Readium font terms, Material Symbols and other Apache 2.0 dependencies, Jakarta's notice, and the desugared JDK library GPL 2 with Classpath exception on designated files. Recheck the notice inventory when release dependencies or bundled reader assets change.
+
+## Gitea signed build
+
+Manually dispatch `.github/workflows/android-release-build.yml` in Gitea Actions. The job uses the `ubuntu-latest` runner label, sets up JDK 25, Node 24, and Android SDK platform/build-tools 37, then runs the same CFI, Gradle, signature, and artifact checks as the local helper. The runner needs network access to fetch build dependencies and setup actions. Runner execution should be checked after this workflow is pushed.
+
+Configure these Gitea repository secrets: `ANDROID_RELEASE_KEYSTORE_B64`, `SECOND_PASS_RELEASE_STORE_PASSWORD`, `SECOND_PASS_RELEASE_KEY_ALIAS`, and `SECOND_PASS_RELEASE_KEY_PASSWORD`. The base64 secret contains the existing permanent PKCS12 keystore. The job decodes it to a private temporary file outside the repository, passes that path as `SECOND_PASS_RELEASE_STORE_FILE`, and removes the file after packaging. Do not create a `SECOND_PASS_RELEASE_STORE_FILE` repository secret. Only the versioned APK and SHA-256 file are uploaded as workflow artifacts; no Gitea Release is created.
+
+Both paths reject an APK unless `apksigner` verifies it and the signer SHA-256 certificate fingerprint equals `56:E8:DE:B6:C1:C9:F2:3E:00:71:F9:91:7C:21:D0:C8:8E:28:EC:D0:AA:CF:6C:FF:8A:97:B5:C3:7D:B1:58:A8`. The packaging check reads the application ID, version code, and version name from the built APK and uses the version name for artifact naming.
 
 Use focused JVM tests while developing:
 

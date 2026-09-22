@@ -1,0 +1,53 @@
+name: Android signed release build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: android-actions/setup-android@v3.2.1
+        with:
+          packages: 'platform-tools platforms;android-37 build-tools;37.0.0'
+          log-accepted-android-sdk-licenses: 'false'
+      - name: Check CFI runtime
+        run: |
+          npm ci --prefix tools/reader-cfi-runtime
+          npm run check --prefix tools/reader-cfi-runtime
+      - name: Build, verify, and package signed APK
+        id: package
+        shell: bash
+        env:
+          ANDROID_RELEASE_KEYSTORE_B64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_B64 }}
+          SECOND_PASS_RELEASE_STORE_PASSWORD: ${{ secrets.SECOND_PASS_RELEASE_STORE_PASSWORD }}
+          SECOND_PASS_RELEASE_KEY_ALIAS: ${{ secrets.SECOND_PASS_RELEASE_KEY_ALIAS }}
+          SECOND_PASS_RELEASE_KEY_PASSWORD: ${{ secrets.SECOND_PASS_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -eu
+          umask 077
+          key_dir="$(mktemp -d)"
+          trap 'rm -rf "$key_dir"' EXIT
+          export SECOND_PASS_RELEASE_STORE_FILE="$key_dir/SecondPassReader-release.p12"
+          test -n "$ANDROID_RELEASE_KEYSTORE_B64" || { echo 'Release keystore secret is missing.' >&2; exit 1; }
+          printf '%s' "$ANDROID_RELEASE_KEYSTORE_B64" | base64 --decode > "$SECOND_PASS_RELEASE_STORE_FILE"
+          unset ANDROID_RELEASE_KEYSTORE_B64
+          test -s "$SECOND_PASS_RELEASE_STORE_FILE" || { echo 'Decoded release keystore is empty.' >&2; exit 1; }
+          ./gradlew check assembleRelease
+          node tools/release/package-release.mjs
+      - name: Upload release build artifacts
+        uses: https://github.com/christopherhx/gitea-upload-artifact@v4
+        with:
+          name: second-pass-reader-${{ steps.package.outputs.version_name }}
+          path: |
+            build/release-artifacts/*.apk
+            build/release-artifacts/*.apk.sha256
+          if-no-files-found: error
