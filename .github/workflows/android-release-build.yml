@@ -41,7 +41,7 @@ jobs:
           printf '%s' "$ANDROID_RELEASE_KEYSTORE_B64" | base64 --decode > "$SECOND_PASS_RELEASE_STORE_FILE"
           unset ANDROID_RELEASE_KEYSTORE_B64
           test -s "$SECOND_PASS_RELEASE_STORE_FILE" || { echo 'Decoded release keystore is empty.' >&2; exit 1; }
-          ./gradlew check assembleRelease
+          bash ./gradlew check assembleRelease
           node tools/release/package-release.mjs
       - name: Upload release build artifacts
         uses: https://github.com/christopherhx/gitea-upload-artifact@v4
