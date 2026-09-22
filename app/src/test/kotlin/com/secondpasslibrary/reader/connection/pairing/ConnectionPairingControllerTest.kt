@@ -29,6 +29,15 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class ConnectionPairingControllerTest {
     @Test
+    fun `pairing sends versioned client family without device identity`() = runTest {
+        val fixture = Fixture(backgroundScope)
+        fixture.start()
+        runCurrent()
+        assertEquals("SPR-Android-0.1.0-alpha.1", fixture.client.sentClientType)
+        fixture.controller.cancel()
+    }
+
+    @Test
     fun `presentation contains approval data but no protocol handle or transport coordinates`() =
         runTest {
             val fixture = Fixture(backgroundScope)
@@ -249,6 +258,7 @@ class ConnectionPairingControllerTest {
                 delay(seconds * 1_000)
             },
             scope,
+            "SPR-Android-0.1.0-alpha.1",
             states::add,
             { _, credential -> issued += credential }
         )
@@ -257,6 +267,7 @@ class ConnectionPairingControllerTest {
 }
 
 private class FakePairingClient : SecondPassClient {
+    var sentClientType: String? = null
     var request = PairingRequest(
         "ABCD-EFGH",
         "https://library.example/approve",
@@ -284,6 +295,7 @@ private class FakePairingClient : SecondPassClient {
         clientName: String,
         clientType: String
     ): PairingRequest {
+        sentClientType = clientType
         val created = request
         createGate()
         return created

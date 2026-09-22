@@ -226,6 +226,17 @@ class AppNavigatorTest {
     }
 
     @Test
+    fun `About root Back returns Home then leaves Android exit to shell`() {
+        val navigation = appNavigationStateForTest()
+        val navigator = AppNavigator(navigation)
+        navigator.select(AppDestination.About)
+        assertEquals(AppDestination.About, navigation.currentRoute)
+        assertTrue(navigator.goBack())
+        assertEquals(AppDestination.Home, navigation.currentRoute)
+        assertFalse(navigator.goBack())
+    }
+
+    @Test
     fun `Manage Shelves starts Shelves root without clearing origin stack`() {
         val navigation = appNavigationStateForTest(AppDestination.Library)
         val source = BookDetailRoute("book-1", BookDetailReturnTarget.Library)

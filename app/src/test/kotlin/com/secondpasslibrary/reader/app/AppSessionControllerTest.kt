@@ -330,7 +330,7 @@ class AppSessionControllerTest {
                 ConnectionUiState.Linked(
                     account.profile,
                     context,
-                    ServerReachability.UNREACHABLE
+                    reachability = ServerReachability.UNREACHABLE
                 ),
                 account.localContext()
             )
@@ -404,6 +404,23 @@ class AppSessionControllerTest {
 
         val shell = controller.state.value as AppSessionState.AccountShell
         assertSame(verifiedContext, shell.authenticatedFeatureContext)
+    }
+
+    @Test
+    fun `verified shell reports the selected Library route`() = runTest {
+        val account = projectionAccount()
+        val controller = controller(FakeHomeProjectionStore())
+        controller.updateConnection(
+            ConnectionUiState.Linked(
+                account.profile,
+                authenticatedContext(account.profileId),
+                activeLibraryBaseUrl = "https://alternate.example"
+            ),
+            null
+        )
+
+        val shell = controller.state.value as AppSessionState.AccountShell
+        assertEquals("https://alternate.example", shell.activeLibraryBaseUrl)
     }
 
     @Test

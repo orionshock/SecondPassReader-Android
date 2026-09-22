@@ -10,7 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.rememberNavBackStack
 
-/** Owns the five account-scoped stacks independently of connection authority. */
+/** Owns the account-scoped stacks independently of connection authority. */
 internal class AppNavigationState(
     private val backStacks: Map<AppDestination, MutableList<AppRoute>>,
     initialDestination: AppDestination = AppDestination.Home,
@@ -68,8 +68,9 @@ internal fun rememberAppNavigationState(): AppNavigationState {
     val shelves = rememberNavBackStack(AppDestination.Shelves)
     val marginalia = rememberNavBackStack(AppDestination.Marginalia)
     val settings = rememberNavBackStack(AppDestination.Settings)
+    val about = rememberNavBackStack(AppDestination.About)
     var selected by rememberSaveable { mutableStateOf(AppDestination.Home) }
-    return remember(home, library, shelves, marginalia, settings) {
+    return remember(home, library, shelves, marginalia, settings, about) {
         AppNavigationState(
             backStacks =
                 mapOf(
@@ -77,7 +78,8 @@ internal fun rememberAppNavigationState(): AppNavigationState {
                     AppDestination.Library to AppRouteBackStack(library),
                     AppDestination.Shelves to AppRouteBackStack(shelves),
                     AppDestination.Marginalia to AppRouteBackStack(marginalia),
-                    AppDestination.Settings to AppRouteBackStack(settings)
+                    AppDestination.Settings to AppRouteBackStack(settings),
+                    AppDestination.About to AppRouteBackStack(about)
                 ),
             initialDestination = selected,
             onDestinationSelected = { selected = it }

@@ -5,7 +5,6 @@ import com.secondpasslibrary.client.PairingConsumption
 import com.secondpasslibrary.client.PairingRequest
 import com.secondpasslibrary.client.PairingStatus
 import com.secondpasslibrary.client.SecondPassClient
-import com.secondpasslibrary.client.SplClient
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.connection.ConnectionErrorPresenter
 import com.secondpasslibrary.reader.connection.ConnectionUiState
@@ -25,6 +24,7 @@ internal class ConnectionPairingController(
     private val client: SecondPassClient,
     private val pollDelay: PairingPollDelay,
     private val scope: CoroutineScope,
+    private val clientType: String,
     private val onState: (ConnectionUiState) -> Unit,
     private val onCredentialIssued: (DiscoveredServer, PairingConsumption.CredentialIssued) -> Unit
 ) {
@@ -38,7 +38,7 @@ internal class ConnectionPairingController(
             onState(ConnectionUiState.StartingPairing(server, clientName))
             currentCoroutineContext().ensureActive()
             val request = try {
-                client.beginPairing(server, clientName, SplClient.ANDROID_CLIENT_TYPE)
+                client.beginPairing(server, clientName, clientType)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {

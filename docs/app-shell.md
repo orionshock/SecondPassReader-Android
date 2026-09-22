@@ -122,6 +122,6 @@ Readium stays behind the app-owned Reader engine contracts. The Reader domain ex
 
 Repair for the same verified identity preserves this footprint. Logout, Forget, and verified replacement with a different account route through the same purge operation; device-global preferences remain. The app does not retain dormant per-account caches.
 
-## Settings About follow-up
+## About and release identity
 
-The focused About page can read app version name, version code, and package ID from Android `PackageManager`; connected Library version and `serverId` already belong to Connection's verified context. A repository or support URL needs an explicit distribution decision before it is shown. Open source notices should be generated from the shipped dependency and asset inventory, with the existing Colibrio, jsoup, Readium, Material Symbols, and font notices accounted for. Do not infer app build identity from the server version.
+About is an account-shell destination with the same root Back rule as the other destinations: Back returns to Home. It reads installed app version, code, and package ID from Android `PackageManager`, device model and Android release from the platform, and Library name/version/ID/active URL from Connection only while the account is verified. Copy app info omits credentials and profile/session IDs. Settings retains account and connection controls; technical build and server identity belong in About. The app's pairing `client_type` is `SPR-Android-{installed versionName}` while the user-facing device name remains separately editable.

@@ -4,11 +4,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.secondpasslibrary.client.AuthenticatedContext
+import com.secondpasslibrary.reader.about.AboutScreen
+import com.secondpasslibrary.reader.about.aboutInfo
 import com.secondpasslibrary.reader.app.AppAvailability
+import com.secondpasslibrary.reader.app.AppIdentity
 import com.secondpasslibrary.reader.app.AppSessionAuthority
 import com.secondpasslibrary.reader.app.AppSessionState
 import com.secondpasslibrary.reader.app.authenticatedFeatureContext
@@ -165,6 +169,21 @@ private fun EntryProviderScope<AppRoute>.registerAuthenticatedTopLevelEntries(
             onBookDetails = {
                 current.navigator.openBookDetail(it, BookDetailReturnTarget.Settings)
             }
+        )
+    }
+    entry(key = AppDestination.About) {
+        val current = environment.value
+        AboutScreen(
+            aboutInfo(
+                AppIdentity(LocalContext.current.applicationContext),
+                current.session.profile.takeIf {
+                    current.session.authority is AppSessionAuthority.Verified
+                },
+                current.session.authenticatedFeatureContext.takeIf {
+                    current.session.authority is AppSessionAuthority.Verified
+                },
+                current.session.activeLibraryBaseUrl
+            )
         )
     }
 }

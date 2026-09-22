@@ -44,7 +44,6 @@ internal fun LinkedSettings(
     val account = AccountLocalScope.from(profile.serverId, profileId)
     val downloads by downloadsViewModel.state.collectAsStateWithLifecycle()
     var selected by rememberSaveable { mutableStateOf(SettingsSection.LIBRARY_ACCOUNT) }
-    var technicalDetailsExpanded by rememberSaveable { mutableStateOf(false) }
     var confirmation by rememberSaveable { mutableStateOf<SettingsConfirmation?>(null) }
     LaunchedEffect(account) { downloadsViewModel.initialize(account) }
     RefreshDownloadsOnResume(selected, downloadsViewModel)
@@ -86,12 +85,6 @@ internal fun LinkedSettings(
                     )
                 },
                 onBookDetails = onBookDetails
-            )
-
-            SettingsSection.ADVANCED -> AdvancedSettingsSection(
-                presentation.technicalDetails,
-                technicalDetailsExpanded,
-                onToggle = { technicalDetailsExpanded = !technicalDetailsExpanded }
             )
         }
     }

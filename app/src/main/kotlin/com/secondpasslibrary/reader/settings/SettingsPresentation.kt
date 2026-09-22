@@ -18,8 +18,6 @@ internal data class SettingsUserPresentation(
     val email: String?
 )
 
-internal data class SettingsTechnicalDetail(val label: String, val value: String)
-
 internal data class SettingsLibraryGroupPresentation(val name: String, val description: String?)
 
 internal data class SettingsPresentation(
@@ -30,8 +28,7 @@ internal data class SettingsPresentation(
     val clientName: String,
     val serverDescription: String?,
     val serverBannerMessage: String?,
-    val publicGroup: SettingsLibraryGroupPresentation?,
-    val technicalDetails: List<SettingsTechnicalDetail>
+    val publicGroup: SettingsLibraryGroupPresentation?
 )
 
 internal data class SettingsActionAvailability(
@@ -74,8 +71,7 @@ internal fun settingsPresentation(
             name = it.name,
             description = it.description.takeIf(String::isNotBlank)
         )
-    },
-    technicalDetails = technicalDetails(profile, context)
+    }
 )
 
 private fun AuthenticatedContext.toUserPresentation() = SettingsUserPresentation(
@@ -84,25 +80,6 @@ private fun AuthenticatedContext.toUserPresentation() = SettingsUserPresentation
     role = currentUser.role.replaceFirstChar(Char::titlecase),
     email = currentUser.email.takeIf(String::isNotBlank)
 )
-
-private fun technicalDetails(
-    profile: ConnectionProfile,
-    context: AuthenticatedContext?
-): List<SettingsTechnicalDetail> = buildList {
-    add(SettingsTechnicalDetail("Server origin", profile.serverOrigin))
-    val version = context?.serverInfo?.version?.ifBlank { null } ?: profile.serverVersion
-    version.takeIf(String::isNotBlank)?.let {
-        add(SettingsTechnicalDetail("Server version", it))
-    }
-    add(SettingsTechnicalDetail("Client type", profile.clientType))
-    add(SettingsTechnicalDetail("Client session ID", profile.clientSessionId))
-    context?.currentUser?.profileId?.takeIf(String::isNotBlank)?.let {
-        add(SettingsTechnicalDetail("Profile ID", it))
-    }
-    context?.serverInfo?.advancedLibraryGroupsEnabled?.let {
-        add(SettingsTechnicalDetail("Advanced groups", if (it) "Enabled" else "Disabled"))
-    }
-}
 
 private fun serverHostLabel(origin: String): String = runCatching {
     val uri = URI(origin)

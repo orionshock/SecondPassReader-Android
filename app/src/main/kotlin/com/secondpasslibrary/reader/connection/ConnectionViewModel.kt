@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.secondpasslibrary.client.ClientSessionRevocationClient
 import com.secondpasslibrary.client.KtorSecondPassClient
 import com.secondpasslibrary.client.SecondPassClient
+import com.secondpasslibrary.reader.app.AppIdentity
 import com.secondpasslibrary.reader.app.storage.AccountLocalDataLifecycle
 import com.secondpasslibrary.reader.connection.discovery.ConnectionLanDiscoveryController
 import com.secondpasslibrary.reader.connection.discovery.LanLibraryUrlDiscovery
@@ -31,6 +32,7 @@ internal constructor(
     accountLocalDataLifecycle: AccountLocalDataLifecycle,
     pollDelay: CoroutinePairingPollDelay,
     clientNameProvider: AndroidClientNameProvider,
+    appIdentity: AppIdentity,
     lanLibraryUrlDiscovery: LanLibraryUrlDiscovery,
     transport: KtorSecondPassClient,
     networkChanges: AndroidNetworkChangeAdapter
@@ -44,6 +46,7 @@ internal constructor(
             accountLocalDataLifecycle = accountLocalDataLifecycle,
             pollDelay = pollDelay,
             defaultClientName = clientNameProvider.defaultName(),
+            pairingClientType = appIdentity.pairingClientType,
             scope = viewModelScope
         )
     private val lanDiscovery =

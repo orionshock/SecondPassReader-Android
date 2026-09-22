@@ -77,6 +77,7 @@ internal abstract class ConnectionCoordinatorTestSupport {
         workOfflineStore = workOfflineStore,
         pollDelay = PairingPollDelay {},
         defaultClientName = "Second Pass Reader · Android",
+        pairingClientType = "SPR-Android-0.1.0-alpha.1",
         scope = this,
         connectionTarget = target
     )

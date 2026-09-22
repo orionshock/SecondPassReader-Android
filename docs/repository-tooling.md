@@ -35,7 +35,7 @@ Store the keystore securely outside the repository. Configure these names as env
 
 Build with `.\gradlew.bat :app:assembleRelease`. Missing signing settings fail the release build. The APK uses AGP's standard `app-release.apk` name under `app/build/outputs/apk/release/`. Preserve the keystore and passwords: future APK upgrades for this application ID require the same signing key.
 
-Before distributing an APK, finish the open source notice inventory for its resolved release dependencies. The shipped CFI bundle already carries its Colibrio MIT license; the APK also contains jsoup's MIT license and Readium font licenses. The repository records Material Symbols under Apache 2.0, while the resolved Readium toolkit declares BSD 3-Clause and AndroidX, Ktor, and Coil declare Apache 2.0. These declarations and the APK's embedded files do not yet form a complete user-facing notice set. Include the applicable license and copyright texts with the distributed artifact; the Settings About page can later expose the same notices in-app.
+The release APK includes `app/src/main/assets/licenses/open_source_licenses.txt`, exposed from the main About destination. It covers the resolved runtime families and bundled assets, including Readium Toolkit/CSS BSD 3-Clause, Colibrio/jsoup/SLF4J MIT, the Readium font terms, Material Symbols and other Apache 2.0 dependencies, Jakarta's notice, and the desugared JDK library GPL 2 with Classpath exception on designated files. Recheck the notice inventory when release dependencies or bundled reader assets change.
 
 Use focused JVM tests while developing:
 

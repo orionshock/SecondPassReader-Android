@@ -13,7 +13,8 @@ enum class AppDestination(val label: String, val icon: AppIcon) : AppRoute {
     Library("Library", AppIcon.Library),
     Shelves("Shelves", AppIcon.Shelf),
     Marginalia("Marginalia", AppIcon.ReadingHistory),
-    Settings("Settings", AppIcon.Settings)
+    Settings("Settings", AppIcon.Settings),
+    About("About", AppIcon.Help)
 }
 
 @Serializable

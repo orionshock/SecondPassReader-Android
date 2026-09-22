@@ -13,6 +13,7 @@ internal sealed interface AppSessionState {
         val profile: ConnectionProfile,
         val profileId: String,
         val authority: AppSessionAuthority,
+        val activeLibraryBaseUrl: String? = null,
         val availability: AppAvailability = authority.toAvailability(),
         val retainedContext: AuthenticatedContext? = null
     ) : AppSessionState

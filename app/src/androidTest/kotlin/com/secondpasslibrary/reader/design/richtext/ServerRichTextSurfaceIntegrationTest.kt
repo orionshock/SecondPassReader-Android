@@ -125,7 +125,6 @@ class ServerRichTextSurfaceIntegrationTest {
             SettingsLibraryGroupPresentation(
                 "Common Room",
                 "<ul><li>Shared books</li><li>Shared notes</li></ul>"
-            ),
-        technicalDetails = emptyList()
+            )
     )
 }

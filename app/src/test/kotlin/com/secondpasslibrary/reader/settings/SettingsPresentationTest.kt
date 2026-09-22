@@ -26,20 +26,6 @@ class SettingsPresentationTest {
     }
 
     @Test
-    fun `technical details contain support identifiers but no credential`() {
-        val details =
-            settingsPresentation(profile(), context(), SettingsConnectionStatus.CONNECTED)
-                .technicalDetails
-                .associate { it.label to it.value }
-
-        assertEquals("profile-1", details["Profile ID"])
-        assertEquals("session-1", details["Client session ID"])
-        assertEquals("reader", details["Client type"])
-        assertFalse(details.keys.any { it.contains("token", ignoreCase = true) })
-        assertFalse(details.values.any { it.contains("spl_secret") })
-    }
-
-    @Test
     fun `server descriptive markup remains unchanged for presentation`() {
         val presentation =
             settingsPresentation(profile(), context(), SettingsConnectionStatus.CONNECTED)
@@ -60,7 +46,6 @@ class SettingsPresentationTest {
             )
 
         assertNull(presentation.user)
-        assertFalse(presentation.technicalDetails.any { it.label == "Profile ID" })
     }
 
     @Test

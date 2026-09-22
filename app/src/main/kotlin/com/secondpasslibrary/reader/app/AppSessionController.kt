@@ -90,6 +90,7 @@ internal class AppSessionController(
                 profile = linked.profile,
                 profileId = linked.context.currentUser.profileId,
                 authority = AppSessionAuthority.Verified(linked.context),
+                activeLibraryBaseUrl = linked.activeLibraryBaseUrl,
                 availability = if (linked.reachability == ServerReachability.REACHABLE) {
                     AppAvailability.Online
                 } else {

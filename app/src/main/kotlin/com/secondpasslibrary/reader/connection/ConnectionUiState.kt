@@ -56,6 +56,7 @@ sealed interface ConnectionUiState {
     data class Linked(
         val profile: ConnectionProfile,
         val context: AuthenticatedContext,
+        val activeLibraryBaseUrl: String = profile.libraryBaseUrl,
         val reachability: ServerReachability = ServerReachability.REACHABLE
     ) : ConnectionUiState
 

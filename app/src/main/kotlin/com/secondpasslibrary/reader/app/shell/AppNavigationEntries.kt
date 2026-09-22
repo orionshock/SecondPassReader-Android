@@ -17,12 +17,14 @@ internal fun retainedActiveEntries(
     val shelves = retainedEntries(navigation.backStack(AppDestination.Shelves), entryProvider)
     val marginalia = retainedEntries(navigation.backStack(AppDestination.Marginalia), entryProvider)
     val settings = retainedEntries(navigation.backStack(AppDestination.Settings), entryProvider)
+    val about = retainedEntries(navigation.backStack(AppDestination.About), entryProvider)
     return when (navigation.selectedDestination) {
         AppDestination.Home -> home
         AppDestination.Library -> library
         AppDestination.Shelves -> shelves
         AppDestination.Marginalia -> marginalia
         AppDestination.Settings -> settings
+        AppDestination.About -> about
     }
 }
 

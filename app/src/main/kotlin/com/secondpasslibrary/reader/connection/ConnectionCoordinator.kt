@@ -28,6 +28,7 @@ internal class ConnectionCoordinator(
     private val workOfflineStore: WorkOfflineStore,
     pollDelay: PairingPollDelay,
     private val defaultClientName: String,
+    private val pairingClientType: String,
     private val scope: CoroutineScope,
     private val connectionTarget: AuthenticatedConnectionTarget =
         client.asAuthenticatedConnectionTarget()
@@ -49,6 +50,7 @@ internal class ConnectionCoordinator(
         client,
         pollDelay,
         scope,
+        pairingClientType,
         onState = { mutableState.value = it },
         onCredentialIssued = { server, issued ->
             replaceOperation { persistPairing(server, issued) }
@@ -354,7 +356,11 @@ internal class ConnectionCoordinator(
                     mutableLocalAccountContext.value =
                         LocalAccountContext(profile, persistedAccount)
                 }
-            mutableState.value = ConnectionUiState.Linked(profile, context)
+            mutableState.value = ConnectionUiState.Linked(
+                profile,
+                context,
+                verified.activeLibraryBaseUrl
+            )
         } catch (_: SplClientException.AuthenticationRejected) {
             currentCoroutineContext().ensureActive()
             if (restoring || mutableLocalAccountContext.value != null) {
@@ -550,6 +556,7 @@ internal class ConnectionCoordinator(
                     if (mutableState.value == linked) {
                         mutableState.value = linked.copy(
                             context = context,
+                            activeLibraryBaseUrl = verified.activeLibraryBaseUrl,
                             reachability = ServerReachability.REACHABLE
                         )
                     }
