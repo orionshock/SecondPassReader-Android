@@ -41,7 +41,7 @@ The release APK includes `app/src/main/assets/licenses/open_source_licenses.txt`
 
 ## Gitea signed build
 
-Manually dispatch `.github/workflows/android-release-build.yml` in Gitea Actions. The job uses the `ubuntu-latest` runner label, sets up JDK 25, Node 24, and Android SDK platform/build-tools 37, then runs the same CFI, Gradle, signature, and artifact checks as the local helper. The runner needs network access to fetch build dependencies and setup actions. Runner execution should be checked after this workflow is pushed.
+Manually dispatch `.github/workflows/android-release-build.yml` in Gitea Actions. The job uses the `ubuntu-latest` runner label, sets up JDK 25, Node 24, Android SDK platform `android-37.0`, and build-tools `37.0.0`, then runs the same CFI, Gradle, signature, and artifact checks as the local helper. The runner needs network access to fetch build dependencies and setup actions.
 
 Configure these Gitea repository secrets: `ANDROID_RELEASE_KEYSTORE_B64`, `SECOND_PASS_RELEASE_STORE_PASSWORD`, `SECOND_PASS_RELEASE_KEY_ALIAS`, and `SECOND_PASS_RELEASE_KEY_PASSWORD`. The base64 secret contains the existing permanent PKCS12 keystore. The job decodes it to a private temporary file outside the repository, passes that path as `SECOND_PASS_RELEASE_STORE_FILE`, and removes the file after packaging. Do not create a `SECOND_PASS_RELEASE_STORE_FILE` repository secret. Only the versioned APK and SHA-256 file are uploaded as workflow artifacts; no Gitea Release is created.
 

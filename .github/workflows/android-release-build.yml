@@ -15,9 +15,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - uses: android-actions/setup-android@v3.2.1
+      - uses: android-actions/setup-android@v4
         with:
-          packages: 'platform-tools platforms;android-37 build-tools;37.0.0'
+          packages: 'platform-tools platforms;android-37.0 build-tools;37.0.0'
           log-accepted-android-sdk-licenses: 'false'
       - name: Check CFI runtime
         run: |
