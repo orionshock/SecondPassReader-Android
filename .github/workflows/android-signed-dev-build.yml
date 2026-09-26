@@ -1,16 +1,13 @@
-name: Android tag release
+name: Android signed dev build
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
 
 jobs:
-  release:
+  signed-dev-apk:
     runs-on: ubuntu-latest
     permissions:
       code: read
-      releases: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -45,19 +42,11 @@ jobs:
           SECOND_PASS_RELEASE_KEY_ALIAS: ${{ secrets.SECOND_PASS_RELEASE_KEY_ALIAS }}
           SECOND_PASS_RELEASE_KEY_PASSWORD: ${{ secrets.SECOND_PASS_RELEASE_KEY_PASSWORD }}
         run: bash tools/release/build-signed-apk.sh
-      - name: Upload release build artifacts
+      - name: Upload signed dev artifacts
         uses: https://github.com/christopherhx/gitea-upload-artifact@v4
         with:
-          name: second-pass-reader-${{ steps.package.outputs.version_name }}
+          name: second-pass-reader-${{ steps.package.outputs.version_name }}-dev
           path: |
             build/release-artifacts/*.apk
             build/release-artifacts/*.apk.sha256
           if-no-files-found: error
-      - name: Publish Gitea prerelease
-        env:
-          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
-          RELEASE_VERSION_NAME: ${{ steps.package.outputs.version_name }}
-          RELEASE_VERSION_CODE: ${{ steps.package.outputs.version_code }}
-          RELEASE_MIN_SDK: ${{ steps.package.outputs.min_sdk }}
-          RELEASE_APK_SHA256: ${{ steps.package.outputs.apk_sha256 }}
-        run: node tools/release/publish-gitea-release.mjs
