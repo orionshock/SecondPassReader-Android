@@ -26,7 +26,7 @@ internal fun RecentReadingItem.toEntity(
     bookTitle = book.title,
     coverUrl = book.cover?.url,
     canOpen = book.canOpen,
-    progressCfi = progress?.cfi,
+    progressLocation = progress?.location,
     progressLocationLabel = progress?.locationLabel,
     progressUpdatedAt = progress?.updatedAt
 )
@@ -44,9 +44,9 @@ internal fun HomeRecentReadingEntity.toModel() = RecentReadingItem(
             canOpen = canOpen
         ),
     progress =
-        progressCfi?.let { cfi ->
+        progressLocation?.let { location ->
             ReadingProgress(
-                cfi = cfi,
+                location = location,
                 locationLabel = progressLocationLabel,
                 updatedAt = requireNotNull(progressUpdatedAt)
             )

@@ -42,26 +42,31 @@ internal fun ShelvesLoading(modifier: Modifier) {
 }
 
 @Composable
-internal fun ShelvesEmpty(collection: ShelvesCollection, modifier: Modifier) {
+internal fun ShelvesEmpty(collection: ShelvesCollection, searching: Boolean, modifier: Modifier) {
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(collection.emptyLabel, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            if (searching) "No matching shelves." else collection.emptyLabel,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
 @Composable
 internal fun ShelvesReplacementFeedback(state: ShelfCollectionState, onRetry: () -> Unit) {
+    val activeError = state.activeError
     when {
-        state.shelves.isNotEmpty() && state.refreshing ->
+        state.activeShelves.isNotEmpty() && state.activeRefreshing ->
             LinearProgressIndicator(Modifier.fillMaxWidth())
 
-        state.shelves.isNotEmpty() && state.error?.phase == ShelvesLoadPhase.INITIAL ->
+        state.activeShelves.isNotEmpty() &&
+            activeError?.phase == ShelvesLoadPhase.INITIAL ->
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    state.error.failure.message(),
+                    activeError.failure.message(),
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.labelMedium
                 )

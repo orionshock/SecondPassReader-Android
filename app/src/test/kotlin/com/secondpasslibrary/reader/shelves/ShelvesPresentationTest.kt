@@ -7,6 +7,7 @@ import com.secondpasslibrary.client.ShelfVisibility
 import com.secondpasslibrary.reader.design.components.AppBarNavigation
 import com.secondpasslibrary.reader.shelves.collection.ShelfCollectionState
 import com.secondpasslibrary.reader.shelves.collection.previewSlots
+import com.secondpasslibrary.reader.shelves.collection.searchPlaceholder
 import com.secondpasslibrary.reader.shelves.detail.ShelfDetailResourceState
 import com.secondpasslibrary.reader.shelves.detail.ShelfDetailState
 import org.junit.Assert.assertEquals
@@ -122,6 +123,13 @@ class ShelvesPresentationTest {
         assertEquals("Shelf order", shelfItemOrderingOptions.first().label)
         assertFalse(shouldRequestShelfNextPage(2, 10, prefetchDistance = 3))
         assertTrue(shouldRequestShelfNextPage(7, 10, prefetchDistance = 3))
+    }
+
+    @Test
+    fun `Shelf search placeholders are scope specific`() {
+        assertEquals("Search shelves", ShelvesCollection.PERSONAL.searchPlaceholder)
+        assertEquals("Search shelves or users", ShelvesCollection.SHARED.searchPlaceholder)
+        assertEquals("Search shelves or groups", ShelvesCollection.GROUP.searchPlaceholder)
     }
 
     private fun shelf(

@@ -37,7 +37,7 @@ internal class SplReaderExistingSessionsCache @Inject constructor(
                 val retained = local.retainServerSession(
                     account,
                     bookId,
-                    detail.session.toReaderContext(progress?.cfi)
+                    detail.session.toReaderContext(progress?.location)
                 )
                 local.replaceAuthoritativeAnnotations(
                     account,

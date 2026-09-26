@@ -12,7 +12,9 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.secondpasslibrary.client.Shelf
 import com.secondpasslibrary.client.ShelfOwner
@@ -23,6 +25,7 @@ import com.secondpasslibrary.reader.shelves.ShelvesDestination
 import com.secondpasslibrary.reader.shelves.ShelvesIntent
 import com.secondpasslibrary.reader.shelves.ShelvesScreen
 import com.secondpasslibrary.reader.shelves.ShelvesState
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -41,6 +44,9 @@ class ShelvesScopeSwitchingTest {
                     state = emptyState(selected),
                     onCollectionSelected = { selected = it },
                     onOrderingSelected = {},
+                    onSearchQueryChanged = {},
+                    onSearchSubmitted = {},
+                    onSearchCleared = {},
                     onLoadNextPersonal = {},
                     onLoadNextShared = {},
                     onLoadNextGroup = {},
@@ -65,6 +71,40 @@ class ShelvesScopeSwitchingTest {
         compose.onNodeWithText("No shelves shared with you.").assertIsDisplayed()
         compose.onNodeWithText("Group Shelves").performClick().assertIsSelected()
         compose.onNodeWithText("No group shelves available.").assertIsDisplayed()
+    }
+
+    @Test
+    fun shelfSearchUsesScopePlaceholderAndImeSubmission() {
+        var submitted = 0
+        var query by mutableStateOf("")
+        compose.setContent {
+            SecondPassTheme {
+                ShelvesRoot(
+                    state = emptyState(ShelvesCollection.PERSONAL).copy(
+                        personal = loadedCollection(emptyList()).copy(searchInput = query)
+                    ),
+                    onCollectionSelected = {},
+                    onOrderingSelected = {},
+                    onSearchQueryChanged = { query = it },
+                    onSearchSubmitted = { submitted += 1 },
+                    onSearchCleared = { query = "" },
+                    onLoadNextPersonal = {},
+                    onLoadNextShared = {},
+                    onLoadNextGroup = {},
+                    onRetryPersonal = {},
+                    onRetryShared = {},
+                    onRetryGroup = {},
+                    onShelfSelected = {},
+                    onCreateShelf = {},
+                    createShelfAvailable = true,
+                    scrollStates = rememberShelfCollectionScrollStates()
+                )
+            }
+        }
+
+        compose.onNodeWithText("Search shelves").performTextInput("favorites")
+        compose.onNodeWithText("favorites").performImeAction()
+        compose.runOnIdle { assertEquals(1, submitted) }
     }
 
     @Test

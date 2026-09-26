@@ -10,7 +10,7 @@ internal fun List<MarginaliaAnnotationOperation>.toWire() = MarginaliaAnnotation
     map(MarginaliaAnnotationOperation::toWire)
 )
 
-internal fun ReadingProgressInput.toWire() = ReadingProgressInputWire(cfi, locationLabel)
+internal fun ReadingProgressInput.toWire() = ReadingProgressInputWire(location, locationLabel)
 
 private fun MarginaliaAnnotationOperation.toWire(): MarginaliaAnnotationOperationWire =
     when (this) {
@@ -47,7 +47,7 @@ private fun MarginaliaAnnotationDraft.toWire(): MarginaliaAnnotationDraftWire = 
 }
 
 private fun MarginaliaAnnotationLocationInput.toWire() = MarginaliaAnnotationLocationWire(
-    cfi = cfi,
+    location = location,
     locationLabel = locationLabel
 )
 

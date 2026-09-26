@@ -33,7 +33,7 @@ class ReadingSessionProgressClientTest {
         assertNull(client.marginalia.sessions.getProgress("session / 1"))
         val progress = client.marginalia.sessions.getProgress("session / 1")
 
-        assertEquals("  epubcfi(/6/2)  ", progress?.cfi)
+        assertEquals("  epubcfi(/6/2)  ", progress?.location)
         assertEquals("  Chapter 1 - 5%  ", progress?.locationLabel)
         assertEquals("2026-08-19T00:00:00Z", progress?.updatedAt)
         assertEquals(
@@ -57,8 +57,8 @@ class ReadingSessionProgressClientTest {
         )
 
         assertEquals(HttpMethod.Put, request?.method)
-        assertEquals(setOf("cfi"), requireNotNull(request).payload().keys)
-        assertEquals("epubcfi(/6/8)", request.payload().string("cfi"))
+        assertEquals(setOf("location"), requireNotNull(request).payload().keys)
+        assertEquals("epubcfi(/6/8)", request.payload().string("location"))
         assertEquals("2026-08-19T00:00:00Z", result.updatedAt)
     }
 
@@ -70,22 +70,35 @@ class ReadingSessionProgressClientTest {
         val client = authenticatedClient { captured ->
             request = captured
             jsonResponse(
-                """{"progress":{"cfi":"$historical","location_label":null,"updated_at":"now"}}"""
+                """{"progress":{"location":"$historical","location_label":null,"updated_at":"now"}}"""
             )
         }
 
-        assertEquals(historical, client.marginalia.sessions.getProgress("session-1")?.cfi)
+        assertEquals(historical, client.marginalia.sessions.getProgress("session-1")?.location)
         client.marginalia.sessions.replaceProgress(
             "session-1",
             ReadingProgressInput(historical)
         )
 
-        assertEquals(historical, requireNotNull(request).payload().string("cfi"))
+        assertEquals(historical, requireNotNull(request).payload().string("location"))
+    }
+
+    @Test
+    fun `legacy cfi wire key is rejected`() {
+        val client = authenticatedClient {
+            jsonResponse(
+                """{"progress":{"cfi":"epubcfi(/6/2)","location_label":null,"updated_at":"now"}}"""
+            )
+        }
+
+        assertThrows(SplClientException.ProtocolInvalid::class.java) {
+            runBlocking { client.marginalia.sessions.getProgress("session-1") }
+        }
     }
 
     @Test
     fun `progress input enforces CFI and location bounds without trimming`() {
-        assertEquals(" cfi ", ReadingProgressInput(" cfi ").cfi)
+        assertEquals(" cfi ", ReadingProgressInput(" cfi ").location)
         assertThrows(IllegalArgumentException::class.java) { ReadingProgressInput(" ") }
         assertThrows(IllegalArgumentException::class.java) {
             ReadingProgressInput("x".repeat(8 * 1024 + 1))
@@ -163,6 +176,6 @@ class ReadingSessionProgressClientTest {
 
     private companion object {
         const val POPULATED_PROGRESS =
-            """{"progress":{"cfi":"  epubcfi(/6/2)  ","location_label":"  Chapter 1 - 5%  ","updated_at":"2026-08-19T00:00:00Z"}}"""
+            """{"progress":{"location":"  epubcfi(/6/2)  ","location_label":"  Chapter 1 - 5%  ","updated_at":"2026-08-19T00:00:00Z"}}"""
     }
 }

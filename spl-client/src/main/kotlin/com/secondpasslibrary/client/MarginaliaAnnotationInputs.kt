@@ -1,10 +1,13 @@
 package com.secondpasslibrary.client
 
-data class MarginaliaAnnotationLocationInput(val cfi: String, val locationLabel: String? = null) {
+data class MarginaliaAnnotationLocationInput(
+    val location: String,
+    val locationLabel: String? = null
+) {
     init {
-        require(cfi.isNotBlank()) { "Annotation CFI must not be blank." }
-        require(cfi.length <= MAX_CFI_LENGTH) {
-            "Annotation CFI must be at most $MAX_CFI_LENGTH characters."
+        require(location.isNotBlank()) { "Annotation location must not be blank." }
+        require(location.length <= MAX_MARGINALIA_LOCATION_LENGTH) {
+            "Annotation location must be at most $MAX_MARGINALIA_LOCATION_LENGTH characters."
         }
         require(locationLabel == null || locationLabel.length <= MAX_LOCATION_LABEL_LENGTH) {
             "Annotation location label must be at most $MAX_LOCATION_LABEL_LENGTH characters."

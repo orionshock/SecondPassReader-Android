@@ -61,6 +61,9 @@ internal sealed interface ShelvesIntent {
     data class OpenShelf(val entry: ShelfDetailEntry) : ShelvesIntent
     data object BackFromDetail : ShelvesIntent
     data class ChangeCollectionOrdering(val ordering: ShelfOrdering) : ShelvesIntent
+    data class UpdateSearchQuery(val value: String) : ShelvesIntent
+    data object SubmitSearch : ShelvesIntent
+    data object ClearSearch : ShelvesIntent
     data class LoadNextCollectionPage(val collection: ShelvesCollection) : ShelvesIntent
     data class RetryCollection(val collection: ShelvesCollection) : ShelvesIntent
 

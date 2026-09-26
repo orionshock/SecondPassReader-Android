@@ -128,7 +128,7 @@ AuthenticatedSecondPassClient.marginalia
 
 Pagination, compact/preview Books, cover references, scope, and shared Library value types remain Library-level artifacts. Catalog Tags expose Reader-safe identity, slug, and scoped book counts; endpoint topology remains private to the SDK.
 
-Marginalia reads preserve server ordering and historical Book context after visibility is lost; `canOpen` remains advisory. Active lookup is non-mutating, open/resume is the convergent lazy create-or-resume operation, and start-over is an explicit idempotent recovery action. The SDK keeps CFI values opaque. Retry, continuation, annotation identity, and closed-Session rules are canonical in [Offline and cached product contract](offline-product-contract.md).
+Marginalia reads preserve server ordering and historical Book context after visibility is lost; `canOpen` remains advisory. Active lookup is non-mutating, open/resume is the convergent lazy create-or-resume operation, and start-over is an explicit idempotent recovery action. The SDK keeps generic Marginalia `location` values opaque; the EPUB Reader interprets them as CFIs. Retry, continuation, annotation identity, and closed-Session rules are canonical in [Offline and cached product contract](offline-product-contract.md).
 
 Shelf reads preserve discriminated user/group ownership, private/listed visibility, item identity separately from Book identity, non-contiguous stored positions, matched Book items, and omitted versus empty previews. Normal item pages expose only visible Compact Books; the editor projection represents unavailable retained items without inventing Book metadata.
 

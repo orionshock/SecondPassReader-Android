@@ -51,7 +51,9 @@ owned. A cover-fetch failure does not discard an otherwise verified EPUB.
 - Progress replacement is last-write-wins. The server provides no revision or timestamp conflict
   protection, so clients must coalesce and serialize their own pending progress to prevent an older
   request from arriving after a newer request.
-- Canonical EPUB CFI remains opaque. Clients do not compare CFIs to infer reading order.
+- Marginalia uses the generic durable term `location`. For EPUB Books, the location value is a
+  canonical EPUB CFI and remains opaque outside the Reader; clients do not compare CFIs to infer
+  reading order.
 
 ### Durable EPUB CFI profile
 
@@ -66,8 +68,8 @@ carried separately as exact text, prefix, and suffix.
 
 Element-ID assertions are limited to 128 characters each and 256 assertion characters across one
 CFI. Android's Reader runtime applies the same limits when it validates a CFI for resolution; SDK
-mapping otherwise preserves accepted CFI strings byte-for-byte, and app-generated writes are sent
-without canonicalization.
+`location` mapping otherwise preserves accepted CFI strings byte-for-byte, and app-generated
+writes are sent without canonicalization.
 
 An imported EPUB's bytes are immutable for the lifetime of its Book identity, so mutation-repair
 assertions are unnecessary for the canonical baseline. A materially changed EPUB is a different

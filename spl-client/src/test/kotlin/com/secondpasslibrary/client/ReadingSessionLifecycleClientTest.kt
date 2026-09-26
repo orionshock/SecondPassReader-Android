@@ -136,7 +136,7 @@ class ReadingSessionLifecycleClientTest {
         assertEquals(emptySet<String>(), requests[0].payload().keys)
         val finalPayload = requests[1].payload()
         assertEquals("Finished", finalPayload.string("name"))
-        assertEquals("epubcfi(/6/8)", finalPayload.objectValue("progress").string("cfi"))
+        assertEquals("epubcfi(/6/8)", finalPayload.objectValue("progress").string("location"))
         assertEquals("Chapter 4", finalPayload.objectValue("progress").string("location_label"))
         assertEquals(requests[1].payload(), requests[2].payload())
     }
@@ -260,11 +260,11 @@ class ReadingSessionLifecycleClientTest {
                 """"annotation_count":2,"progress":null}"""
         const val ANNOTATIONS =
             """[{"id":"a-1","client_id":"c-1","kind":"highlight",""" +
-                """"location":{"cfi":"epubcfi(/6/2)","location_label":"Chapter 1"},""" +
+                """"location":{"location":"epubcfi(/6/2)","location_label":"Chapter 1"},""" +
                 """"body":{"text":"Text","prefix":"Before","suffix":"After",""" +
                 """"color":"orange","note":"Note"},"created_at":"2026-08-01T00:00:00Z",""" +
                 """"updated_at":"2026-08-01T00:00:00Z"},{"id":"a-2","client_id":"c-2",""" +
-                """"kind":"bookmark","location":{"cfi":"epubcfi(/6/4)",""" +
+                """"kind":"bookmark","location":{"location":"epubcfi(/6/4)",""" +
                 """"location_label":"Chapter 2"},"created_at":"2026-08-01T00:00:00Z",""" +
                 """"updated_at":"2026-08-01T00:00:00Z"}]"""
         const val BOOTSTRAP =

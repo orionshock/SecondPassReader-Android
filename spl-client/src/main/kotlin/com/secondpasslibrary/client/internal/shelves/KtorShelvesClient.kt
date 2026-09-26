@@ -29,6 +29,7 @@ internal class KtorShelvesClient(
     override suspend fun list(options: ShelfListOptions): ShelfPage {
         val parameters = buildList {
             add("scope" to options.scope.queryValue)
+            options.q?.trim()?.takeIf(String::isNotEmpty)?.let { add("q" to it) }
             options.bookId?.let { add("book" to it) }
             options.ordering?.let { add("ordering" to it.queryValue) }
             add("page" to options.page.toString())

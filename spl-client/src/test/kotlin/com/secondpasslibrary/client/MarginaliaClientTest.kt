@@ -156,7 +156,7 @@ class MarginaliaClientTest {
 
         assertEquals("session-1", detail.session.summary.id)
         assertEquals("Notes", detail.session.summary.notes)
-        assertEquals("epubcfi(/6/2)", detail.session.progress?.cfi)
+        assertEquals("epubcfi(/6/2)", detail.session.progress?.location)
         assertNull(detail.session.progress?.locationLabel)
         assertEquals("book-1", detail.book.id)
         assertEquals("/api/v1/marginalia/sessions/session%20%2F%201/", request?.url?.encodedPath)
@@ -229,6 +229,6 @@ class MarginaliaClientTest {
         const val BOOK_SESSION_PAGE =
             """{"context":{"book":$BOUNDED_BOOK},"count":1,"next":null,"previous":null,"results":[$SESSION]}"""
         const val SESSION_DETAIL =
-            """{"context":{"book":$BOUNDED_BOOK},"session":{"id":"session-1","name":"Morning","notes":"Notes","status":"active","started_at":"2026-08-01T00:00:00Z","closed_at":null,"updated_at":"2026-08-02T00:00:00Z","last_activity_at":"2026-08-02T00:00:00Z","annotation_count":2,"progress":{"cfi":"epubcfi(/6/2)","location_label":null,"updated_at":"2026-08-02T00:00:00Z"}}}"""
+            """{"context":{"book":$BOUNDED_BOOK},"session":{"id":"session-1","name":"Morning","notes":"Notes","status":"active","started_at":"2026-08-01T00:00:00Z","closed_at":null,"updated_at":"2026-08-02T00:00:00Z","last_activity_at":"2026-08-02T00:00:00Z","annotation_count":2,"progress":{"location":"epubcfi(/6/2)","location_label":null,"updated_at":"2026-08-02T00:00:00Z"}}}"""
     }
 }

@@ -2,6 +2,7 @@ package com.secondpasslibrary.client
 
 data class ShelfListOptions(
     val scope: ShelfScope,
+    val q: String? = null,
     val bookId: String? = null,
     val ordering: ShelfOrdering? = null,
     val page: Int = DEFAULT_SHELF_PAGE,

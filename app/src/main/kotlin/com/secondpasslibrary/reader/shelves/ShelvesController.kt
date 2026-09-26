@@ -11,6 +11,7 @@ import com.secondpasslibrary.reader.shelves.collection.PersonalShelvesController
 import com.secondpasslibrary.reader.shelves.collection.SharedShelvesController
 import com.secondpasslibrary.reader.shelves.collection.ShelfCollectionChange
 import com.secondpasslibrary.reader.shelves.collection.ShelfCollectionController
+import com.secondpasslibrary.reader.shelves.collection.ShelfSearchIntent
 import com.secondpasslibrary.reader.shelves.detail.ShelfDetailController
 import com.secondpasslibrary.reader.shelves.editor.ShelfContentsEditorController
 import com.secondpasslibrary.reader.shelves.management.CreatePersonalShelfController
@@ -103,6 +104,15 @@ internal class ShelvesController(
             is ShelvesIntent.ChangeCollectionOrdering ->
                 changeCollectionOrdering(intent.ordering)
 
+            is ShelvesIntent.UpdateSearchQuery ->
+                currentCollectionController()?.acceptSearch(ShelfSearchIntent.Update(intent.value))
+
+            ShelvesIntent.SubmitSearch ->
+                currentCollectionController()?.acceptSearch(ShelfSearchIntent.Submit)
+
+            ShelvesIntent.ClearSearch ->
+                currentCollectionController()?.acceptSearch(ShelfSearchIntent.Clear)
+
             is ShelvesIntent.LoadNextCollectionPage ->
                 intent.collection.controller().loadNextPage()
 
@@ -179,11 +189,16 @@ internal class ShelvesController(
     }
 
     private fun showCollection(collection: ShelvesCollection) {
+        val currentCollection =
+            (navigation.value.destination as? ShelvesDestination.Collection)?.collection
         if (navigation.value.destination !is ShelvesDestination.Collection) {
             detail.clear()
             editor.clear()
             edit.reset()
             delete.reset()
+        }
+        if (currentCollection != collection) {
+            collection.controller().acceptSearch(ShelfSearchIntent.Clear)
         }
         collection.controller().activate()
         navigation.value = ShelvesNavigationState(ShelvesDestination.Collection(collection))
@@ -218,6 +233,9 @@ internal class ShelvesController(
         val destination = navigation.value.destination as? ShelvesDestination.Collection ?: return
         destination.collection.controller().changeOrdering(ordering)
     }
+
+    private fun currentCollectionController(): ShelfCollectionController? =
+        (navigation.value.destination as? ShelvesDestination.Collection)?.collection?.controller()
 
     private fun openContentsEditor() {
         val current = navigation.value.destination as? ShelvesDestination.Detail ?: return

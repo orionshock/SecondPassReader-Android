@@ -49,7 +49,7 @@ internal fun ShelvesState.appBarPresentation(): AppBarPresentation = when (desti
         AppBarPresentation(
             AppBarNavigation.MENU,
             title = "Shelves",
-            metadata = collection.totalCount.shelfCountLabel
+            metadata = collection.activeTotalCount.shelfCountLabel
         )
     }
 

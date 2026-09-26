@@ -56,7 +56,7 @@ internal fun MarginaliaAnnotation.toReaderAnnotation(): ReaderAnnotation = when 
     is MarginaliaAnnotation.Bookmark -> ReaderAnnotation.Bookmark(
         id = id,
         clientId = clientId,
-        cfi = location.cfi,
+        cfi = location.location,
         locationLabel = location.locationLabel?.takeIf(String::isNotBlank),
         updatedAt = updatedAt
     )
@@ -64,7 +64,7 @@ internal fun MarginaliaAnnotation.toReaderAnnotation(): ReaderAnnotation = when 
     is MarginaliaAnnotation.Highlight -> ReaderAnnotation.Highlight(
         id = id,
         clientId = clientId,
-        cfi = location.cfi,
+        cfi = location.location,
         locationLabel = location.locationLabel?.takeIf(String::isNotBlank),
         updatedAt = updatedAt,
         quote = body.text,

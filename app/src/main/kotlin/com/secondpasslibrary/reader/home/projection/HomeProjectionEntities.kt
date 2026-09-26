@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.home.projection
 
+import androidx.room3.ColumnInfo
 import androidx.room3.Entity
 
 @Entity(
@@ -29,7 +30,7 @@ internal data class HomeRecentReadingEntity(
     val bookTitle: String,
     val coverUrl: String?,
     val canOpen: Boolean,
-    val progressCfi: String?,
+    @ColumnInfo(name = "progressCfi") val progressLocation: String?,
     val progressLocationLabel: String?,
     val progressUpdatedAt: String?
 )

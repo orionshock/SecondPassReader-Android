@@ -2,11 +2,11 @@ package com.secondpasslibrary.client.internal.marginalia
 
 import com.secondpasslibrary.client.ClosedReadingSessionPage
 import com.secondpasslibrary.client.MAX_ANNOTATION_CLIENT_ID_LENGTH
-import com.secondpasslibrary.client.MAX_CFI_LENGTH
 import com.secondpasslibrary.client.MAX_HIGHLIGHT_CONTEXT_LENGTH
 import com.secondpasslibrary.client.MAX_HIGHLIGHT_NOTE_LENGTH
 import com.secondpasslibrary.client.MAX_HIGHLIGHT_TEXT_LENGTH
 import com.secondpasslibrary.client.MAX_LOCATION_LABEL_LENGTH
+import com.secondpasslibrary.client.MAX_MARGINALIA_LOCATION_LENGTH
 import com.secondpasslibrary.client.MarginaliaAnnotation
 import com.secondpasslibrary.client.MarginaliaAnnotationLocation
 import com.secondpasslibrary.client.MarginaliaHighlightBody
@@ -42,7 +42,7 @@ internal fun ReadingSessionFinalization.toWire() = ReadingSessionFinalizationWir
     notes = notes,
     progress = progress?.let { input ->
         ReadingProgressInputWire(
-            cfi = input.cfi,
+            location = input.location,
             locationLabel = input.locationLabel
         )
     }
@@ -62,7 +62,10 @@ internal fun MarginaliaAnnotationWire.toModel(): MarginaliaAnnotation {
         ANNOTATION_CONTEXT
     )
     val annotationLocation = MarginaliaAnnotationLocation(
-        cfi = location?.cfi.boundedOpaque(MAX_CFI_LENGTH, ANNOTATION_CONTEXT),
+        location = location?.location.boundedOpaque(
+            MAX_MARGINALIA_LOCATION_LENGTH,
+            ANNOTATION_CONTEXT
+        ),
         locationLabel = location?.locationLabel.boundedNullable(
             MAX_LOCATION_LABEL_LENGTH,
             ANNOTATION_CONTEXT

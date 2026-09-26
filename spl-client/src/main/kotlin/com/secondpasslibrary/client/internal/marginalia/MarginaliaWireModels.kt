@@ -103,7 +103,7 @@ internal data class MarginaliaAnnotationWire(
 
 @Serializable
 internal data class MarginaliaAnnotationLocationWire(
-    val cfi: String? = null,
+    val location: String? = null,
     @SerialName("location_label") val locationLabel: String? = null
 )
 
@@ -124,7 +124,7 @@ internal data class ReadingSessionMetadataInputWire(
 
 @Serializable
 internal data class ReadingProgressInputWire(
-    val cfi: String,
+    val location: String,
     @SerialName("location_label") val locationLabel: String? = null
 )
 

@@ -26,7 +26,7 @@ internal data class RecentReadingBookWire(
 
 @Serializable
 internal data class ReadingProgressWire(
-    val cfi: String? = null,
+    val location: String? = null,
     @SerialName("location_label") val locationLabel: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null
 )

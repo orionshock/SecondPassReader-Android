@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.design.components
 
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -25,6 +26,7 @@ internal fun InlineSearchField(
     onQueryChanged: (String) -> Unit,
     onSubmit: () -> Unit,
     modifier: Modifier = Modifier,
+    onClear: (() -> Unit)? = null,
     enabled: Boolean = true
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
@@ -45,8 +47,15 @@ internal fun InlineSearchField(
         placeholder = { Text(placeholder) },
         leadingIcon = { AppIconGraphic(AppIcon.Search, null) },
         trailingIcon = {
-            IconButton(onClick = submit, enabled = enabled) {
-                AppIconGraphic(AppIcon.Search, "Submit search")
+            Row {
+                if (onClear != null && query.isNotEmpty()) {
+                    IconButton(onClick = onClear, enabled = enabled) {
+                        AppIconGraphic(AppIcon.Close, "Clear search")
+                    }
+                }
+                IconButton(onClick = submit, enabled = enabled) {
+                    AppIconGraphic(AppIcon.Search, "Submit search")
+                }
             }
         },
         singleLine = true,

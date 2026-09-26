@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -61,6 +62,9 @@ internal fun ShelvesRoot(
     state: ShelvesState,
     onCollectionSelected: (ShelvesCollection) -> Unit,
     onOrderingSelected: (com.secondpasslibrary.client.ShelfOrdering) -> Unit,
+    onSearchQueryChanged: (String) -> Unit,
+    onSearchSubmitted: () -> Unit,
+    onSearchCleared: () -> Unit,
     onLoadNextPersonal: () -> Unit,
     onLoadNextShared: () -> Unit,
     onLoadNextGroup: () -> Unit,
@@ -99,6 +103,9 @@ internal fun ShelvesRoot(
             collectionState,
             onCollectionSelected,
             onOrderingSelected,
+            onSearchQueryChanged,
+            onSearchSubmitted,
+            onSearchCleared,
             onCreateShelf,
             createShelfAvailable,
             Modifier.padding(top = 14.dp, bottom = 8.dp)
@@ -126,17 +133,26 @@ private fun ShelfCollectionResults(
     onShelfSelected: (String) -> Unit,
     modifier: Modifier
 ) {
+    var observedQuery by remember(listState) { mutableStateOf(state.search.query) }
+    LaunchedEffect(state.search.query) {
+        if (observedQuery != state.search.query) {
+            observedQuery = state.search.query
+            listState.scrollToItem(0)
+        }
+    }
+    val activeError = state.activeError
     when {
-        state.shelves.isEmpty() && !state.hasLoaded && state.error == null ->
+        state.activeShelves.isEmpty() && !state.activeHasLoaded && activeError == null ->
             ShelvesLoading(modifier)
 
-        state.shelves.isEmpty() && state.error != null -> ShelvesFailure(
-            state.error,
+        state.activeShelves.isEmpty() && activeError != null -> ShelvesFailure(
+            activeError,
             onRetry,
             modifier
         )
 
-        state.shelves.isEmpty() && state.hasLoaded -> ShelvesEmpty(collection, modifier)
+        state.activeShelves.isEmpty() && state.activeHasLoaded ->
+            ShelvesEmpty(collection, state.search.query != null, modifier)
 
         else ->
             ShelfCardList(
@@ -161,9 +177,11 @@ private fun ShelfCardList(
     onShelfSelected: (String) -> Unit,
     modifier: Modifier
 ) {
-    LaunchedEffect(listState, state.shelves.size, state.hasNext) {
+    LaunchedEffect(listState, state.activeShelves.size, state.activeHasNext) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
-            .map { shouldRequestShelfNextPage(it, state.shelves.size) && state.hasNext }
+            .map {
+                shouldRequestShelfNextPage(it, state.activeShelves.size) && state.activeHasNext
+            }
             .distinctUntilChanged()
             .filter { it }
             .collect { onLoadNextPage() }
@@ -174,10 +192,12 @@ private fun ShelfCardList(
         contentPadding = PaddingValues(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(state.shelves, key = { it.id }) { shelf ->
+        items(state.activeShelves, key = { it.id }) { shelf ->
             ShelfCard(shelf.toCardPresentation()) { onShelfSelected(shelf.id) }
         }
-        item { ShelvesNextPageFooter(state.nextPageLoading, state.error, onRetry) }
+        item {
+            ShelvesNextPageFooter(state.activeNextPageLoading, state.activeError, onRetry)
+        }
     }
 }
 

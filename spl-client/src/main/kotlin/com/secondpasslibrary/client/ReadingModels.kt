@@ -36,4 +36,4 @@ data class ReadingSessionBook(
 
 typealias RecentReadingBook = ReadingSessionBook
 
-data class ReadingProgress(val cfi: String, val locationLabel: String?, val updatedAt: String)
+data class ReadingProgress(val location: String, val locationLabel: String?, val updatedAt: String)

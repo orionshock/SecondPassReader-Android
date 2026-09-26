@@ -25,6 +25,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.secondpasslibrary.client.ShelfOrdering
+import com.secondpasslibrary.reader.design.components.InlineSearchField
 import com.secondpasslibrary.reader.design.icons.AppIcon
 import com.secondpasslibrary.reader.design.icons.AppIconGraphic
 import com.secondpasslibrary.reader.shelves.ShelvesCollection
@@ -37,37 +38,23 @@ internal fun ShelvesRootControls(
     state: ShelfCollectionState,
     onCollectionSelected: (ShelvesCollection) -> Unit,
     onOrderingSelected: (ShelfOrdering) -> Unit,
+    onSearchQueryChanged: (String) -> Unit,
+    onSearchSubmitted: () -> Unit,
+    onSearchCleared: () -> Unit,
     onCreateShelf: () -> Unit,
     createShelfAvailable: Boolean,
     modifier: Modifier
 ) {
-    BoxWithConstraints(modifier.fillMaxWidth()) {
-        if (maxWidth >= 900.dp) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                CollectionSelectors(selected, onCollectionSelected)
-                Box(Modifier.weight(1f))
-                CollectionActions(
-                    selected,
-                    state.ordering,
-                    onOrderingSelected,
-                    onCreateShelf,
-                    createShelfAvailable
-                )
-            }
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    CollectionSelectors(selected, onCollectionSelected)
-                }
-                FlowRow(
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            if (maxWidth >= 900.dp) {
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    CollectionSelectors(selected, onCollectionSelected)
+                    Box(Modifier.weight(1f))
                     CollectionActions(
                         selected,
                         state.ordering,
@@ -76,10 +63,44 @@ internal fun ShelvesRootControls(
                         createShelfAvailable
                     )
                 }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        CollectionSelectors(selected, onCollectionSelected)
+                    }
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        CollectionActions(
+                            selected,
+                            state.ordering,
+                            onOrderingSelected,
+                            onCreateShelf,
+                            createShelfAvailable
+                        )
+                    }
+                }
             }
         }
+        InlineSearchField(
+            query = state.searchInput,
+            placeholder = selected.searchPlaceholder,
+            contentDescription = selected.searchPlaceholder,
+            onQueryChanged = onSearchQueryChanged,
+            onSubmit = onSearchSubmitted,
+            onClear = onSearchCleared
+        )
     }
 }
+
+internal val ShelvesCollection.searchPlaceholder: String
+    get() = when (this) {
+        ShelvesCollection.PERSONAL -> "Search shelves"
+        ShelvesCollection.SHARED -> "Search shelves or users"
+        ShelvesCollection.GROUP -> "Search shelves or groups"
+    }
 
 @Composable
 private fun CollectionSelectors(

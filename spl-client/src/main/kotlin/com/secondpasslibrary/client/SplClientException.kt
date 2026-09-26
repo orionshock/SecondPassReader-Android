@@ -78,7 +78,7 @@ enum class ReadingSessionMutationField {
     NAME,
     NOTES,
     PROGRESS,
-    CFI,
+    LOCATION,
     LOCATION_LABEL,
     OPERATIONS,
     IDEMPOTENCY_KEY,

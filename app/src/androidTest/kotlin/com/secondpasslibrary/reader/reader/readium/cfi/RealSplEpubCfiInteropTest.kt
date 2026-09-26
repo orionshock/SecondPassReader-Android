@@ -162,7 +162,7 @@ private suspend fun findReadableRangeSubject(
                 val range = annotations
                     .filterIsInstance<MarginaliaAnnotation.Highlight>()
                     .firstOrNull {
-                        it.body.text.isNotBlank() && it.location.cfi.looksLikeRangeCfi()
+                        it.body.text.isNotBlank() && it.location.location.looksLikeRangeCfi()
                     }
                 if (range != null) {
                     val candidate = RealRangeCandidate(
@@ -215,7 +215,7 @@ private suspend fun ActivityScenario<ReadiumCfiTestActivity>.awaitReadyEngine():
 }
 
 private suspend fun verifyStoredRange(engine: ReaderEngine, candidate: RealRangeCandidate) {
-    val cfi = EpubCfi(candidate.annotation.location.cfi)
+    val cfi = EpubCfi(candidate.annotation.location.location)
     engine.cfiNavigator.goTo(cfi).requireSuccess("navigate to stored range")
     val resolution = engine.cfiNavigator.resolve(cfi).requireSuccess("resolve stored range")
     assertEquals(EpubCfiTargetKind.RANGE, resolution.kind)
@@ -387,7 +387,7 @@ private data class ReadOnlySessionSnapshot(
 
 private data class ReadOnlySessionCapture(val snapshot: ReadOnlySessionSnapshot) {
     val progressCfi: String?
-        get() = snapshot.progress?.cfi
+        get() = snapshot.progress?.location
 }
 
 private val REAL_PHRASE_SELECTION_SCRIPT =

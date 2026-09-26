@@ -143,6 +143,9 @@ private fun ShelfCollectionDestination(
     state = state,
     onCollectionSelected = { onIntent(ShelvesIntent.ShowCollection(it)) },
     onOrderingSelected = { onIntent(ShelvesIntent.ChangeCollectionOrdering(it)) },
+    onSearchQueryChanged = { onIntent(ShelvesIntent.UpdateSearchQuery(it)) },
+    onSearchSubmitted = { onIntent(ShelvesIntent.SubmitSearch) },
+    onSearchCleared = { onIntent(ShelvesIntent.ClearSearch) },
     onLoadNextPersonal = {
         onIntent(ShelvesIntent.LoadNextCollectionPage(ShelvesCollection.PERSONAL))
     },

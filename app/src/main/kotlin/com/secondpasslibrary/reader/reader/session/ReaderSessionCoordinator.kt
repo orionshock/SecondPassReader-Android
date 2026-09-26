@@ -86,7 +86,7 @@ internal class SplReaderSessionCoordinator @Inject constructor(
             serverSessionId = session.summary.id,
             identityKind = ReaderSessionIdentityKind.SERVER_CONFIRMED,
             status = session.summary.status.toReaderStatus(),
-            savedProgressCfi = progress.cfi,
+            savedProgressCfi = progress.location,
             progressFailure = progress.failure,
             sessionName = session.summary.name,
             sessionNotes = session.summary.notes,
@@ -118,7 +118,7 @@ internal class SplReaderSessionCoordinator @Inject constructor(
         marginalia: AuthenticatedMarginaliaClient,
         sessionId: String
     ): ProgressResult = try {
-        ProgressResult(marginalia.sessions.getProgress(sessionId)?.cfi)
+        ProgressResult(marginalia.sessions.getProgress(sessionId)?.location)
     } catch (cancellation: CancellationException) {
         throw cancellation
     } catch (_: SplClientException.AuthenticationRejected) {
@@ -128,7 +128,10 @@ internal class SplReaderSessionCoordinator @Inject constructor(
     }
 }
 
-private data class ProgressResult(val cfi: String?, val failure: ReaderProgressLoadFailure? = null)
+private data class ProgressResult(
+    val location: String?,
+    val failure: ReaderProgressLoadFailure? = null
+)
 
 private fun ReadingSessionDetail.verifyBook(
     actualBookId: String,

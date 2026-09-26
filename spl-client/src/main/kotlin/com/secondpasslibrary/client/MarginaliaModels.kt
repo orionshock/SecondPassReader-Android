@@ -90,11 +90,11 @@ data class ReadingSessionMetadataInput(val name: String? = null, val notes: Stri
     }
 }
 
-data class ReadingProgressInput(val cfi: String, val locationLabel: String? = null) {
+data class ReadingProgressInput(val location: String, val locationLabel: String? = null) {
     init {
-        require(cfi.isNotBlank()) { "Reading progress CFI must not be blank." }
-        require(cfi.length <= MAX_CFI_LENGTH) {
-            "Reading progress CFI must be at most $MAX_CFI_LENGTH characters."
+        require(location.isNotBlank()) { "Reading progress location must not be blank." }
+        require(location.length <= MAX_MARGINALIA_LOCATION_LENGTH) {
+            "Reading progress location must be at most $MAX_MARGINALIA_LOCATION_LENGTH characters."
         }
         require(locationLabel == null || locationLabel.length <= MAX_LOCATION_LABEL_LENGTH) {
             "Reading progress location label must be at most $MAX_LOCATION_LABEL_LENGTH characters."
@@ -152,7 +152,7 @@ data class ClosedReadingSessionPage(
     val hasPrevious: Boolean
 )
 
-data class MarginaliaAnnotationLocation(val cfi: String, val locationLabel: String?)
+data class MarginaliaAnnotationLocation(val location: String, val locationLabel: String?)
 
 sealed interface MarginaliaAnnotation {
     val id: String
@@ -201,7 +201,7 @@ internal const val DEFAULT_MARGINALIA_PAGE_SIZE = 20
 private const val MAX_MARGINALIA_PAGE_SIZE = 200
 private const val MAX_READING_SESSION_NAME_LENGTH = 255
 private const val MAX_IDEMPOTENCY_KEY_LENGTH = 128
-internal const val MAX_CFI_LENGTH = 8 * 1024
+internal const val MAX_MARGINALIA_LOCATION_LENGTH = 8 * 1024
 internal const val MAX_LOCATION_LABEL_LENGTH = 255
 
 private fun validateMarginaliaPage(page: Int, pageSize: Int) {

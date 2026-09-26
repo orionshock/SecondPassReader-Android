@@ -1,9 +1,7 @@
 package com.secondpasslibrary.reader.shelves.collection
 
-import com.secondpasslibrary.client.Shelf
 import com.secondpasslibrary.client.ShelfListOptions
 import com.secondpasslibrary.client.ShelfOrdering
-import com.secondpasslibrary.client.ShelfPage
 import com.secondpasslibrary.client.ShelfScope
 import com.secondpasslibrary.reader.connection.AuthenticatedClientProvider
 import com.secondpasslibrary.reader.connection.AuthenticatedSessionIdentity
@@ -13,7 +11,6 @@ import com.secondpasslibrary.reader.coroutines.runSuspendCatching
 import com.secondpasslibrary.reader.shelves.SHELF_CARD_PREVIEW_LIMIT
 import com.secondpasslibrary.reader.shelves.ShelvesConnectionEvent
 import com.secondpasslibrary.reader.shelves.ShelvesFailure
-import com.secondpasslibrary.reader.shelves.ShelvesLoadError
 import com.secondpasslibrary.reader.shelves.ShelvesLoadPhase
 import com.secondpasslibrary.reader.shelves.toShelvesFailure
 import kotlinx.coroutines.CoroutineScope
@@ -52,24 +49,65 @@ internal abstract class ShelfCollectionController(
 
     fun activate() {
         if (profile == null || loadJob?.isActive == true || state.value.hasLoaded) return
-        resetAndLoad(state.value.ordering)
+        resetAndLoadNormal()
     }
 
     fun changeOrdering(ordering: ShelfOrdering) {
         if (state.value.ordering == ordering) return
-        resetAndLoad(ordering)
+        val current = state.value
+        mutableState.value = current.copy(ordering = ordering)
+        if (current.search.query == null) resetAndLoadNormal() else resetAndLoadSearch()
+    }
+
+    fun acceptSearch(intent: ShelfSearchIntent) {
+        when (intent) {
+            is ShelfSearchIntent.Update ->
+                mutableState.value = state.value.copy(searchInput = intent.value)
+
+            ShelfSearchIntent.Submit -> {
+                val query = state.value.searchInput.trim()
+                if (query.isEmpty()) {
+                    acceptSearch(ShelfSearchIntent.Clear)
+                } else {
+                    val current = state.value
+                    mutableState.value = current.copy(
+                        searchInput = query,
+                        search = ShelfSearchState(query = query)
+                    )
+                    resetAndLoadSearch()
+                }
+            }
+
+            ShelfSearchIntent.Clear -> {
+                val current = state.value
+                if (current.search.query == null && current.searchInput.isEmpty()) return
+                loadJob?.cancel()
+                generation += 1
+                mutableState.value = current.copy(searchInput = "", search = ShelfSearchState())
+                activate()
+            }
+        }
     }
 
     fun loadNextPage() {
         val current = state.value
-        if (loadJob?.isActive == true || current.currentPage == 0 || !current.hasNext) return
-        launchPage(current.currentPage + 1, ShelvesLoadPhase.NEXT_PAGE)
+        if (loadJob?.isActive == true || current.activeCurrentPage == 0 || !current.activeHasNext) {
+            return
+        }
+        launchPage(
+            current.activeCurrentPage + 1,
+            ShelvesLoadPhase.NEXT_PAGE,
+            target = current.loadTarget
+        )
     }
 
     fun retry() {
-        when (state.value.error?.phase) {
-            ShelvesLoadPhase.INITIAL -> resetAndLoad(state.value.ordering)
+        when (state.value.activeError?.phase) {
+            ShelvesLoadPhase.INITIAL ->
+                if (state.value.search.query == null) resetAndLoadNormal() else resetAndLoadSearch()
+
             ShelvesLoadPhase.NEXT_PAGE -> loadNextPage()
+
             null -> Unit
         }
     }
@@ -82,120 +120,80 @@ internal abstract class ShelfCollectionController(
                 shelves = changed.first.sortedFor(current.ordering),
                 totalCount = changed.second
             )
-        if (refresh) resetAndLoad(current.ordering)
+        if (refresh) resetAndLoadNormal()
     }
 
     fun close() = loadJob?.cancel()
 
-    private fun resetAndLoad(ordering: ShelfOrdering) {
+    private fun resetAndLoadNormal() {
         if (profile == null) return
         loadJob?.cancel()
         generation += 1
         val current = state.value
         mutableState.value =
             current.copy(
-                ordering = ordering,
                 initialLoading = !current.hasLoaded,
                 refreshing = current.hasLoaded,
                 nextPageLoading = false,
                 error = null
             )
-        launchPage(1, ShelvesLoadPhase.INITIAL, generation)
+        launchPage(1, ShelvesLoadPhase.INITIAL, generation, ShelfLoadTarget.NORMAL)
+    }
+
+    private fun resetAndLoadSearch() {
+        if (profile == null || state.value.search.query == null) return
+        loadJob?.cancel()
+        generation += 1
+        val current = state.value
+        val search = current.search
+        mutableState.value = current.copy(
+            search = search.copy(
+                initialLoading = !search.hasLoaded,
+                refreshing = search.hasLoaded,
+                nextPageLoading = false,
+                error = null
+            )
+        )
+        launchPage(1, ShelvesLoadPhase.INITIAL, generation, ShelfLoadTarget.SEARCH)
     }
 
     private fun launchPage(
         page: Int,
         phase: ShelvesLoadPhase,
-        activeGeneration: Long = generation
+        activeGeneration: Long = generation,
+        target: ShelfLoadTarget
     ) {
         val activeProfile = profile ?: return
         val current = state.value
         val options =
             ShelfListOptions(
                 scope = shelfScope,
+                q = current.search.query.takeIf { target == ShelfLoadTarget.SEARCH },
                 ordering = current.ordering,
                 page = page,
                 pageSize = current.pageSize,
                 previewLimit = SHELF_CARD_PREVIEW_LIMIT
             )
-        mutableState.value =
-            current.copy(
-                initialLoading = phase == ShelvesLoadPhase.INITIAL && !current.hasLoaded,
-                refreshing = phase == ShelvesLoadPhase.INITIAL && current.hasLoaded,
-                nextPageLoading = phase == ShelvesLoadPhase.NEXT_PAGE,
-                error = null
-            )
+        mutableState.value = current.withLoading(phase, target)
         loadJob = coroutineScope.launch {
             val result = runSuspendCatching {
                 clientProvider.forProfile(activeProfile).shelves.list(options)
             }
             if (activeGeneration != generation) return@launch
             result.fold(
-                onSuccess = { applyPage(it, phase) },
-                onFailure = { applyFailure(it, phase) }
+                onSuccess = { mutableState.value = state.value.applyPage(it, phase, target) },
+                onFailure = { failure ->
+                    val classified = failure.toShelvesFailure()
+                    mutableState.value = state.value.applyFailure(classified, phase, target)
+                    if (classified == ShelvesFailure.AUTHENTICATION_REJECTED) {
+                        connectionEventChannel.trySend(
+                            ShelvesConnectionEvent.AuthenticationRejected
+                        )
+                    }
+                }
             )
         }
     }
-
-    private fun applyPage(page: ShelfPage, phase: ShelvesLoadPhase) {
-        val current = state.value
-        val shelves =
-            if (phase == ShelvesLoadPhase.NEXT_PAGE) {
-                current.shelves + page.shelves
-            } else {
-                page.shelves
-            }
-        mutableState.value =
-            current.copy(
-                shelves = shelves,
-                totalCount = page.totalCount,
-                hasLoaded = true,
-                initialLoading = false,
-                refreshing = false,
-                nextPageLoading = false,
-                error = null,
-                hasNext = page.hasNextPage,
-                currentPage = page.page
-            )
-    }
-
-    private fun applyFailure(failure: Throwable, phase: ShelvesLoadPhase) {
-        val classified = failure.toShelvesFailure()
-        mutableState.value =
-            state.value.copy(
-                initialLoading = false,
-                refreshing = false,
-                nextPageLoading = false,
-                error = ShelvesLoadError(classified, phase)
-            )
-        if (classified == ShelvesFailure.AUTHENTICATION_REJECTED) {
-            connectionEventChannel.trySend(ShelvesConnectionEvent.AuthenticationRejected)
-        }
-    }
-}
-
-private fun ShelfCollectionState.apply(change: ShelfCollectionChange): Pair<List<Shelf>, Int> =
-    when (change) {
-        is ShelfCollectionChange.Added -> {
-            val exists = shelves.any { it.id == change.shelf.id }
-            shelves.filterNot { it.id == change.shelf.id } + change.shelf to
-                totalCount + if (exists) 0 else 1
-        }
-
-        is ShelfCollectionChange.Updated ->
-            shelves.map { if (it.id == change.shelf.id) change.shelf else it } to totalCount
-
-        is ShelfCollectionChange.Removed -> {
-            val retained = shelves.filterNot { it.id == change.shelfId }
-            retained to (totalCount - (shelves.size - retained.size)).coerceAtLeast(0)
-        }
-    }
-
-private fun List<Shelf>.sortedFor(ordering: ShelfOrdering): List<Shelf> = when (ordering) {
-    ShelfOrdering.NAME -> sortedBy { it.name.lowercase() }
-    ShelfOrdering.NAME_DESCENDING -> sortedByDescending { it.name.lowercase() }
-    ShelfOrdering.ITEM_COUNT -> sortedBy { it.itemCount }
-    ShelfOrdering.ITEM_COUNT_DESCENDING -> sortedByDescending { it.itemCount }
 }
 
 internal class PersonalShelvesController(

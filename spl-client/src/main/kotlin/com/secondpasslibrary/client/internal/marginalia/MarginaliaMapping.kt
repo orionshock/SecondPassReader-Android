@@ -1,8 +1,8 @@
 package com.secondpasslibrary.client.internal.marginalia
 
 import com.secondpasslibrary.client.BookReadingSessionHistory
-import com.secondpasslibrary.client.MAX_CFI_LENGTH
 import com.secondpasslibrary.client.MAX_LOCATION_LABEL_LENGTH
+import com.secondpasslibrary.client.MAX_MARGINALIA_LOCATION_LENGTH
 import com.secondpasslibrary.client.MarginaliaBookSeries
 import com.secondpasslibrary.client.MarginaliaBookSummary
 import com.secondpasslibrary.client.MarginaliaPage
@@ -117,7 +117,7 @@ internal fun RecentReadingBookWire.toBookModel(): ReadingSessionBook = ReadingSe
 )
 
 internal fun ReadingProgressWire.toModel(): ReadingProgress = ReadingProgress(
-    cfi = cfi.boundedOpaque(MAX_CFI_LENGTH, SESSION_CONTEXT),
+    location = location.boundedOpaque(MAX_MARGINALIA_LOCATION_LENGTH, SESSION_CONTEXT),
     locationLabel = locationLabel.boundedNullable(MAX_LOCATION_LABEL_LENGTH, SESSION_CONTEXT),
     updatedAt = updatedAt.required(SESSION_CONTEXT)
 )

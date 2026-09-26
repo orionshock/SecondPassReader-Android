@@ -1,5 +1,6 @@
 package com.secondpasslibrary.reader.shelves
 
+import com.secondpasslibrary.client.ShelfOrdering
 import com.secondpasslibrary.client.ShelfScope
 import com.secondpasslibrary.client.SplClientException
 import com.secondpasslibrary.reader.shelves.management.CreatePersonalShelfState
@@ -20,6 +21,104 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ShelvesControllerTest {
+    @Test
+    fun `submitted search trims query paginates and clear restores retained collection`() =
+        runTest {
+            val capability = RecordingShelvesCapability().apply {
+                listCall = { options ->
+                    when {
+                        options.q == null -> shelfPage(1, listOf(shelf("normal")))
+
+                        options.page == 1 ->
+                            shelfPage(1, listOf(shelf("search-1")), total = 2, hasNext = true)
+
+                        else -> shelfPage(2, listOf(shelf("search-2")), total = 2)
+                    }
+                }
+            }
+            val controller = controller(capability, this)
+            controller.initialize(shelvesProfile())
+            advanceUntilIdle()
+            controller.accept(
+                ShelvesIntent.ChangeCollectionOrdering(ShelfOrdering.ITEM_COUNT_DESCENDING)
+            )
+            advanceUntilIdle()
+            controller.accept(ShelvesIntent.UpdateSearchQuery("  favorites  "))
+
+            controller.accept(ShelvesIntent.SubmitSearch)
+            advanceUntilIdle()
+
+            val searchRequest = capability.listRequests.last()
+            assertEquals("favorites", searchRequest.q)
+            assertEquals(1, searchRequest.page)
+            assertEquals(ShelfScope.PERSONAL, searchRequest.scope)
+            assertEquals(ShelfOrdering.ITEM_COUNT_DESCENDING, searchRequest.ordering)
+            assertEquals(
+                listOf("search-1"),
+                controller.state.value.personal.activeShelves.map {
+                    it.id
+                }
+            )
+
+            controller.accept(
+                ShelvesIntent.LoadNextCollectionPage(ShelvesCollection.PERSONAL)
+            )
+            advanceUntilIdle()
+            assertEquals(listOf(1, 2), capability.listRequests.takeLast(2).map { it.page })
+            assertEquals(
+                listOf("search-1", "search-2"),
+                controller.state.value.personal.activeShelves.map { it.id }
+            )
+
+            controller.accept(ShelvesIntent.ClearSearch)
+
+            assertNull(controller.state.value.personal.search.query)
+            assertEquals(
+                listOf("normal"),
+                controller.state.value.personal.activeShelves.map {
+                    it.id
+                }
+            )
+        }
+
+    @Test
+    fun `scope change clears submitted search without poisoning retained sibling data`() = runTest {
+        val capability = RecordingShelvesCapability().apply {
+            listCall = { options ->
+                val id = if (options.q ==
+                    null
+                ) {
+                    options.scope.name
+                } else {
+                    "${options.scope.name}-search"
+                }
+                shelfPage(options.page, listOf(shelf(id)))
+            }
+        }
+        val controller = controller(capability, this)
+        controller.initialize(shelvesProfile())
+        advanceUntilIdle()
+        controller.accept(ShelvesIntent.UpdateSearchQuery("mine"))
+        controller.accept(ShelvesIntent.SubmitSearch)
+        advanceUntilIdle()
+
+        controller.accept(ShelvesIntent.ShowCollection(ShelvesCollection.SHARED))
+        advanceUntilIdle()
+
+        assertNull(controller.state.value.shared.search.query)
+        assertEquals(listOf("SHARED"), controller.state.value.shared.activeShelves.map { it.id })
+
+        controller.accept(ShelvesIntent.ShowCollection(ShelvesCollection.PERSONAL))
+
+        assertNull(controller.state.value.personal.search.query)
+        assertEquals(
+            listOf("PERSONAL"),
+            controller.state.value.personal.activeShelves.map {
+                it.id
+            }
+        )
+    }
+
     @Test
     fun `re-pairing resets navigation and reloads Personal Shelves`() = runTest {
         val capability = RecordingShelvesCapability().apply {

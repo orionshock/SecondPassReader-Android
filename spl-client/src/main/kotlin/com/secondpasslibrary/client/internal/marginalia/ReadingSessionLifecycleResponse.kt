@@ -93,7 +93,7 @@ private fun String.toLifecycleField(): ReadingSessionMutationField = when (this)
     "name" -> ReadingSessionMutationField.NAME
     "notes" -> ReadingSessionMutationField.NOTES
     "progress" -> ReadingSessionMutationField.PROGRESS
-    "cfi" -> ReadingSessionMutationField.CFI
+    "location" -> ReadingSessionMutationField.LOCATION
     "location_label" -> ReadingSessionMutationField.LOCATION_LABEL
     "operations" -> ReadingSessionMutationField.OPERATIONS
     "idempotency_key" -> ReadingSessionMutationField.IDEMPOTENCY_KEY

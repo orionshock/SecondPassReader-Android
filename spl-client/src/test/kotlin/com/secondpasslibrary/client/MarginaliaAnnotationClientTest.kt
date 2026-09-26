@@ -60,7 +60,7 @@ class MarginaliaAnnotationClientTest {
     fun `malformed Bookmark body and missing Highlight body are protocol invalid`() {
         val bookmarkWithBody = bookmarkWire("bookmark").dropLast(1) + ",\"body\":{}}"
         val highlightWithoutBody =
-            """{"id":"a","client_id":"highlight","kind":"highlight","location":{"cfi":"cfi","location_label":null},"created_at":"now","updated_at":"now"}"""
+            """{"id":"a","client_id":"highlight","kind":"highlight","location":{"location":"cfi","location_label":null},"created_at":"now","updated_at":"now"}"""
 
         assertMalformed(annotationCollection(listOf(bookmarkWithBody)))
         assertMalformed(annotationCollection(listOf(highlightWithoutBody)))
@@ -113,7 +113,7 @@ class MarginaliaAnnotationClientTest {
         val bookmark = wireOperations[0].objectValue().objectValue("annotation")
         assertEquals("bookmark", bookmark.string("kind"))
         assertTrue("body" !in bookmark)
-        assertEquals(" bookmark-cfi ", bookmark.objectValue("location").string("cfi"))
+        assertEquals(" bookmark-cfi ", bookmark.objectValue("location").string("location"))
         val highlight = wireOperations[1].objectValue().objectValue("annotation")
         assertEquals("purple", highlight.objectValue("body").string("color"))
         assertEquals("deleted-client", wireOperations[2].objectValue().string("client_id"))
@@ -128,7 +128,7 @@ class MarginaliaAnnotationClientTest {
             val response = annotationCollection(
                 listOf(
                     """{"id":"server-bookmark","client_id":"bookmark","kind":"bookmark",""" +
-                        """"location":{"cfi":"$historical","location_label":null},""" +
+                        """"location":{"location":"$historical","location_label":null},""" +
                         """"created_at":"now","updated_at":"now"}"""
                 )
             )
@@ -138,7 +138,7 @@ class MarginaliaAnnotationClientTest {
             }
 
             val read = client.marginalia.sessions.listAnnotations("session-1").single()
-            assertEquals(historical, read.location.cfi)
+            assertEquals(historical, read.location.location)
             client.marginalia.sessions.synchronizeAnnotations(
                 "session-1",
                 listOf(
@@ -154,7 +154,7 @@ class MarginaliaAnnotationClientTest {
             val annotation = requireNotNull(request).payload()
                 .array("operations")[0].objectValue()
                 .objectValue("annotation")
-            assertEquals(historical, annotation.objectValue("location").string("cfi"))
+            assertEquals(historical, annotation.objectValue("location").string("location"))
         }
 
     @Test
@@ -309,8 +309,8 @@ class MarginaliaAnnotationClientTest {
         """{"annotations":[${items.joinToString(",")}]}"""
 
     private fun bookmarkWire(clientId: String) =
-        """{"id":"server-$clientId","client_id":"$clientId","kind":"bookmark","location":{"cfi":"bookmark-cfi","location_label":null},"created_at":"now","updated_at":"now"}"""
+        """{"id":"server-$clientId","client_id":"$clientId","kind":"bookmark","location":{"location":"bookmark-cfi","location_label":null},"created_at":"now","updated_at":"now"}"""
 
     private fun highlightWire(index: Int, color: String) =
-        """{"id":"server-$index","client_id":"highlight-$index","kind":"highlight","location":{"cfi":"cfi-$index","location_label":null},"body":{"text":"Text","prefix":null,"suffix":null,"color":"$color","note":null},"created_at":"now","updated_at":"now"}"""
+        """{"id":"server-$index","client_id":"highlight-$index","kind":"highlight","location":{"location":"cfi-$index","location_label":null},"body":{"text":"Text","prefix":null,"suffix":null,"color":"$color","note":null},"created_at":"now","updated_at":"now"}"""
 }

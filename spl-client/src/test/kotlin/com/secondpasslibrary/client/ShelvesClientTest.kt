@@ -31,6 +31,7 @@ class ShelvesClientTest {
                 client.shelves.list(
                     ShelfListOptions(
                         scope = scope,
+                        q = "  reading group  ",
                         bookId = "book-1",
                         ordering = ShelfOrdering.ITEM_COUNT_DESCENDING,
                         page = 2,
@@ -44,6 +45,7 @@ class ShelvesClientTest {
                 requests.map { it.parameter("scope") }
             )
             requests.forEach { request ->
+                assertEquals("reading group", request.parameter("q"))
                 assertEquals("book-1", request.parameter("book"))
                 assertNull(request.parameter("owner_group"))
                 assertEquals("-item_count", request.parameter("ordering"))
@@ -54,6 +56,21 @@ class ShelvesClientTest {
                 assertEquals("Bearer spl_secret", request.headers[HttpHeaders.Authorization])
             }
         }
+
+    @Test
+    fun `list omits blank search query`() = runBlocking {
+        val requests = mutableListOf<HttpRequestData>()
+        val client = authenticatedClient { request ->
+            requests += request
+            jsonResponse(EMPTY_PAGE)
+        }
+
+        client.shelves.list(ShelfListOptions(scope = ShelfScope.PERSONAL, q = null))
+        client.shelves.list(ShelfListOptions(scope = ShelfScope.SHARED, q = "   "))
+
+        assertFalse(requests[0].url.parameters.contains("q"))
+        assertFalse(requests[1].url.parameters.contains("q"))
+    }
 
     @Test
     fun `list maps ownership visibility matching and preview presence`() = runBlocking {
@@ -81,11 +98,11 @@ class ShelvesClientTest {
         val group = page.shelves[2]
         assertEquals(ShelfOwner.Group("group-1", "Common Room", true), group.owner)
         assertNull(group.createdBy)
-        assertEquals(listOf("book-2", "book-1"), group.previewBooks?.map { it.id })
+        assertEquals(listOf("book-2", "book-1", "book-2"), group.previewBooks?.map { it.id })
         assertNull(group.previewBooks?.first()?.cover)
         assertEquals(
             "https://cdn.example/cover.webp",
-            group.previewBooks?.last()?.cover?.url
+            group.previewBooks?.get(1)?.cover?.url
         )
     }
 

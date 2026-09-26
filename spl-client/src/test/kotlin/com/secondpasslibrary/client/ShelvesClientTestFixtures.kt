@@ -50,7 +50,8 @@ internal const val SHELF_PAGE =
                 "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-02T00:00:00Z",
                 "preview_books":[
                     {"id":"book-2","title":"Second","cover_url":null},
-                    {"id":"book-1","title":"First","cover_url":"https://cdn.example/cover.webp"}
+                    {"id":"book-1","title":"First","cover_url":"https://cdn.example/cover.webp"},
+                    {"id":"book-2","title":"Second duplicate","cover_url":null}
                 ]
             }
         ]

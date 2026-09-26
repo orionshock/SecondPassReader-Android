@@ -38,7 +38,7 @@ class KtorAuthenticatedSecondPassClientTest {
                                 "can_open": true
                             },
                             "progress": {
-                                "cfi": "epubcfi(/6/4)",
+                                "location": "epubcfi(/6/4)",
                                 "location_label": "Chapter 2",
                                 "updated_at": "2026-08-16T11:00:00Z"
                             }

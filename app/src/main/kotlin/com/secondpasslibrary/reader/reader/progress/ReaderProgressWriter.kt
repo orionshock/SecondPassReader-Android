@@ -58,7 +58,7 @@ internal class SplReaderProgressWriter @Inject constructor(
             sessionId,
             ReadingProgressInput(cfi.value, locationLabel)
         )
-        if (authoritative.cfi == cfi.value) {
+        if (authoritative.location == cfi.value) {
             ReaderProgressWriteOutcome.Success
         } else {
             ReaderProgressWriteOutcome.Failure(ReaderProgressSyncFailure.UNAVAILABLE)
