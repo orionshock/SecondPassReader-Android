@@ -14,9 +14,10 @@ curl -fsSL \
 printf '%s  %s\n' "$android_cli_sha256" "$android_cli" | sha256sum --check
 chmod +x "$android_cli"
 
-"$android_cli" --sdk="$android_sdk" sdk install \
+"$android_cli" --no-metrics --sdk="$android_sdk" sdk install \
   platform-tools \
-  platforms/android-37 \
+  platforms/android-37.0 \
+  build-tools/36.0.0 \
   build-tools/37.0.0
 
 printf 'ANDROID_HOME=%s\nANDROID_SDK_ROOT=%s\n' "$android_sdk" "$android_sdk" >> "$GITHUB_ENV"
