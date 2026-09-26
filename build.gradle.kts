@@ -22,6 +22,7 @@ val hygieneFiles =
             "**/*.mjs",
             "**/*.properties",
             "**/*.ps1",
+            "**/*.sh",
             "**/*.toml",
             "**/*.txt",
             "**/*.ts",

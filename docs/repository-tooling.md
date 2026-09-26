@@ -9,12 +9,12 @@ Gitea Actions is the preferred source of complete build artifacts and repository
 Every normal branch push runs `.github/workflows/android-push-check.yml`. Its target is under ten minutes on the Gitea runner. It runs the Node CFI typecheck/generated-asset comparison followed by:
 
 ```powershell
-.\gradlew.bat check assembleDebug
+.\gradlew.bat check
 ```
 
-`check` runs both modules' JVM tests, detekt, ktlint, Android Lint, text hygiene, architecture-boundary enforcement, deterministic buildSrc checker tests, the pinned Colibrio hash/license check, and both Node-free CFI protocol/runtime checks. `assembleDebug` proves debug packaging and runs the packaged CFI and Colibrio checks through `preBuild`; Gradle reuses those task results when `check` and assembly run together.
+`check` runs both modules' JVM tests and compile checks, detekt, ktlint, Android Lint, text hygiene, architecture-boundary enforcement, deterministic buildSrc checker tests, the pinned Colibrio hash/license check, and both Node-free CFI protocol/runtime checks. Debug APK packaging is deliberately omitted from the push lane because it added substantial cold-run time without producing a retained artifact; signed packaging remains in the manual and tag lanes.
 
-The push lane does not reconstruct signing material, assemble a release APK, publish artifacts, run instrumentation or physical-device suites, or create a Gitea Release. It uses `actions/cache@v4.1.2` for downloaded Gradle modules and wrapper distributions only.
+The push lane does not reconstruct signing material, assemble a release APK, publish artifacts, run instrumentation or physical-device suites, or create a Gitea Release. It uses `actions/cache@v4.1.2` for downloaded Gradle modules and wrapper distributions only. All three lanes use the checksum-pinned official Android CLI and `android sdk install`; they do not invoke the deprecated `sdkmanager` command.
 
 Manually dispatch `.github/workflows/android-signed-dev-build.yml` for a signed dogfood build. The signed lane runs the CFI check and full Gradle `check assembleRelease`, reconstructs the permanent keystore only in a private temporary directory, and verifies the APK package, declared version, permanent signer, and checksum. It uploads the versioned APK and checksum as workflow artifacts and never creates a Gitea Release.
 
