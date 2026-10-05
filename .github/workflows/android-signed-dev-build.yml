@@ -21,7 +21,7 @@ jobs:
       - name: Set up Android SDK
         run: bash tools/ci/setup-android-sdk.sh
       - name: Cache Gradle downloads
-        uses: actions/cache@v4.1.2
+        uses: actions/cache@v6.1.0
         with:
           path: |
             ~/.gradle/caches/modules-2/files-2.1
