@@ -4,9 +4,9 @@ This is the operational index for repository checks, generated assets, device te
 
 ## CI validation lanes
 
-Gitea Actions is the preferred source of complete build artifacts and repository-wide validation. Local checks are for focused development feedback; avoid rebuilding an APK locally when a successful CI artifact already exists.
+GitHub Actions is the preferred source of complete build artifacts and repository-wide validation. Local checks are for focused development feedback; avoid rebuilding an APK locally when a successful CI artifact already exists.
 
-Every normal branch push runs `.github/workflows/android-push-check.yml`. Its target is under ten minutes on the Gitea runner. It runs the Node CFI typecheck/generated-asset comparison followed by:
+Every normal branch push and pull request into `main` runs `.github/workflows/android-push-check.yml`. Its target is under ten minutes on the GitHub runner. It runs the Node CFI typecheck/generated-asset comparison and release-policy tests followed by:
 
 ```powershell
 .\gradlew.bat check
@@ -14,11 +14,11 @@ Every normal branch push runs `.github/workflows/android-push-check.yml`. Its ta
 
 `check` runs both modules' JVM tests and compile checks, detekt, ktlint, Android Lint, text hygiene, architecture-boundary enforcement, deterministic buildSrc checker tests, the pinned Colibrio hash/license check, and both Node-free CFI protocol/runtime checks. Debug APK packaging is deliberately omitted from the push lane because it added substantial cold-run time without producing a retained artifact; signed packaging remains in the manual and tag lanes.
 
-The push lane does not reconstruct signing material, assemble a release APK, publish artifacts, run instrumentation or physical-device suites, or create a Gitea Release. It uses `actions/cache@v4.1.2` for downloaded Gradle modules and wrapper distributions only. All three lanes use the checksum-pinned official Android CLI and `android sdk install`; they do not invoke the deprecated `sdkmanager` command.
+The push lane does not reconstruct signing material, assemble a release APK, publish artifacts, run instrumentation or physical-device suites, or create a GitHub Release. It uses `actions/cache@v4.1.2` for downloaded Gradle modules and wrapper distributions only. All three lanes use the checksum-pinned official Android CLI and `android sdk install`; they do not invoke the deprecated `sdkmanager` command.
 
-Manually dispatch `.github/workflows/android-signed-dev-build.yml` for a signed dogfood build. The signed lane runs the CFI check and full Gradle `check assembleRelease`, reconstructs the permanent keystore only in a private temporary directory, and verifies the APK package, declared version, permanent signer, and checksum. It uploads the versioned APK and checksum as workflow artifacts and never creates a Gitea Release.
+Manually dispatch `.github/workflows/android-signed-dev-build.yml` for a signed dogfood build. The signed lane runs the CFI check and full Gradle `check assembleRelease`, reconstructs the permanent keystore only in a private temporary directory, and verifies the APK package, declared version, permanent signer, and checksum. It uploads the versioned APK and checksum as workflow artifacts and never creates a GitHub Release.
 
-A pushed `v*` tag runs `.github/workflows/android-release-build.yml`. It uses the same signed build helper, additionally requires the tag to match the declared `versionName`, and publishes the existing Gitea prerelease with the APK and checksum. It refuses to overwrite an existing release.
+A pushed `v*` tag runs `.github/workflows/android-release-build.yml`. It uses the same signed build helper, additionally requires the tag to match the declared `versionName`, and publishes a GitHub Release or prerelease according to the tag with the APK and checksum. It refuses to overwrite an existing release.
 
 The version policy is deliberately simple: a developer changes `versionCode` and `versionName` together when intentionally advancing the app version. All manual dogfood builds for that declared version use the same identity, and the matching tag publishes that identity. CI does not derive versions from run numbers.
 
@@ -47,11 +47,11 @@ For a distribution-ready local artifact, run `powershell -NoProfile -ExecutionPo
 
 The release APK includes `app/src/main/assets/licenses/open_source_licenses.txt`, exposed from the main About destination. It covers the resolved runtime families and bundled assets, including Readium Toolkit/CSS BSD 3-Clause, Colibrio/jsoup/SLF4J MIT, the Readium font terms, Material Symbols and other Apache 2.0 dependencies, Jakarta's notice, and the desugared JDK library GPL 2 with Classpath exception on designated files. Recheck the notice inventory when release dependencies or bundled reader assets change.
 
-## Gitea signed build
+## GitHub signed build
 
-Manually dispatch `.github/workflows/android-signed-dev-build.yml` in Gitea Actions for a signed dogfood build. It uses the same `com.secondpasslibrary.reader` application ID, declared Gradle version, and permanent release key as a tagged release, so its APK can update an installed release build without clearing application data. It runs the full gate, signs and verifies the APK, and retains workflow artifacts without creating a Gitea Release. The job uses the `ubuntu-latest` runner label, JDK 25, Node 24, Android SDK platform `android-37.0`, and build-tools `37.0.0`. It caches only downloaded Gradle dependencies and the wrapper distribution. The runner needs network access to fetch build dependencies and setup actions.
+Manually dispatch `.github/workflows/android-signed-dev-build.yml` in GitHub Actions for a signed dogfood build. It uses the same `com.secondpasslibrary.reader` application ID, declared Gradle version, and permanent release key as a tagged release, so its APK can update an installed release build without clearing application data. It runs the full gate, signs and verifies the APK, and retains workflow artifacts without creating a GitHub Release. The job uses the `ubuntu-latest` runner label, JDK 25, Node 24, Android SDK platform `android-37.0`, and build-tools `37.0.0`. It caches only downloaded Gradle dependencies and the wrapper distribution. The runner needs network access to fetch build dependencies and setup actions.
 
-Configure these Gitea repository secrets: `ANDROID_RELEASE_KEYSTORE_B64`, `SECOND_PASS_RELEASE_STORE_PASSWORD`, `SECOND_PASS_RELEASE_KEY_ALIAS`, and `SECOND_PASS_RELEASE_KEY_PASSWORD`. The base64 secret contains the existing permanent PKCS12 keystore. The job decodes it to a private temporary file outside the repository, passes that path as `SECOND_PASS_RELEASE_STORE_FILE`, and removes the file after packaging. Do not create a `SECOND_PASS_RELEASE_STORE_FILE` repository secret. Release publication uses Gitea's built-in job token with code read and releases write permission; no additional API token is configured.
+Configure these GitHub Actions repository secrets: `ANDROID_RELEASE_KEYSTORE_B64`, `SECOND_PASS_RELEASE_STORE_PASSWORD`, `SECOND_PASS_RELEASE_KEY_ALIAS`, and `SECOND_PASS_RELEASE_KEY_PASSWORD`. The base64 secret contains the existing permanent PKCS12 keystore. The job decodes it to a private temporary file outside the repository, passes that path as `SECOND_PASS_RELEASE_STORE_FILE`, and removes the file after packaging. Do not create a `SECOND_PASS_RELEASE_STORE_FILE` repository secret. Release publication uses the built-in `GITHUB_TOKEN` with `contents: write`; other workflows and repository defaults use read-only permissions. No PAT is required.
 
 Both paths reject an APK unless `apksigner` verifies it and the signer SHA-256 certificate fingerprint equals `56:E8:DE:B6:C1:C9:F2:3E:00:71:F9:91:7C:21:D0:C8:8E:28:EC:D0:AA:CF:6C:FF:8A:97:B5:C3:7D:B1:58:A8`. The packaging check reads the application ID, version code, and version name from the built APK and uses the version name for artifact naming.
 
@@ -62,7 +62,7 @@ git tag v<versionName>
 git push origin v<versionName>
 ```
 
-The tag-triggered workflow builds and verifies the same signed APK, rejects a tag/versionName mismatch, retains the two workflow artifacts, and publishes a Gitea prerelease titled `Second Pass Reader <versionName>` with the APK and its `.apk.sha256` file attached. Release notes contain the APK version/code, minimum Android API level, install/update guidance, checksum filename, and SPL server requirement. A run for a tag with an existing release fails instead of replacing it. Do not move or reuse a published release tag for a different APK.
+The tag-triggered workflow builds and verifies the same signed APK, rejects a tag/versionName mismatch, retains the two workflow artifacts, and publishes a GitHub Release titled `Second Pass Reader <versionName>` with the APK and its `.apk.sha256` file attached. Release notes contain the APK version/code, minimum Android API level, install/update guidance, checksum filename, and SPL server requirement. A run for a tag with an existing release fails instead of replacing it. Stable `vX.Y.Z` tags publish normal releases and mark them current; prerelease identifiers such as `-alpha.N`, `-beta.N`, and `-rc.N` publish prereleases without replacing the current stable release. `node --test tools/release/*.test.mjs` verifies tag grammar and the tag/APK version guard. Do not move or reuse a published release tag for a different APK.
 
 Use focused JVM tests while developing:
 

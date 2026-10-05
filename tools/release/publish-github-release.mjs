@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
+import { releasePolicy } from './release-policy.mjs';
 
 function fail(message) {
   throw new Error(message);
@@ -12,10 +13,8 @@ const tag = ref.startsWith('refs/tags/') ? ref.slice('refs/tags/'.length) : '';
 const versionName = process.env.RELEASE_VERSION_NAME || '';
 const versionCode = process.env.RELEASE_VERSION_CODE || '';
 const minSdk = process.env.RELEASE_MIN_SDK || '';
-if (event !== 'push' || !/^v[0-9A-Za-z][0-9A-Za-z.+-]*$/.test(tag)) {
-  fail('Release publishing requires a pushed v* tag.');
-}
-if (tag.slice(1) !== versionName) fail(`Tag ${tag} does not match APK versionName ${versionName}.`);
+if (event !== 'push') fail('Release publishing requires a pushed release tag.');
+const { prerelease, makeLatest } = releasePolicy(tag, versionName);
 if (!/^\d+$/.test(versionCode) || !/^\d+$/.test(minSdk)) fail('APK versionCode or minSdk is missing.');
 
 const output = resolve(import.meta.dirname, '../../build/release-artifacts');
@@ -39,7 +38,7 @@ const title = `Second Pass Reader ${versionName}`;
 const notes = [
   `${title} (versionCode ${versionCode})`,
   '',
-  'Alpha software. An SPL server is required.',
+  prerelease ? 'Prerelease software. An SPL server is required.' : 'An SPL server is required.',
   `Minimum Android API level: ${minSdk}.`,
   `Install: download ${apkName} and install it manually.`,
   'Updates: future APKs signed with the same release certificate can install over earlier release APKs.',
@@ -50,27 +49,32 @@ console.log(`Tag ${tag} matches APK versionName ${versionName}; versionCode ${ve
 console.log(`APK SHA-256: ${checksum}`);
 if (process.argv.includes('--check')) process.exit(0);
 
-const token = process.env.GITEA_TOKEN;
+const token = process.env.GITHUB_TOKEN;
 const apiUrl = process.env.GITHUB_API_URL;
 const repository = process.env.GITHUB_REPOSITORY;
 if (!token || !apiUrl || !repository || !/^[^/]+\/[^/]+$/.test(repository)) {
-  fail('Gitea job token or repository API context is missing.');
+  fail('GitHub job token or repository API context is missing.');
 }
 const [owner, repo] = repository.split('/');
 const apiBase = `${apiUrl.replace(/\/$/, '')}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
 
 async function request(method, path, body, acceptedStatus) {
-  const headers = { Authorization: `token ${token}` };
-  if (body && !(body instanceof FormData)) headers['Content-Type'] = 'application/json';
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    'User-Agent': 'SecondPassReader-Android-release',
+  };
+  if (body) headers['Content-Type'] = 'application/json';
   const response = await fetch(`${apiBase}${path}`, {
     method,
     headers,
-    body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
+    body: body ? JSON.stringify(body) : undefined,
   });
   if (acceptedStatus.includes(response.status)) {
     return response.status === 404 ? null : response.json();
   }
-  fail(`Gitea ${method} ${path} returned HTTP ${response.status}.`);
+  fail(`GitHub ${method} ${path} returned HTTP ${response.status}.`);
 }
 
 const existing = await request('GET', `/releases/tags/${encodeURIComponent(tag)}`, undefined, [200, 404]);
@@ -81,24 +85,38 @@ const release = await request('POST', '/releases', {
   name: title,
   body: notes,
   draft: true,
-  prerelease: true,
+  prerelease,
+  make_latest: makeLatest,
 }, [201]);
-if (!Number.isInteger(release.id) || !release.draft || !release.prerelease) {
-  fail('Gitea did not confirm creation of a draft prerelease.');
+if (!Number.isInteger(release.id) || !release.draft || release.prerelease !== prerelease) {
+  fail('GitHub did not confirm creation of the intended draft release.');
+}
+
+// GitHub supplies a separate upload origin. Never send the job token elsewhere.
+const uploadUrl = new URL(release.upload_url?.replace(/\{.*$/, '') || '');
+if (uploadUrl.origin !== 'https://uploads.github.com' ||
+    uploadUrl.pathname !== `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/releases/${release.id}/assets`) {
+  fail('GitHub returned an unexpected release upload URL.');
 }
 
 for (const path of [apk, checksumFile]) {
   const name = basename(path);
-  const form = new FormData();
-  form.append('attachment', new Blob([readFileSync(path)]), name);
-  const uploaded = await request(
-    'POST',
-    `/releases/${release.id}/assets?name=${encodeURIComponent(name)}`,
-    form,
-    [201],
-  );
+  uploadUrl.searchParams.set('name', name);
+  const response = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'Content-Type': name.endsWith('.apk') ? 'application/vnd.android.package-archive' : 'text/plain',
+      'User-Agent': 'SecondPassReader-Android-release',
+    },
+    body: readFileSync(path),
+  });
+  if (response.status !== 201) fail(`GitHub upload of ${name} returned HTTP ${response.status}.`);
+  const uploaded = await response.json();
   if (uploaded.name !== name || uploaded.size !== statSync(path).size) {
-    fail(`Gitea did not confirm release attachment ${name}.`);
+    fail(`GitHub did not confirm release asset ${name}.`);
   }
   console.log(`Attached ${name} (${uploaded.size} bytes).`);
 }
@@ -111,12 +129,13 @@ if (attachmentNames.join(',') !== [apkName, checksumName].sort().join(',')) {
 
 const published = await request('PATCH', `/releases/${release.id}`, {
   draft: false,
-  prerelease: true,
+  prerelease,
+  make_latest: makeLatest,
 }, [200]);
-if (published.draft || !published.prerelease || published.tag_name !== tag) {
-  fail('Gitea did not confirm a published prerelease for the expected tag.');
+if (published.draft || published.prerelease !== prerelease || published.tag_name !== tag) {
+  fail('GitHub did not confirm the expected published release.');
 }
-console.log(`Published prerelease: ${published.html_url}`);
+console.log(`Published ${prerelease ? 'prerelease' : 'stable release'}: ${published.html_url}`);
 if (process.env.GITHUB_STEP_SUMMARY) {
   const { appendFileSync } = await import('node:fs');
   appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${title}\n\nAPK SHA-256: \`${checksum}\`\n\n${published.html_url}\n`);

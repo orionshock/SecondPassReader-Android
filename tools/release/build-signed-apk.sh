@@ -17,5 +17,6 @@ test -s "$SECOND_PASS_RELEASE_STORE_FILE" || {
   exit 1
 }
 
+node --test tools/release/*.test.mjs
 bash ./gradlew check assembleRelease
 node tools/release/package-release.mjs
