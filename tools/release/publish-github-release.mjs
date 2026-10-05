@@ -41,7 +41,6 @@ const notes = [
   prerelease ? 'Prerelease software. An SPL server is required.' : 'An SPL server is required.',
   `Minimum Android API level: ${minSdk}.`,
   `Install: download ${apkName} and install it manually.`,
-  'Updates: future APKs signed with the same release certificate can install over earlier release APKs.',
   `SHA-256 checksum: ${checksumName}.`,
 ].join('\n');
 
