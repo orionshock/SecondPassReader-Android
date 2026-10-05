@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+echo 'Phase A: repository gate starts'
+node --test tools/release/*.test.mjs
+bash ./gradlew check
+echo 'Phase A: repository gate passed'
+
 umask 077
 key_dir="$(mktemp -d)"
 trap 'rm -rf "$key_dir"' EXIT
@@ -17,6 +22,9 @@ test -s "$SECOND_PASS_RELEASE_STORE_FILE" || {
   exit 1
 }
 
-node --test tools/release/*.test.mjs
-bash ./gradlew check assembleRelease
+echo 'Phase B: release assembly/signing starts'
+bash ./gradlew assembleRelease
+echo 'Phase B: release assembly/signing passed'
+echo 'Phase C: package/signer/checksum verification starts'
 node tools/release/package-release.mjs
+echo 'Phase C: verified release artifacts staged'

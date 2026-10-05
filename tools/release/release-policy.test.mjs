@@ -7,7 +7,7 @@ test('stable tags publish a normal current release', () => {
 });
 
 test('prerelease tags do not replace the stable current release', () => {
-  for (const version of ['0.1.0-alpha.1', '1.2.3-rc.2', '1.2.3-beta.1', '1.2.3-preview.4']) {
+  for (const version of ['0.1.0-alpha.1', '0.1.0-alpha.1.2', '1.2.3-rc.2', '1.2.3-beta.1', '1.2.3-preview.4']) {
     assert.deepEqual(releasePolicy(`v${version}`, version), { prerelease: true, makeLatest: 'false' });
   }
 });
