@@ -150,4 +150,4 @@ Build and install the debug APK, start an emulator, then run the Windows-only pa
 .\tools\pair-debug-reader.ps1
 ```
 
-The script reads the development account from [Development test server](development-test-server.md), approves a short-lived pairing through the server's browser-session endpoint, and waits for encrypted credential persistence and authenticated verification. It is not part of Gradle validation.
+The script takes explicit parameters or the environment variables documented in [Development test server](development-test-server.md), approves a short-lived pairing through the server's browser-session endpoint, and waits for encrypted credential persistence and authenticated verification. It is not part of Gradle validation.

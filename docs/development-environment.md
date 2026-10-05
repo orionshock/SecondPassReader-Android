@@ -1,6 +1,6 @@
 # Development environment
 
-The stable non-production server account used for manual end-to-end verification is documented in [development-test-server.md](development-test-server.md). It is test data, not application configuration.
+Configure a disposable non-production account locally using the inputs in [Development test server](development-test-server.md). Account credentials are not repository configuration.
 
 Verified on Windows 10 Pro x64 on 2026-08-16. The project uses `minSdk 31`, `compileSdk 37`, and `targetSdk 37`; see [Android bootstrap](android-bootstrap.md) for rationale and build versions.
 
@@ -10,7 +10,7 @@ Verified on Windows 10 Pro x64 on 2026-08-16. The project uses `minSdk 31`, `com
 | --- | --- | --- |
 | Android Studio Quail 3 | 2026.1.3, build `AI-261.26222.65.2613.15948027` | `C:\Program Files\Android\Android Studio` |
 | JetBrains Runtime/JDK | OpenJDK `25.0.2` | `C:\Program Files\Android\Android Studio\jbr` |
-| Android SDK | API 37.0 | `C:\Users\orion\AppData\Local\Android\Sdk` |
+| Android SDK | API 37.0 | `%LOCALAPPDATA%\Android\Sdk` |
 | Command-line Tools | `22.0` | `%ANDROID_HOME%\cmdline-tools\latest` |
 | Platform-Tools / ADB | `37.0.1` | `%ANDROID_HOME%\platform-tools` |
 | Android Emulator | `37.1.11` | `%ANDROID_HOME%\emulator` |
@@ -19,9 +19,9 @@ Verified on Windows 10 Pro x64 on 2026-08-16. The project uses `minSdk 31`, `com
 
 ```text
 JAVA_HOME=C:\Program Files\Android\Android Studio\jbr
-ANDROID_HOME=C:\Users\orion\AppData\Local\Android\Sdk
-ANDROID_USER_HOME=C:\Users\orion\.android
-ANDROID_AVD_HOME=C:\Users\orion\.android\avd
+ANDROID_HOME=%LOCALAPPDATA%\Android\Sdk
+ANDROID_USER_HOME=%USERPROFILE%\.android
+ANDROID_AVD_HOME=%USERPROFILE%\.android\avd
 ```
 
 `ANDROID_USER_HOME` and `ANDROID_AVD_HOME` are explicit because the command-line tools did not otherwise discover the existing AVD. `ANDROID_SDK_ROOT` is not set.
@@ -30,10 +30,10 @@ The user `Path`, in resolution order, contains:
 
 ```text
 C:\Program Files\Android\Android Studio\jbr\bin
-C:\Users\orion\AppData\Local\Android\Sdk\platform-tools
-C:\Users\orion\AppData\Local\Android\Sdk\emulator
-C:\Users\orion\AppData\Local\Android\Sdk\cmdline-tools\latest\bin
-C:\Users\orion\AppData\Local\Microsoft\WindowsApps
+%LOCALAPPDATA%\Android\Sdk\platform-tools
+%LOCALAPPDATA%\Android\Sdk\emulator
+%LOCALAPPDATA%\Android\Sdk\cmdline-tools\latest\bin
+%LOCALAPPDATA%\Microsoft\WindowsApps
 ```
 
 Restart VS Code after environment changes so the editor, integrated terminals, extensions, and Codex inherit them.
@@ -60,7 +60,7 @@ AVD: `SecondPass_Tablet_API_36`
 - Hardware profile: Pixel Tablet (`pixel_tablet`)
 - OS: Android 16 (Baklava), API 36
 - Image: Google APIs x86_64
-- Location: `C:\Users\orion\.android\avd\SecondPass_Tablet_API_36.avd`
+- Location: `%USERPROFILE%\.android\avd\SecondPass_Tablet_API_36.avd`
 - Acceleration: Windows Hypervisor Platform, installed and usable
 
 Verified while running:

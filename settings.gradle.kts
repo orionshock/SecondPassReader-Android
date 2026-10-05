@@ -14,7 +14,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "SecondPassReader-AndroidClient"
+rootProject.name = "SecondPassReader-Android"
 
 include(":app")
 include(":spl-client")

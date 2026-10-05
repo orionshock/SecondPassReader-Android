@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This file defines repository-specific architecture, naming, domain, product, and Android rules for **SecondPassReader-AndroidClient**. Base engineering-agent policy still applies; this file controls when it is more specific.
+This file defines repository-specific architecture, naming, domain, product, and Android rules for **SecondPassReader-Android**. Base engineering-agent policy still applies; this file controls when it is more specific.
 
 Build a production first-party client that obeys the same public boundaries expected of a credible third-party Second Pass Library (SPL) client.
 

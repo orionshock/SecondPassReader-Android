@@ -1,34 +1,46 @@
 # Development test server
 
-This test-environment account is available for manual Android client verification. Its credentials are intentionally repository-visible and must never be reused for production or personal accounts.
-
-```text
-Server:   https://secondpasslibrary.zcaprica.duckdns.org/
-Username: incididunt
-Password: [REMOVED TEST CREDENTIAL]
-```
-
-Do not embed these values in production application source, build configuration, logs, screenshots, or release artifacts. The debug harness below is the sole automated-login exception: it reads this development-only document at runtime, while the Android client still discovers the server and obtains its bearer credential through the normal pairing flow.
+Use a disposable SPL test account for device pairing and opt-in live-server tests.
+Keep account credentials outside the repository.
 
 ## Debug Android pairing harness
 
-The debug APK exposes a pairing activity that drives the normal SPL-client discovery, pairing, credential consumption, and secure persistence path. It is declared only in `app/src/debug` and is absent from release builds. The harness is Windows PowerShell tooling and requires `adb`, a running emulator, an installed debug APK, and network access to the test server.
+`tools/pair-debug-reader.ps1` pairs an installed debug APK through the public
+Connection flow, approves its short-lived pairing using a browser session, and
+waits for encrypted credential persistence and authenticated verification.
 
-Run:
+Supply these environment variables from your local secret storage or shell:
+
+- `SPL_TEST_SERVER_URL`: absolute HTTP(S) URL without embedded credentials.
+- `SPL_TEST_USERNAME`: test account username.
+- `SPL_TEST_PASSWORD`: test account password.
+
+Alternatively, supply `-ServerUrl`, `-Username`, and `-Password`. Explicit
+parameters override environment variables. Missing inputs fail before network
+or device operations. The script does not print the password. Prefer environment
+variables supplied privately over literal passwords in shell command history.
 
 ```powershell
 .\gradlew.bat :app:installDebug
 .\tools\pair-debug-reader.ps1
 ```
 
-The script reads the test values above, quotes intent extras for Windows `adb`, starts the debug-only activity, approves the short-lived request through an authenticated web session, and waits until the app has persisted and verified the issued credential. Each run uses a sortable, collision-resistant client name such as `Second Pass Android debug 20260831-A3F2`. Parameters can override the documented server, account, device serial, client name, and timeout.
+`adb` must be on PATH. Use `-Serial` when multiple devices are connected. The
+optional `-ClientName` selects the debug pairing label; otherwise a fresh label
+is generated. `-TimeoutSeconds` controls the wait for device pairing status.
 
-To revoke every currently active client pairing owned by the development account through the server's browser-session-only test seam, run:
+To revoke all active client pairings belonging to the supplied test account:
 
 ```powershell
 .\tools\pair-debug-reader.ps1 -ClearClientCredentials
 ```
 
-This intentionally leaves Android's locally stored credential untouched so authentication-loss and recovery behavior can be exercised from outside the app. The endpoint is idempotent and does not revoke the authenticated browser session.
+This revokes every client pairing for that account, not just the selected device.
+Use a disposable test account. The helper is manual, Windows-only, and depends
+on SPL's browser login/CSRF and pairing-approval endpoints. It is not part of
+ordinary Gradle validation.
 
-Live-server instrumentation commands and their mutation scope are listed in [Repository tooling](repository-tooling.md). They are opt-in and are not part of ordinary connected tests.
+Live-server instrumentation commands and their mutation scope are listed in
+[Repository tooling](repository-tooling.md). They are opt-in and are not part of
+ordinary connected tests. Capture device diagnostics with `adb logcat`; keep
+local captures out of version control.

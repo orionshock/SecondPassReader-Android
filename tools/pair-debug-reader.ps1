@@ -1,9 +1,9 @@
 [CmdletBinding()]
 param(
     [string]$Serial,
-    [string]$ServerUrl,
-    [string]$Username,
-    [string]$Password,
+    [string]$ServerUrl = $env:SPL_TEST_SERVER_URL,
+    [string]$Username = $env:SPL_TEST_USERNAME,
+    [string]$Password = $env:SPL_TEST_PASSWORD,
     [string]$ClientName,
     [switch]$ClearClientCredentials,
     [int]$TimeoutSeconds = 90
@@ -12,30 +12,25 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$repositoryRoot = Split-Path -Parent $PSScriptRoot
-$testServerDocument = Join-Path $repositoryRoot "docs/development-test-server.md"
 $packageName = "com.secondpasslibrary.reader"
 $activityName = "$packageName/.debug.DebugPairingActivity"
 $statusFile = "files/debug-pairing-status.properties"
 
-function Read-TestServerSetting {
-    param([Parameter(Mandatory)][string]$Name)
-
-    $match = Select-String -Path $testServerDocument -Pattern "^$Name`:\s+(.+)$"
-    if ($null -eq $match) {
-        throw "Could not read '$Name' from $testServerDocument."
+foreach ($inputName in @("ServerUrl", "Username", "Password")) {
+    if ([string]::IsNullOrWhiteSpace((Get-Variable -Name $inputName -ValueOnly))) {
+        $environmentName = @{
+            ServerUrl = "SPL_TEST_SERVER_URL"
+            Username = "SPL_TEST_USERNAME"
+            Password = "SPL_TEST_PASSWORD"
+        }[$inputName]
+        throw "Missing $inputName. Supply -$inputName or set $environmentName."
     }
-    return $match.Matches[0].Groups[1].Value.Trim()
 }
-
-if ([string]::IsNullOrWhiteSpace($ServerUrl)) {
-    $ServerUrl = Read-TestServerSetting "Server"
-}
-if ([string]::IsNullOrWhiteSpace($Username)) {
-    $Username = Read-TestServerSetting "Username"
-}
-if ([string]::IsNullOrWhiteSpace($Password)) {
-    $Password = Read-TestServerSetting "Password"
+$serverUri = $null
+if (-not [Uri]::TryCreate($ServerUrl, [UriKind]::Absolute, [ref]$serverUri) -or
+    $serverUri.Scheme -notin @("http", "https") -or
+    -not [string]::IsNullOrEmpty($serverUri.UserInfo)) {
+    throw "ServerUrl must be an absolute HTTP(S) URL without embedded credentials."
 }
 if ([string]::IsNullOrWhiteSpace($ClientName)) {
     $date = Get-Date -Format "yyyyMMdd"
@@ -127,7 +122,7 @@ function New-AuthenticatedWebSession {
         $loginResult.BaseResponse.RequestMessage.RequestUri
     }
     if ($responseUri.AbsolutePath -eq "/login/") {
-        throw "The documented development test-server login was rejected."
+        throw "The supplied development test-server login was rejected."
     }
     return $session
 }
